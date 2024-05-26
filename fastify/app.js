@@ -7,6 +7,8 @@ const cors = require('@fastify/cors');
 require('dotenv').config({ path: '../app/.env' });
 const fmpAPIKey = process.env.FMP_API_KEY;
 const mixpanelAPIKey =  process.env.MIXPANEL_API_KEY;
+const twitchAPIKey =  process.env.TWITCH_API_KEY;
+const twitchSecretKey =  process.env.TWITCH_SECRET_KEY;
 
 const Mixpanel = require('mixpanel');
 const UAParser = require('ua-parser-js');
@@ -82,7 +84,7 @@ fastify.register(require('./delete-strategy/server'), { pb });
 fastify.register(require('./all-strategies/server'), { pb });
 fastify.register(require('./save-strategy/server'), { pb });
 fastify.register(require('./get-strategy/server'), { pb });
-fastify.register(require('./get-twitch-status/server'), { axios });
+fastify.register(require('./get-twitch-status/server'), { axios,twitchAPIKey, twitchSecretKey });
 fastify.register(require('./get-portfolio/server'), { pb });
 fastify.register(require('./create-price-alert/server'), { pb });
 fastify.register(require('./get-price-alert/server'), { pb, fs, path });

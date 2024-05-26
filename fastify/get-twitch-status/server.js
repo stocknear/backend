@@ -1,11 +1,13 @@
 module.exports = function (fastify, opts, done) {
     const axios = opts.axios;
-
+    const twitchAPIKey = opts.twitchAPIKey;
+    const twitchSecretKey = opts.twitchSecretKey;
+    
     fastify.get('/get-twitch-status', async (request, reply) => {
         let twitchStatus = false;
 
-        const client_id = '5i041m3iztxuj0yx26scgzhri1etfi';
-        const client_secret = '8p9gdmglz23lyc2nsrpbym5tpp15w0';
+        const client_id = twitchAPIKey;
+        const client_secret = twitchSecretKey;
         const streamer_name = 'stocknear';
 
         try {
