@@ -11,3 +11,4 @@ app/ml_models/weights
 app/json/*
 fastify/node_modules
 pocketbase/*
+helper.txt
