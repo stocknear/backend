@@ -1,0 +1,13 @@
+app/__pycache__
+app/saved_models
+app/backup_db
+app/stocks.*
+app/institute.*
+app/etf.*
+app/crypto.*
+app/*.sh
+app/.env*
+app/ml_models/weights
+app/json/*
+fastify/node_modules
+pocketbase/*
