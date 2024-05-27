@@ -7,7 +7,6 @@ import ujson
 import schedule
 import time
 import subprocess
-from pocketbase import PocketBase  # Client also works the same
 import asyncio
 import aiohttp
 import pytz
@@ -21,25 +20,12 @@ from dotenv import load_dotenv
 import os
 load_dotenv()
 
-api_key = os.getenv('FMP_API_KEY')
 useast_ip_address = os.getenv('USEAST_IP_ADDRESS')
-pb_admin_email = os.getenv('POCKETBASE_ADMIN_EMAIL')
-pb_admin_password = os.getenv('POCKETBASE_PASSWORD')
 
-pb = PocketBase('http://127.0.0.1:8090')
-admin_data = pb.admins.auth_with_password(pb_admin_email, pb_admin_password)
+
 
 # Set the system's timezone to Berlin at the beginning
 subprocess.run(["timedatectl", "set-timezone", "Europe/Berlin"])
-
-async def get_quote_of_stocks(ticker_list):
-    ticker_str = ','.join(ticker_list)
-    async with aiohttp.ClientSession() as session:
-        url = f"https://financialmodelingprep.com/api/v3/quote/{ticker_str}?apikey={api_key}" 
-        async with session.get(url) as response:
-            df = await response.json()
-    return df
-
 
 
 def run_json_job():

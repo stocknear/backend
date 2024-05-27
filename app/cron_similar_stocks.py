@@ -21,15 +21,12 @@ query_template = """
         symbol = ?
 """
 
-    
-
 async def run():
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
-    cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol != ?", ('%5EGSPC',))
+    cursor.execute("SELECT DISTINCT symbol FROM stocks")
     stocks_symbols = [row[0] for row in cursor.fetchall()]
-    #stocks_symbols = ['AMD']
-    for ticker in stocks_symbols:
+    for ticker in tqdm(stocks_symbols):
         filtered_df = []
         df = pd.read_sql_query(query_template, con, params=(ticker,))
         try:

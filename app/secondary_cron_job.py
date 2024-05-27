@@ -16,11 +16,6 @@ import numpy as np
 import threading  # Import threading module for parallel execution
 
 
-from dotenv import load_dotenv
-import os
-load_dotenv()
-api_key = os.getenv('FMP_API_KEY')
-
 berlin_tz = pytz.timezone('Europe/Berlin')
 
 # Set the system's timezone to Berlin at the beginning

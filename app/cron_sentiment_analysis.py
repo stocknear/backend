@@ -74,9 +74,9 @@ def remove_duplicates(data, key):
     return new_data
 
 def adjust_scaled_score(scaled_score):
-    adjustment = random.choice([-2,-1, 0, 1, 2])
+    #adjustment = random.choice([-2,-1, 0, 1, 2])
     # Add the adjustment to the scaled_score
-    scaled_score += adjustment
+    #scaled_score += adjustment
     
     # Ensure the scaled_score stays within the range of 0 to 10
     scaled_score = max(0, min(10, scaled_score))
