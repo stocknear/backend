@@ -1410,7 +1410,7 @@ async def get_hedge_funds_data(data: GetCIKData):
     cursor = con_inst.cursor()
 
     # Execute a SQL query to select the top 10 best performing cik entries by winRate
-    cursor.execute("SELECT cik, name, numberOfStocks, performancePercentage3year, averageHoldingPeriod, turnover, marketValue, winRate, holdings FROM institutes WHERE cik = ?", (cik,))
+    cursor.execute("SELECT cik, name, numberOfStocks, performancePercentage3year, averageHoldingPeriod, turnover, marketValue, winRate, holdings, summary FROM institutes WHERE cik = ?", (cik,))
     cik_data = cursor.fetchall()
     res = [{
         'cik': row[0],
@@ -1422,9 +1422,10 @@ async def get_hedge_funds_data(data: GetCIKData):
         'marketValue': row[6],
         'winRate': row[7],
         'holdings': ujson.loads(row[8]),
+        'summary': ujson.loads(row[9]),
     } for row in cik_data]
 
-    res_json = ujson.dumps(res).encode('utf-8')
+    res_json = ujson.dumps(res[0]).encode('utf-8')
     compressed_data = gzip.compress(res_json)
 
     redis_client.set(cache_key, compressed_data)

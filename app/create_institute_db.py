@@ -116,9 +116,9 @@ class InstituteDatabase:
     async def save_portfolio_data(self, session, cik):
         try:
             urls = [
-                f"https://financialmodelingprep.com/api/v4/institutional-ownership/industry/portfolio-holdings-summary?cik={cik}&date={quarter_date}&page=0&apikey={api_key}",
+                #f"https://financialmodelingprep.com/api/v4/institutional-ownership/industry/portfolio-holdings-summary?cik={cik}&date={quarter_date}&page=0&apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v4/institutional-ownership/portfolio-holdings?cik={cik}&date={quarter_date}&page=0&apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v4/institutional-ownership/portfolio-holdings-summary?cik={cik}&date={quarter_date}&page=0&apikey={api_key}"
+                f"https://financialmodelingprep.com/api/v4/institutional-ownership/portfolio-holdings-summary?cik={cik}&page=0&apikey={api_key}"
             ]
 
             portfolio_data = {}
@@ -129,9 +129,11 @@ class InstituteDatabase:
                     parsed_data = get_jsonparsed_data(data)
 
                     try:
+                        '''
                         if isinstance(parsed_data, list) and "industry/portfolio-holdings-summary" in url:
                             # Handle list response, save as JSON object
                             portfolio_data['industry'] = json.dumps(parsed_data)
+                        '''
                         if isinstance(parsed_data, list) and "https://financialmodelingprep.com/api/v4/institutional-ownership/portfolio-holdings?cik=" in url:
                             # Handle list response, save as JSON object
 
@@ -153,7 +155,11 @@ class InstituteDatabase:
                             
 
                             positive_performance_count = sum(1 for percentage in performance_percentages if percentage > 0)
-                            win_rate = round(positive_performance_count / len(performance_percentages) * 100,2)
+                            try:
+                                win_rate = round(positive_performance_count / len(performance_percentages) * 100,2)
+                            except:
+                                win_rate = 0
+
                             data_dict = {
                                 'winRate': win_rate,
                                 'numberOfStocks': number_of_stocks,
@@ -162,23 +168,25 @@ class InstituteDatabase:
 
                             portfolio_data.update(data_dict)
 
-                        elif isinstance(parsed_data, list) and "https://financialmodelingprep.com/api/v4/institutional-ownership/portfolio-holdings-summary" in url:
+                        if isinstance(parsed_data, list) and "https://financialmodelingprep.com/api/v4/institutional-ownership/portfolio-holdings-summary" in url:
                             # Handle list response, save as JSON object
                             portfolio_data['summary'] = json.dumps(parsed_data)
                             data_dict = {
-                                #'numberOfStocks': parsed_data[0]['portfolioSize'],
+                                'numberOfStocks': parsed_data[0]['portfolioSize'],
                                 'marketValue': parsed_data[0]['marketValue'],
                                 'averageHoldingPeriod': parsed_data[0]['averageHoldingPeriod'],
                                 'turnover': parsed_data[0]['turnover'],
+                                'performancePercentage': parsed_data[0]['performancePercentage'],
                                 'performancePercentage3year': parsed_data[0]['performancePercentage3year'],
-                                #'performancePercentage': parsed_data[0]['performancePercentage']
+                                'performancePercentage5year': parsed_data[0]['performancePercentage5year'],
+                                'performanceSinceInceptionPercentage': parsed_data[0]['performanceSinceInceptionPercentage']
                             }
                             portfolio_data.update(data_dict)
 
 
 
-                    except:
-                        pass
+                    except Exception as e:
+                        print(e)
 
             # Check if columns already exist in the table
             self.cursor.execute("PRAGMA table_info(institutes)")
@@ -190,7 +198,8 @@ class InstituteDatabase:
             symbols_not_in_list = not any(symbol in total_symbols for symbol in symbols_to_check)
 
 
-            if symbols_not_in_list or 'industry' not in portfolio_data or len(json.loads(portfolio_data['industry'])) == 0:
+            #if symbols_not_in_list or 'industry' not in portfolio_data or len(json.loads(portfolio_data['industry'])) == 0:
+            if symbols_not_in_list:
                 # If 'industry' is not a list, delete the row and return
                 #print(f"Deleting row for cik {cik} because 'industry' is not a list.")
                 self.cursor.execute("DELETE FROM institutes WHERE cik = ?", (cik,))
@@ -256,7 +265,7 @@ class InstituteDatabase:
                 tasks.append(self.save_portfolio_data(session, cik))
 
                 i += 1
-                if i % 700 == 0:
+                if i % 1000 == 0:
                     await asyncio.gather(*tasks)
                     tasks = []
                     print('sleeping mode: ', i)
