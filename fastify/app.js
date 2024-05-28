@@ -214,7 +214,6 @@ fastify.register(async function (fastify) {
   fastify.get('/realtime-crypto-data', { websocket: true }, (connection, req) => {
     // Send a welcome message to the client
 
-    //connection.socket.send('hi from server');
 
     // Listen for incoming messages from the client
     connection.socket.on('message', (message) => {

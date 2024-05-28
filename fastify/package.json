@@ -3,24 +3,25 @@
     "start": "nodemon app.js"
   },
   "dependencies": {
-    "@fastify/cors": "^9.0.1",
-    "@fastify/websocket": "^10.0.1",
-    "axios": "^1.7.2",
+    "@fastify/cors": "^8.5.0",
+    "@fastify/websocket": "^8.2.0",
+    "axios": "^1.6.2",
     "blob-util": "^2.0.2",
     "cheerio": "^1.0.0-rc.12",
+    "fastify": "^4.26.0",
     "dotenv": "^16.4.5",
-    "fastify": "^4.27.0",
     "got": "^11.8.3",
     "https": "^1.0.0",
     "mixpanel": "^0.18.0",
     "object-to-formdata": "^4.5.1",
-    "pino": "^9.1.0",
+    "pino": "^8.19.0",
     "pocketbase": "^0.21.2",
-    "sharp": "^0.33.4",
+    "sharp": "^0.32.6",
     "ua-parser-js": "^1.0.37",
-    "ws": "^8.17.0"
+    "ws": "^8.14.2"
   },
   "devDependencies": {
-    "nodemon": "^3.1.1"
+    "nodemon": "^3.0.1"
   }
 }
+
