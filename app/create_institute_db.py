@@ -17,15 +17,29 @@ import os
 # Filter out the specific RuntimeWarning
 warnings.filterwarnings("ignore", category=RuntimeWarning, message="invalid value encountered in scalar divide")
 
-conn = sqlite3.connect('stocks.db') 
-cursor = conn.cursor()
+con = sqlite3.connect('stocks.db')
+etf_con = sqlite3.connect('etf.db')
+crypto_con = sqlite3.connect('crypto.db')
 
-# Execute the SQL query
-cursor.execute("SELECT symbol FROM stocks")
+cursor = con.cursor()
+cursor.execute("PRAGMA journal_mode = wal")
+cursor.execute("SELECT DISTINCT symbol FROM stocks")
+stock_symbols = [row[0] for row in cursor.fetchall()]
 
-# Fetch all the results into a list
-symbol_list = [row[0] for row in cursor.fetchall()]
-conn.close()
+etf_cursor = etf_con.cursor()
+etf_cursor.execute("PRAGMA journal_mode = wal")
+etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
+etf_symbols = [row[0] for row in etf_cursor.fetchall()]
+
+crypto_cursor = crypto_con.cursor()
+crypto_cursor.execute("PRAGMA journal_mode = wal")
+crypto_cursor.execute("SELECT DISTINCT symbol FROM cryptos")
+crypto_symbols = [row[0] for row in crypto_cursor.fetchall()]
+
+total_symbols = stock_symbols + etf_symbols + crypto_symbols
+con.close()
+etf_con.close()
+crypto_con.close()
 
 
 load_dotenv()
@@ -121,33 +135,42 @@ class InstituteDatabase:
                         if isinstance(parsed_data, list) and "https://financialmodelingprep.com/api/v4/institutional-ownership/portfolio-holdings?cik=" in url:
                             # Handle list response, save as JSON object
 
-                            parsed_data = [item for item in parsed_data if 'symbol' in item and item['symbol'] is not None and item['symbol'] in symbol_list] #symbol must be included in the database
+                            parsed_data = [
+                                {**item, 'type': ('stocks' if item['symbol'] in stock_symbols else
+                                                  'crypto' if item['symbol'] in crypto_symbols else
+                                                  'etf' if item['symbol'] in etf_symbols else None)}
+                                for item in parsed_data
+                                if 'symbol' in item and item['symbol'] is not None and item['symbol'] in total_symbols
+                            ]
+
                             portfolio_data['holdings'] = json.dumps(parsed_data)
 
                             
                             number_of_stocks = len(parsed_data)
-                            total_market_value = sum(item['marketValue'] for item in parsed_data)
-                            avg_performance_percentage = sum(item['performancePercentage'] for item in parsed_data) / len(parsed_data)
-                            
+                            #total_market_value = sum(item['marketValue'] for item in parsed_data)
+                            #avg_performance_percentage = sum(item['performancePercentage'] for item in parsed_data) / len(parsed_data)
                             performance_percentages = [item.get("performancePercentage", 0) for item in parsed_data]
+                            
+
                             positive_performance_count = sum(1 for percentage in performance_percentages if percentage > 0)
                             win_rate = round(positive_performance_count / len(performance_percentages) * 100,2)
                             data_dict = {
                                 'winRate': win_rate,
                                 'numberOfStocks': number_of_stocks,
-                                'marketValue': total_market_value,
-                                'avgPerformancePercentage': avg_performance_percentage,
+                                #'marketValue': total_market_value,
                             }
 
                             portfolio_data.update(data_dict)
 
                         elif isinstance(parsed_data, list) and "https://financialmodelingprep.com/api/v4/institutional-ownership/portfolio-holdings-summary" in url:
                             # Handle list response, save as JSON object
+                            portfolio_data['summary'] = json.dumps(parsed_data)
                             data_dict = {
                                 #'numberOfStocks': parsed_data[0]['portfolioSize'],
-                                #'marketValue': parsed_data[0]['marketValue'],
+                                'marketValue': parsed_data[0]['marketValue'],
                                 'averageHoldingPeriod': parsed_data[0]['averageHoldingPeriod'],
                                 'turnover': parsed_data[0]['turnover'],
+                                'performancePercentage3year': parsed_data[0]['performancePercentage3year'],
                                 #'performancePercentage': parsed_data[0]['performancePercentage']
                             }
                             portfolio_data.update(data_dict)
@@ -164,7 +187,7 @@ class InstituteDatabase:
             holdings_list = json.loads(portfolio_data['holdings'])
 
             symbols_to_check = {holding['symbol'] for holding in holdings_list[:3]}  # Extract the first two symbols
-            symbols_not_in_list = not any(symbol in symbol_list for symbol in symbols_to_check)
+            symbols_not_in_list = not any(symbol in total_symbols for symbol in symbols_to_check)
 
 
             if symbols_not_in_list or 'industry' not in portfolio_data or len(json.loads(portfolio_data['industry'])) == 0:

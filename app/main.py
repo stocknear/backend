@@ -1410,13 +1410,13 @@ async def get_hedge_funds_data(data: GetCIKData):
     cursor = con_inst.cursor()
 
     # Execute a SQL query to select the top 10 best performing cik entries by winRate
-    cursor.execute("SELECT cik, name, numberOfStocks, avgPerformancePercentage, averageHoldingPeriod, turnover, marketValue, winRate, holdings FROM institutes WHERE cik = ?", (cik,))
+    cursor.execute("SELECT cik, name, numberOfStocks, performancePercentage3year, averageHoldingPeriod, turnover, marketValue, winRate, holdings FROM institutes WHERE cik = ?", (cik,))
     cik_data = cursor.fetchall()
     res = [{
         'cik': row[0],
         'name': row[1],
         'numberOfStocks': row[2],
-        'avgPerformancePercentage': row[3],
+        'performancePercentage3year': row[3],
         'averageHoldingPeriod': row[4],
         'turnover': row[5],
         'marketValue': row[6],

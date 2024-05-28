@@ -1060,7 +1060,7 @@ async def save_json_files():
 
         cursor = con.cursor()
         cursor.execute("PRAGMA journal_mode = wal")
-        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol != ?", ('%5EGSPC',))
+        cursor.execute("SELECT DISTINCT symbol FROM stocks")
         symbols = [row[0] for row in cursor.fetchall()]
 
         etf_cursor = etf_con.cursor()
