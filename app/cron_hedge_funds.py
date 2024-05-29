@@ -96,6 +96,40 @@ def all_hedge_funds(con):
         json.dump(sorted_res_list, file)
 
 
+def spy_performance():
+    import pandas as pd
+    import yfinance as yf
+    from datetime import datetime
+
+    # Define the start date and end date
+    start_date = '1993-01-01'
+    end_date = datetime.today().strftime('%Y-%m-%d')
+
+    # Generate the range of dates with quarterly frequency
+    date_range = pd.date_range(start=start_date, end=end_date, freq='Q')
+
+    # Convert the dates to the desired format (end of quarter dates)
+    end_of_quarters = date_range.strftime('%Y-%m-%d').tolist()
+
+    data = []
+
+    df = yf.download('SPY', start='1993-01-01', end=datetime.today(), interval="1d").reset_index()
+    df = df.rename(columns={'Adj Close': 'close', 'Date': 'date'})
+
+    df['date'] = df['date'].dt.strftime('%Y-%m-%d')
+    for target_date in end_of_quarters:
+        original_date = target_date
+        # Find close price for '2015-03-31' or the closest available date prior to it    
+        while target_date not in df['date'].values:
+            # If the target date doesn't exist, move one day back
+            target_date = (pd.to_datetime(target_date) - pd.Timedelta(days=1)).strftime('%Y-%m-%d')
+
+        # Get the close price for the found or closest date
+        close_price = round(df[df['date'] == target_date]['close'].values[0],2)
+        data.append({'date': original_date, 'price': close_price})
+    print(data)
+
+
 
 if __name__ == '__main__':
     con = sqlite3.connect('institute.db')
