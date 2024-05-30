@@ -131,111 +131,80 @@ class InstituteDatabase:
 
     async def save_portfolio_data(self, session, cik):
         try:
-            urls = [
-                #f"https://financialmodelingprep.com/api/v4/institutional-ownership/industry/portfolio-holdings-summary?cik={cik}&date={quarter_date}&page=0&apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v4/institutional-ownership/portfolio-holdings?cik={cik}&date={quarter_date}&page=0&apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v4/institutional-ownership/portfolio-holdings-summary?cik={cik}&page=0&apikey={api_key}"
-            ]
+            # Fetch summary data
+            summary_url = f"https://financialmodelingprep.com/api/v4/institutional-ownership/portfolio-holdings-summary?cik={cik}&page=0&apikey={api_key}"
+            async with session.get(summary_url) as response:
+                summary_data = await response.text()
+                summary_parsed_data = get_jsonparsed_data(summary_data)
 
             portfolio_data = {}
+            holdings_data = []
 
-            for url in urls:
-                async with session.get(url) as response:
+            # Fetch paginated holdings data
+            for page in range(0,100):
+                holdings_url = f"https://financialmodelingprep.com/api/v4/institutional-ownership/portfolio-holdings?cik={cik}&date={quarter_date}&page={page}&apikey={api_key}"
+                async with session.get(holdings_url) as response:
                     data = await response.text()
                     parsed_data = get_jsonparsed_data(data)
 
-                    try:
-                        '''
-                        if isinstance(parsed_data, list) and "industry/portfolio-holdings-summary" in url:
-                            # Handle list response, save as JSON object
-                            portfolio_data['industry'] = json.dumps(parsed_data)
-                        '''
-                        if isinstance(parsed_data, list) and "https://financialmodelingprep.com/api/v4/institutional-ownership/portfolio-holdings?cik=" in url:
-                            # Handle list response, save as JSON object
+                    if not parsed_data:  # Stop if no more data
+                        break
 
-                            #Bug: My provider does include the symbol with None even though the stock exist with the correct name.
-                            #Solution: Find the name in the database and replace the symbol.
+                    if isinstance(parsed_data, list):
+                        for item in parsed_data:
+                            if item['symbol'] is None:
+                                normalized_security_name = normalize_name(item['securityName'])
+                                if normalized_security_name in stock_dict:
+                                    item['symbol'] = stock_dict[normalized_security_name]
+                                elif normalized_security_name in etf_dict:
+                                    item['symbol'] = etf_dict[normalized_security_name]
 
-                            # Replace the symbol in the securities list if it is None
-                            for item in parsed_data:
-                                if item['symbol'] is None:
-                                    normalized_security_name = normalize_name(item['securityName'])
-                                    if normalized_security_name in stock_dict:
-                                        item['symbol'] = stock_dict[normalized_security_name]
-                                    elif normalized_security_name in etf_dict:
-                                        item['symbol'] = etf_dict[normalized_security_name]
+                        parsed_data = [
+                            {**item, 'type': ('stocks' if item['symbol'] in stock_symbols else
+                                              'crypto' if item['symbol'] in crypto_symbols else
+                                              'etf' if item['symbol'] in etf_symbols else None)}
+                            for item in parsed_data
+                            if 'symbol' in item and item['symbol'] is not None and item['symbol'] in total_symbols
+                        ]
 
+                        holdings_data.extend(parsed_data)
+                        portfolio_data['holdings'] = json.dumps(holdings_data)
 
-                            parsed_data = [
-                                {**item, 'type': ('stocks' if item['symbol'] in stock_symbols else
-                                                  'crypto' if item['symbol'] in crypto_symbols else
-                                                  'etf' if item['symbol'] in etf_symbols else None)}
-                                for item in parsed_data
-                                if 'symbol' in item and item['symbol'] is not None and item['symbol'] in total_symbols
-                            ]
-
-                            portfolio_data['holdings'] = json.dumps(parsed_data)
-
-                            
-                            number_of_stocks = len(parsed_data)
-                            #total_market_value = sum(item['marketValue'] for item in parsed_data)
-                            #avg_performance_percentage = sum(item['performancePercentage'] for item in parsed_data) / len(parsed_data)
-                            performance_percentages = [item.get("performancePercentage", 0) for item in parsed_data]
-                            
-
-                            positive_performance_count = sum(1 for percentage in performance_percentages if percentage > 0)
-                            try:
-                                win_rate = round(positive_performance_count / len(performance_percentages) * 100,2)
-                            except:
-                                win_rate = 0
-
-                            data_dict = {
-                                'winRate': win_rate,
-                                'numberOfStocks': number_of_stocks,
-                                #'marketValue': total_market_value,
-                            }
-
-                            portfolio_data.update(data_dict)
-
-                        if isinstance(parsed_data, list) and "https://financialmodelingprep.com/api/v4/institutional-ownership/portfolio-holdings-summary" in url:
-                            # Handle list response, save as JSON object
-                            portfolio_data['summary'] = json.dumps(parsed_data)
-                            data_dict = {
-                                'numberOfStocks': parsed_data[0]['portfolioSize'],
-                                'marketValue': parsed_data[0]['marketValue'],
-                                'averageHoldingPeriod': parsed_data[0]['averageHoldingPeriod'],
-                                'turnover': parsed_data[0]['turnover'],
-                                'performancePercentage': parsed_data[0]['performancePercentage'],
-                                'performancePercentage3year': parsed_data[0]['performancePercentage3year'],
-                                'performancePercentage5year': parsed_data[0]['performancePercentage5year'],
-                                'performanceSinceInceptionPercentage': parsed_data[0]['performanceSinceInceptionPercentage']
-                            }
-                            portfolio_data.update(data_dict)
-
-
-
-                    except Exception as e:
-                        print(e)
-
-            # Check if columns already exist in the table
-            self.cursor.execute("PRAGMA table_info(institutes)")
-            columns = {column[1]: column[2] for column in self.cursor.fetchall()}
-            
-            holdings_list = json.loads(portfolio_data['holdings'])
-
-            symbols_to_check = {holding['symbol'] for holding in holdings_list[:3]}  # Extract the first two symbols
-            symbols_not_in_list = not any(symbol in total_symbols for symbol in symbols_to_check)
-
-
-            #if symbols_not_in_list or 'industry' not in portfolio_data or len(json.loads(portfolio_data['industry'])) == 0:
-            if symbols_not_in_list:
-                # If 'industry' is not a list, delete the row and return
-                #print(f"Deleting row for cik {cik} because 'industry' is not a list.")
+            if not holdings_data:
                 self.cursor.execute("DELETE FROM institutes WHERE cik = ?", (cik,))
                 self.conn.commit()
                 return
 
-            # Update column definitions with keys from portfolio_data
+            #Filter information out that is not needed (yet)!
+            holdings_data = [{"symbol": item["symbol"], "securityName": item["securityName"], 'weight': item['weight'], 'sharesNumber': item['sharesNumber'], 'changeInSharesNumberPercentage': item['changeInSharesNumberPercentage'], 'putCallShare': item['putCallShare'], "marketValue": item["marketValue"], 'avgPricePaid': item['avgPricePaid']} for item in holdings_data]
+
+            number_of_stocks = len(holdings_data)
+            performance_percentages = [item.get("performancePercentage", 0) for item in holdings_data]
+            positive_performance_count = sum(1 for percentage in performance_percentages if percentage > 0)
+            win_rate = round(positive_performance_count / len(performance_percentages) * 100, 2) if performance_percentages else 0
+
+            portfolio_data.update({
+                'winRate': win_rate,
+                'numberOfStocks': number_of_stocks
+            })
+
+            # Process and add summary data
+            if isinstance(summary_parsed_data, list) and summary_parsed_data:
+                portfolio_data['summary'] = json.dumps(summary_parsed_data)
+                data_dict = {
+                    'marketValue': summary_parsed_data[0].get('marketValue', 0),
+                    'averageHoldingPeriod': summary_parsed_data[0].get('averageHoldingPeriod', 0),
+                    'turnover': summary_parsed_data[0].get('turnover', 0),
+                    'performancePercentage': summary_parsed_data[0].get('performancePercentage', 0),
+                    'performancePercentage3year': summary_parsed_data[0].get('performancePercentage3year', 0),
+                    'performancePercentage5year': summary_parsed_data[0].get('performancePercentage5year', 0),
+                    'performanceSinceInceptionPercentage': summary_parsed_data[0].get('performanceSinceInceptionPercentage', 0)
+                }
+                portfolio_data.update(data_dict)
+
+            self.cursor.execute("PRAGMA table_info(institutes)")
+            columns = {column[1]: column[2] for column in self.cursor.fetchall()}
+
             column_definitions = {
                 key: (self.get_column_type(portfolio_data.get(key, None)), self.remove_null(portfolio_data.get(key, None)))
                 for key in portfolio_data
@@ -251,7 +220,6 @@ class InstituteDatabase:
 
         except Exception as e:
             print(f"Failed to fetch portfolio data for cik {cik}: {str(e)}")
-
 
 
     async def save_insitute(self, institutes):
@@ -294,7 +262,7 @@ class InstituteDatabase:
                 tasks.append(self.save_portfolio_data(session, cik))
 
                 i += 1
-                if i % 1000 == 0:
+                if i % 400 == 0:
                     await asyncio.gather(*tasks)
                     tasks = []
                     print('sleeping mode: ', i)
@@ -318,6 +286,6 @@ async def fetch_tickers():
 db = InstituteDatabase('backup_db/institute.db')
 loop = asyncio.get_event_loop()
 all_tickers = loop.run_until_complete(fetch_tickers())
-#all_tickers = [{'cik': '0000102909', 'name': "GARDA CAPITAL PARTNERS LP"}]
+#all_tickers = [{'cik': '0001364742', 'name': "GARDA CAPITAL PARTNERS LP"}]
 loop.run_until_complete(db.save_insitute(all_tickers))
 db.close_connection()
