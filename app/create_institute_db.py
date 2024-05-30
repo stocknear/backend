@@ -13,9 +13,14 @@ import time
 import warnings
 from dotenv import load_dotenv
 import os
+import re
 
 # Filter out the specific RuntimeWarning
 warnings.filterwarnings("ignore", category=RuntimeWarning, message="invalid value encountered in scalar divide")
+
+def normalize_name(name):
+    return re.sub(r'\s+', ' ', re.sub(r'[^\w\s]', '', name.lower())).strip()
+
 
 con = sqlite3.connect('stocks.db')
 etf_con = sqlite3.connect('etf.db')
@@ -23,13 +28,26 @@ crypto_con = sqlite3.connect('crypto.db')
 
 cursor = con.cursor()
 cursor.execute("PRAGMA journal_mode = wal")
-cursor.execute("SELECT DISTINCT symbol FROM stocks")
-stock_symbols = [row[0] for row in cursor.fetchall()]
+cursor.execute("SELECT DISTINCT symbol, name FROM stocks WHERE symbol NOT LIKE '%.%'")
+stock_data = [{
+    'symbol': row[0],
+    'name': row[1],
+} for row in cursor.fetchall()]
+# Create a dictionary from stock_data for quick lookup
+stock_dict = {normalize_name(stock['name']): stock['symbol'] for stock in stock_data}
+stock_symbols = [item['symbol'] for item in stock_data]
 
 etf_cursor = etf_con.cursor()
 etf_cursor.execute("PRAGMA journal_mode = wal")
-etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
-etf_symbols = [row[0] for row in etf_cursor.fetchall()]
+etf_cursor.execute("SELECT DISTINCT symbol, name FROM etfs")
+etf_data = [{
+    'symbol': row[0],
+    'name': row[1],
+} for row in etf_cursor.fetchall()]
+# Create a dictionary from stock_data for quick lookup
+etf_dict = {normalize_name(etf['name']): etf['symbol'] for etf in etf_data}
+etf_symbols = [item['symbol'] for item in etf_data]
+
 
 crypto_cursor = crypto_con.cursor()
 crypto_cursor.execute("PRAGMA journal_mode = wal")
@@ -111,8 +129,6 @@ class InstituteDatabase:
 
 
 
-
-
     async def save_portfolio_data(self, session, cik):
         try:
             urls = [
@@ -136,6 +152,19 @@ class InstituteDatabase:
                         '''
                         if isinstance(parsed_data, list) and "https://financialmodelingprep.com/api/v4/institutional-ownership/portfolio-holdings?cik=" in url:
                             # Handle list response, save as JSON object
+
+                            #Bug: My provider does include the symbol with None even though the stock exist with the correct name.
+                            #Solution: Find the name in the database and replace the symbol.
+
+                            # Replace the symbol in the securities list if it is None
+                            for item in parsed_data:
+                                if item['symbol'] is None:
+                                    normalized_security_name = normalize_name(item['securityName'])
+                                    if normalized_security_name in stock_dict:
+                                        item['symbol'] = stock_dict[normalized_security_name]
+                                    elif normalized_security_name in etf_dict:
+                                        item['symbol'] = etf_dict[normalized_security_name]
+
 
                             parsed_data = [
                                 {**item, 'type': ('stocks' if item['symbol'] in stock_symbols else
@@ -289,5 +318,6 @@ async def fetch_tickers():
 db = InstituteDatabase('backup_db/institute.db')
 loop = asyncio.get_event_loop()
 all_tickers = loop.run_until_complete(fetch_tickers())
+#all_tickers = [{'cik': '0000102909', 'name': "GARDA CAPITAL PARTNERS LP"}]
 loop.run_until_complete(db.save_insitute(all_tickers))
 db.close_connection()

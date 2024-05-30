@@ -81,14 +81,14 @@ def all_hedge_funds(con):
     all_ciks = cursor.fetchall()
 
     res_list = [{
-        'cik': row[0],
-        'name': format_company_name(row[1]),
-        'numberOfStocks': row[2],
-        'marketValue': row[3],
-        'winRate': row[4],
-        'turnover': row[5],
-        'performancePercentage3year': row[6]
-    } for row in all_ciks]
+    'cik': row[0],
+    'name': format_company_name(row[1]),
+    'numberOfStocks': row[2],
+    'marketValue': row[3],
+    'winRate': row[4],
+    'turnover': row[5],
+    'performancePercentage3year': row[6]
+    } for row in all_ciks if row[2] >= 3]
 
     sorted_res_list = sorted(res_list, key=lambda x: x['marketValue'], reverse=True)
 
