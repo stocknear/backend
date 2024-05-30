@@ -39,8 +39,8 @@ def run_cron_insider_trading():
         subprocess.run(["python3", "cron_insider_trading.py"])
         command = [
             "sudo", "rsync", "-avz", "-e", "ssh",
-            "/root/backend_stocknear/app/json/insider-trading",
-            f"root@{useast_ip_address}:/root/backend_stocknear/app/json"
+            "/root/backend/app/json/insider-trading",
+            f"root@{useast_ip_address}:/root/backend/app/json"
         ]
         subprocess.run(command)
 
@@ -50,8 +50,8 @@ def run_congress_trading():
         subprocess.run(["python3", "cron_congress_trading.py"])
         command = [
             "sudo", "rsync", "-avz", "-e", "ssh",
-            "/root/backend_stocknear/app/json/congress-trading",
-            f"root@{useast_ip_address}:/root/backend_stocknear/app/json"
+            "/root/backend/app/json/congress-trading",
+            f"root@{useast_ip_address}:/root/backend/app/json"
         ]
         subprocess.run(command)
 
@@ -61,8 +61,8 @@ def run_cron_var():
         subprocess.run(["python3", "cron_var.py"])
         command = [
             "sudo", "rsync", "-avz", "-e", "ssh",
-            "/root/backend_stocknear/app/json/var",
-            f"root@{useast_ip_address}:/root/backend_stocknear/app/json"
+            "/root/backend/app/json/var",
+            f"root@{useast_ip_address}:/root/backend/app/json"
         ]
         subprocess.run(command)
 
@@ -72,8 +72,8 @@ def run_cron_market_movers():
         subprocess.run(["python3", "cron_market_movers.py"])
         command = [
             "sudo", "rsync", "-avz", "-e", "ssh",
-            "/root/backend_stocknear/app/json/market-movers",
-            f"root@{useast_ip_address}:/root/backend_stocknear/app/json"
+            "/root/backend/app/json/market-movers",
+            f"root@{useast_ip_address}:/root/backend/app/json"
         ]
         subprocess.run(command)
 
@@ -82,8 +82,8 @@ def run_cron_market_news():
     subprocess.run(["python3", "cron_market_news.py"])
     command = [
             "sudo", "rsync", "-avz", "-e", "ssh",
-            "/root/backend_stocknear/app/json/market-news",
-            f"root@{useast_ip_address}:/root/backend_stocknear/app/json"
+            "/root/backend/app/json/market-news",
+            f"root@{useast_ip_address}:/root/backend/app/json"
     ]
     subprocess.run(command)
 
@@ -93,8 +93,8 @@ def run_cron_heatmap():
         subprocess.run(["python3", "cron_heatmap.py"])
         command = [
             "sudo", "rsync", "-avz", "-e", "ssh",
-            "/root/backend_stocknear/app/json/heatmaps",
-            f"root@{useast_ip_address}:/root/backend_stocknear/app/json"
+            "/root/backend/app/json/heatmaps",
+            f"root@{useast_ip_address}:/root/backend/app/json"
         ]
         subprocess.run(command)
 
@@ -102,7 +102,7 @@ def run_cron_quote():
     week = datetime.today().weekday()
     if week <= 6:
         subprocess.run(["python3", "cron_quote.py"])
-        command = ["sudo", "rsync", "-avz", "-e", "ssh", "/root/backend_stocknear/app/json/quote", f"root@{useast_ip_address}:/root/backend_stocknear/app/json"]
+        command = ["sudo", "rsync", "-avz", "-e", "ssh", "/root/backend/app/json/quote", f"root@{useast_ip_address}:/root/backend/app/json"]
         subprocess.run(command)
 
 def run_cron_price_alert():
@@ -122,8 +122,8 @@ def run_cron_options_flow():
         
         command = [
             "sudo", "rsync", "-avz", "-e", "ssh",
-            "/root/backend_stocknear/app/json/options-flow/feed/",
-            f"root@{useast_ip_address}:/root/backend_stocknear/app/json/options-flow/feed/"
+            "/root/backend/app/json/options-flow/feed/",
+            f"root@{useast_ip_address}:/root/backend/app/json/options-flow/feed/"
         ]
         subprocess.run(command)
         
@@ -134,8 +134,8 @@ def run_cron_options_zero_dte():
         subprocess.run(["python3", "cron_options_zero_dte.py"])
         command = [
             "sudo", "rsync", "-avz", "-e", "ssh",
-            "/root/backend_stocknear/app/json/options-flow/zero-dte/",
-            f"root@{useast_ip_address}:/root/backend_stocknear/app/json/options-flow/zero-dte/"
+            "/root/backend/app/json/options-flow/zero-dte/",
+            f"root@{useast_ip_address}:/root/backend/app/json/options-flow/zero-dte/"
         ]
         subprocess.run(command)
                   
@@ -146,8 +146,8 @@ def run_ta_rating():
         subprocess.run(["python3", "cron_ta_rating.py"])
         command = [
             "sudo", "rsync", "-avz", "-e", "ssh",
-            "/root/backend_stocknear/app/json/ta-rating",
-            f"root@{useast_ip_address}:/root/backend_stocknear/app/json"
+            "/root/backend/app/json/ta-rating",
+            f"root@{useast_ip_address}:/root/backend/app/json"
         ]
         subprocess.run(command)
 
@@ -157,8 +157,8 @@ def run_stockdeck():
         subprocess.run(["python3", "cron_stockdeck.py"])
         command = [
             "sudo", "rsync", "-avz", "-e", "ssh",
-            "/root/backend_stocknear/app/json/stockdeck",
-            f"root@{useast_ip_address}:/root/backend_stocknear/app/json"
+            "/root/backend/app/json/stockdeck",
+            f"root@{useast_ip_address}:/root/backend/app/json"
         ]
         subprocess.run(command)
 
@@ -168,8 +168,8 @@ def run_similar_stocks():
         subprocess.run(["python3", "cron_similar_stocks.py"])
         command = [
             "sudo", "rsync", "-avz", "-e", "ssh",
-            "/root/backend_stocknear/app/json/similar-stocks",
-            f"root@{useast_ip_address}:/root/backend_stocknear/app/json"
+            "/root/backend/app/json/similar-stocks",
+            f"root@{useast_ip_address}:/root/backend/app/json"
         ]
         subprocess.run(command)
 
@@ -179,8 +179,8 @@ def run_historical_price():
         subprocess.run(["python3", "cron_historical_price.py"])
         command = [
             "sudo", "rsync", "-avz", "-e", "ssh",
-            "/root/backend_stocknear/app/json/historical-price",
-            f"root@{useast_ip_address}:/root/backend_stocknear/json"
+            "/root/backend/app/json/historical-price",
+            f"root@{useast_ip_address}:/root/backend/json"
         ]
         subprocess.run(command)
 
@@ -188,7 +188,7 @@ def run_one_day_price():
     week = datetime.today().weekday()
     if week <= 6:
         subprocess.run(["python3", "cron_one_day_price.py"])
-        command = ["sudo", "rsync", "-avz", "-e", "ssh", "/root/backend_stocknear/app/json/one-day-price/", f"root@{useast_ip_address}:/root/backend_stocknear/app/json/one-day-price/"]
+        command = ["sudo", "rsync", "-avz", "-e", "ssh", "/root/backend/app/json/one-day-price/", f"root@{useast_ip_address}:/root/backend/app/json/one-day-price/"]
         subprocess.run(command)
 
 def run_options_bubble_ticker():
@@ -196,10 +196,10 @@ def run_options_bubble_ticker():
     if week <= 4:
         subprocess.run(["python3", "cron_options_bubble.py"])
 
-        command = ["sudo", "rsync", "-avz", "-e", "ssh", "/root/backend_stocknear/app/json/options-bubble/", f"root@{useast_ip_address}:/root/backend_stocknear/app/json/options-bubble/"]
+        command = ["sudo", "rsync", "-avz", "-e", "ssh", "/root/backend/app/json/options-bubble/", f"root@{useast_ip_address}:/root/backend/app/json/options-bubble/"]
         subprocess.run(command)
 
-        command = ["sudo", "rsync", "-avz", "-e", "ssh", "/root/backend_stocknear/app/json/options-flow/company/", f"root@{useast_ip_address}:/root/backend_stocknear/app/json/options-flow/company/"]
+        command = ["sudo", "rsync", "-avz", "-e", "ssh", "/root/backend/app/json/options-flow/company/", f"root@{useast_ip_address}:/root/backend/app/json/options-flow/company/"]
         subprocess.run(command)
 
 def run_analyst_rating():
@@ -207,7 +207,7 @@ def run_analyst_rating():
     if week <= 5:
         subprocess.run(["python3", "cron_analyst_db.py"])
         subprocess.run(["python3", "cron_analyst_ticker.py"])
-        command = ["sudo", "rsync", "-avz", "-e", "ssh", "/root/backend_stocknear/app/json/analyst", f"root@{useast_ip_address}:/root/backend_stocknear/app/json"]
+        command = ["sudo", "rsync", "-avz", "-e", "ssh", "/root/backend/app/json/analyst", f"root@{useast_ip_address}:/root/backend/app/json"]
         subprocess.run(command)
 
 def run_market_moods():
@@ -215,9 +215,9 @@ def run_market_moods():
     if week <= 5:
         subprocess.run(["python3", "cron_bull_bear_say.py"])
         subprocess.run(["python3", "cron_wiim.py"])
-        command = ["sudo", "rsync", "-avz", "-e", "ssh", "/root/backend_stocknear/app/json/bull_bear_say", f"root@{useast_ip_address}:/root/backend_stocknear/app/json"]
+        command = ["sudo", "rsync", "-avz", "-e", "ssh", "/root/backend/app/json/bull_bear_say", f"root@{useast_ip_address}:/root/backend/app/json"]
         subprocess.run(command)
-        command = ["sudo", "rsync", "-avz", "-e", "ssh", "/root/backend_stocknear/app/json/wiim", f"root@{useast_ip_address}:/root/backend_stocknear/app/json"]
+        command = ["sudo", "rsync", "-avz", "-e", "ssh", "/root/backend/app/json/wiim", f"root@{useast_ip_address}:/root/backend/app/json"]
         subprocess.run(command)
 
 
