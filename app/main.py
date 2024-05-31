@@ -2173,11 +2173,10 @@ async def get_analyst_estimate(data:TickerData):
         income = ujson.loads(data['income'].iloc[0])
         combined_data = defaultdict(dict)
 
-
         for item_estimate in analyst_estimates:
             for item_income in income:
                 year = item_estimate['date'][:4]
-                if item_estimate['date'][:4] == item_income['calendarYear']:
+                if item_estimate['date'][:4] == item_income['calendarYear'] and item_income['period'] == 'Q4':
 
                     try:
                         revenue = item_income['revenue']
