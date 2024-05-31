@@ -175,11 +175,12 @@ class InstituteDatabase:
                 self.conn.commit()
                 return
 
+            performance_percentages = [item.get("performancePercentage", 0) for item in holdings_data]
+
             #Filter information out that is not needed (yet)!
             holdings_data = [{"symbol": item["symbol"], "securityName": item["securityName"], 'weight': item['weight'], 'sharesNumber': item['sharesNumber'], 'changeInSharesNumberPercentage': item['changeInSharesNumberPercentage'], 'putCallShare': item['putCallShare'], "marketValue": item["marketValue"], 'avgPricePaid': item['avgPricePaid']} for item in holdings_data]
 
             number_of_stocks = len(holdings_data)
-            performance_percentages = [item.get("performancePercentage", 0) for item in holdings_data]
             positive_performance_count = sum(1 for percentage in performance_percentages if percentage > 0)
             win_rate = round(positive_performance_count / len(performance_percentages) * 100, 2) if performance_percentages else 0
 
@@ -262,7 +263,7 @@ class InstituteDatabase:
                 tasks.append(self.save_portfolio_data(session, cik))
 
                 i += 1
-                if i % 400 == 0:
+                if i % 300 == 0:
                     await asyncio.gather(*tasks)
                     tasks = []
                     print('sleeping mode: ', i)

@@ -113,7 +113,7 @@ async def get_stock_screener(con,symbols):
 
     cursor.execute("SELECT symbol, name, price, changesPercentage FROM stocks WHERE price IS NOT NULL AND changesPercentage IS NOT NULL")
     raw_data = cursor.fetchall()
-    searchbar_data = [{
+    stocks_data = [{
         'symbol': row[0],
         'name': row[1],
         'price': row[2],
@@ -121,15 +121,15 @@ async def get_stock_screener(con,symbols):
     } for row in raw_data]
 
 
-    # Create a dictionary to map symbols to 'price' and 'changesPercentage' from searchbar_data
-    searchbar_data_map = {entry['symbol']: (entry['price'], entry['changesPercentage']) for entry in searchbar_data}
+    # Create a dictionary to map symbols to 'price' and 'changesPercentage' from stocks_data
+    stocks_data_map = {entry['symbol']: (entry['price'], entry['changesPercentage']) for entry in stocks_data}
 
     # Iterate through stock_screener_data and update 'price' and 'changesPercentage' if symbols match
     # Add VaR value to stock screener
     for item in stock_screener_data:
         symbol = item['symbol']
-        if symbol in searchbar_data_map:
-            item['price'], item['changesPercentage'] = searchbar_data_map[symbol]
+        if symbol in stocks_data_map:
+            item['price'], item['changesPercentage'] = stocks_data_map[symbol]
         try:
             with open(f"json/var/{symbol}.json", 'r') as file:
                 item['var'] = ujson.load(file)['var']
@@ -147,10 +147,8 @@ async def get_stock_screener(con,symbols):
                     item['ratingRecommendation'] = 2
                 else:
                     item['ratingRecommendation'] = None
-
         except:
             item['ratingRecommendation'] = None
-
 
 
     return stock_screener_data
