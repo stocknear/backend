@@ -66,6 +66,17 @@ def run_cron_var():
         ]
         subprocess.run(command)
 
+def run_analyst_estimate():
+    week = datetime.today().weekday()
+    if week <= 5:
+        subprocess.run(["python3", "cron_analyst_estimate.py"])
+        command = [
+            "sudo", "rsync", "-avz", "-e", "ssh",
+            "/root/backend/app/json/analyst-estimate",
+            f"root@{useast_ip_address}:/root/backend/app/json"
+        ]
+        subprocess.run(command)
+
 def run_cron_market_movers():
     week = datetime.today().weekday()
     if week <= 4:
@@ -250,6 +261,7 @@ schedule.every().day.at("08:00").do(run_threaded, run_cron_insider_trading).tag(
 schedule.every().day.at("09:00").do(run_threaded, run_congress_trading).tag('congress_job')
 
 schedule.every().day.at("13:30").do(run_threaded, run_stockdeck).tag('stockdeck_job')
+schedule.every().day.at("13:40").do(run_threaded, run_analyst_estimate).tag('analyst_estimate_job')
 schedule.every().day.at("13:45").do(run_threaded, run_similar_stocks).tag('similar_stocks_job')
 schedule.every().day.at("14:00").do(run_threaded, run_cron_var).tag('var_job')
 
