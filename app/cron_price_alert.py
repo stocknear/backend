@@ -72,7 +72,7 @@ def send_email(recipient, symbol, asset_type, current_price,target_price, condit
         asset_type = 'crypto'
 
     html_body = html_body.replace('currentDate', formatted_date)
-    html_body = html_body.replace('addingSentence', f'The price of ${current_price} is {condition} your target price of ${target_price}')
+    html_body = html_body.replace('addingSentence', f'The price of ${current_price} is at/{condition} your target price of ${target_price}')
     html_body = html_body.replace('symbol', symbol)
     html_body = html_body.replace('asset-link', f'/{asset_type}/{symbol}')
 
