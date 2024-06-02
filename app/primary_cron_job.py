@@ -111,7 +111,7 @@ def run_cron_heatmap():
 
 def run_cron_quote():
     week = datetime.today().weekday()
-    if week <= 6:
+    if week <= 4:
         subprocess.run(["python3", "cron_quote.py"])
         command = ["sudo", "rsync", "-avz", "-e", "ssh", "/root/backend/app/json/quote", f"root@{useast_ip_address}:/root/backend/app/json"]
         subprocess.run(command)
@@ -197,7 +197,7 @@ def run_historical_price():
 
 def run_one_day_price():
     week = datetime.today().weekday()
-    if week <= 6:
+    if week <= 4:
         subprocess.run(["python3", "cron_one_day_price.py"])
         command = ["sudo", "rsync", "-avz", "-e", "ssh", "/root/backend/app/json/one-day-price/", f"root@{useast_ip_address}:/root/backend/app/json/one-day-price/"]
         subprocess.run(command)
