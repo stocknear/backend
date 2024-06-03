@@ -36,12 +36,12 @@ module.exports = function (fastify, opts, done) {
             
             if(data?.sortingPosts === 'hot') {
                 //community page code space
-                // In case of sort === 'hot' show the most recent post up to 4 week by ranking them with the function postHotness
+                // In case of sort === 'hot' show the most recent post up to 7 week by ranking them with the function postHotness
                 
                 let endDate = new Date();
                 // Get the date one week earlier
                 let startDate = new Date();
-                startDate.setDate(endDate.getDate() - 30);
+                startDate.setDate(endDate.getDate() - 7);
 
                 // Format the dates as needed (e.g., "YYYY-MM-DD")
                 let endDateStr = endDate.toISOString().split('T')[0];
@@ -94,14 +94,14 @@ module.exports = function (fastify, opts, done) {
 
             else {
                 //community page code space
-                // In case of sort === 'hot' show the most recent post up to 4 week by ranking them with the function postHotness
+                // In case of sort === 'hot' show the most recent post up to 7 week by ranking them with the function postHotness
                 
                 if(data?.sortingPosts === 'hot') {
 
                     let endDate = new Date();
                     // Get the date one week earlier
                     let startDate = new Date();
-                    startDate.setDate(endDate.getDate() - 30);
+                    startDate.setDate(endDate.getDate() - 7);
 
                     // Format the dates as needed (e.g., "YYYY-MM-DD")
                     let endDateStr = endDate.toISOString().split('T')[0];
