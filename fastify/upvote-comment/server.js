@@ -7,10 +7,10 @@ module.exports = function (fastify, opts, done) {
     const data = request.body;
 
     const commentId = data?.commentId;
+    const postId = data?.postId;
     const userId = data?.userId;
 
     let output = 'failure';
-    console.log(data)
 
     try {
     
@@ -47,6 +47,7 @@ module.exports = function (fastify, opts, done) {
             formDataNotifications.append('opUser', opPost.user);
             formDataNotifications.append('user', userId)
             formDataNotifications.append('comment', commentId);
+            formDataNotifications.append('post', postId);
             formDataNotifications.append('notifyType', 'vote');
             
             await pb.collection('notifications').create(formDataNotifications);
