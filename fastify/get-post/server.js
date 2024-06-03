@@ -41,7 +41,7 @@ module.exports = function (fastify, opts, done) {
                 let endDate = new Date();
                 // Get the date one week earlier
                 let startDate = new Date();
-                startDate.setDate(endDate.getDate() - 7);
+                startDate.setDate(endDate.getDate() - 30);
 
                 // Format the dates as needed (e.g., "YYYY-MM-DD")
                 let endDateStr = endDate.toISOString().split('T')[0];
@@ -101,7 +101,7 @@ module.exports = function (fastify, opts, done) {
                     let endDate = new Date();
                     // Get the date one week earlier
                     let startDate = new Date();
-                    startDate.setDate(endDate.getDate() - 7);
+                    startDate.setDate(endDate.getDate() - 30);
 
                     // Format the dates as needed (e.g., "YYYY-MM-DD")
                     let endDateStr = endDate.toISOString().split('T')[0];
