@@ -141,7 +141,6 @@ module.exports = function (fastify, opts, done) {
                 else {
                     filter = `pinned=false`;
                 }
-                
                 posts = await pb.collection('posts').getList(data?.startPage, 50, {
                     sort: sort,
                     filter: filter,
@@ -151,13 +150,14 @@ module.exports = function (fastify, opts, done) {
                 });
 
                 posts = posts.items
-               // Add hotness property to each post
-                posts?.forEach(post => {
-                    post.hotness = postHotness(post?.upvote, post?.created);
-                });
+                // Add hotness property to each post
+                if(data?.sortingPosts === 'hot') {
+                    posts?.forEach(post => {
+                        post.hotness = postHotness(post?.upvote, post?.created);
+                    });
 
-                posts?.sort((a, b) => b?.hotness - a?.hotness);
-                
+                    posts?.sort((a, b) => b?.hotness - a?.hotness);
+                }
 
                 pinnedPost = await pb.collection('posts').getFullList({
                     filter: `pinned=true`,
