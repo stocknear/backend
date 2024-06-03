@@ -1,9 +1,36 @@
 // Optimized postHotness function
-function postHotness(upvote, numOfComments, created) {
-    const ageInHours = (Date.now() - new Date(created).getTime()) / 36e5; // 36e5 is scientific notation for 3600000
-    const hotness = (upvote + numOfComments * 2) / Math.pow(ageInHours + 2, 1.5); // Example calculation
-    return hotness;
-  }
+function postHotness(upvotes, created) {
+    let s = 0;
+    for (let i = 1; i <= upvotes; i++) {
+        if (i <= 3) {
+            s += 1;
+        } else if (i <= 6) {
+            s += 3;
+        } else if (i <= 10) {
+            s += 3;
+        } else if (i <= 20) {
+            s += 4;
+        } else if (i <= 40) {
+            s += 5;
+        } else {
+            s += 6;
+        }
+    }
+
+    const order = Math.log10(Math.max(Math.abs(s), 1));
+    let sign = 0;
+    if (s > 0) {
+        sign = 1;
+    } else if (s < 0) {
+        sign = -1;
+    }
+
+    const interval = 45000; // or 69000
+    const createdDate = new Date(created);
+    const seconds = (createdDate.getTime() / 1000);
+    const hotness = order + (sign * seconds) / interval;
+    return Math.round(hotness * 10000000);
+}
 
 
 module.exports = function (fastify, opts, done) {
@@ -42,6 +69,7 @@ module.exports = function (fastify, opts, done) {
                 // Get the date one week earlier
                 let startDate = new Date();
                 startDate.setDate(endDate.getDate() - 30);
+                endDate.setDate(endDate.getDate() + 1)
 
                 // Format the dates as needed (e.g., "YYYY-MM-DD")
                 let endDateStr = endDate.toISOString().split('T')[0];
@@ -50,7 +78,7 @@ module.exports = function (fastify, opts, done) {
                 filter += `&& created >= "${startDateStr}" && created <= "${endDateStr}" && pinned = false`
             }
 
-            posts = (await pb.collection('posts').getList(data?.startPage, 10, {
+            posts = (await pb.collection('posts').getList(data?.startPage, 50, {
                 sort: sort,
                 filter: filter,
                 expand: 'user,comments(post),alreadyVoted(post)',
@@ -61,7 +89,7 @@ module.exports = function (fastify, opts, done) {
             if(data?.sortingPosts === 'hot') {
              // Add hotness property to each post
                 posts?.forEach(post => {
-                    post.hotness = postHotness(post?.upvote, post?.expand['comments(post)']?.length, post?.created);
+                    post.hotness = postHotness(post?.upvote, post?.created);
                 });
                 posts?.sort((a, b) => b?.hotness - a?.hotness);
             }
@@ -102,6 +130,7 @@ module.exports = function (fastify, opts, done) {
                     // Get the date one week earlier
                     let startDate = new Date();
                     startDate.setDate(endDate.getDate() - 30);
+                    endDate.setDate(endDate.getDate() + 1)
 
                     // Format the dates as needed (e.g., "YYYY-MM-DD")
                     let endDateStr = endDate.toISOString().split('T')[0];
@@ -113,7 +142,7 @@ module.exports = function (fastify, opts, done) {
                     filter = `pinned=false`;
                 }
                 
-                posts = await pb.collection('posts').getList(data?.startPage, 10, {
+                posts = await pb.collection('posts').getList(data?.startPage, 50, {
                     sort: sort,
                     filter: filter,
                     expand: 'user, comments(post), alreadyVoted(post)',
@@ -124,7 +153,7 @@ module.exports = function (fastify, opts, done) {
                 posts = posts.items
                // Add hotness property to each post
                 posts?.forEach(post => {
-                    post.hotness = postHotness(post?.upvote, post?.expand['comments(post)']?.length, post?.created);
+                    post.hotness = postHotness(post?.upvote, post?.created);
                 });
 
                 posts?.sort((a, b) => b?.hotness - a?.hotness);
