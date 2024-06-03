@@ -9,7 +9,7 @@ module.exports = function (fastify, opts, done) {
     const commentId = data?.commentId;
     const postId = data?.postId;
     const userId = data?.userId;
-
+    console.log(data)
     let output = 'failure';
 
     try {
