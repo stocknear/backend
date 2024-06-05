@@ -78,8 +78,8 @@ module.exports = function (fastify, opts, done) {
                 filter += `&& created >= "${startDateStr}" && created <= "${endDateStr}" && pinned = false`
             }
 
-            posts = (await pb.collection('posts').getList(data?.startPage, 50, {
-                sort: sort,
+            posts = (await pb.collection('posts').getList(data?.startPage, 5, {
+                sort: '-created',
                 filter: filter,
                 expand: 'user,comments(post),alreadyVoted(post)',
                 fields: "*,expand.user,expand.comments(post), expand.alreadyVoted(post).user,expand.alreadyVoted(post).type"
@@ -99,7 +99,7 @@ module.exports = function (fastify, opts, done) {
 
             if (data?.userId) {
             
-            posts = (await pb.collection('posts').getList(data?.startPage, 10, {
+            posts = (await pb.collection('posts').getList(data?.startPage, 5, {
                 sort: sort,
                 filter: `user="${data?.userId}" && pinned=false`,
                 expand: `user,comments(post),alreadyVoted(post)`,
@@ -111,7 +111,7 @@ module.exports = function (fastify, opts, done) {
 
             else if (data?.filterTicker) {
             
-                posts = await pb.collection('posts').getList(data?.startPage, 10, {
+                posts = await pb.collection('posts').getList(data?.startPage, 5, {
                     sort: sort,
                     filter: `tagline="${data?.filterTicker}" && pinned=false`,
                     expand: `user,comments(post),alreadyVoted(post)`,
@@ -141,8 +141,8 @@ module.exports = function (fastify, opts, done) {
                 else {
                     filter = `pinned=false`;
                 }
-                posts = await pb.collection('posts').getList(data?.startPage, 50, {
-                    sort: sort,
+                posts = await pb.collection('posts').getList(1, 5, {
+                    sort: '-created',
                     filter: filter,
                     expand: 'user, comments(post), alreadyVoted(post)',
                     fields: "*,expand.user,expand.comments(post), expand.alreadyVoted(post).user,expand.alreadyVoted(post).type"

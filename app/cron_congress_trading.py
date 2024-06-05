@@ -88,9 +88,12 @@ def replace_representative(office):
         'Vance, J.D. (Senator)': 'James Vance',
         'Neal Patrick MD, Facs Dunn': 'Neal Dunn',
         'Neal Patrick MD, Facs Dunn (Senator)': 'Neal Dunn',
+        'Neal Patrick Dunn, MD, FACS': 'Neal Dunn',
+        'Neal P. Dunn': 'Neal Dunn',
         'Tillis, Thom (Senator)': 'Thom Tillis',
         'W. Gregory Steube': 'Greg Steube',
         'W. Grego Steube': 'Greg Steube',
+        'W. Greg Steube': 'Greg Steube',
         'David David Madison Cawthorn': 'David Madison Cawthorn',
         'Blunt, Roy (Senator)': 'Roy Blunt',
         'Thune, John (Senator)': 'John Thune',
@@ -303,7 +306,7 @@ async def run():
 
         total_symbols = crypto_symbols +etf_symbols + stock_symbols
         total_raw_data = stock_raw_data + etf_raw_data + crypto_raw_data
-        chunk_size = 250
+        chunk_size = 500
         politician_list = []
 
     except Exception as e:

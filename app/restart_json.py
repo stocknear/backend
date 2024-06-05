@@ -491,6 +491,7 @@ async def get_delisted_list():
 
 
 
+
 def replace_representative(office):
     replacements = {
         'Carper, Thomas R. (Senator)': 'Tom Carper',
@@ -541,9 +542,12 @@ def replace_representative(office):
         'Vance, J.D. (Senator)': 'James Vance',
         'Neal Patrick MD, Facs Dunn': 'Neal Dunn',
         'Neal Patrick MD, Facs Dunn (Senator)': 'Neal Dunn',
+        'Neal Patrick Dunn, MD, FACS': 'Neal Dunn',
+        'Neal P. Dunn': 'Neal Dunn',
         'Tillis, Thom (Senator)': 'Thom Tillis',
         'W. Gregory Steube': 'Greg Steube',
         'W. Grego Steube': 'Greg Steube',
+        'W. Greg Steube': 'Greg Steube',
         'David David Madison Cawthorn': 'David Madison Cawthorn',
         'Blunt, Roy (Senator)': 'Roy Blunt',
         'Thune, John (Senator)': 'John Thune',

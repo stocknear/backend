@@ -45,8 +45,10 @@ async def download_data(ticker, con, start_date, end_date):
         income =  ujson.loads(query_df['income'].iloc[0])
 
         #Only consider company with at least 10 year worth of data
+        '''
         if len(income) < 40:
             raise ValueError("Income data length is too small.")
+        '''
 
         income = [{k: v for k, v in item.items() if k not in ["symbol","reportedCurrency","calendarYear","fillingDate","acceptedDate","period","cik","link", "finalLink"]} for item in income if int(item["date"][:4]) >= 2000]
         income_growth = ujson.loads(query_df['income_growth'].iloc[0])
@@ -109,11 +111,11 @@ async def download_data(ticker, con, start_date, end_date):
         combined_data = sorted(combined_data, key=lambda x: x['date'])
 
         
-        df_income = pd.DataFrame(combined_data).dropna()
+        df_combined = pd.DataFrame(combined_data).dropna()
 
-        df_income['Target'] = ((df_income['price'].shift(-1) - df_income['price']) / df_income['price'] > 0).astype(int)
+        df_combined['Target'] = ((df_combined['price'].shift(-1) - df_combined['price']) / df_combined['price'] > 0).astype(int)
 
-        df_copy = df_income.copy()
+        df_copy = df_combined.copy()
         
         return df_copy
 
@@ -208,7 +210,7 @@ class FundamentalPredictor:
         return {'accuracy': round(test_accuracy*100), 'precision': round(test_precision*100), 'sentiment': 'Bullish' if next_value_prediction == 1 else 'Bearish'}, test_predictions
 
     def feature_selection(self, X_train, y_train,k=8):
-        '''
+        
         selector = SelectKBest(score_func=f_classif, k=8)
         selector.fit(X_train, y_train)
 
@@ -216,8 +218,9 @@ class FundamentalPredictor:
         selected_features = [col for i, col in enumerate(X_train.columns) if selector.get_support()[i]]
 
         return selected_features
-        '''
+        
         # Calculate the variance of each feature with respect to the target
+        '''
         variances = {}
         for col in X_train.columns:
             grouped_variance = X_train.groupby(y_train)[col].var().mean()
@@ -226,6 +229,7 @@ class FundamentalPredictor:
         # Sort features by variance and select top k features
         sorted_features = sorted(variances, key=variances.get, reverse=True)[:k]
         return sorted_features
+        '''
 
 #Train mode
 async def train_process(tickers, con):
@@ -272,7 +276,7 @@ async def test_process(con):
     start_date = datetime(2000, 1, 1).strftime("%Y-%m-%d")
     end_date = datetime.today().strftime("%Y-%m-%d")
     predictor = FundamentalPredictor()
-    df = await download_data('GME', con, start_date, end_date)
+    df = await download_data('RDDT', con, start_date, end_date)
     split_size = int(len(df) * (1-test_size))
     test_data = df.iloc[split_size:]
     #selected_features = [col for col in test_data if col not in ['price','date','Target']]
@@ -283,8 +287,9 @@ async def main():
     con = sqlite3.connect('../stocks.db')
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
-    cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 500E9")
+    cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 100E9")
     stock_symbols = [row[0] for row in cursor.fetchall()]
+    print('Number of Stocks')
     print(len(stock_symbols))
     await train_process(stock_symbols, con)
     await test_process(con)
