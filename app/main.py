@@ -1345,52 +1345,20 @@ async def get_fair_price(data: TickerData):
     data = data.dict()
     ticker = data['ticker'].upper()
 
-
-    cache_key = f"get-shareholders-{ticker}"
+    cache_key = f"shareholders-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return StreamingResponse(
-            io.BytesIO(cached_result),
-            media_type="application/json",
-            headers={"Content-Encoding": "gzip"}
-        )
+        return ujson.loads(cached_result)
 
-    if ticker in etf_symbols:
-        table_name = 'etfs'
-    else:
-        table_name = 'stocks'
-
-    query_template = f"""
-        SELECT 
-            shareholders
-        FROM 
-            {table_name} 
-        WHERE
-            symbol = ?
-    """
-
-    df = pd.read_sql_query(query_template, etf_con if table_name == 'etfs' else con, params=(ticker,))
-    #con.close()
     try:
-        shareholders_list = ujson.loads(df.to_dict()['shareholders'][0])[0:10]
+        with open(f"json/shareholders/{ticker}.json", 'r') as file:
+            res = ujson.load(file)
     except:
-        shareholders_list = []
+        res = []
 
-   
-    res_json = ujson.dumps(shareholders_list).encode('utf-8')
-    compressed_data = gzip.compress(res_json)
-    redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 3600 * 3600) # Set cache expiration time to Infinity
-
-    return StreamingResponse(
-        io.BytesIO(compressed_data),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"}
-    )
-
-
-    return shareholders_list
-
+    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
+    return res
 
 
 @app.post("/cik-data")
@@ -2600,7 +2568,7 @@ async def get_wiim(data:TickerData):
 
     try:
         with open(f"json/wiim/company/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+            res = ujson.load(file)[:10]
     except:
         res = []
 

@@ -135,6 +135,8 @@ class FundamentalPredictor:
         
         model.add(Conv1D(filters=64, kernel_size=3, padding='same', activation='relu', input_shape=(None, 1)))
 
+        model.add(Conv1D(filters=32, kernel_size=3, padding='same', activation='relu', input_shape=(None, 1)))
+
         # First LSTM layer with dropout and batch normalization
         model.add(LSTM(256, return_sequences=True, kernel_regularizer=regularizers.l2(0.01)))
         model.add(Dropout(0.5))
@@ -276,7 +278,7 @@ async def test_process(con):
     start_date = datetime(2000, 1, 1).strftime("%Y-%m-%d")
     end_date = datetime.today().strftime("%Y-%m-%d")
     predictor = FundamentalPredictor()
-    df = await download_data('RDDT', con, start_date, end_date)
+    df = await download_data('GME', con, start_date, end_date)
     split_size = int(len(df) * (1-test_size))
     test_data = df.iloc[split_size:]
     #selected_features = [col for col in test_data if col not in ['price','date','Target']]
@@ -287,7 +289,7 @@ async def main():
     con = sqlite3.connect('../stocks.db')
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
-    cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 100E9")
+    cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 500E9")
     stock_symbols = [row[0] for row in cursor.fetchall()]
     print('Number of Stocks')
     print(len(stock_symbols))
