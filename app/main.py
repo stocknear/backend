@@ -2719,6 +2719,25 @@ async def get_enterprise_values(data:TickerData):
     redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
     return res
 
+
+@app.post("/share-statistics")
+async def get_enterprise_values(data:TickerData):
+    ticker = data.ticker.upper()
+    cache_key = f"share-statistics-{ticker}"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return ujson.loads(cached_result)
+    try:
+        with open(f"json/share-statistics/{ticker}.json", 'r') as file:
+            res = ujson.load(file)
+    except:
+        res = []
+
+    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
+    return res
+
+
 @app.post("/politician-stats")
 async def get_politician_stats(data:PoliticianId):
     politician_id = data.politicianId.lower()
