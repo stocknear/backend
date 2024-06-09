@@ -1,7 +1,7 @@
 import random
 import numpy as np
 from fastapi import FastAPI,Depends,HTTPException, status
-from typing import List, Dict, Union, Set
+from typing import List, Dict, Set
 from fastapi.middleware.cors import CORSMiddleware
 
 from fastapi.openapi.docs import get_swagger_ui_html
@@ -10,23 +10,16 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 import secrets
 from benzinga import financial_data
 
-from GetStartEndDate import GetStartEndDate
-
-import ssl
 import io
 import gzip
 from fastapi.responses import StreamingResponse
 
-from collections import defaultdict
-from datetime import date, datetime, timedelta, time
-import json
 import ujson
 import pandas as pd
 import sqlite3
 from pydantic import BaseModel
 #from arima import arima
 import re
-import asyncio
 import aiohttp
 #import time
 import pandas as pd
@@ -115,10 +108,6 @@ cursor_inst.close()
 load_dotenv()
 
 pb = PocketBase('http://127.0.0.1:8090')
-pb_admin_email = os.getenv('POCKETBASE_ADMIN_EMAIL')
-pb_password = os.getenv('POCKETBASE_PASSWORD')
-
-admin_data = pb.admins.auth_with_password(pb_admin_email, pb_password)
 
 api_key = os.getenv('FMP_API_KEY')
 benzinga_key = os.getenv('BENZINGA_API_KEY')
@@ -2573,7 +2562,7 @@ async def get_wiim(data:TickerData):
         res = []
 
     redis_client.set(cache_key, ujson.dumps(res))
-    redis_client.expire(cache_key, 60*60*2)  # Set cache expiration time to 1 day
+    redis_client.expire(cache_key, 60*60*2)
     return res
 
 @app.get("/rss-feed-wiim")

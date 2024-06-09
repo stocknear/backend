@@ -3,6 +3,7 @@ let serverRunning = false;
 
 const fastify = require('fastify')({})
 const cors = require('@fastify/cors');
+
 //Load API KEYS
 require('dotenv').config({ path: '../app/.env' });
 const fmpAPIKey = process.env.FMP_API_KEY;

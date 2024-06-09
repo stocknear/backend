@@ -1,13 +1,11 @@
 import aiohttp
 import asyncio
 import sqlite3
-import certifi
 import json
 import ujson
 import pandas as pd
 import os
 from tqdm import tqdm
-import re
 import pandas as pd
 from datetime import datetime
 from ta.utils import *
@@ -15,8 +13,6 @@ from ta.volatility import *
 from ta.momentum import *
 from ta.trend import *
 from ta.volume import *
-import subprocess
-import time
 import warnings
 
 from dotenv import load_dotenv
@@ -118,7 +114,8 @@ class StockDatabase:
                 f"https://financialmodelingprep.com/api/v3/ratios/{symbol}?period=quarter&apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v3/historical-price-full/stock_split/{symbol}?apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v4/stock_peers?symbol={symbol}&apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v4/institutional-ownership/institutional-holders/symbol-ownership-percent?date=2023-09-30&symbol={symbol}&page=0&apikey={api_key}",
+                f"https://financialmodelingprep.com/api/v4/institutional-ownership/institutional-holders/symbol-ownership-percent?date=2024-03-31&symbol={symbol}&page=0&apikey={api_key}",
+                f"https://financialmodelingprep.com/api/v4/historical/shares_float?symbol={symbol}&apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v4/revenue-product-segmentation?symbol={symbol}&structure=flat&period=annual&apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v4/revenue-geographic-segmentation?symbol={symbol}&structure=flat&apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v3/analyst-estimates/{symbol}?apikey={api_key}",
@@ -315,6 +312,9 @@ class StockDatabase:
                         elif "institutional-ownership/institutional-holders" in url:
                             # Handle list response, save as JSON object
                             fundamental_data['shareholders'] = ujson.dumps(parsed_data)
+                        elif "historical/shares_float" in url:
+                            # Handle list response, save as JSON object
+                            fundamental_data['historicalShares'] = ujson.dumps(parsed_data)
                         elif "revenue-product-segmentation" in url:
                             # Handle list response, save as JSON object
                             fundamental_data['revenue_product_segmentation'] = ujson.dumps(parsed_data)
