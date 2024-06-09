@@ -2731,7 +2731,7 @@ async def get_enterprise_values(data:TickerData):
         with open(f"json/share-statistics/{ticker}.json", 'r') as file:
             res = ujson.load(file)
     except:
-        res = []
+        res = {}
 
     redis_client.set(cache_key, ujson.dumps(res))
     redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day

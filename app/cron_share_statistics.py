@@ -4,7 +4,8 @@ import asyncio
 import pandas as pd
 from tqdm import tqdm
 from datetime import datetime
-
+import yfinance as yf
+import time
 
 
 async def save_as_json(symbol, data):
@@ -33,6 +34,15 @@ def filter_data_quarterly(data):
     
     return filtered_data
 
+def get_short_data(ticker, outstanding_shares, float_shares):
+    try:
+        data_dict = yf.Ticker(ticker).info
+        short_outstanding_percent = round((data_dict['sharesShort']/outstanding_shares)*100,2)
+        short_float_percent = round((data_dict['sharesShort']/float_shares)*100,2)
+        return {'sharesShort': data_dict['sharesShort'], 'shortRatio': data_dict['shortRatio'], 'sharesShortPriorMonth': data_dict['sharesShortPriorMonth'], 'shortOutStandingPercent': short_outstanding_percent, 'shortFloatPercent': short_float_percent}
+    except:
+        return {'sharesShort': '-', 'shortRatio': '-', 'sharesShortPriorMonth': '-', 'shortOutStandingPercent': '-', 'shortFloatPercent': '-'}
+
 
 async def get_data(ticker, con):
 
@@ -50,13 +60,20 @@ async def get_data(ticker, con):
         ]
 
         shareholder_statistics = sorted(shareholder_statistics, key=lambda x: datetime.strptime(x['date'], '%Y-%m-%d'), reverse=False)
+        
+        latest_outstanding_shares = shareholder_statistics[-1]['outstandingShares']
+        latest_float_shares = shareholder_statistics[-1]['floatShares']
+
         # Filter out only quarter-end dates
-        shareholder_statistics = filter_data_quarterly(shareholder_statistics)
+        historical_shares = filter_data_quarterly(shareholder_statistics)
+
+        short_data = get_short_data(ticker, latest_outstanding_shares, latest_float_shares)
+        res = {**short_data, 'latestOutstandingShares': latest_outstanding_shares, 'latestFloatShares': latest_float_shares,'historicalShares': historical_shares}
     except Exception as e:
         #print(e)
-        shareholder_statistics = []
+        res = {}
 
-    return shareholder_statistics
+    return res
 
 
 async def run():
@@ -69,9 +86,9 @@ async def run():
     stock_symbols = [row[0] for row in cursor.fetchall()]
     
     for ticker in tqdm(stock_symbols):
-        shareholder_statistics = await get_data(ticker, con)
-        if len(shareholder_statistics) > 0:
-            await save_as_json(ticker, shareholder_statistics)
+        data_dict = await get_data(ticker, con)
+        if data_dict.keys():
+            await save_as_json(ticker, data_dict)
     
     con.close()
 
