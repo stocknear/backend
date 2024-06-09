@@ -1,5 +1,4 @@
 import aiohttp
-import aiofiles
 import ujson
 import sqlite3
 import asyncio

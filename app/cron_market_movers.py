@@ -2,8 +2,6 @@ from datetime import date, datetime, timedelta, time
 import ujson
 import sqlite3
 import pandas as pd
-import numpy as np
-from collections import defaultdict
 import asyncio
 import aiohttp
 import pytz

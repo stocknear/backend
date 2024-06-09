@@ -1,10 +1,8 @@
-import aiohttp
 import ujson
 import sqlite3
 import asyncio
 import pandas as pd
 from tqdm import tqdm
-from collections import defaultdict
 
 
 query_template = """
@@ -21,7 +19,7 @@ async def save_as_json(symbol, data):
         ujson.dump(data, file)
 
 
-async def get_data(ticker, stock_symbols, etf_symbols, con, etf_con):
+async def get_data(ticker, etf_symbols, con, etf_con):
     if ticker in etf_symbols:
         table_name = 'etfs'
     else:
@@ -71,7 +69,7 @@ async def run():
     total_symbols = stock_symbols + etf_symbols
 
     for ticker in tqdm(total_symbols):
-        shareholders_list = await get_data(ticker, stock_symbols, etf_symbols, con, etf_con)
+        shareholders_list = await get_data(ticker, etf_symbols, con, etf_con)
         if len(shareholders_list) > 0:
             await save_as_json(ticker, shareholders_list)
 

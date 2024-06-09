@@ -1,7 +1,6 @@
 import aiohttp
 import asyncio
 import sqlite3
-import certifi
 import json
 import ujson
 import pandas as pd
@@ -10,8 +9,7 @@ from tqdm import tqdm
 import re
 import pandas as pd
 from datetime import datetime
-import subprocess
-import time
+
 import warnings
 import requests
 

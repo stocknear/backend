@@ -4,7 +4,6 @@ from datetime import datetime
 import numpy as np
 import ujson
 import asyncio
-import aiohttp
 import sqlite3
 from tqdm import tqdm
 

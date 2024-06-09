@@ -1,7 +1,6 @@
 from benzinga import financial_data
 import requests
-from datetime import datetime, timedelta, date
-from collections import defaultdict
+from datetime import datetime
 import numpy as np
 from scipy.stats import norm
 import time

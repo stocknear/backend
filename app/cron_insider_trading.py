@@ -3,7 +3,6 @@ import asyncio
 import aiohttp
 import sqlite3
 from datetime import datetime
-import pytz
 from aiofiles import open as async_open
 
 from dotenv import load_dotenv
