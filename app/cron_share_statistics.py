@@ -41,7 +41,7 @@ def get_short_data(ticker, outstanding_shares, float_shares):
         short_float_percent = round((data_dict['sharesShort']/float_shares)*100,2)
         return {'sharesShort': data_dict['sharesShort'], 'shortRatio': data_dict['shortRatio'], 'sharesShortPriorMonth': data_dict['sharesShortPriorMonth'], 'shortOutStandingPercent': short_outstanding_percent, 'shortFloatPercent': short_float_percent}
     except:
-        return {'sharesShort': '-', 'shortRatio': '-', 'sharesShortPriorMonth': '-', 'shortOutStandingPercent': '-', 'shortFloatPercent': '-'}
+        return {'sharesShort': 0, 'shortRatio': 0, 'sharesShortPriorMonth': 0, 'shortOutStandingPercent': 0, 'shortFloatPercent': 0}
 
 
 async def get_data(ticker, con):

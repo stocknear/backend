@@ -9,6 +9,7 @@ import time
 import subprocess
 import asyncio
 import aiohttp
+import aiofiles
 import pytz
 import sqlite3
 import pandas as pd
@@ -17,6 +18,7 @@ from pocketbase import PocketBase
 from collections import Counter
 import re
 import hashlib
+import glob
 
 from dotenv import load_dotenv
 import os
@@ -1052,6 +1054,75 @@ async def get_ipo_calendar(con, symbols):
 
     return res_sorted
 
+async def get_most_shorted_stocks(con):
+    directory_path = 'json/share-statistics/*.json'
+
+    def filename_has_no_dot(file_path):
+        filename = os.path.basename(file_path)
+        if filename.endswith('.json'):
+            base_name = filename[:-5]  # Remove the .json part
+            # Return True only if there is no dot in the base name
+            if '.' not in base_name:
+                return True
+        return False
+
+    async def read_json_files(directory_path):
+        for file_path in glob.glob(directory_path):
+            if filename_has_no_dot(file_path):
+                try:
+                    async with aiofiles.open(file_path, 'r') as file:
+                        data = await file.read()
+                        json_data = json.loads(data)
+                        yield file_path, json_data
+                except (json.JSONDecodeError, IOError) as e:
+                    print(f"Error reading {file_path}: {e}")
+
+    def extract_elements(file_path, data):
+        symbol = os.path.basename(file_path).rsplit('.', 1)[0]
+        return {
+            "symbol": symbol,
+            "sharesShort": data.get("sharesShort"),
+            "shortRatio": data.get("shortRatio"),
+            "sharesShortPriorMonth": data.get("sharesShortPriorMonth"),
+            "shortOutStandingPercent": data.get("shortOutStandingPercent"),
+            "shortFloatPercent": data.get("shortFloatPercent"),
+            "latestOutstandingShares": data.get("latestOutstandingShares"),
+            "latestFloatShares": data.get("latestFloatShares")
+        }
+
+    # Initialize a list to hold the extracted data
+    extracted_data = []
+
+    # Read and process JSON files
+    async for file_path, json_data in read_json_files(directory_path):
+        element = extract_elements(file_path, json_data)
+        short_outstanding_percent = element.get("shortOutStandingPercent")
+
+        # Check if shortOutStandingPercent is at least 20
+        if short_outstanding_percent is not None and float(short_outstanding_percent) >= 20 and float(short_outstanding_percent) < 100:
+            extracted_data.append(element)
+
+    sorted_list = sorted(extracted_data, key=lambda x: x['shortOutStandingPercent'], reverse=True)
+
+    query_template = """
+        SELECT 
+            name, sector
+        FROM 
+            stocks 
+        WHERE
+            symbol = ?
+    """
+
+    for item in sorted_list:
+        try:
+            symbol = item['symbol']
+            data = pd.read_sql_query(query_template, con, params=(symbol,))
+            item['name'] = data['name'].iloc[0]
+            item['sector'] = data['sector'].iloc[0]
+        except Exception as e:
+            print(e)
+
+    return sorted_list
 
 async def save_json_files():
     week = datetime.today().weekday()
@@ -1075,7 +1146,11 @@ async def save_json_files():
         crypto_cursor.execute("SELECT DISTINCT symbol FROM cryptos")
         crypto_symbols = [row[0] for row in crypto_cursor.fetchall()]
 
+        data = await get_most_shorted_stocks(con)
+        with open(f"json/most-shorted-stocks/data.json", 'w') as file:
+            ujson.dump(data, file)
 
+        
         data = await get_congress_rss_feed(symbols, etf_symbols, crypto_symbols)
         with open(f"json/congress-trading/rss-feed/data.json", 'w') as file:
             ujson.dump(data, file)
@@ -1152,7 +1227,7 @@ async def save_json_files():
         with open(f"json/stock-screener/data.json", 'w') as file:
             ujson.dump(stock_screener_data, file)
     
-    
+        
 
         con.close()
         etf_con.close()

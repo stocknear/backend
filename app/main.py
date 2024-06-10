@@ -2798,3 +2798,20 @@ async def get_all_politician():
         media_type="application/json",
         headers={"Content-Encoding": "gzip"}
     )
+
+
+@app.get("/most-shorted-stocks")
+async def get_most_shorted_stocks():
+    cache_key = f"most-shorted-stocks"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return ujson.loads(cached_result)
+    try:
+        with open(f"json/most-shorted-stocks/data.json", 'r') as file:
+            res = ujson.load(file)
+    except:
+        res = []
+
+    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
+    return res
