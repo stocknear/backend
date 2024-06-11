@@ -70,7 +70,7 @@ async def get_data(ticker, con):
         short_data = get_short_data(ticker, latest_outstanding_shares, latest_float_shares)
         res = {**short_data, 'latestOutstandingShares': latest_outstanding_shares, 'latestFloatShares': latest_float_shares,'historicalShares': historical_shares}
     except Exception as e:
-        #print(e)
+        print(e)
         res = {}
 
     return res
