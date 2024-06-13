@@ -22,7 +22,6 @@ query_template = f"""
         symbol = ?
 """
 
-
 def filter_data_quarterly(data):
     # Generate a range of quarter-end dates from the start to the end date
     start_date = data[0]['date']

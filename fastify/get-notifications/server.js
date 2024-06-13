@@ -11,7 +11,7 @@ module.exports = function (fastify, opts, done) {
 
     try {
         output = await pb.collection("notifications").getFullList({
-            filter: `opUser="${userId}"`,
+            filter: `opUser="${userId}" && readed = false`,
             expand: 'user,post,comment',
             sort: '-created'
         });
