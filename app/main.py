@@ -157,6 +157,11 @@ async def openapi(username: str = Depends(get_current_username)):
 class TickerData(BaseModel):
     ticker: str
 
+
+class HistoricalPrice(BaseModel):
+    ticker: str
+    timePeriod: str
+
 class AnalystId(BaseModel):
     analystId: str
 
@@ -320,10 +325,11 @@ async def rating_stock(data: TickerData):
     return res
 
 @app.post("/historical-price")
-async def get_stock(data: TickerData):
+async def get_stock(data: HistoricalPrice):
     ticker = data.ticker.upper()
+    time_period = data.timePeriod
 
-    cache_key = f"historical-price-{ticker}"
+    cache_key = f"historical-price-{ticker}-{time_period}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
         return StreamingResponse(
@@ -333,7 +339,7 @@ async def get_stock(data: TickerData):
         )
 
     try:
-        with open(f"json/historical-price/{ticker}.json", 'r') as file:
+        with open(f"json/historical-price/{time_period}/{ticker}.json", 'r') as file:
             res = ujson.load(file)
     except:
         res = []
@@ -349,6 +355,8 @@ async def get_stock(data: TickerData):
         headers={"Content-Encoding": "gzip"}
     )
     
+
+
 @app.post("/one-day-price")
 async def get_stock(data: TickerData):
     data = data.dict()

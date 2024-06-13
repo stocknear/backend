@@ -13,19 +13,6 @@ import os
 load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
 
-# Define a function to remove duplicates based on a key
-def remove_duplicates(data, key):
-    seen = set()
-    new_data = []
-    for item in data:
-        if item[key] not in seen:
-            seen.add(item[key])
-            new_data.append(item)
-    return new_data
-
-async def save_price_data(symbol, data):
-    async with aiofiles.open(f"json/historical-price/{symbol}.json", 'w') as file:
-        await file.write(ujson.dumps(data))
 
 async def fetch_and_save_symbols_data(symbols, etf_symbols, crypto_symbols, session):
     tasks = []
@@ -39,10 +26,9 @@ async def fetch_and_save_symbols_data(symbols, etf_symbols, crypto_symbols, sess
 
         task = asyncio.create_task(get_historical_data(symbol, query_con, session))
         tasks.append(task)
-    responses = await asyncio.gather(*tasks)
     
-    for symbol, response in zip(symbols, responses):
-        await save_price_data(symbol, response)
+    await asyncio.gather(*tasks)
+    
 
 async def get_historical_data(ticker, query_con, session):
     try:
@@ -70,23 +56,29 @@ async def get_historical_data(ticker, query_con, session):
             df_1y = pd.read_sql_query(query, query_con, params=(start_date_1y, end_date)).round(2).rename(columns={"date": "time"})
             df_max = pd.read_sql_query(query, query_con, params=(start_date_max, end_date)).round(2).rename(columns={"date": "time"})
 
-            res = {
-                '1W': ujson.loads(data[0]) if data else [],
-                '1M': ujson.loads(data[1]) if len(data) > 1 else [],
-                '6M': ujson.loads(df_6m.to_json(orient="records")),
-                '1Y': ujson.loads(df_1y.to_json(orient="records")),
-                'MAX': ujson.loads(df_max.to_json(orient="records"))
-            }
+
+            async with aiofiles.open(f"json/historical-price/one-week/{ticker}.json", 'w') as file:
+                res = ujson.loads(data[0]) if data else []
+                await file.write(ujson.dumps(res))
+
+            async with aiofiles.open(f"json/historical-price/one-month/{ticker}.json", 'w') as file:
+                res = ujson.loads(data[1]) if len(data) > 1 else []
+                await file.write(ujson.dumps(res))
+
+            async with aiofiles.open(f"json/historical-price/six-months/{ticker}.json", 'w') as file:
+                res = ujson.loads(df_6m.to_json(orient="records"))
+                await file.write(ujson.dumps(res))
+
+            async with aiofiles.open(f"json/historical-price/one-year/{ticker}.json", 'w') as file:
+                res = ujson.loads(df_1y.to_json(orient="records"))
+                await file.write(ujson.dumps(res))
+
+            async with aiofiles.open(f"json/historical-price/max/{ticker}.json", 'w') as file:
+                res = ujson.loads(df_max.to_json(orient="records"))
+                await file.write(ujson.dumps(res))
+
     except Exception as e:
         print(f"Failed to fetch data for {ticker}: {e}")
-        res = {
-            '1W': [],
-            '1M': [],
-            '6M': [],
-            '1Y': [],
-            'MAX': []
-        }
-    return res
 
 async def run():
     total_symbols = []
