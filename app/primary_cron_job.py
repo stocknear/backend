@@ -224,6 +224,21 @@ def run_one_day_price():
         command = ["sudo", "rsync", "-avz", "-e", "ssh", "/root/backend/app/json/one-day-price/", f"root@{useast_ip_address}:/root/backend/app/json/one-day-price/"]
         subprocess.run(command)
 
+def run_sec_filings():
+    week = datetime.today().weekday()
+    if week <= 4:
+        subprocess.run(["python3", "cron_sec_filings.py"])
+        command = ["sudo", "rsync", "-avz", "-e", "ssh", "/root/backend/app/json/sec-filings", f"root@{useast_ip_address}:/root/backend/app/json"]
+        subprocess.run(command)
+
+def run_executive():
+    week = datetime.today().weekday()
+    if week <= 4:
+        subprocess.run(["python3", "cron_executive.py"])
+        command = ["sudo", "rsync", "-avz", "-e", "ssh", "/root/backend/app/json/executives", f"root@{useast_ip_address}:/root/backend/app/json"]
+        subprocess.run(command)
+
+
 def run_options_bubble_ticker():
     week = datetime.today().weekday()
     if week <= 4:
@@ -283,6 +298,9 @@ schedule.every().day.at("08:00").do(run_threaded, run_cron_insider_trading).tag(
 schedule.every().day.at("09:00").do(run_threaded, run_congress_trading).tag('congress_job')
 schedule.every().day.at("10:00").do(run_threaded, run_shareholders).tag('shareholders_job')
 schedule.every().day.at("10:15").do(run_threaded, run_share_statistics).tag('share_statistics_job')
+schedule.every().day.at("10:30").do(run_threaded, run_sec_filings).tag('sec_filings_job')
+schedule.every().day.at("11:00").do(run_threaded, run_executive).tag('executive_job')
+
 
 schedule.every().day.at("13:30").do(run_threaded, run_stockdeck).tag('stockdeck_job')
 schedule.every().day.at("13:40").do(run_threaded, run_analyst_estimate).tag('analyst_estimate_job')
