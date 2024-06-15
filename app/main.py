@@ -2824,6 +2824,22 @@ async def get_most_shorted_stocks():
     redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
     return res
 
+@app.get("/most-retail-volume")
+async def get_most_retail_volume():
+    cache_key = f"most-retail-volume"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return ujson.loads(cached_result)
+    try:
+        with open(f"json/retail-volume/data.json", 'r') as file:
+            res = ujson.load(file)
+    except:
+        res = []
+
+    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
+    return res
+
 
 @app.post("/retail-volume")
 async def get_retail_volume(data:TickerData):

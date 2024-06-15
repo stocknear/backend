@@ -4,6 +4,8 @@ import aiohttp
 import sqlite3
 from datetime import datetime,timedelta
 from tqdm import tqdm
+import pandas as pd
+
 from dotenv import load_dotenv
 import os
 load_dotenv()
@@ -14,6 +16,14 @@ api_key = os.getenv('NASDAQ_API_KEY')
 today = datetime.now()
 # Calculate the date six months ago
 six_months_ago = today - timedelta(days=6*30)  # Rough estimate, can be refined
+query_template = """
+    SELECT 
+        name, marketCap, netIncome
+    FROM 
+        stocks 
+    WHERE
+        symbol = ?
+"""
 
 
 async def save_json(symbol, data):
@@ -59,8 +69,6 @@ async def run():
     etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
     etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
-    con.close()
-    etf_con.close()
 
     
     total_symbols = stocks_symbols+etf_symbols
@@ -86,8 +94,17 @@ async def run():
             try:
                 filtered_data = [item for item in transformed_data if symbol == item['symbol']]
                 res = filter_past_six_months(filtered_data)
-                most_retail_volume.append({'assetType': 'stocks' if res[-1]['symbol'] in stocks_symbols else 'etf','symbol': res[-1]['symbol'], 'traded': res[-1]['traded'], 'sentiment': res[-1]['sentiment']})
                 await save_json(symbol, res)
+
+                #Add stocks for most retail volume
+                if symbol in stocks_symbols:
+                    data = pd.read_sql_query(query_template, con, params=(symbol,))
+                    name = data['name'].iloc[0]
+                    net_income = int(data['netIncome'].iloc[0])
+                    market_cap = int(data['marketCap'].iloc[0])
+
+                    most_retail_volume.append({'symbol': res[-1]['symbol'], 'name': name, 'traded': res[-1]['traded'], 'sentiment': res[-1]['sentiment'], 'marketCap': market_cap, 'netIncome': net_income})
+
             except:
                 pass
 
@@ -95,6 +112,9 @@ async def run():
 
         with open(f"json/retail-volume/data.json", 'w') as file:
             ujson.dump(most_retail_volume, file)
+
+    con.close()
+    etf_con.close()
 
 try:
     asyncio.run(run())
