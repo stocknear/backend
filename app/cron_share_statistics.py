@@ -84,11 +84,18 @@ async def run():
     cursor.execute("SELECT DISTINCT symbol FROM stocks")
     stock_symbols = [row[0] for row in cursor.fetchall()]
     
+    counter = 0
+
     for ticker in tqdm(stock_symbols):
         data_dict = await get_data(ticker, con)
         if data_dict.keys():
             await save_as_json(ticker, data_dict)
-    
+
+        counter += 1
+        if counter % 100 == 0:
+            print(f"Processed {counter} tickers, waiting for 10 seconds...")
+            await asyncio.sleep(10)
+
     con.close()
 
 try:

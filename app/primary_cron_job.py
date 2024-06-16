@@ -99,6 +99,17 @@ def run_share_statistics():
         ]
         subprocess.run(command)
 
+def run_retail_volume():
+    week = datetime.today().weekday()
+    if week <= 5:
+        subprocess.run(["python3", "cron_retail_volume.py"])
+        command = [
+            "sudo", "rsync", "-avz", "-e", "ssh",
+            "/root/backend/app/json/retail-volume",
+            f"root@{useast_ip_address}:/root/backend/app/json"
+        ]
+        subprocess.run(command)
+
 def run_cron_market_movers():
     week = datetime.today().weekday()
     if week <= 4:
@@ -300,6 +311,7 @@ schedule.every().day.at("10:00").do(run_threaded, run_shareholders).tag('shareho
 schedule.every().day.at("10:15").do(run_threaded, run_share_statistics).tag('share_statistics_job')
 schedule.every().day.at("10:30").do(run_threaded, run_sec_filings).tag('sec_filings_job')
 schedule.every().day.at("11:00").do(run_threaded, run_executive).tag('executive_job')
+schedule.every().day.at("11:30").do(run_threaded, run_retail_volume).tag('retail_volume_job')
 
 
 schedule.every().day.at("13:30").do(run_threaded, run_stockdeck).tag('stockdeck_job')
