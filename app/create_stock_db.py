@@ -209,6 +209,7 @@ class StockDatabase:
                                         'price': parsed_data[0]['price'],
                                         'changesPercentage': round(parsed_data[0]['changesPercentage'],2),
                                         'marketCap': parsed_data[0]['marketCap'],
+                                        'volume': parsed_data[0]['volume'],
                                         'avgVolume': parsed_data[0]['avgVolume'],
                                         'eps': parsed_data[0]['eps'],
                                         'pe': parsed_data[0]['pe'],

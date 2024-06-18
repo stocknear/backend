@@ -2852,7 +2852,7 @@ async def get_retail_volume(data:TickerData):
         with open(f"json/retail-volume/companies/{ticker}.json", 'r') as file:
             res = ujson.load(file)
     except:
-        res = []
+        res = {}
 
     redis_client.set(cache_key, ujson.dumps(res))
     redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day

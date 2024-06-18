@@ -5,6 +5,7 @@ import sqlite3
 from datetime import datetime,timedelta
 from tqdm import tqdm
 import pandas as pd
+import time
 
 from dotenv import load_dotenv
 import os
@@ -18,7 +19,7 @@ today = datetime.now()
 six_months_ago = today - timedelta(days=6*30)  # Rough estimate, can be refined
 query_template = """
     SELECT 
-        name, marketCap, netIncome
+        name, marketCap, netIncome, price, avgVolume
     FROM 
         stocks 
     WHERE
@@ -94,7 +95,20 @@ async def run():
             try:
                 filtered_data = [item for item in transformed_data if symbol == item['symbol']]
                 res = filter_past_six_months(filtered_data)
-                await save_json(symbol, res)
+                
+                #Compute strength of retail investors
+                last_trade = res[-1]['traded']
+                last_sentiment = int(res[-1]['sentiment'])
+                last_date = res[-1]['date']
+                data = pd.read_sql_query(query_template, con, params=(symbol,))
+                price = float(data['price'].iloc[0])
+                retail_volume = int(last_trade/price)
+                total_volume = int(data['avgVolume'].iloc[0])
+                retailer_strength = round(((retail_volume/total_volume))*100,2)
+
+                company_data = {'lastDate': last_date, 'lastTrade': last_trade, 'lastSentiment': last_sentiment, 'retailStrength': retailer_strength, 'history': res}
+                
+                await save_json(symbol, company_data)
 
                 #Add stocks for most retail volume
                 if symbol in stocks_symbols:
