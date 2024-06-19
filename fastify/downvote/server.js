@@ -11,7 +11,7 @@ module.exports = function (fastify, opts, done) {
 
     let output = 'failure';
 
-
+        
     try {
     
         let doesUserExist = await pb.collection("alreadyVoted").getList(1, 50, {
@@ -26,7 +26,8 @@ module.exports = function (fastify, opts, done) {
     
         const opPost = await pb.collection('posts').getOne(postId)
     
-        console.log('currentVote: ', currentVote)
+        //console.log('currentVote: ', currentVote)
+
         /*
         console.log('postId: ', postId)
         console.log('votedId: ', votedId)
@@ -37,11 +38,11 @@ module.exports = function (fastify, opts, done) {
         //If user has no history with this post create it
         if( !currentVote || votedId === 'undefined')
         {   
-            console.log('created')
+        
             let formDataAlreadyVoted = new FormData();
             formDataAlreadyVoted.append('post', postId);
             formDataAlreadyVoted.append('user', userId);
-            formDataAlreadyVoted.append('notifyType', 'downvote');
+            formDataAlreadyVoted.append('type', 'downvote');
             await pb.collection('alreadyVoted').create(formDataAlreadyVoted);
             
         }
