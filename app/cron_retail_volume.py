@@ -19,7 +19,7 @@ today = datetime.now()
 six_months_ago = today - timedelta(days=6*30)  # Rough estimate, can be refined
 query_template = """
     SELECT 
-        name, marketCap, netIncome, price, avgVolume
+        name, marketCap, netIncome, price, volume
     FROM 
         stocks 
     WHERE
@@ -103,8 +103,9 @@ async def run():
                 data = pd.read_sql_query(query_template, con, params=(symbol,))
                 price = float(data['price'].iloc[0])
                 retail_volume = int(last_trade/price)
-                total_volume = int(data['avgVolume'].iloc[0])
+                total_volume = int(data['volume'].iloc[0])
                 retailer_strength = round(((retail_volume/total_volume))*100,2)
+                name = data['name'].iloc[0]
 
                 company_data = {'lastDate': last_date, 'lastTrade': last_trade, 'lastSentiment': last_sentiment, 'retailStrength': retailer_strength, 'history': res}
                 
@@ -112,16 +113,12 @@ async def run():
 
                 #Add stocks for most retail volume
                 if symbol in stocks_symbols:
-                    data = pd.read_sql_query(query_template, con, params=(symbol,))
-                    name = data['name'].iloc[0]
-                    net_income = int(data['netIncome'].iloc[0])
-                    market_cap = int(data['marketCap'].iloc[0])
-
-                    most_retail_volume.append({'symbol': res[-1]['symbol'], 'name': name, 'traded': res[-1]['traded'], 'sentiment': res[-1]['sentiment'], 'marketCap': market_cap, 'netIncome': net_income})
-
+                    most_retail_volume.append({'symbol': res[-1]['symbol'], 'name': name, 'traded': res[-1]['traded'], 'sentiment': res[-1]['sentiment'], 'retailStrength': retailer_strength})
             except:
                 pass
 
+        
+        most_retail_volume = [item for item in most_retail_volume if item['retailStrength'] <= 100]
         most_retail_volume = sorted(most_retail_volume, key=lambda x: x['traded'], reverse=True)[:100] # top 100 retail volume stocks
 
         with open(f"json/retail-volume/data.json", 'w') as file:
