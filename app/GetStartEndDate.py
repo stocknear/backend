@@ -26,9 +26,7 @@ class GetStartEndDate:
         return None
 
     def correct_1d_interval(self, holiday):
-        if holiday in ('independence_day', 'independence_day+1'):
-            start_date_1d = datetime(2023, 6, 18)
-        elif holiday in ('labor_day', 'labor_day+1'):
+        if holiday in ('labor_day', 'labor_day+1'):
             start_date_1d = datetime(2023, 9, 1)
         elif holiday == 'thanks_giving':
             start_date_1d = datetime(2023, 11, 22)
@@ -40,6 +38,8 @@ class GetStartEndDate:
             start_date_1d = datetime(2024, 2, 16)
         elif holiday == 'memorial_day':
             start_date_1d = datetime(2024, 5, 24)
+        elif holiday in ('independence_day', 'independence_day+1'):
+            start_date_1d = datetime(2024, 6, 18)
         else:
             current_time_new_york = datetime.now(self.new_york_tz)
             current_weekday = current_time_new_york.weekday()
@@ -61,7 +61,6 @@ class GetStartEndDate:
         is_afternoon = current_time_new_york.hour > 9 or (current_time_new_york.hour == 9 and current_time_new_york.minute >= 30)
         if holiday:
             holiday_dates = {
-                'independence_day': datetime(2023, 6, 18),
                 'labor_day': datetime(2023, 9, 1),
                 'labor_day+1': datetime(2023, 9, 1),
                 'thanks_giving': datetime(2023, 11, 22),
@@ -70,6 +69,7 @@ class GetStartEndDate:
                 'martin_luther_king': datetime(2024, 1, 12),
                 'washington_birthday': datetime(2024, 2, 16),
                 'memorial_day': datetime(2024, 5, 24),
+                'independence_day': datetime(2024, 6, 18),
             }
 
             if holiday in holiday_dates:
