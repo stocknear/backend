@@ -2857,3 +2857,20 @@ async def get_retail_volume(data:TickerData):
     redis_client.set(cache_key, ujson.dumps(res))
     redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
     return res
+
+@app.post("/dark-pool")
+async def get_dark_pool(data:TickerData):
+    ticker = data.ticker.upper()
+    cache_key = f"dark-pool-{ticker}"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return ujson.loads(cached_result)
+    try:
+        with open(f"json/dark-pool/companies/{ticker}.json", 'r') as file:
+            res = ujson.load(file)
+    except:
+        res = []
+
+    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
+    return res

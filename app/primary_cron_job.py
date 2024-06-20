@@ -294,6 +294,17 @@ def run_restart_cache():
         subprocess.run(["pm2", "restart","fastify"])
         #subprocess.run(["python3", "cache_endpoints.py"])
 
+def run_dark_pool():
+    week = datetime.today().weekday()
+    if week <= 5:
+        subprocess.run(["python3", "cron_dark_pool.py"])
+        command = [
+            "sudo", "rsync", "-avz", "-e", "ssh",
+            "/root/backend/app/json/dark-pool",
+            f"root@{useast_ip_address}:/root/backend/app/json"
+        ]
+        subprocess.run(command)
+
 # Create functions to run each schedule in a separate thread
 def run_threaded(job_func):
     job_thread = threading.Thread(target=job_func)
@@ -303,6 +314,7 @@ def run_threaded(job_func):
 
 schedule.every().day.at("01:00").do(run_threaded, run_options_bubble_ticker).tag('options_ticker_job')
 schedule.every().day.at("02:00").do(run_threaded, run_db_schedule_job)
+schedule.every().day.at("03:00").do(run_threaded, run_dark_pool)
 schedule.every().day.at("06:00").do(run_threaded, run_historical_price).tag('historical_job')
 schedule.every().day.at("07:00").do(run_threaded, run_ta_rating).tag('ta_rating_job')
 schedule.every().day.at("08:00").do(run_threaded, run_cron_insider_trading).tag('insider_trading_job')
