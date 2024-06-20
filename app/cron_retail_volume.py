@@ -17,11 +17,21 @@ api_key = os.getenv('NASDAQ_API_KEY')
 today = datetime.now()
 # Calculate the date six months ago
 six_months_ago = today - timedelta(days=6*30)  # Rough estimate, can be refined
-query_template = """
+
+query_stock_template = """
     SELECT 
-        name, marketCap, netIncome, price, volume
+        name, price, volume
     FROM 
         stocks 
+    WHERE
+        symbol = ?
+"""
+
+query_etf_template = """
+    SELECT 
+        name, price, volume
+    FROM 
+        etfs 
     WHERE
         symbol = ?
 """
@@ -95,12 +105,13 @@ async def run():
             try:
                 filtered_data = [item for item in transformed_data if symbol == item['symbol']]
                 res = filter_past_six_months(filtered_data)
-                
+                query_template = query_stocks_template if symbol in stocks_symbols else query_etf_template
+                connection = con if symbol in stocks_symbols else etf_con
                 #Compute strength of retail investors
                 last_trade = res[-1]['traded']
                 last_sentiment = int(res[-1]['sentiment'])
                 last_date = res[-1]['date']
-                data = pd.read_sql_query(query_template, con, params=(symbol,))
+                data = pd.read_sql_query(query_template, connection, params=(symbol,))
                 price = float(data['price'].iloc[0])
                 retail_volume = int(last_trade/price)
                 total_volume = int(data['volume'].iloc[0])
