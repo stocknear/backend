@@ -28,7 +28,6 @@ async def get_todays_data(ticker):
 
     start_date_1d, end_date_1d = GetStartEndDate().run()
 
-    print(start_date_1d, end_date_1d)
     url = f"https://financialmodelingprep.com/api/v3/historical-chart/1min/{ticker}?from={start_date_1d}&to={end_date_1d}&apikey={api_key}"
 
     df_1d = pd.DataFrame()

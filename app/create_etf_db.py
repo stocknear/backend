@@ -220,6 +220,8 @@ class ETFDatabase:
                                         'price': parsed_data[0]['price'],
                                         'changesPercentage': round(parsed_data[0]['changesPercentage'],2),
                                         'marketCap': parsed_data[0]['marketCap'],
+                                        'volume': parsed_data[0]['volume'],
+                                        'avgVolume': parsed_data[0]['avgVolume'],
                                         'eps': round(parsed_data[0]['eps'],2),
                                         'pe': round(parsed_data[0]['pe'],2),
                                         'previousClose': parsed_data[0]['previousClose'],
