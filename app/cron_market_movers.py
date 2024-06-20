@@ -6,6 +6,8 @@ import asyncio
 import aiohttp
 import pytz
 
+from GetStartEndDate import GetStartEndDate
+
 #Update Market Movers Price, ChangesPercentage, Volume and MarketCap regularly
 berlin_tz = pytz.timezone('Europe/Berlin')
 
@@ -14,118 +16,24 @@ import os
 load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
 
-def check_if_holiday():
-    hol1_date = datetime(2023, 5, 29)
-    hol2_date = datetime(2023, 6, 19)
-    hol2_next_day_date = datetime(2023,6,20)
-    hol3_date = datetime(2023,9,4)
-    hol3_next_day_date = datetime(2023,9,5)
-    hol4_date = datetime(2023,11,23)
-    hol5_date = datetime(2023,12,25)
-    hol6_date = datetime(2024,1,1)
-    hol7_date = datetime(2024,1,15)
-    hol8_date = datetime(2024,2,19)
 
-    current_datetime = datetime.now(berlin_tz)
-    if current_datetime.year == hol1_date.year and current_datetime.month == hol1_date.month and current_datetime.day == hol1_date.day:
-        holiday = 'memorial_day'
-    elif current_datetime.year == hol2_date.year and current_datetime.month == hol2_date.month and current_datetime.day == hol2_date.day:
-        holiday = 'independence_day'
-    elif current_datetime.year == hol2_next_day_date.year and current_datetime.month == hol2_next_day_date.month and current_datetime.day == hol2_next_day_date.day:
-        holiday = 'independence_day+1'
-    elif current_datetime.year == hol3_date.year and current_datetime.month == hol3_date.month and current_datetime.day == hol3_date.day:
-        holiday = 'labor_day'
-    elif current_datetime.year == hol3_next_day_date.year and current_datetime.month == hol3_next_day_date.month and current_datetime.day == hol3_next_day_date.day:
-        holiday = 'labor_day+1'
-    elif current_datetime.year == hol4_date.year and current_datetime.month == hol4_date.month and current_datetime.day == hol4_date.day:
-        holiday = 'thanks_giving'
-    elif current_datetime.year == hol5_date.year and current_datetime.month == hol5_date.month and current_datetime.day == hol5_date.day:
-        holiday = 'christmas'
-    elif current_datetime.year == hol6_date.year and current_datetime.month == hol6_date.month and current_datetime.day == hol6_date.day:
-        holiday = 'new_year'
-    elif current_datetime.year == hol7_date.year and current_datetime.month == hol7_date.month and current_datetime.day == hol7_date.day:
-        holiday = 'martin_luther_king'
-    elif current_datetime.year == hol8_date.year and current_datetime.month == hol8_date.month and current_datetime.day == hol8_date.day:
-        holiday = 'washington_birthday'
-    else:
-        holiday = None 
-    return holiday
 
-holiday = check_if_holiday()
-holiday_dates = {
-    'memorial_day': datetime(2023, 5, 26),
-    'independence_day': datetime(2023, 6, 16),
-    'independence_day+1': datetime(2023, 6, 16),
-    'labor_day': datetime(2023, 9, 1),
-    'labor_day+1': datetime(2023, 9, 1),
-    'thanks_giving': datetime(2023, 11, 22),
-    'christmas': datetime(2023, 12, 22),
-    'new_year': datetime(2023, 12, 29),
-    'martin_luther_king': datetime(2024, 1, 12),
-    'washington_birthday': datetime(2024,2,16)
-}
 
-def correct_1d_interval():
-
-    if holiday == 'memorial_day':
-        start_date_1d = datetime(2023,5,26)
-    elif holiday == 'independence_day' or holiday == 'independence_day+1':
-        start_date_1d = datetime(2023, 6, 16)
-    elif holiday == 'labor_day' or holiday == 'labor_day+1':
-        start_date_1d = datetime(2023, 9, 1)
-    elif holiday == 'thanks_giving':
-        start_date_1d = datetime(2023, 11, 22)
-    elif holiday == 'new_year':
-        start_date_1d = datetime(2023, 12, 29)
-    elif holiday == 'martin_luther_king':
-        start_date_1d = datetime(2023, 1, 12)
-    elif holiday == 'washington_birthday':
-        start_date_1d = datetime(2024, 2, 16)
-    else:
-        current_time_berlin = datetime.now(berlin_tz)
-
-        # Get the current weekday (Monday is 0 and Sunday is 6)
-        current_weekday = current_time_berlin.weekday()
-        is_afternoon = current_time_berlin.hour > 15 or (current_time_berlin.hour == 15 and current_time_berlin.minute >= 30)
-
-        if current_weekday == 0:
-                # It's Monday and before 15:30 PM
-            start_date_1d = current_time_berlin if is_afternoon else current_time_berlin - timedelta(days=3)
-        elif current_weekday in (5, 6):  # Saturday or Sunday
-            start_date_1d = current_time_berlin - timedelta(days=current_weekday % 5 + 1)
-        else:
-            start_date_1d = current_time_berlin if is_afternoon else current_time_berlin - timedelta(days=1)
-
-    return start_date_1d
 
 async def get_todays_data(ticker):
 
-    end_date = datetime.now(berlin_tz)
-    current_weekday = end_date.weekday()
+    current_weekday = datetime.today().weekday()
     current_time_berlin = datetime.now(berlin_tz)
     is_afternoon = current_time_berlin.hour > 15 or (current_time_berlin.hour == 15 and current_time_berlin.minute >= 30)
 
-    start_date_1d = correct_1d_interval()
-    if holiday in holiday_dates:
-        if holiday in ['independence_day+1', 'labor_day+1', 'christmas_day+1'] and not is_afternoon:
-            end_date_1d = holiday_dates[holiday]
-        else:
-            end_date_1d = holiday_dates[holiday]
-    elif current_weekday == 0:
-        # It's Monday and before 15:30 PM
-        end_date_1d = current_time_berlin if is_afternoon else current_time_berlin - timedelta(days=3)
-    else:
-        end_date_1d = end_date
+    start_date_1d, end_date_1d = GetStartEndDate().run()
 
-    start_date_1d = start_date_1d.strftime("%Y-%m-%d")
-    end_date_1d = end_date_1d.strftime("%Y-%m-%d")
-
-
+    print(start_date_1d, end_date_1d)
     url = f"https://financialmodelingprep.com/api/v3/historical-chart/1min/{ticker}?from={start_date_1d}&to={end_date_1d}&apikey={api_key}"
 
     df_1d = pd.DataFrame()
 
-    current_date = correct_1d_interval()
+    current_date = start_date_1d
     target_time = time(15,30)
     extract_date = current_date.strftime('%Y-%m-%d')
 
@@ -319,7 +227,6 @@ async def get_historical_data():
     for quote in latest_quote:
         ticker = quote['symbol']
         df = await get_todays_data(ticker)
-
         res_list.append({'symbol': ticker, 'priceData': df, 'changesPercentage': round(quote['changesPercentage'],2), 'previousClose': round(quote['previousClose'],2)})
 
     return res_list
@@ -329,7 +236,7 @@ try:
     con = sqlite3.connect('stocks.db')
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
-    cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol != ?", ('%5EGSPC',))
+    cursor.execute("SELECT DISTINCT symbol FROM stocks")
     symbols = [row[0] for row in cursor.fetchall()]
 
     data = asyncio.run(get_historical_data())
