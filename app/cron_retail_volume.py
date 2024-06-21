@@ -105,8 +105,9 @@ async def run():
             try:
                 filtered_data = [item for item in transformed_data if symbol == item['symbol']]
                 res = filter_past_six_months(filtered_data)
-                query_template = query_stocks_template if symbol in stocks_symbols else query_etf_template
+                query_template = query_stock_template if symbol in stocks_symbols else query_etf_template
                 connection = con if symbol in stocks_symbols else etf_con
+
                 #Compute strength of retail investors
                 last_trade = res[-1]['traded']
                 last_sentiment = int(res[-1]['sentiment'])
@@ -119,19 +120,17 @@ async def run():
                 name = data['name'].iloc[0]
 
                 company_data = {'lastDate': last_date, 'lastTrade': last_trade, 'lastSentiment': last_sentiment, 'retailStrength': retailer_strength, 'history': res}
-                
                 await save_json(symbol, company_data)
 
                 #Add stocks for most retail volume
                 if symbol in stocks_symbols:
                     most_retail_volume.append({'symbol': res[-1]['symbol'], 'name': name, 'traded': res[-1]['traded'], 'sentiment': res[-1]['sentiment'], 'retailStrength': retailer_strength})
-            except:
-                pass
+            except Exception as e:
+                print(e)
 
         
         most_retail_volume = [item for item in most_retail_volume if item['retailStrength'] <= 100]
         most_retail_volume = sorted(most_retail_volume, key=lambda x: x['traded'], reverse=True)[:100] # top 100 retail volume stocks
-
         with open(f"json/retail-volume/data.json", 'w') as file:
             ujson.dump(most_retail_volume, file)
 
