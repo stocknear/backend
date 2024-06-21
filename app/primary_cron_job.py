@@ -33,6 +33,10 @@ def run_json_job():
     subprocess.run(["python3", "restart_json.py"])
     subprocess.run(["pm2", "restart","fastapi"])
 
+def run_pocketbase():
+    # Run the asynchronous function inside an asyncio loop
+    subprocess.run(["python3", "cron_pocketbase.py"])
+
 def run_cron_insider_trading():
     week = datetime.today().weekday()
     if week <= 5:
@@ -316,6 +320,8 @@ schedule.every().day.at("01:00").do(run_threaded, run_options_bubble_ticker).tag
 schedule.every().day.at("02:00").do(run_threaded, run_db_schedule_job)
 schedule.every().day.at("03:00").do(run_threaded, run_dark_pool)
 schedule.every().day.at("06:00").do(run_threaded, run_historical_price).tag('historical_job')
+schedule.every().day.at("06:30").do(run_threaded, run_pocketbase).tag('pocketbase_job')
+
 schedule.every().day.at("07:00").do(run_threaded, run_ta_rating).tag('ta_rating_job')
 schedule.every().day.at("08:00").do(run_threaded, run_cron_insider_trading).tag('insider_trading_job')
 schedule.every().day.at("09:00").do(run_threaded, run_congress_trading).tag('congress_job')
