@@ -309,6 +309,17 @@ def run_dark_pool():
         ]
         subprocess.run(command)
 
+def run_market_maker():
+    week = datetime.today().weekday()
+    if week <= 5:
+        subprocess.run(["python3", "cron_market_maker.py"])
+        command = [
+            "sudo", "rsync", "-avz", "-e", "ssh",
+            "/root/backend/app/json/market-maker",
+            f"root@{useast_ip_address}:/root/backend/app/json"
+        ]
+        subprocess.run(command)
+
 # Create functions to run each schedule in a separate thread
 def run_threaded(job_func):
     job_thread = threading.Thread(target=job_func)
@@ -339,6 +350,9 @@ schedule.every().day.at("14:00").do(run_threaded, run_cron_var).tag('var_job')
 
 
 schedule.every().day.at("15:45").do(run_threaded, run_restart_cache)
+
+schedule.every().saturday.at("01:00").do(run_threaded, run_market_maker).tag('markt_maker_job')
+
 schedule.every(1).minutes.do(run_threaded, run_cron_portfolio).tag('portfolio_job')
 schedule.every(5).minutes.do(run_threaded, run_cron_market_movers).tag('market_movers_job')
 
