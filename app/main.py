@@ -1349,9 +1349,20 @@ async def get_fair_price(data: TickerData):
 
     try:
         with open(f"json/shareholders/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+            shareholder_list = ujson.load(file)
     except:
-        res = []
+        shareholder_list = []
+
+    try:
+        with open(f"json/ownership-stats/{ticker}.json", 'r') as file:
+            stats = ujson.load(file)
+    except:
+        stats = {}
+
+    try:
+        res = {**stats, 'shareholders': shareholder_list}
+    except:
+        res = {}
 
     redis_client.set(cache_key, ujson.dumps(res))
     redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
