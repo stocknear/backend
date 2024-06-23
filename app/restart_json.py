@@ -19,6 +19,7 @@ from collections import Counter
 import re
 import hashlib
 import glob
+from tqdm import tqdm
 
 from dotenv import load_dotenv
 import os
@@ -59,6 +60,7 @@ async def get_stock_screener(con,symbols):
     cursor.execute("PRAGMA journal_mode = wal")
    
     #Stock Screener Data
+    
     cursor.execute("SELECT symbol, name, avgVolume, change_1W, change_1M, change_3M, change_6M, change_1Y, change_3Y, sma_50, sma_200, ema_50, ema_200, rsi, atr, stoch_rsi, mfi, cci, priceToSalesRatio, priceToBookRatio, eps, pe, ESGScore, marketCap, revenue, netIncome, grossProfit, costOfRevenue, costAndExpenses, interestIncome, interestExpense, researchAndDevelopmentExpenses, ebitda, operatingExpenses, operatingIncome, growthRevenue, growthNetIncome, growthGrossProfit, growthCostOfRevenue, growthCostAndExpenses, growthInterestExpense, growthResearchAndDevelopmentExpenses, growthEBITDA, growthEPS, growthOperatingExpenses, growthOperatingIncome, beta FROM stocks WHERE eps IS NOT NULL AND revenue IS NOT NULL AND marketCap IS NOT NULL AND beta IS NOT NULL")
     raw_data = cursor.fetchall()
     stock_screener_data = [{
@@ -109,7 +111,7 @@ async def get_stock_screener(con,symbols):
             'growthOperatingExpenses': growthOperatingExpenses,
             'growthOperatingIncome': growthOperatingIncome,
             'beta': beta,
-        } for (symbol, name, avgVolume, change_1W, change_1M, change_3M, change_6M, change_1Y, change_3Y, sma_50, sma_200, ema_50, ema_200, rsi, atr, stoch_rsi, mfi, cci, priceToSalesRatio, priceToBookRatio, eps, pe, ESGScore, marketCap, revenue, netIncome, grossProfit,costOfRevenue, costAndExpenses, interestIncome, interestExpense, researchAndDevelopmentExpenses, ebitda, operatingExpenses, operatingIncome, growthRevenue, growthNetIncome, growthGrossProfit, growthCostOfRevenue, growthCostAndExpenses, growthInterestExpense, growthResearchAndDevelopmentExpenses, growthEBITDA, growthEPS, growthOperatingExpenses, growthOperatingIncome, beta) in raw_data if name != 'SP 500']
+        } for (symbol, name, avgVolume, change_1W, change_1M, change_3M, change_6M, change_1Y, change_3Y, sma_50, sma_200, ema_50, ema_200, rsi, atr, stoch_rsi, mfi, cci, priceToSalesRatio, priceToBookRatio, eps, pe, ESGScore, marketCap, revenue, netIncome, grossProfit,costOfRevenue, costAndExpenses, interestIncome, interestExpense, researchAndDevelopmentExpenses, ebitda, operatingExpenses, operatingIncome, growthRevenue, growthNetIncome, growthGrossProfit, growthCostOfRevenue, growthCostAndExpenses, growthInterestExpense, growthResearchAndDevelopmentExpenses, growthEBITDA, growthEPS, growthOperatingExpenses, growthOperatingIncome, beta) in raw_data]
 
     stock_screener_data = [{k: round(v, 2) if isinstance(v, (int, float)) else v for k, v in entry.items()} for entry in stock_screener_data]
 
@@ -125,13 +127,15 @@ async def get_stock_screener(con,symbols):
 
     # Create a dictionary to map symbols to 'price' and 'changesPercentage' from stocks_data
     stocks_data_map = {entry['symbol']: (entry['price'], entry['changesPercentage']) for entry in stocks_data}
+    
 
     # Iterate through stock_screener_data and update 'price' and 'changesPercentage' if symbols match
     # Add VaR value to stock screener
-    for item in stock_screener_data:
+    for item in tqdm(stock_screener_data):
         symbol = item['symbol']
         if symbol in stocks_data_map:
             item['price'], item['changesPercentage'] = stocks_data_map[symbol]
+        
         try:
             with open(f"json/var/{symbol}.json", 'r') as file:
                 item['var'] = ujson.load(file)['var']
@@ -151,6 +155,27 @@ async def get_stock_screener(con,symbols):
                     item['ratingRecommendation'] = None
         except:
             item['ratingRecommendation'] = None
+        
+
+        try:
+            with open(f"json/trend-analysis/{symbol}.json", 'r') as file:
+                res = ujson.load(file)[-1]
+                if abs(res['accuracy'] - res['precision']) <=15:
+                    item['trendAnalysis'] = {"accuracy": res['accuracy'], 'sentiment': res['sentiment']}
+                else:
+                    item['trendAnalysis'] = {"accuracy": None, "sentiment": None}
+        except:
+            item['trendAnalysis'] = {"accuracy": None, "sentiment": None}
+
+        try:
+            with open(f"json/fundamental-predictor-analysis/{symbol}.json", 'r') as file:
+                res = ujson.load(file)
+                if abs(res['accuracy'] - res['precision']) <=15:
+                    item['fundamentalAnalysis'] = {"accuracy": res['accuracy'], 'sentiment': res['sentiment']}
+                else:
+                    item['fundamentalAnalysis'] = {"accuracy": None, "sentiment": None}
+        except:
+            item['fundamentalAnalysis'] = {"accuracy": None, "sentiment": None}
 
 
     return stock_screener_data
@@ -1125,113 +1150,112 @@ async def get_most_shorted_stocks(con):
     return sorted_list
 
 async def save_json_files():
-    week = datetime.today().weekday()
-    if week <= 7:
-        con = sqlite3.connect('stocks.db')
-        etf_con = sqlite3.connect('etf.db')
-        crypto_con = sqlite3.connect('crypto.db')
+    con = sqlite3.connect('stocks.db')
+    etf_con = sqlite3.connect('etf.db')
+    crypto_con = sqlite3.connect('crypto.db')
 
-        cursor = con.cursor()
-        cursor.execute("PRAGMA journal_mode = wal")
-        cursor.execute("SELECT DISTINCT symbol FROM stocks")
-        symbols = [row[0] for row in cursor.fetchall()]
+    cursor = con.cursor()
+    cursor.execute("PRAGMA journal_mode = wal")
+    cursor.execute("SELECT DISTINCT symbol FROM stocks")
+    symbols = [row[0] for row in cursor.fetchall()]
 
-        etf_cursor = etf_con.cursor()
-        etf_cursor.execute("PRAGMA journal_mode = wal")
-        etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
-        etf_symbols = [row[0] for row in etf_cursor.fetchall()]
+    etf_cursor = etf_con.cursor()
+    etf_cursor.execute("PRAGMA journal_mode = wal")
+    etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
+    etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
-        crypto_cursor = crypto_con.cursor()
-        crypto_cursor.execute("PRAGMA journal_mode = wal")
-        crypto_cursor.execute("SELECT DISTINCT symbol FROM cryptos")
-        crypto_symbols = [row[0] for row in crypto_cursor.fetchall()]
+    crypto_cursor = crypto_con.cursor()
+    crypto_cursor.execute("PRAGMA journal_mode = wal")
+    crypto_cursor.execute("SELECT DISTINCT symbol FROM cryptos")
+    crypto_symbols = [row[0] for row in crypto_cursor.fetchall()]
 
-        data = await get_most_shorted_stocks(con)
-        with open(f"json/most-shorted-stocks/data.json", 'w') as file:
-            ujson.dump(data, file)
 
-        
-        data = await get_congress_rss_feed(symbols, etf_symbols, crypto_symbols)
-        with open(f"json/congress-trading/rss-feed/data.json", 'w') as file:
-            ujson.dump(data, file)
+    data = await get_most_shorted_stocks(con)
+    with open(f"json/most-shorted-stocks/data.json", 'w') as file:
+        ujson.dump(data, file)
 
-        
-        data = await get_magnificent_seven(con)
-        with open(f"json/magnificent-seven/data.json", 'w') as file:
-            ujson.dump(data, file)
-
-        earnings_list = await get_earnings_calendar(con,symbols)
-        with open(f"json/earnings-calendar/calendar.json", 'w') as file:
-            ujson.dump(earnings_list, file)
-        
-        data = await get_ipo_calendar(con, symbols)
-        with open(f"json/ipo-calendar/data.json", 'w') as file:
-            ujson.dump(data, file)
-
-        data = await get_all_stock_tickers(con)
-        with open(f"json/all-symbols/stocks.json", 'w') as file:
-            ujson.dump(data, file)
-
-        data = await get_all_etf_tickers(etf_con)
-        with open(f"json/all-symbols/etfs.json", 'w') as file:
-            ujson.dump(data, file)
-
-        data = await get_all_crypto_tickers(crypto_con)
-        with open(f"json/all-symbols/cryptos.json", 'w') as file:
-            ujson.dump(data, file)
-
-        
-        data = await etf_bitcoin_list(etf_con, etf_symbols)
-        with open(f"json/etf-bitcoin-list/data.json", 'w') as file:
-            ujson.dump(data, file)
-        
-        data = await etf_providers(etf_con, etf_symbols)
-        with open(f"json/all-etf-providers/data.json", 'w') as file:
-            ujson.dump(data, file)
-
-        data = await ticker_mentioning(con)
-        with open(f"json/ticker-mentioning/data.json", 'w') as file:
-            ujson.dump(data, file)
-
-        delisted_data = await get_delisted_list()
-        with open(f"json/delisted-companies/data.json", 'w') as file:
-            ujson.dump(delisted_data, file)
-
-        economic_list = await get_economic_calendar()
-        with open(f"json/economic-calendar/calendar.json", 'w') as file:
-            ujson.dump(economic_list, file)
-
-        dividends_list = await get_dividends_calendar(con,symbols)
-        with open(f"json/dividends-calendar/calendar.json", 'w') as file:
-            ujson.dump(dividends_list, file)
-                
-        stock_splits_data = await get_stock_splits_calendar(con,symbols)
-        with open(f"json/stock-splits-calendar/calendar.json", 'w') as file:
-            ujson.dump(stock_splits_data, file)
-
-        #Stocks Lists
-        data = await get_index_list(con,symbols,'nasdaq_constituent')
-        with open(f"json/stocks-list/nasdaq_constituent.json", 'w') as file:
-            ujson.dump(data, file)
-
-        data = await get_index_list(con,symbols,'dowjones_constituent')
-        with open(f"json/stocks-list/dowjones_constituent.json", 'w') as file:
-            ujson.dump(data, file)
-
-        data = await get_index_list(con,symbols,'sp500_constituent')
-        with open(f"json/stocks-list/sp500_constituent.json", 'w') as file:
-            ujson.dump(data, file)
-        
-
-        stock_screener_data = await get_stock_screener(con,symbols)
-        with open(f"json/stock-screener/data.json", 'w') as file:
-            ujson.dump(stock_screener_data, file)
     
-        
+    data = await get_congress_rss_feed(symbols, etf_symbols, crypto_symbols)
+    with open(f"json/congress-trading/rss-feed/data.json", 'w') as file:
+        ujson.dump(data, file)
 
-        con.close()
-        etf_con.close()
-        crypto_con.close()
+    
+    data = await get_magnificent_seven(con)
+    with open(f"json/magnificent-seven/data.json", 'w') as file:
+        ujson.dump(data, file)
+
+    earnings_list = await get_earnings_calendar(con,symbols)
+    with open(f"json/earnings-calendar/calendar.json", 'w') as file:
+        ujson.dump(earnings_list, file)
+    
+    data = await get_ipo_calendar(con, symbols)
+    with open(f"json/ipo-calendar/data.json", 'w') as file:
+        ujson.dump(data, file)
+
+    data = await get_all_stock_tickers(con)
+    with open(f"json/all-symbols/stocks.json", 'w') as file:
+        ujson.dump(data, file)
+
+    data = await get_all_etf_tickers(etf_con)
+    with open(f"json/all-symbols/etfs.json", 'w') as file:
+        ujson.dump(data, file)
+
+    data = await get_all_crypto_tickers(crypto_con)
+    with open(f"json/all-symbols/cryptos.json", 'w') as file:
+        ujson.dump(data, file)
+
+    
+    data = await etf_bitcoin_list(etf_con, etf_symbols)
+    with open(f"json/etf-bitcoin-list/data.json", 'w') as file:
+        ujson.dump(data, file)
+    
+    data = await etf_providers(etf_con, etf_symbols)
+    with open(f"json/all-etf-providers/data.json", 'w') as file:
+        ujson.dump(data, file)
+
+    data = await ticker_mentioning(con)
+    with open(f"json/ticker-mentioning/data.json", 'w') as file:
+        ujson.dump(data, file)
+
+    delisted_data = await get_delisted_list()
+    with open(f"json/delisted-companies/data.json", 'w') as file:
+        ujson.dump(delisted_data, file)
+
+    economic_list = await get_economic_calendar()
+    with open(f"json/economic-calendar/calendar.json", 'w') as file:
+        ujson.dump(economic_list, file)
+
+    dividends_list = await get_dividends_calendar(con,symbols)
+    with open(f"json/dividends-calendar/calendar.json", 'w') as file:
+        ujson.dump(dividends_list, file)
+            
+    stock_splits_data = await get_stock_splits_calendar(con,symbols)
+    with open(f"json/stock-splits-calendar/calendar.json", 'w') as file:
+        ujson.dump(stock_splits_data, file)
+
+    #Stocks Lists
+    data = await get_index_list(con,symbols,'nasdaq_constituent')
+    with open(f"json/stocks-list/nasdaq_constituent.json", 'w') as file:
+        ujson.dump(data, file)
+
+    data = await get_index_list(con,symbols,'dowjones_constituent')
+    with open(f"json/stocks-list/dowjones_constituent.json", 'w') as file:
+        ujson.dump(data, file)
+
+    data = await get_index_list(con,symbols,'sp500_constituent')
+    with open(f"json/stocks-list/sp500_constituent.json", 'w') as file:
+        ujson.dump(data, file)
+    
+ 
+    stock_screener_data = await get_stock_screener(con,symbols)
+    with open(f"json/stock-screener/data.json", 'w') as file:
+        ujson.dump(stock_screener_data, file)
+
+    
+
+    con.close()
+    etf_con.close()
+    crypto_con.close()
     
         
 try:
