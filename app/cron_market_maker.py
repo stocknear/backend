@@ -108,7 +108,7 @@ async def run():
     con.close()
     etf_con.close()
 
-    total_symbols = stocks_symbols #+ etf_symbols
+    total_symbols = stocks_symbols + etf_symbols
 
     async with aiohttp.ClientSession() as session:
         tasks = []
