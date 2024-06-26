@@ -331,6 +331,17 @@ def run_ownership_stats():
         ]
         subprocess.run(command)
 
+def run_clinical_trial():
+    week = datetime.today().weekday()
+    if week <= 5:
+        subprocess.run(["python3", "cron_clinical_trial.py"])
+        command = [
+            "sudo", "rsync", "-avz", "-e", "ssh",
+            "/root/backend/app/json/clinical-trial",
+            f"root@{useast_ip_address}:/root/backend/app/json"
+        ]
+        subprocess.run(command)
+
 # Create functions to run each schedule in a separate thread
 def run_threaded(job_func):
     job_thread = threading.Thread(target=job_func)
@@ -352,6 +363,7 @@ schedule.every().day.at("10:15").do(run_threaded, run_share_statistics).tag('sha
 schedule.every().day.at("10:30").do(run_threaded, run_sec_filings).tag('sec_filings_job')
 schedule.every().day.at("11:00").do(run_threaded, run_executive).tag('executive_job')
 schedule.every().day.at("11:30").do(run_threaded, run_retail_volume).tag('retail_volume_job')
+schedule.every().day.at("11:45").do(run_threaded, run_clinical_trial).tag('clinical_trial_job')
 
 
 schedule.every().day.at("13:30").do(run_threaded, run_stockdeck).tag('stockdeck_job')

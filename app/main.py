@@ -2902,3 +2902,33 @@ async def get_market_maker(data:TickerData):
     redis_client.set(cache_key, ujson.dumps(res))
     redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
     return res
+
+@app.post("/clinical-trial")
+async def get_clinical_trial(data:TickerData):
+    ticker = data.ticker.upper()
+    cache_key = f"clinical-trial-{ticker}"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
+
+    try:
+        with open(f"json/clinical-trial/companies/{ticker}.json", 'r') as file:
+            res = ujson.load(file)
+    except:
+        res = []
+
+    data = ujson.dumps(res).encode('utf-8')
+    compressed_data = gzip.compress(data)
+
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
