@@ -342,6 +342,17 @@ def run_clinical_trial():
         ]
         subprocess.run(command)
 
+def run_fda_calendar():
+    week = datetime.today().weekday()
+    if week <= 5:
+        subprocess.run(["python3", "cron_fda_calendar.py"])
+        command = [
+            "sudo", "rsync", "-avz", "-e", "ssh",
+            "/root/backend/app/json/fda-calendar",
+            f"root@{useast_ip_address}:/root/backend/app/json"
+        ]
+        subprocess.run(command)
+
 # Create functions to run each schedule in a separate thread
 def run_threaded(job_func):
     job_thread = threading.Thread(target=job_func)
@@ -388,6 +399,7 @@ schedule.every(5).minutes.do(run_threaded, run_cron_heatmap).tag('heatmap_job')
 schedule.every(1).minutes.do(run_threaded, run_cron_quote).tag('quote_job')
 schedule.every(1).minutes.do(run_threaded, run_cron_price_alert).tag('price_alert_job')
 schedule.every(15).minutes.do(run_threaded, run_market_moods).tag('market_moods_job')
+schedule.every(2).hours.do(run_threaded, run_fda_calendar).tag('fda_calendar_job')
 schedule.every(3).hours.do(run_threaded, run_json_job).tag('json_job')
 schedule.every(6).hours.do(run_threaded, run_analyst_rating).tag('analyst_job')
 
