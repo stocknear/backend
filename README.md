@@ -2,7 +2,7 @@
 
 
 
-# **Open Source Stock Analysis & Community Platform for Small Investors.**
+# **Open Source Stock Analysis for Data Freaks**
 
 <h3>
 
