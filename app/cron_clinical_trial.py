@@ -48,7 +48,6 @@ async def get_data(company_name):
 
 		df_sorted['Interventions'] = df_sorted['Interventions'].apply(extract_drug)
 		data = df_sorted.to_dict('records')
-		print(data)
 		return data
 	
 	except Exception as e:
@@ -75,7 +74,7 @@ async def run():
     company_data = [{'symbol': row[0], 'name': row[1]} for row in cursor.fetchall()]
     con.close()
     #test mode
-    company_data = [{'symbol': 'NEOG', 'name': 'Neogen Corporation Inc.'}]
+    #company_data = [{'symbol': 'NEOG', 'name': 'Neogen Corporation Inc.'}]
     print(len(company_data))
     async with aiohttp.ClientSession() as session:
         tasks = []
