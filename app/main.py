@@ -2949,3 +2949,21 @@ async def get_market_maker():
     redis_client.set(cache_key, ujson.dumps(res))
     redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
     return res
+
+
+@app.post("/fail-to-deliver")
+async def get_fail_to_deliver(data:TickerData):
+    ticker = data.ticker.upper()
+    cache_key = f"fail-to-deliver-{ticker}"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return ujson.loads(cached_result)
+    try:
+        with open(f"json/fail-to-deliver/companies/{ticker}.json", 'r') as file:
+            res = ujson.load(file)
+    except:
+        res = []
+
+    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
+    return res
