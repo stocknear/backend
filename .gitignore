@@ -12,3 +12,4 @@ app/json/*
 fastify/node_modules
 pocketbase/*
 helper.txt
+env/*
