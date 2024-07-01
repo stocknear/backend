@@ -1,3 +1,4 @@
+benzinga
 yfinance
 datetime
 pandas
