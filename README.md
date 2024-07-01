@@ -26,7 +26,36 @@ Built with:
 - [Redis](https://redis.io/): Caching Data
 
 # Getting started
-Coming soon to run stocknear locally on your machine.
+Follow the instructions below to run stocknear locally on your machine.
+
+## Prerequisites & Resources
+
+* Python 3.x (Recommended: 3.10.12 or higher)
+* Pip (Python package installer)
+* PocketBase (Download and install from: https://pocketbase.io/
+
+* Download schemas, databases and configurations files:
+  * stocks.db [TODO - add link] 
+  * crypto.db [TODO - add link]
+  * institute.db [TODO - add link]
+  * json.zip folder [TODO - add link]
+  * pocketbase schema [TODO - add link]
+
+## Installation
+
+1. **Set up virtual env:**
+
+`python -m venv env`
+`source env/bin/activate`  # On macOS/Linux
+`.\env\Scripts\activate`   # On Windows
+
+2. **Install dependencies:**
+
+`pip install -r requirements.txt`
+
+## Run
+
+`python .\app\main.py`
 
 # Contributing
 Stocknear is open-source software and you're welcome to contribute to its development.
