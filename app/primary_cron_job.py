@@ -353,6 +353,15 @@ def run_fda_calendar():
         ]
         subprocess.run(command)
 
+def run_borrowed_share():
+    subprocess.run(["python3", "cron_borrowed_share.py"])
+    command = [
+        "sudo", "rsync", "-avz", "-e", "ssh",
+        "/root/backend/app/json/borrowed-share",
+        f"root@{useast_ip_address}:/root/backend/app/json"
+    ]
+    subprocess.run(command)
+
 # Create functions to run each schedule in a separate thread
 def run_threaded(job_func):
     job_thread = threading.Thread(target=job_func)
@@ -384,6 +393,7 @@ schedule.every().day.at("14:00").do(run_threaded, run_cron_var).tag('var_job')
 
 
 schedule.every().day.at("15:45").do(run_threaded, run_restart_cache)
+schedule.every(2).days.at("01:00").do(run_borrowed_share).tag('borrowed_share_job')
 
 schedule.every().saturday.at("01:00").do(run_threaded, run_market_maker).tag('markt_maker_job')
 schedule.every().saturday.at("05:00").do(run_threaded, run_ownership_stats).tag('ownership_stats_job')
