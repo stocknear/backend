@@ -46,7 +46,9 @@ Follow the instructions below to run stocknear locally on your machine.
 1. **Set up virtual env:**
 
 `python -m venv env`
+
 `source env/bin/activate`  # On macOS/Linux
+
 `.\env\Scripts\activate`   # On Windows
 
 2. **Install dependencies:**
