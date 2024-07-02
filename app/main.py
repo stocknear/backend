@@ -1,109 +1,116 @@
+# Standard library imports
 import random
-import numpy as np
-from fastapi import FastAPI,Depends,HTTPException, status
+import io
+import gzip
+import re
+import os
 from typing import List, Dict, Set
-from fastapi.middleware.cors import CORSMiddleware
 
+# Third-party library imports
+import numpy as np
+import pandas as pd
+import ujson
+import aiohttp
+import pytz
+import redis
+from dotenv import load_dotenv
+from pydantic import BaseModel
+from benzinga import financial_data
+
+# Database related imports
+import sqlite3
+from contextlib import contextmanager
+from pocketbase import PocketBase
+
+# FastAPI and related imports
+from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-import secrets
-from benzinga import financial_data
-
-import io
-import gzip
 from fastapi.responses import StreamingResponse
 
-import ujson
-import pandas as pd
-import sqlite3
-from pydantic import BaseModel
-#from arima import arima
-import re
-import aiohttp
-#import time
-import pandas as pd
-from pocketbase import PocketBase
-import redis
-from dotenv import load_dotenv
-import os
+# DB constants & context manager
 
+STOCK_DB = 'stocks'
+ETF_DB = 'etf'
+CRYPTO_DB = 'crypto'
+INSTITUTE_DB = 'institute'
 
-import pytz
+@contextmanager
+def db_connection(db_name):
+  conn = sqlite3.connect(f'{db_name}.db')
+  cursor = conn.cursor()
+  cursor.execute("PRAGMA journal_mode = wal")
+  try:
+    yield cursor
+  finally:
+    conn.commit()
+    cursor.close()
+    conn.close()
 
-
-berlin_tz = pytz.timezone('Europe/Berlin')
+################# Redis #################
 redis_client = redis.Redis(host='localhost', port=6380, db=0)
-redis_client.flushdb()
-
-
+redis_client.flushdb() # TECH DEBT
 caching_time = 3600*12 #Cache data for 12 hours
 
+#########################################
+
 #------Start Stocks DB------------#
-con = sqlite3.connect('stocks.db')
-cursor = con.cursor()
-cursor.execute("PRAGMA journal_mode = wal")
-cursor.execute("SELECT DISTINCT symbol FROM stocks")
-symbols = [row[0] for row in cursor.fetchall()]
+with db_connection(STOCK_DB) as cursor:
+  cursor.execute("SELECT DISTINCT symbol FROM stocks")
+  symbols = [row[0] for row in cursor.fetchall()]
 
-con.commit()
-
-
-cursor.execute("SELECT symbol, name, type FROM stocks")
-raw_data = cursor.fetchall()
-stock_list_data = [{
+  cursor.execute("SELECT symbol, name, type FROM stocks")
+  raw_data = cursor.fetchall()
+  stock_list_data = [{
     'symbol': row[0],
     'name': row[1],
     'type': row[2].capitalize(),
-} for row in raw_data]
-
-cursor.close()
+  } for row in raw_data]
 #------End Stocks DB------------#
 
 #------Start ETF DB------------#
-etf_con = sqlite3.connect('etf.db')
-etf_cursor = etf_con.cursor()
-etf_cursor.execute("PRAGMA journal_mode = wal")
-etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
-etf_symbols = [row[0] for row in etf_cursor.fetchall()]
-etf_con.commit()
-etf_cursor.execute("SELECT symbol, name, type FROM etfs")
-etf_raw_data = etf_cursor.fetchall()
-etf_list_data = [{
+with db_connection(ETF_DB) as cursor:
+  cursor.execute("SELECT DISTINCT symbol FROM etfs")
+  etf_symbols = [row[0] for row in cursor.fetchall()]
+
+  cursor.execute("SELECT symbol, name, type FROM etfs")
+  raw_data = cursor.fetchall()
+  etf_list_data = [{
     'symbol': row[0],
     'name': row[1],
     'type': row[2].upper(),
-} for row in etf_raw_data]
-etf_cursor.close()
+  } for row in raw_data]
 #------End ETF DB------------#
 
 #------Start Crypto DB------------#
-crypto_con = sqlite3.connect('crypto.db')
-crypto_cursor = crypto_con.cursor()
-crypto_cursor.execute("PRAGMA journal_mode = wal")
-crypto_cursor.execute("SELECT DISTINCT symbol FROM cryptos")
-crypto_symbols = [row[0] for row in crypto_cursor.fetchall()]
-crypto_con.commit()
-crypto_cursor.execute("SELECT symbol, name, type FROM cryptos")
-crypto_raw_data = crypto_cursor.fetchall()
-crypto_list_data = [{
+with db_connection(CRYPTO_DB) as cursor:
+  cursor.execute("SELECT DISTINCT symbol FROM cryptos")
+  crypto_symbols = [row[0] for row in cursor.fetchall()]
+
+  cursor.execute("SELECT symbol, name, type FROM cryptos")
+  raw_data = cursor.fetchall()
+  crypto_list_data = [{
     'symbol': row[0],
     'name': row[1],
     'type': row[2].capitalize(),
-} for row in crypto_raw_data]
-crypto_cursor.close()
+  } for row in raw_data]
 #------End Crypto DB------------#
 
+#------Init Searchbar Data------------#
 searchbar_data = stock_list_data + etf_list_data + crypto_list_data
 
+#------Start Institute DB------------#
+with db_connection(INSTITUTE_DB) as cursor:
+  cursor.execute("SELECT cik FROM institutes")
+  cik_list = [row[0] for row in cursor.fetchall()]
+#------End Institute DB------------#
 
-con_inst = sqlite3.connect('institute.db')
-cursor_inst = con_inst.cursor()
-cursor_inst.execute("PRAGMA journal_mode = wal")
-cursor_inst.execute("SELECT cik FROM institutes")
-cik_list = [row[0] for row in cursor_inst.fetchall()]
-con_inst.commit()
-cursor_inst.close()
+### TECH DEBT ###
+con = sqlite3.connect('stocks.db')
+etf_con = sqlite3.connect('etf.db')
+crypto_con = sqlite3.connect('crypto.db')
 
 load_dotenv()
 
