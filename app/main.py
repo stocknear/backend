@@ -1,35 +1,33 @@
+# Standard library imports
 import random
-import numpy as np
-from fastapi import FastAPI,Depends,HTTPException, status
+import io
+import gzip
+import re
+import os
 from typing import List, Dict, Set
-from fastapi.middleware.cors import CORSMiddleware
 
+# Third-party library imports
+import numpy as np
+import pandas as pd
+import ujson
+import aiohttp
+import pytz
+import redis
+from dotenv import load_dotenv
+from pydantic import BaseModel
+from benzinga import financial_data
+
+# Database related imports
+import sqlite3
+from pocketbase import PocketBase
+
+# FastAPI and related imports
+from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-import secrets
-from benzinga import financial_data
-
-import io
-import gzip
 from fastapi.responses import StreamingResponse
-
-import ujson
-import pandas as pd
-import sqlite3
-from pydantic import BaseModel
-#from arima import arima
-import re
-import aiohttp
-#import time
-import pandas as pd
-from pocketbase import PocketBase
-import redis
-from dotenv import load_dotenv
-import os
-
-
-import pytz
 
 
 berlin_tz = pytz.timezone('Europe/Berlin')
