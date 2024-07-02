@@ -111,6 +111,7 @@ with db_connection(INSTITUTE_DB) as cursor:
 con = sqlite3.connect('stocks.db')
 etf_con = sqlite3.connect('etf.db')
 crypto_con = sqlite3.connect('crypto.db')
+con_inst = sqlite3.connect('institute.db')
 
 load_dotenv()
 
