@@ -57,7 +57,9 @@ Follow the instructions below to run stocknear locally on your machine.
 
 ## Run
 
-`python .\app\main.py`
+- Pocketbase: `./pocketbase serve`
+- Fastify: `npm start`
+- FastAPI: `uvicorn main:app --reload`
 
 # Contributing
 Stocknear is open-source software and you're welcome to contribute to its development.
