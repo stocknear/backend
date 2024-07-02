@@ -107,6 +107,11 @@ with db_connection(INSTITUTE_DB) as cursor:
   cik_list = [row[0] for row in cursor.fetchall()]
 #------End Institute DB------------#
 
+### TECH DEBT ###
+con = sqlite3.connect('stocks.db')
+etf_con = sqlite3.connect('etf.db')
+crypto_con = sqlite3.connect('crypto.db')
+
 load_dotenv()
 
 pb = PocketBase('http://127.0.0.1:8090')
