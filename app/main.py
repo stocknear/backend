@@ -749,10 +749,15 @@ async def stock_income(data: TickerData):
         symbol = ?
     """
     try:
-        df = pd.read_sql_query(query_template,con, params=(ticker,))
-        income_statement =  ujson.loads(df['income'].iloc[0])
-        income_statement_growth =  ujson.loads(df['income_growth'].iloc[0])
-        res = clean_financial_data(income_statement,income_statement_growth)
+        with db_connection(STOCK_DB) as cursor:
+            cursor.execute(query_template, (ticker,))
+            result = cursor.fetchone()
+            if result:
+                income_statement = ujson.loads(result[0])
+                income_statement_growth = ujson.loads(result[1])
+                res = clean_financial_data(income_statement, income_statement_growth)
+            else:
+                res = []
     except:
         res = []
 
