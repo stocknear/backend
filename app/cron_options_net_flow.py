@@ -24,27 +24,29 @@ def calculate_moving_average(data, window_size):
     moving_avg = (cumsum[window_size - 1:] - np.concatenate(([0], cumsum[:-window_size]))) / window_size
     return moving_avg.tolist()
 
-def calculate_net_flow(data, window_size=100):
+def calculate_net_flow(data, window_size=20):
     date_data = defaultdict(lambda: {'price': [], 'netCall': 0, 'netPut': 0})
 
     for item in data:
         date = item['date']
-        premium = float(item['cost_basis'])
-        #volume = int(item['volume'])
+        try:
+            premium = float(item['cost_basis'])
+            date_data[date]['price'].append(float(item['underlying_price']))
+            #date_data[date]['volume'] += volume
 
-        date_data[date]['price'].append(float(item['underlying_price']))
-        #date_data[date]['volume'] += volume
-
-        if item['put_call'] == 'CALL':
-            if item['execution_estimate'] == 'AT_ASK':
-                date_data[date]['netCall'] += premium
-            elif item['execution_estimate'] == 'AT_BID':
-                date_data[date]['netCall'] -= premium
-        elif item['put_call'] == 'PUT':
-            if item['execution_estimate'] == 'AT_ASK':
-                date_data[date]['netPut'] -= premium
-            elif item['execution_estimate'] == 'AT_BID':
-                date_data[date]['netPut'] += premium
+            if item['put_call'] == 'CALL':
+                if item['execution_estimate'] == 'AT_ASK':
+                    date_data[date]['netCall'] += premium
+                elif item['execution_estimate'] == 'AT_BID':
+                    date_data[date]['netCall'] -= premium
+            elif item['put_call'] == 'PUT':
+                if item['execution_estimate'] == 'AT_ASK':
+                    date_data[date]['netPut'] -= premium
+                elif item['execution_estimate'] == 'AT_BID':
+                    date_data[date]['netPut'] += premium
+        except:
+            pass
+            #volume = int(item['volume'])
 
     # Calculate average underlying price and format the results
     result = []
@@ -91,7 +93,7 @@ def calculate_net_flow(data, window_size=100):
 def get_data(symbol):
     try:
         end_date = date.today()
-        start_date = end_date - timedelta(300)
+        start_date = end_date - timedelta(200)
 
         end_date_str = end_date.strftime('%Y-%m-%d')
         start_date_str = start_date.strftime('%Y-%m-%d')
@@ -105,13 +107,13 @@ def get_data(symbol):
             except:
                 break
 
-        res_filtered = [{key: value for key, value in item.items() if key in ['ticker','date','execution_estimate', 'underlying_price', 'put_call', 'cost_basis', 'volume']} for item in res_list]
+        res_filtered = [{key: value for key, value in item.items() if key in ['ticker','date','execution_estimate', 'underlying_price', 'put_call', 'cost_basis']} for item in res_list]
 
         
         #Save raw data for each ticker for options page stack bar chart
         ticker_filtered_data = [entry for entry in res_filtered if entry['ticker'] == symbol]
         if len(ticker_filtered_data) > 100:
-            net_flow_data = calculate_net_flow(ticker_filtered_data, window_size=100)
+            net_flow_data = calculate_net_flow(ticker_filtered_data)
             if len(net_flow_data) > 0:
                 save_json(symbol, net_flow_data)
      
@@ -124,7 +126,7 @@ def get_data(symbol):
 try:
     stock_con = sqlite3.connect('stocks.db')
     stock_cursor = stock_con.cursor()
-    stock_cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap > 500E6 AND symbol NOT LIKE '%.%'")
+    stock_cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
     stock_symbols = [row[0] for row in stock_cursor.fetchall()]
 
     etf_con = sqlite3.connect('etf.db')
@@ -135,7 +137,7 @@ try:
     stock_con.close()
     etf_con.close()
     
-    total_symbols = stock_symbols #+ etf_symbols
+    total_symbols = stock_symbols + etf_symbols
 
     for symbol in tqdm(total_symbols):
         get_data(symbol)
