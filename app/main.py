@@ -2412,6 +2412,23 @@ async def get_bull_bear_say(data:TickerData):
     return res
 
 
+@app.post("/options-net-flow-ticker")
+async def get_options_net_flow(data:TickerData):
+    ticker = data.ticker.upper()
+    cache_key = f"options-net-flow-ticker-{ticker}"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return ujson.loads(cached_result)
+
+    try:
+        with open(f"json/options-net-flow/companies/{ticker}.json", 'r') as file:
+            res = ujson.load(file)
+    except:
+        res = []
+
+    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.expire(cache_key, caching_time)
+    return res
 
 @app.post("/options-plot-ticker")
 async def get_options_plot_ticker(data:TickerData):
