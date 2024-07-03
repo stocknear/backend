@@ -371,6 +371,15 @@ def run_implied_volatility():
     ]
     subprocess.run(command)
 
+def run_options_net_flow():
+    subprocess.run(["python3", "cron_options_net_flow.py"])
+    command = [
+        "sudo", "rsync", "-avz", "-e", "ssh",
+        "/root/backend/app/json/options-net-flow",
+        f"root@{useast_ip_address}:/root/backend/app/json"
+    ]
+    subprocess.run(command)
+
 # Create functions to run each schedule in a separate thread
 def run_threaded(job_func):
     job_thread = threading.Thread(target=job_func)
@@ -381,6 +390,7 @@ def run_threaded(job_func):
 schedule.every().day.at("01:00").do(run_threaded, run_options_bubble_ticker).tag('options_ticker_job')
 schedule.every().day.at("02:00").do(run_threaded, run_db_schedule_job)
 schedule.every().day.at("03:00").do(run_threaded, run_dark_pool)
+schedule.every().day.at("04:00").do(run_threaded, run_options_net_flow).tag('options_net_flow_job')
 schedule.every().day.at("06:00").do(run_threaded, run_historical_price).tag('historical_job')
 schedule.every().day.at("06:30").do(run_threaded, run_pocketbase).tag('pocketbase_job')
 
