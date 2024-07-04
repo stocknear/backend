@@ -17,7 +17,7 @@ class GetStartEndDate:
             datetime(2024, 1, 15): 'martin_luther_king',
             datetime(2024, 2, 19): 'washington_birthday',
             datetime(2024, 5, 27): 'memorial_day',
-            datetime(2024, 6, 19): 'independence_day',
+            datetime(2024, 7, 4): 'independence_day',
         }
 
         for date, name in holiday_dates.items():
@@ -39,7 +39,7 @@ class GetStartEndDate:
         elif holiday == 'memorial_day':
             start_date_1d = datetime(2024, 5, 24)
         elif holiday in ('independence_day', 'independence_day+1'):
-            start_date_1d = datetime(2024, 6, 18)
+            start_date_1d = datetime(2024, 7, 3)
         else:
             current_time_new_york = datetime.now(self.new_york_tz)
             current_weekday = current_time_new_york.weekday()
@@ -69,7 +69,7 @@ class GetStartEndDate:
                 'martin_luther_king': datetime(2024, 1, 12),
                 'washington_birthday': datetime(2024, 2, 16),
                 'memorial_day': datetime(2024, 5, 24),
-                'independence_day': datetime(2024, 6, 18),
+                'independence_day': datetime(2024, 7, 3),
             }
 
             if holiday in holiday_dates:
