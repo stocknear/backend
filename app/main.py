@@ -4,6 +4,7 @@ import io
 import gzip
 import re
 import os
+import secrets
 from typing import List, Dict, Set
 
 # Third-party library imports
@@ -784,17 +785,21 @@ async def stock_balance_sheet(data: TickerData):
         symbol = ?
     """
     try:
-        df = pd.read_sql_query(query_template,con, params=(ticker,))
-        balance_statement =  ujson.loads(df['balance'].iloc[0])
-        balance_statement_growth =  ujson.loads(df['balance_growth'].iloc[0])
-
-        res = clean_financial_data(balance_statement,balance_statement_growth)
+        with db_connection(STOCK_DB) as cursor:
+            cursor.execute(query_template, (ticker,))
+            result = cursor.fetchone()
+            if result:
+                balance_statement = ujson.loads(result[0])
+                balance_statement_growth = ujson.loads(result[1])
+                res = clean_financial_data(balance_statement, balance_statement_growth)
+            else:
+                res = []
     except:
         res = []
 
     redis_client.set(cache_key, ujson.dumps(res))
-    redis_client.expire(cache_key, 3600*3600) # Set cache expiration time to 1 hour
-    return res
+    redis_client.expire(cache_key, 3600*3600)
+    return res    
 
 @app.post("/stock-ratios")
 async def stock_ratios(data: TickerData):
