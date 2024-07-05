@@ -18,7 +18,6 @@ class GetStartEndDate:
             datetime(2024, 2, 19): 'washington_birthday',
             datetime(2024, 5, 27): 'memorial_day',
             datetime(2024, 7, 4): 'independence_day',
-            datetime(2024, 7, 5): 'independence_day+1',
         }
 
         for date, name in holiday_dates.items():
@@ -71,12 +70,11 @@ class GetStartEndDate:
                 'washington_birthday': datetime(2024, 2, 16),
                 'memorial_day': datetime(2024, 5, 24),
                 'independence_day': datetime(2024, 7, 3),
-                'independence_day+1': datetime(2024, 7, 3),
             }
 
             if holiday in holiday_dates:
                 end_date_1d = holiday_dates[holiday]
-            elif holiday in ['independence_day+1', 'labor_day+1', 'christmas_day+1'] and not is_afternoon:
+            elif holiday in ['independence_day+1','labor_day+1', 'christmas_day+1'] and not is_afternoon:
                 end_date_1d = holiday_dates[holiday]
             else:
                 end_date_1d = self.current_datetime
