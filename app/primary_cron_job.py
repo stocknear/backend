@@ -380,6 +380,15 @@ def run_options_net_flow():
     ]
     subprocess.run(command)
 
+def run_government_contract():
+    subprocess.run(["python3", "cron_government_contract.py"])
+    command = [
+        "sudo", "rsync", "-avz", "-e", "ssh",
+        "/root/backend/app/json/government-contract",
+        f"root@{useast_ip_address}:/root/backend/app/json"
+    ]
+    subprocess.run(command)
+
 # Create functions to run each schedule in a separate thread
 def run_threaded(job_func):
     job_thread = threading.Thread(target=job_func)
@@ -395,6 +404,8 @@ schedule.every().day.at("06:00").do(run_threaded, run_historical_price).tag('his
 schedule.every().day.at("06:30").do(run_threaded, run_pocketbase).tag('pocketbase_job')
 
 schedule.every().day.at("07:00").do(run_threaded, run_ta_rating).tag('ta_rating_job')
+schedule.every().day.at("07:30").do(run_threaded, run_government_contract).tag('government_contract_job')
+
 schedule.every().day.at("08:00").do(run_threaded, run_cron_insider_trading).tag('insider_trading_job')
 schedule.every().day.at("09:00").do(run_threaded, run_congress_trading).tag('congress_job')
 schedule.every().day.at("10:00").do(run_threaded, run_shareholders).tag('shareholders_job')
