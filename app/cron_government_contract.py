@@ -71,7 +71,7 @@ def get_data(symbol, name):
             response = requests.post(url, json=data, headers=headers)
             response_data = (response.json())['results']
             res += [{'id': item['Award ID'], 'amount': item['Award Amount'], 'date': item['Last Modified Date']} for item in response_data]
-            time.sleep(1)
+            time.sleep(1) #avoid api limit
         except Exception as e:
             break
 
@@ -82,11 +82,12 @@ def get_data(symbol, name):
         sum_contract(symbol, sorted_res)
 
 try:
-    company_data =  [{'symbol': 'J', 'name': 'Jacobs Engineering'},{'symbol': 'CRWD', 'name': 'CrowdStrike'},{'symbol': 'FLR', 'name': 'Fluor'},{'symbol': 'GD', 'name': 'General Dynamics'},{'symbol': 'NOC', 'name': 'Northrop Grumman'},{'symbol': 'RTX', 'name': 'Raytheon Technologies'},{'symbol': 'LHX', 'name': 'L3Harris Technologies'},{'symbol': 'CAT', 'name': 'Caterpillar'},{'symbol': 'JNJ', 'name': 'Johnson & Johnson'},{'symbol': 'CVX', 'name': 'Chevron'},{'symbol': 'XOM', 'name': 'Exxon Mobil'},{'symbol': 'UNH', 'name': 'UnitedHealth'},{'symbol': 'PFE', 'name': 'Pfizer'},{'symbol': 'BAH', 'name': 'Booz Allen Hamilton'},{'symbol': 'NEE', 'name': 'NextEra'},{'symbol': 'LDOS', 'name': 'Leidos'},{'symbol': 'PLTR', 'name': 'Palantir'},{'symbol': 'HII', 'name': 'Huntington Ingalls'},{'symbol': 'CACI', 'name': 'CACI International'},{'symbol': 'SAIC', 'name': 'Science Applications'},{'symbol': 'BA', 'name': 'Boeing'},{'symbol': 'LMT', 'name': 'Lockheed Martin'}]
+    company_data = [{'symbol': 'LMT', 'name': 'Lockheed Martin'},{'symbol': 'J', 'name': 'Jacobs Engineering'},{'symbol': 'CRWD', 'name': 'CrowdStrike'},{'symbol': 'FLR', 'name': 'Fluor'},{'symbol': 'GD', 'name': 'General Dynamics'},{'symbol': 'NOC', 'name': 'Northrop Grumman'},{'symbol': 'RTX', 'name': 'Raytheon Technologies'},{'symbol': 'LHX', 'name': 'L3Harris Technologies'},{'symbol': 'CAT', 'name': 'Caterpillar'},{'symbol': 'JNJ', 'name': 'Johnson & Johnson'},{'symbol': 'CVX', 'name': 'Chevron'},{'symbol': 'XOM', 'name': 'Exxon Mobil'},{'symbol': 'UNH', 'name': 'UnitedHealth'},{'symbol': 'PFE', 'name': 'Pfizer'},{'symbol': 'BAH', 'name': 'Booz Allen Hamilton'},{'symbol': 'NEE', 'name': 'NextEra'},{'symbol': 'LDOS', 'name': 'Leidos'},{'symbol': 'PLTR', 'name': 'Palantir'},{'symbol': 'HII', 'name': 'Huntington Ingalls'},{'symbol': 'CACI', 'name': 'CACI International'},{'symbol': 'SAIC', 'name': 'Science Applications'},{'symbol': 'BA', 'name': 'Boeing'}]
     for item in company_data:
         symbol = item['symbol']
         name = item['name']
         get_data(symbol, name)
+        time.sleep(100) #avoid api limit
 
 except Exception as e:
     print(e)
