@@ -270,6 +270,7 @@ def run_analyst_rating():
     if week <= 5:
         subprocess.run(["python3", "cron_analyst_db.py"])
         subprocess.run(["python3", "cron_analyst_ticker.py"])
+        subprocess.run(["python3", "cron_analyst_insight.py"])
         command = ["sudo", "rsync", "-avz", "-e", "ssh", "/root/backend/app/json/analyst", f"root@{useast_ip_address}:/root/backend/app/json"]
         subprocess.run(command)
 

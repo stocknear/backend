@@ -3020,6 +3020,25 @@ async def get_borrowed_share(data:TickerData):
     redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
     return res
 
+
+@app.post("/analyst-insight")
+async def get_analyst_insight(data:TickerData):
+    ticker = data.ticker.upper()
+    cache_key = f"analyst-insight-{ticker}"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return ujson.loads(cached_result)
+    try:
+        with open(f"json/analyst/insight/{ticker}.json", 'r') as file:
+            res = ujson.load(file)
+    except:
+        res = {}
+
+    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
+    return res
+
+
 @app.post("/implied-volatility")
 async def get_clinical_trial(data:TickerData):
     ticker = data.ticker.upper()
