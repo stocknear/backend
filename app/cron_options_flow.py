@@ -63,8 +63,7 @@ def process_page(page):
                 page_list.append(item)
 
         return page_list
-    except Exception as e:
-        print(f"Error processing page {page}: {e}")
+    except:
         return []
 
 
