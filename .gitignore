@@ -9,6 +9,7 @@ app/*.sh
 app/.env*
 app/ml_models/weights
 app/json/*
+app/logs/*
 fastify/node_modules
 pocketbase/*
 helper.txt
