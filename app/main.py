@@ -2611,7 +2611,7 @@ async def get_wiim(data:TickerData):
 
     try:
         with open(f"json/wiim/company/{ticker}.json", 'r') as file:
-            res = ujson.load(file)[:10]
+            res = ujson.load(file)[:5]
     except:
         res = []
 
@@ -2920,6 +2920,35 @@ async def get_dark_pool(data:TickerData):
     redis_client.set(cache_key, ujson.dumps(res))
     redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
     return res
+
+
+@app.get("/dark-pool-flow")
+async def get_dark_pool_flow():
+    cache_key = f"dark-flow-flow"
+
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+        io.BytesIO(cached_result),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"})
+    try:
+        with open(f"json/dark-pool/flow/data.json", 'r') as file:
+            res = ujson.load(file)
+    except:
+        res = []
+
+    data = ujson.dumps(res).encode('utf-8')
+    compressed_data = gzip.compress(data)
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 60*15)  # Set cache expiration time to 15 min
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
+
 
 @app.post("/market-maker")
 async def get_market_maker(data:TickerData):

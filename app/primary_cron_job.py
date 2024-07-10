@@ -333,6 +333,19 @@ def run_dark_pool():
         ]
         run_command(command)
 
+
+def run_dark_pool_flow():
+    week = datetime.today().weekday()
+    if week <= 5:
+        run_command(["python3", "cron_dark_pool_flow.py"])
+        command = [
+            "sudo", "rsync", "-avz", "-e", "ssh",
+            "/root/backend/app/json/dark-pool/flow",
+            f"root@{useast_ip_address}:/root/backend/app/json/dark-pool"
+        ]
+        run_command(command)
+
+
 def run_market_maker():
     week = datetime.today().weekday()
     if week <= 5:
@@ -436,9 +449,9 @@ schedule.every().day.at("10:00").do(run_threaded, run_shareholders).tag('shareho
 schedule.every().day.at("10:15").do(run_threaded, run_share_statistics).tag('share_statistics_job')
 schedule.every().day.at("10:30").do(run_threaded, run_sec_filings).tag('sec_filings_job')
 schedule.every().day.at("11:00").do(run_threaded, run_executive).tag('executive_job')
-schedule.every().day.at("11:30").do(run_threaded, run_retail_volume).tag('retail_volume_job')
+schedule.every().day.at("03:00").do(run_threaded, run_retail_volume).tag('retail_volume_job')
 schedule.every().day.at("11:45").do(run_threaded, run_clinical_trial).tag('clinical_trial_job')
-schedule.every().day.at("12:00").do(run_threaded, run_implied_volatility).tag('implied_volatility_job')
+schedule.every().day.at("02:00").do(run_threaded, run_implied_volatility).tag('implied_volatility_job')
 
 
 schedule.every().day.at("13:30").do(run_threaded, run_stockdeck).tag('stockdeck_job')
@@ -450,7 +463,7 @@ schedule.every().day.at("14:00").do(run_threaded, run_cron_var).tag('var_job')
 schedule.every().day.at("15:45").do(run_threaded, run_restart_cache)
 schedule.every(2).days.at("01:00").do(run_borrowed_share).tag('borrowed_share_job')
 
-schedule.every().saturday.at("01:00").do(run_threaded, run_market_maker).tag('markt_maker_job')
+schedule.every(2).days.at("01:00").do(run_threaded, run_market_maker).tag('markt_maker_job')
 schedule.every().saturday.at("05:00").do(run_threaded, run_ownership_stats).tag('ownership_stats_job')
 
 
@@ -464,6 +477,8 @@ schedule.every(15).minutes.do(run_threaded, run_cron_heatmap).tag('heatmap_job')
 schedule.every(1).minutes.do(run_threaded, run_cron_quote).tag('quote_job')
 schedule.every(1).minutes.do(run_threaded, run_cron_price_alert).tag('price_alert_job')
 schedule.every(15).minutes.do(run_threaded, run_market_moods).tag('market_moods_job')
+schedule.every(20).minutes.do(run_threaded, run_dark_pool_flow).tag('dark_pool_flow_job')
+
 schedule.every(2).hours.do(run_threaded, run_fda_calendar).tag('fda_calendar_job')
 schedule.every(3).hours.do(run_threaded, run_json_job).tag('json_job')
 schedule.every(12).hours.do(run_threaded, run_analyst_rating).tag('analyst_job')
