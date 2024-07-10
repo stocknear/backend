@@ -1,16 +1,13 @@
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from GetStartEndDate import GetStartEndDate
-
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 import intrinio_sdk as intrinio
 import ujson
 import sqlite3
-import pytz
 
 from dotenv import load_dotenv
 import os
-
-ny_tz = pytz.timezone('America/New_York')
 
 
 load_dotenv()
@@ -37,21 +34,31 @@ count = 0
 
 def get_data():
 	data = []
-	count = 0
+	#count = 0
+	next_page = ''
+	try:
+		response = intrinio.SecurityApi().get_security_trades(source, start_date=start_date, start_time=start_time, end_date=end_date, end_time=end_time, timezone=timezone, page_size=page_size, darkpool_only=darkpool_only, min_size=min_size, next_page=next_page)
+		data = response.trades
+	except Exception as e:
+		print(e)
+
+	'''
 	while True:
 		if count == 0:
 			next_page = ''
 		try:
 			response = intrinio.SecurityApi().get_security_trades(source, start_date=start_date, start_time=start_time, end_date=end_date, end_time=end_time, timezone=timezone, page_size=page_size, darkpool_only=darkpool_only, min_size=min_size, next_page=next_page)
 			data += response.trades
-
+			print(data)
 			next_page = response.next_page
-			if not next_page or count == 10:
+			if not next_page or count == 0:
 				break
 			count +=1
-		except:
-			pass
 
+		except Exception as e:
+			print(e)
+			break
+	'''
 	return data
 
 def run():
@@ -65,7 +72,6 @@ def run():
 	stock_symbols = list(symbol_name_map.keys())
 	data = get_data()
 
-	print(len(data))
 	# Convert each SecurityTrades object to a dictionary
 	data_dicts = [entry.__dict__ for entry in data]
 	# Filter the data
@@ -74,7 +80,7 @@ def run():
 	    {
 	        'symbol': entry['_symbol'],
 	        'name': symbol_name_map[entry['_symbol']],
-	        'date': entry['_timestamp'].astimezone(ny_tz).isoformat(),
+	        'date': (entry['_timestamp']).isoformat(),
 	        'price': entry['_price'],
 	        'volume': entry['_total_volume'],
 	        'size': entry['_size']
@@ -87,7 +93,14 @@ def run():
 
 
 if __name__ == "__main__":
+    executor = ThreadPoolExecutor(max_workers=1)
+    future = executor.submit(run)
     try:
-        run()
+        # Wait for the result with a timeout of 300 seconds (5 minutes)
+        future.result(timeout=300)
+    except TimeoutError:
+        print("The operation timed out.")
     except Exception as e:
         print(f"An error occurred: {e}")
+    finally:
+        executor.shutdown()
