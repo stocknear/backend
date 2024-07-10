@@ -22,7 +22,9 @@ def save_json(data):
 
 
 source = 'cta_a_delayed'
-start_date, end_date = GetStartEndDate().run()
+#start_date, end_date = GetStartEndDate().run()
+start_date = ''
+end_date = ''
 start_time = ''
 end_time = ''
 timezone = 'UTC'
@@ -80,7 +82,7 @@ def run():
 	    {
 	        'symbol': entry['_symbol'],
 	        'name': symbol_name_map[entry['_symbol']],
-	        'date': (entry['_timestamp']).isoformat(),
+	        'date': (entry['_timestamp']-timedelta(hours=4)).isoformat(),
 	        'price': entry['_price'],
 	        'volume': entry['_total_volume'],
 	        'size': entry['_size']

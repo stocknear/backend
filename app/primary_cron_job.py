@@ -477,7 +477,7 @@ schedule.every(15).minutes.do(run_threaded, run_cron_heatmap).tag('heatmap_job')
 schedule.every(1).minutes.do(run_threaded, run_cron_quote).tag('quote_job')
 schedule.every(1).minutes.do(run_threaded, run_cron_price_alert).tag('price_alert_job')
 schedule.every(15).minutes.do(run_threaded, run_market_moods).tag('market_moods_job')
-#schedule.every(20).minutes.do(run_threaded, run_dark_pool_flow).tag('dark_pool_flow_job')
+schedule.every(10).minutes.do(run_threaded, run_dark_pool_flow).tag('dark_pool_flow_job')
 
 schedule.every(2).hours.do(run_threaded, run_fda_calendar).tag('fda_calendar_job')
 schedule.every(3).hours.do(run_threaded, run_json_job).tag('json_job')
