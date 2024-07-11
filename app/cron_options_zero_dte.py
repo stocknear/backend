@@ -35,7 +35,7 @@ def process_page(page):
     try:
         data = fin.options_activity(date_from=start_date, date_to=end_date, page=page, pagesize=1000)
         data = ujson.loads(fin.output(data))['option_activity']
-        filtered_data = [{key: value for key, value in item.items() if key in ['ticker','time', 'id','sentiment','underlying_price', 'cost_basis', 'underlying_price','option_activity_type','date', 'date_expiration', 'open_interest','price', 'put_call','strike_price', 'volume']} for item in data]
+        filtered_data = [{key: value for key, value in item.items() if key not in ['description_extended','updated']} for item in data]
         time.sleep(1)
         page_list = []
         for item in filtered_data:
@@ -59,6 +59,8 @@ def process_page(page):
                 item['underlying_price'] = round(float(item['underlying_price']), 2)
                 item['type'] = item['option_activity_type'].capitalize()
                 item['sentiment'] = item['sentiment'].capitalize()
+                item['executionEstimate'] = item['execution_estimate'].replace('_', ' ').title()
+                item['tradeCount'] = item['trade_count']
 
                 if item['date_expiration'] == start_date:
                     page_list.append(item)
