@@ -1974,6 +1974,7 @@ async def get_earnings_call_transcripts(data:TranscriptData):
     quarter = data['quarter']
     cache_key = f"earnings-call-transcripts-{ticker}-{year}-{quarter}"
     cached_result = redis_client.get(cache_key)
+
     if cached_result:
         return ujson.loads(cached_result)
     
@@ -1987,7 +1988,6 @@ async def get_earnings_call_transcripts(data:TranscriptData):
         content = remove_text_before_operator(data['content'])
         chat = extract_names_and_descriptions(content)
         res = {'date': data['date'], 'chat': chat}
-        
     except:
         res = {}
 

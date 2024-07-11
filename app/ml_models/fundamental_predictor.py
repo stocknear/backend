@@ -299,4 +299,4 @@ async def main():
     con.close()
 
 # Run the main function
-asyncio.run(main())
+#asyncio.run(main())
