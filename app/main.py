@@ -6,7 +6,7 @@ import re
 import os
 import secrets
 from typing import List, Dict, Set
-
+from datetime import datetime, timedelta
 # Third-party library imports
 import numpy as np
 import pandas as pd
@@ -2474,11 +2474,12 @@ async def get_options_flow_ticker(data:TickerData):
         data = fin.options_activity(company_tickers=ticker, pagesize=500)
         data = ujson.loads(fin.output(data))['option_activity']
         res_list = []
-        keys_to_keep = {'updated', 'sentiment','option_activity_type', 'price', 'underlying_price', 'cost_basis', 'strike_price', 'date', 'date_expiration', 'open_interest', 'put_call', 'volume'}
+        keys_to_keep = {'time', 'sentiment','option_activity_type', 'price', 'underlying_price', 'cost_basis', 'strike_price', 'date', 'date_expiration', 'open_interest', 'put_call', 'volume'}
         for item in data:
             filtered_item = {key: value for key, value in item.items() if key in keys_to_keep}
             filtered_item['type'] = filtered_item['option_activity_type'].capitalize()
             filtered_item['sentiment'] = filtered_item['sentiment'].capitalize()
+            #filtered_item['time'] = (datetime.strptime(filtered_item['time'], '%H:%M:%S')-timedelta(hours=0)).strftime('%H:%M:%S')
             filtered_item['put_call'] = 'Calls' if filtered_item['put_call'] == 'CALL' else 'Puts'
             res_list.append(filtered_item)
     except:
