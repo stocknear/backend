@@ -267,7 +267,6 @@ async def get_earnings_calendar(con, symbols):
             data = await response.json()
             filtered_data = [{k: v for k, v in stock.items() if stock['symbol'] in symbols and '.' not in stock['symbol'] and '-' not in stock['symbol']} for stock in data]
             #filtered_data = [entry for entry in filtered_data if entry]
-            print(filtered_data)
             for entry in filtered_data:
                 try:
                     symbol = entry['symbol']

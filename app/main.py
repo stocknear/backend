@@ -10,7 +10,6 @@ from datetime import datetime, timedelta
 # Third-party library imports
 import numpy as np
 import pandas as pd
-import ujson
 import orjson
 import aiohttp
 import pytz
@@ -290,7 +289,7 @@ async def rating_stock(data: TickerData):
     cache_key = f"stock-correlation-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
     if ticker in etf_symbols:
         path_name = 'etf'
@@ -298,8 +297,8 @@ async def rating_stock(data: TickerData):
         path_name = 'stock'
 
     try:
-        with open(f"json/correlation/{path_name}/{ticker}.json", 'r') as file:
-            output = ujson.load(file)
+        with open(f"json/correlation/{path_name}/{ticker}.json", 'rb') as file:
+            output = orjson.loads(file.read())
             
             sorted_data = sorted(output, key=lambda x: x['value'], reverse=True)
             # Remove duplicates based on 'symbol'
@@ -309,7 +308,7 @@ async def rating_stock(data: TickerData):
 
     final_res = {'correlation': res, 'type': 'etf' if path_name == 'etf' else 'stocks'}
 
-    redis_client.set(cache_key, ujson.dumps(final_res))
+    redis_client.set(cache_key, orjson.dumps(final_res))
     redis_client.expire(cache_key, 3600*24) # Set cache expiration time to 12 hour
 
     return final_res
@@ -322,15 +321,15 @@ async def rating_stock(data: TickerData):
     cache_key = f"stock-rating-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
     try:
-        with open(f"json/ta-rating/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/ta-rating/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = {}
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600*24)  # Set cache expiration time to 1 day
     return res
 
@@ -349,12 +348,12 @@ async def get_stock(data: HistoricalPrice):
         )
 
     try:
-        with open(f"json/historical-price/{time_period}/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/historical-price/{time_period}/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    res_json = ujson.dumps(res).encode('utf-8')
+    res_json = orjson.dumps(res)
     compressed_data = gzip.compress(res_json)
     redis_client.set(cache_key, compressed_data)
     redis_client.expire(cache_key, 3600*24) # Set cache expiration time to Infinity
@@ -381,12 +380,12 @@ async def get_stock(data: TickerData):
         )
 
     try:
-        with open(f"json/one-day-price/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/one-day-price/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    res_json = ujson.dumps(res).encode('utf-8')
+    res_json = orjson.dumps(res)
     compressed_data = gzip.compress(res_json)
     redis_client.set(cache_key, compressed_data)
     redis_client.expire(cache_key, 60*5)
@@ -413,14 +412,14 @@ async def similar_stocks(data: TickerData):
     cache_key = f"similar-stocks-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
     try:
-        with open(f"json/similar-stocks/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/similar-stocks/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600*24)  # Set cache expiration time to 1 day
     return res
 
@@ -432,7 +431,7 @@ async def get_similar_etfs(data: TickerData):
     cache_key = f"similar-etfs-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
     try:
         query = """
@@ -465,7 +464,7 @@ async def get_similar_etfs(data: TickerData):
     except:
         result = []
 
-    redis_client.set(cache_key, ujson.dumps(result))
+    redis_client.set(cache_key, orjson.dumps(result))
     redis_client.expire(cache_key, 3600*3600)
     return result
 
@@ -481,12 +480,12 @@ async def get_market_movers():
             headers={"Content-Encoding": "gzip"}
         )
     try:
-        with open(f"json/market-movers/data.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/market-movers/data.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    res = ujson.dumps(res).encode('utf-8')
+    res = orjson.dumps(res)
     compressed_data = gzip.compress(res)
 
     redis_client.set(cache_key, compressed_data)
@@ -503,14 +502,14 @@ async def get_market_movers():
     cache_key = f"get-mini-plots-index"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
     try:
-        with open(f"json/mini-plots-index/data.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/mini-plots-index/data.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 5*60)
 
     return res
@@ -528,12 +527,12 @@ async def get_market_news():
         headers={"Content-Encoding": "gzip"})
 
     try:
-        with open(f"json/market-news/stock-news.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/market-news/stock-news.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    data = ujson.dumps(res).encode('utf-8')
+    data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
     redis_client.set(cache_key, compressed_data)
     redis_client.expire(cache_key, 60*15)  # Set cache expiration time to 15 min
@@ -555,12 +554,12 @@ async def get_general_news():
         headers={"Content-Encoding": "gzip"})
 
     try:
-        with open(f"json/market-news/general-news.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/market-news/general-news.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    data = ujson.dumps(res).encode('utf-8')
+    data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
     redis_client.set(cache_key, compressed_data)
     redis_client.expire(cache_key, 60*15)  # Set cache expiration time to 15 min
@@ -582,12 +581,12 @@ async def get_crypto_news():
         headers={"Content-Encoding": "gzip"})
 
     try:
-        with open(f"json/market-news/crypto-news.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/market-news/crypto-news.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    data = ujson.dumps(res).encode('utf-8')
+    data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
     redis_client.set(cache_key, compressed_data)
     redis_client.expire(cache_key, 60*15)  # Set cache expiration time to 15 min
@@ -606,7 +605,7 @@ async def stock_news(data: TickerData):
 
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
     if ticker in etf_symbols:
         table_name = 'etfs'
@@ -625,11 +624,11 @@ async def stock_news(data: TickerData):
     df = pd.read_sql_query(query_template, query_con, params=(ticker,))
 
     try:
-        res = ujson.loads(df[column_name].iloc[0])
+        res = orjson.loads(df[column_name].iloc[0])
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res), 3600*3600)  # Set cache expiration time to 1 hour
+    redis_client.set(cache_key, orjson.dumps(res), 3600*3600)  # Set cache expiration time to 1 hour
     return res
 
 
@@ -640,7 +639,7 @@ async def stock_dividend(data: TickerData):
 
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
     if ticker in etf_symbols:
         table_name = 'etfs'
@@ -661,7 +660,7 @@ async def stock_dividend(data: TickerData):
     df = pd.read_sql_query(query_template, etf_con if table_name == 'etfs' else con, params=(ticker,))
     
     try:
-        dividend_data = ujson.loads(df[column_name].iloc[0])
+        dividend_data = orjson.loads(df[column_name].iloc[0])
         if column_name == 'stock_dividend':
             res = dividend_data.get('historical', [])
         else:
@@ -670,7 +669,7 @@ async def stock_dividend(data: TickerData):
         res = []
 
     try:
-        quote_data = ujson.loads(df['quote'].iloc[0])[0]
+        quote_data = orjson.loads(df['quote'].iloc[0])[0]
         eps = quote_data.get('eps')
         current_price = quote_data.get('price')
     except:
@@ -678,7 +677,7 @@ async def stock_dividend(data: TickerData):
         current_price = None
 
     final_res = [res, eps, current_price]
-    redis_client.set(cache_key, ujson.dumps(final_res), 3600*3600)  # Set cache expiration time to 1 hour
+    redis_client.set(cache_key, orjson.dumps(final_res), 3600*3600)  # Set cache expiration time to 1 hour
     return final_res
 
 
@@ -690,15 +689,15 @@ async def stock_dividend(data: TickerData):
     cache_key = f"stock-quote-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
     try:
-        with open(f"json/quote/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/quote/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = {}
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 60)
     return res
 
@@ -710,7 +709,7 @@ async def history_employees(data: TickerData):
     cache_key = f"history-employees-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
     query_template = """
     SELECT 
@@ -723,12 +722,12 @@ async def history_employees(data: TickerData):
 
     df = pd.read_sql_query(query_template,con, params=(ticker,))
     try:
-        history_employee_count = ujson.loads(df['history_employee_count'].iloc[0])
+        history_employee_count = orjson.loads(df['history_employee_count'].iloc[0])
         res = sorted([entry for entry in history_employee_count if entry["employeeCount"] != 0], key=lambda x: x["filingDate"])
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600*3600) # Set cache expiration time to 1 hour
     return res
 
@@ -740,7 +739,7 @@ async def stock_income(data: TickerData):
     cache_key = f"stock-income-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
     query_template = """
     SELECT 
@@ -755,15 +754,15 @@ async def stock_income(data: TickerData):
             cursor.execute(query_template, (ticker,))
             result = cursor.fetchone()
             if result:
-                income_statement = ujson.loads(result[0])
-                income_statement_growth = ujson.loads(result[1])
+                income_statement = orjson.loads(result[0])
+                income_statement_growth = orjson.loads(result[1])
                 res = clean_financial_data(income_statement, income_statement_growth)
             else:
                 res = []
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600*3600) # Set cache expiration time to 1 hour
     return res
 
@@ -775,7 +774,7 @@ async def stock_balance_sheet(data: TickerData):
     cache_key = f"stock-balance-sheet-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
     query_template = """
     SELECT 
@@ -790,15 +789,15 @@ async def stock_balance_sheet(data: TickerData):
             cursor.execute(query_template, (ticker,))
             result = cursor.fetchone()
             if result:
-                balance_statement = ujson.loads(result[0])
-                balance_statement_growth = ujson.loads(result[1])
+                balance_statement = orjson.loads(result[0])
+                balance_statement_growth = orjson.loads(result[1])
                 res = clean_financial_data(balance_statement, balance_statement_growth)
             else:
                 res = []
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600*3600)
     return res    
 
@@ -810,7 +809,7 @@ async def stock_ratios(data: TickerData):
     cache_key = f"stock-ratios-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
     query_template = """
     SELECT 
@@ -823,11 +822,11 @@ async def stock_ratios(data: TickerData):
 
     try:
         df = pd.read_sql_query(query_template,con, params=(ticker,))
-        res =  ujson.loads(df['ratios'].iloc[0])
+        res =  orjson.loads(df['ratios'].iloc[0])
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600*3600) # Set cache expiration time to 1 hour
     return res
 
@@ -840,7 +839,7 @@ async def stock_cash_flow(data: TickerData):
     cache_key = f"stock-cash-flow-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
     query_template = """
     SELECT 
@@ -853,13 +852,13 @@ async def stock_cash_flow(data: TickerData):
 
     try:
         df = pd.read_sql_query(query_template,con, params=(ticker,))
-        cash_flow_statement =  ujson.loads(df['cashflow'].iloc[0])
-        cash_flow_statement_growth =  ujson.loads(df['cashflow_growth'].iloc[0])
+        cash_flow_statement =  orjson.loads(df['cashflow'].iloc[0])
+        cash_flow_statement_growth =  orjson.loads(df['cashflow_growth'].iloc[0])
         res = clean_financial_data(cash_flow_statement,cash_flow_statement_growth)
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600*3600) # Set cache expiration time to 1 hour
     return res
 
@@ -878,12 +877,12 @@ async def economic_calendar():
         )
 
     try:
-        with open(f"json/economic-calendar/calendar.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/economic-calendar/calendar.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    res = ujson.dumps(res).encode('utf-8')
+    res = orjson.dumps(res)
     compressed_data = gzip.compress(res)
 
     redis_client.set(cache_key, compressed_data)
@@ -936,12 +935,12 @@ async def dividends_calendar():
         )
 
     try:
-        with open(f"json/dividends-calendar/calendar.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/dividends-calendar/calendar.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    res = ujson.dumps(res).encode('utf-8')
+    res = orjson.dumps(res)
     compressed_data = gzip.compress(res)
 
     redis_client.set(cache_key, compressed_data)
@@ -964,12 +963,12 @@ async def stock_splits_calendar():
             headers={"Content-Encoding": "gzip"}
         )
     try:
-        with open(f"json/stock-splits-calendar/calendar.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/stock-splits-calendar/calendar.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    res = ujson.dumps(res).encode('utf-8')
+    res = orjson.dumps(res)
     compressed_data = gzip.compress(res)
 
     redis_client.set(cache_key, compressed_data)
@@ -989,14 +988,14 @@ async def rating_stock(data: TickerData):
     cache_key = f"stockdeck-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
     try:
-        with open(f"json/stockdeck/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/stockdeck/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600*24)  # Set cache expiration time to 1 day
     return res
 
@@ -1007,14 +1006,14 @@ async def get_analyst_rating(data: TickerData):
     cache_key = f"analyst-summary-rating-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
     try:
-        with open(f"json/analyst/summary/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/analyst/summary/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = {}
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 60*60)  # Set cache expiration time to 1 day
     return res
 
@@ -1030,13 +1029,13 @@ async def get_analyst_ticke_history(data: TickerData):
             headers={"Content-Encoding": "gzip"}
         )
     try:
-        with open(f"json/analyst/history/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/analyst/history/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
     # Compress the JSON data
-    res = ujson.dumps(res).encode('utf-8')
+    res = orjson.dumps(res)
     compressed_data = gzip.compress(res)
 
     redis_client.set(cache_key, compressed_data)
@@ -1089,8 +1088,8 @@ async def get_watchlist(data: GetWatchList):
         ticker = ticker.upper()
         if ticker in etf_symbols:
             try:
-                with open(f"json/quote/{ticker}.json", 'r') as file:
-                    quote_dict = ujson.load(file)
+                with open(f"json/quote/{ticker}.json", 'rb') as file:
+                    quote_dict = orjson.loads(file.read())
                     quote_dict['type'] = 'etf'
                     combined_results.append(quote_dict)
             except:
@@ -1099,13 +1098,13 @@ async def get_watchlist(data: GetWatchList):
             if not df.empty:
                 df_dict = df.to_dict()
                 try:
-                    combined_news.append(ujson.loads(df_dict['etf_news'][0])[0])
+                    combined_news.append(orjson.loads(df_dict['etf_news'][0])[0])
                 except:
                     pass
         elif ticker in crypto_symbols:
             try:
-                with open(f"json/quote/{ticker}.json", 'r') as file:
-                    quote_dict = ujson.load(file)
+                with open(f"json/quote/{ticker}.json", 'rb') as file:
+                    quote_dict = orjson.loads(file.read())
                     quote_dict['type'] = 'crypto'
                     combined_results.append(quote_dict)
             except:
@@ -1114,13 +1113,13 @@ async def get_watchlist(data: GetWatchList):
             if not df.empty:
                 df_dict = df.to_dict()
                 try:
-                    combined_news.append(ujson.loads(df_dict['crypto_news'][0])[0])
+                    combined_news.append(orjson.loads(df_dict['crypto_news'][0])[0])
                 except:
                     pass
         else:
             try:
-                with open(f"json/quote/{ticker}.json", 'r') as file:
-                    quote_dict = ujson.load(file)
+                with open(f"json/quote/{ticker}.json", 'rb') as file:
+                    quote_dict = orjson.loads(file.read())
                     quote_dict['type'] = 'stock'
                     combined_results.append(quote_dict)
             except:
@@ -1129,7 +1128,7 @@ async def get_watchlist(data: GetWatchList):
             if not df.empty:
                 df_dict = df.to_dict()
                 try:
-                    combined_news.append(ujson.loads(df_dict['stock_news'][0])[0])
+                    combined_news.append(orjson.loads(df_dict['stock_news'][0])[0])
                 except:
                     pass
     res = [combined_results, combined_news]
@@ -1145,7 +1144,7 @@ async def brownian_motion(data:TickerData):
     cache_key = f"price-prediction-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
     
     if ticker in etf_symbols:
         table_name = 'etfs'
@@ -1164,11 +1163,11 @@ async def brownian_motion(data:TickerData):
     df = pd.read_sql_query(query, etf_con if table_name == 'etfs' else con, params=(ticker,))
     df_dict = df.to_dict()
     try:
-        price_dict = ujson.loads(df_dict['pricePrediction'][0])
+        price_dict = orjson.loads(df_dict['pricePrediction'][0])
     except:
         price_dict = {'1W': {'min': 0, 'mean': 0, 'max': 0}, '1M': {'min': 0, 'mean': 0, 'max': 0}, '3M': {'min': 0, 'mean': 0, 'max': 0}, '6M': {'min': 0, 'mean': 0, 'max': 0}}
 
-    redis_client.set(cache_key, ujson.dumps(price_dict))
+    redis_client.set(cache_key, orjson.dumps(price_dict))
     redis_client.expire(cache_key, 3600*24) # Set cache expiration time to 1 hour
     return price_dict
 
@@ -1190,13 +1189,13 @@ async def stock_finder():
         )
 
     try:
-        with open(f"json/stock-screener/data.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/stock-screener/data.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
     # Compress the JSON data
-    res = ujson.dumps(res).encode('utf-8')
+    res = orjson.dumps(res)
     compressed_data = gzip.compress(res)
 
     redis_client.set(cache_key, compressed_data)
@@ -1220,7 +1219,7 @@ async def get_quant_stats(data: TickerData):
     
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
     if ticker in etf_symbols:
         table_name = 'etfs'
         query_con = etf_con
@@ -1243,13 +1242,13 @@ async def get_quant_stats(data: TickerData):
     metrics_data = pd.read_sql_query(query_metrics_template, query_con, params=(ticker,))
     
     try:
-        #metrics_data = ujson.loads(metrics_data.to_dict()['quantStats'][0])
+        #metrics_data = orjson.loads(metrics_data.to_dict()['quantStats'][0])
         metrics_data = metrics_data.to_dict()['quantStats'][0]
         metrics_data = eval(metrics_data)
     except:
         metrics_data = {}
     # Store the data and hash in the cache
-    redis_client.set(cache_key, ujson.dumps(metrics_data))
+    redis_client.set(cache_key, orjson.dumps(metrics_data))
     redis_client.expire(cache_key, 3600 *24) # Set cache expiration time to 1 hour
 
     return metrics_data
@@ -1264,7 +1263,7 @@ async def get_trading_signals(data: TickerData):
     cache_key = f"get-trading-signals-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
     if ticker in etf_symbols:
         table_name = 'etfs'
     else:
@@ -1285,7 +1284,7 @@ async def get_trading_signals(data: TickerData):
         # Convert the DataFrame to a JSON object
         if not query_result.empty:
             res = query_result['tradingSignals'][0]
-            res = ujson.loads(res)[0]  # Assuming 'tradingSignals' column contains JSON strings        
+            res = orjson.loads(res)[0]  # Assuming 'tradingSignals' column contains JSON strings        
             res = replace_nan_inf_with_none(res)
             #res = {'Start': '2021-07-14', 'End': '2023-11-10', 'Return [%]': 59.99997000000007, 'Buy & Hold Return [%]': -90.58823529411765, 'Return (Ann.) [%]': 77.21227166877182, 'Duration': '849', 'Volatility (Ann.) [%]': 34.82411687248909, 'Sharpe Ratio': 2.21720688428338, 'Sortino Ratio': None, 'Calmar Ratio': None, 'Max. Drawdown [%]': -0.0, 'Avg. Drawdown [%]': None, 'Max. Drawdown Duration': None, 'Avg. Drawdown Duration': None, '# Trades': 7, 'Win Rate [%]': 85.71428571428571, 'Best Trade [%]': 10.000000000000009, 'Worst Trade [%]': 0.0, 'Avg. Trade [%]': 6.944880005339327, 'Max. Trade Duration': '189', 'Avg. Trade Duration': '53', 'Profit Factor': None, 'Expectancy [%]': 6.989439132296275, 'SQN': 5.999999999999999, 'nextSignal': 'Hold'}
 
@@ -1295,7 +1294,7 @@ async def get_trading_signals(data: TickerData):
         print("Error fetching data from the database:", e)
         res = []  # Set a default value in case of an error
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600 * 24) # Set cache expiration time to Infinity
     return res
 
@@ -1307,7 +1306,7 @@ async def get_fair_price(data: TickerData):
     cache_key = f"get-fair-price-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
     
     query_template = """
         SELECT 
@@ -1325,7 +1324,7 @@ async def get_fair_price(data: TickerData):
         dcf_value = None
 
 
-    redis_client.set(cache_key, ujson.dumps(dcf_value))
+    redis_client.set(cache_key, orjson.dumps(dcf_value))
     redis_client.expire(cache_key, 3600 * 24) # Set cache expiration time to Infinity
     return dcf_value
 
@@ -1337,15 +1336,15 @@ async def get_fair_price(data: TickerData):
     cache_key = f"get-congress-trading-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
     try:
-        with open(f"json/congress-trading/company/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/congress-trading/company/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600 * 24) # Set cache expiration time to Infinity
 
     return res
@@ -1361,17 +1360,17 @@ async def get_fair_price(data: TickerData):
     cache_key = f"shareholders-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
     try:
-        with open(f"json/shareholders/{ticker}.json", 'r') as file:
-            shareholder_list = ujson.load(file)
+        with open(f"json/shareholders/{ticker}.json", 'rb') as file:
+            shareholder_list = orjson.loads(file.read())
     except:
         shareholder_list = []
 
     try:
-        with open(f"json/ownership-stats/{ticker}.json", 'r') as file:
-            stats = ujson.load(file)
+        with open(f"json/ownership-stats/{ticker}.json", 'rb') as file:
+            stats = orjson.loads(file.read())
     except:
         stats = {}
 
@@ -1380,7 +1379,7 @@ async def get_fair_price(data: TickerData):
     except:
         res = {}
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
     return res
 
@@ -1415,11 +1414,11 @@ async def get_hedge_funds_data(data: GetCIKData):
         'turnover': row[7],
         'marketValue': row[8],
         'winRate': row[9],
-        'holdings': ujson.loads(row[10]),
-        'summary': ujson.loads(row[11]),
+        'holdings': orjson.loads(row[10]),
+        'summary': orjson.loads(row[11]),
     } for row in cik_data]
 
-    res_json = ujson.dumps(res[0]).encode('utf-8')
+    res_json = orjson.dumps(res[0])
     compressed_data = gzip.compress(res_json)
 
     redis_client.set(cache_key, compressed_data)
@@ -1445,7 +1444,7 @@ async def get_stock():
         )
 
     # Compress the JSON data
-    searchbar_data_json = ujson.dumps(searchbar_data).encode('utf-8')
+    searchbar_data_json = orjson.dumps(searchbar_data)
     compressed_data = gzip.compress(searchbar_data_json)
 
     redis_client.set(cache_key, compressed_data)
@@ -1467,7 +1466,7 @@ async def revenue_segmentation(data: TickerData):
     cached_result = redis_client.get(cache_key)
     if cached_result:
         #redis_client.expire(cache_key, caching_time) 
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
 
     query_template = """
@@ -1485,15 +1484,15 @@ async def revenue_segmentation(data: TickerData):
     result = cur.fetchone()  # Get the first row
 
     if result is not None:
-        product_list = ujson.loads(result[0])
-        geographic_list = ujson.loads(result[1])
+        product_list = orjson.loads(result[0])
+        geographic_list = orjson.loads(result[1])
     else:
         product_list = []
         geographic_list = []
 
     res_list = [product_list, geographic_list]
 
-    redis_client.set(cache_key, ujson.dumps(res_list))
+    redis_client.set(cache_key, orjson.dumps(res_list))
     redis_client.expire(cache_key, 3600 * 24) # Set cache expiration time to Infinity
 
     return res_list
@@ -1506,7 +1505,7 @@ async def get_crypto_profile(data: TickerData):
     cache_key = f"crypto-profile-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
     query_template = """
         SELECT 
@@ -1524,11 +1523,11 @@ async def get_crypto_profile(data: TickerData):
 
     try:
         if result is not None:
-            profile_list = ujson.loads(result[0])
+            profile_list = orjson.loads(result[0])
     except:
         profile_list = []
 
-    redis_client.set(cache_key, ujson.dumps(profile_list))
+    redis_client.set(cache_key, orjson.dumps(profile_list))
     redis_client.expire(cache_key, 3600 * 24) # Set cache expiration time to Infinity
 
     return profile_list
@@ -1543,7 +1542,7 @@ async def get_fair_price(data: TickerData):
     cache_key = f"etf-profile-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
     query_template = """
         SELECT 
@@ -1561,14 +1560,14 @@ async def get_fair_price(data: TickerData):
 
     try:
         if result is not None:
-            profile_list = ujson.loads(result[0])
+            profile_list = orjson.loads(result[0])
             for item in profile_list:
                 item['etfProvider'] = result[1]
             #Show only hedge funds that are in the institute.db
     except:
         profile_list = []
 
-    redis_client.set(cache_key, ujson.dumps(profile_list))
+    redis_client.set(cache_key, orjson.dumps(profile_list))
     redis_client.expire(cache_key, 3600 * 24) # Set cache expiration time to Infinity
 
     return profile_list
@@ -1581,18 +1580,18 @@ async def etf_holdings(data: TickerData):
 
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
 
     query_template = f"SELECT holding from etfs WHERE symbol = ?"
     df = pd.read_sql_query(query_template, etf_con, params=(ticker,))
 
     try:
-        res = ujson.loads(df['holding'].iloc[0])
+        res = orjson.loads(df['holding'].iloc[0])
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res), 3600*3600)  # Set cache expiration time to 1 hour
+    redis_client.set(cache_key, orjson.dumps(res), 3600*3600)  # Set cache expiration time to 1 hour
     return res
 
 @app.post("/etf-country-weighting")
@@ -1602,13 +1601,13 @@ async def etf_holdings(data: TickerData):
 
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
 
     query_template = f"SELECT country_weightings from etfs WHERE symbol = ?"
     df = pd.read_sql_query(query_template, etf_con, params=(ticker,))
     try:
-        res = ujson.loads(df['country_weightings'].iloc[0])
+        res = orjson.loads(df['country_weightings'].iloc[0])
         for item in res:
             if item["weightPercentage"] != 'NaN%':
                 item["weightPercentage"] = float(item["weightPercentage"].rstrip('%'))
@@ -1620,7 +1619,7 @@ async def etf_holdings(data: TickerData):
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res), 3600*3600)  # Set cache expiration time to 1 hour
+    redis_client.set(cache_key, orjson.dumps(res), 3600*3600)  # Set cache expiration time to 1 hour
     return res
 
 
@@ -1633,15 +1632,15 @@ async def top_ai_signals():
     cache_key = f"ai-signals"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
     try:
-        with open(f"json/ai-signals/data.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/ai-signals/data.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
 
     return res
@@ -1656,7 +1655,7 @@ async def top_ai_signals(data:FilterStockList):
     cache_key = f"filter-list-{filter_list}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
     if filter_list == 'nasdaqConstituent':
         path = f"nasdaq_constituent.json"
@@ -1666,12 +1665,12 @@ async def top_ai_signals(data:FilterStockList):
         path = f"sp500_constituent.json"
 
     try:
-        with open(f"json/stocks-list/{path}", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/stocks-list/{path}", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
 
     return res
@@ -1688,13 +1687,13 @@ async def get_all_stock_tickers():
         headers={"Content-Encoding": "gzip"}
     )
     try:
-        with open(f"json/all-symbols/stocks.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/all-symbols/stocks.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
     # Compress the JSON data
-    data = ujson.dumps(res).encode('utf-8')
+    data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
 
     redis_client.set(cache_key, compressed_data)
@@ -1718,13 +1717,13 @@ async def get_all_etf_tickers():
         headers={"Content-Encoding": "gzip"})
 
     try:
-        with open(f"json/all-symbols/etfs.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/all-symbols/etfs.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
     # Compress the JSON data
-    data = ujson.dumps(res).encode('utf-8')
+    data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
 
     redis_client.set(cache_key, compressed_data)
@@ -1747,13 +1746,13 @@ async def get_all_crypto_tickers():
         headers={"Content-Encoding": "gzip"})
 
     try:
-        with open(f"json/all-symbols/cryptos.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/all-symbols/cryptos.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
     # Compress the JSON data
-    data = ujson.dumps(res).encode('utf-8')
+    data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
 
     redis_client.set(cache_key, compressed_data)
@@ -1770,14 +1769,14 @@ async def get_congress_rss_feed():
     cache_key = f"congress-rss-feed"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
     try:
-        with open(f"json/congress-trading/rss-feed/data.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/congress-trading/rss-feed/data.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 60*60)  # Set cache expiration time to 1 day
     return res
 
@@ -1792,12 +1791,12 @@ async def get_analysts_price_targets_rss_feed():
         headers={"Content-Encoding": "gzip"})
 
     try:
-        with open(f"json/analysts-rss-feed/price-targets.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/analysts-rss-feed/price-targets.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    data = ujson.dumps(res).encode('utf-8')
+    data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
     redis_client.set(cache_key, compressed_data)
     redis_client.expire(cache_key, 60*60)  # Set cache expiration time to 1 day
@@ -1820,12 +1819,12 @@ async def get_analysts_upgrades_downgrades_rss_feed():
         headers={"Content-Encoding": "gzip"})
 
     try:
-        with open(f"json/analysts-rss-feed/upgrades-downgrades.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/analysts-rss-feed/upgrades-downgrades.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    data = ujson.dumps(res).encode('utf-8')
+    data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
     redis_client.set(cache_key, compressed_data)
     redis_client.expire(cache_key, 60*60)  # Set cache expiration time to 1 day
@@ -1842,15 +1841,15 @@ async def get_delisted_companies():
     cache_key = f"delisted-companies"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
     try:
-        with open(f"json/delisted-companies/data.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/delisted-companies/data.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
     return res
 
@@ -1863,7 +1862,7 @@ async def filter_stock_list(data:FilterStockList):
     cached_result = redis_client.get(cache_key)
     
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
@@ -1928,7 +1927,7 @@ async def filter_stock_list(data:FilterStockList):
     sorted_res_list = sorted(res_list, key=lambda x: x['marketCap'], reverse=True)
 
     # Cache the result
-    redis_client.set(cache_key, ujson.dumps(sorted_res_list))
+    redis_client.set(cache_key, orjson.dumps(sorted_res_list))
     redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
 
     return sorted_res_list
@@ -1974,7 +1973,7 @@ async def get_earnings_call_transcripts(data:TranscriptData):
     cached_result = redis_client.get(cache_key)
 
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
     
     try:
         async with aiohttp.ClientSession() as session:
@@ -1989,7 +1988,7 @@ async def get_earnings_call_transcripts(data:TranscriptData):
     except:
         res = {}
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
     return res
 
@@ -1999,15 +1998,15 @@ async def get_ticker_mentioning():
     cache_key = f"get-ticker-mentioning"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
     try:
-        with open(f"json/ticker-mentioning/data.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/ticker-mentioning/data.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
     return res
 
@@ -2018,14 +2017,14 @@ async def top_etf_ticker_holder(data: TickerData):
     cache_key = f"top-etf-{ticker}-holder"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
     try:
-        with open(f"json/top-etf-ticker-holder/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/top-etf-ticker-holder/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600*24)  # Set cache expiration time to 1 day
     return res
 
@@ -2035,11 +2034,11 @@ async def get_popular_etfs():
     cache_key = "popular-etfs"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
     try:
-        with open("json/mini-plots-index/data.json", 'r') as file:
-            res = ujson.load(file)
+        with open("json/mini-plots-index/data.json", 'rb') as file:
+            res = orjson.loads(file.read())
             for item in res:
                 price_data = item["priceData"]
                 last_price_data = price_data[-1]  # Get the last element of priceData
@@ -2053,7 +2052,7 @@ async def get_popular_etfs():
         print(f"Error: {e}")
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 60*5)  # Set cache expiration time to 5 minutes
     return res
 
@@ -2064,15 +2063,15 @@ async def get_all_etf_providers():
     cache_key = f"get-all-etf-providers"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
     try:
-        with open(f"json/all-etf-providers/data.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/all-etf-providers/data.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
     return res
 
@@ -2086,7 +2085,7 @@ async def etf_provider(data: ETFProviderData):
     cached_result = redis_client.get(cache_key)
     
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
     # Check if data is cached; if not, fetch and cache it
     cursor = etf_con.cursor()
@@ -2098,7 +2097,7 @@ async def etf_provider(data: ETFProviderData):
     # Extract only relevant data and sort it
     res = [{'symbol': row[0], 'name': row[1], 'expenseRatio': row[2], 'totalAssets': row[3], 'numberOfHoldings': row[4]} for row in raw_data]
     sorted_res = sorted(res, key=lambda x: x['totalAssets'], reverse=True)
-    redis_client.set(cache_key, ujson.dumps(sorted_res))
+    redis_client.set(cache_key, orjson.dumps(sorted_res))
     redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
     return sorted_res
 
@@ -2108,7 +2107,7 @@ async def etf_provider():
     cached_result = redis_client.get(cache_key)
     limit = 100
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
     # Check if data is cached; if not, fetch and cache it
     cursor = etf_con.cursor()
@@ -2119,7 +2118,7 @@ async def etf_provider():
 
     # Extract only relevant data and sort it
     res = [{'symbol': row[0], 'name': row[1], 'expenseRatio': row[2], 'totalAssets': row[3], 'numberOfHoldings': row[4], 'inceptionDate': row[5]} for row in raw_data]
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
     return res
 
@@ -2129,14 +2128,14 @@ async def get_etf_bitcoin_list():
     cache_key = f"get-etf-bitcoin-list"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
     try:
-        with open(f"json/etf-bitcoin-list/data.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/etf-bitcoin-list/data.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
     return res
 
@@ -2149,15 +2148,15 @@ async def get_analyst_estimate(data:TickerData):
     cache_key = f"get-analyst-estimates-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
     try:
-        with open(f"json/analyst-estimate/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/analyst-estimate/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
     return res
 
@@ -2176,13 +2175,13 @@ async def get_insider_trading(data:TickerData):
         )
 
     try:
-        with open(f"json/insider-trading/history/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/insider-trading/history/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
     # Compress the JSON data
-    data = ujson.dumps(res).encode('utf-8')
+    data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
 
     redis_client.set(cache_key, compressed_data)
@@ -2203,15 +2202,15 @@ async def get_insider_trading_statistics(data:TickerData):
     cache_key = f"insider-trading-statistics-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
     try:
-        with open(f"json/insider-trading/statistics/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/insider-trading/statistics/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
     
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
     return res
 
@@ -2222,15 +2221,15 @@ async def get_executives(data:TickerData):
     cache_key = f"get-executives-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
     try:
-        with open(f"json/executives/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/executives/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
     return res
 
@@ -2248,13 +2247,13 @@ async def get_sec_filings(data:TickerData):
         )
 
     try:
-        with open(f"json/sec-filings/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/sec-filings/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
     # Compress the JSON data
-    data = ujson.dumps(res).encode('utf-8')
+    data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
 
     redis_client.set(cache_key, compressed_data)
@@ -2278,13 +2277,13 @@ async def get_magnificent_seven():
         headers={"Content-Encoding": "gzip"}
     )
     try:
-        with open(f"json/magnificent-seven/data.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/magnificent-seven/data.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
     # Compress the JSON data
-    data = ujson.dumps(res).encode('utf-8')
+    data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
 
     redis_client.set(cache_key, compressed_data)
@@ -2308,14 +2307,14 @@ async def get_ipo_calendar(data:IPOData):
         headers={"Content-Encoding": "gzip"})
 
     try:
-        with open(f"json/ipo-calendar/data.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/ipo-calendar/data.json", 'rb') as file:
+            res = orjson.loads(file.read())
         if year != 'all':
             res = [entry for entry in res if entry['date'].startswith(year)]
     except:
         res = []
 
-    data = ujson.dumps(res).encode('utf-8')
+    data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
     redis_client.set(cache_key, compressed_data)
     redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
@@ -2337,12 +2336,12 @@ async def get_trending():
         headers={"Content-Encoding": "gzip"})
 
     try:
-        with open(f"json/trending/data.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/trending/data.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    data = ujson.dumps(res).encode('utf-8')
+    data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
     redis_client.set(cache_key, compressed_data)
     redis_client.expire(cache_key, 60*15)  # Set cache expiration time to 1 day
@@ -2365,12 +2364,12 @@ async def get_trending(data: HeatMapData):
         headers={"Content-Encoding": "gzip"})
 
     try:
-        with open(f"json/heatmaps/{index}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/heatmaps/{index}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    data = ujson.dumps(res).encode('utf-8')
+    data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
     redis_client.set(cache_key, compressed_data)
     redis_client.expire(cache_key, 60*5)  # Set cache expiration time to 5 min
@@ -2388,15 +2387,15 @@ async def get_pre_post_quote(data:TickerData):
     cache_key = f"get-pre-post-quote-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
     try:
-        with open(f"json/pre-post-quote/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/pre-post-quote/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = {}
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 60)  # Set cache expiration time to 1 day
     return res
 
@@ -2407,15 +2406,15 @@ async def get_bull_bear_say(data:TickerData):
     cache_key = f"bull-bear-say-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
     try:
-        with open(f"json/bull_bear_say/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/bull_bear_say/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = {}
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
     return res
 
@@ -2426,15 +2425,15 @@ async def get_options_net_flow(data:TickerData):
     cache_key = f"options-net-flow-ticker-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
     try:
-        with open(f"json/options-net-flow/companies/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/options-net-flow/companies/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, caching_time)
     return res
 
@@ -2444,15 +2443,15 @@ async def get_options_plot_ticker(data:TickerData):
     cache_key = f"options-plot-ticker-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
     try:
-        with open(f"json/options-flow/company/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/options-flow/company/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 60)  # Set cache expiration time to 1 day
     return res
 
@@ -2470,7 +2469,7 @@ async def get_options_flow_ticker(data:TickerData):
         headers={"Content-Encoding": "gzip"})
     try:
         data = fin.options_activity(company_tickers=ticker, pagesize=500)
-        data = ujson.loads(fin.output(data))['option_activity']
+        data = orjson.loads(fin.output(data))['option_activity']
         res_list = []
         keys_to_keep = {'time', 'sentiment','option_activity_type', 'price', 'underlying_price', 'cost_basis', 'strike_price', 'date', 'date_expiration', 'open_interest', 'put_call', 'volume'}
         for item in data:
@@ -2483,7 +2482,7 @@ async def get_options_flow_ticker(data:TickerData):
     except:
         res_list = []
 
-    data = ujson.dumps(res_list).encode('utf-8')
+    data = orjson.dumps(res_list)
     compressed_data = gzip.compress(data)
     redis_client.set(cache_key, compressed_data)
     redis_client.expire(cache_key, 60*5)  # Set cache expiration time to 5 min
@@ -2497,11 +2496,11 @@ async def get_options_flow_ticker(data:TickerData):
 @app.get("/options-flow-feed")
 async def get_options_flow_feed():
     try:
-        with open(f"json/options-flow/feed/data.json", 'r') as file:
-            res_list = ujson.load(file)
+        with open(f"json/options-flow/feed/data.json", 'rb') as file:
+            res_list = orjson.loads(file.read())
     except:
         res_list = []
-    data = ujson.dumps(res_list).encode('utf-8')
+    data = orjson.dumps(res_list)
     compressed_data = gzip.compress(data)
     return StreamingResponse(
         io.BytesIO(compressed_data),
@@ -2513,11 +2512,11 @@ async def get_options_flow_feed():
 @app.get("/options-zero-dte")
 async def get_options_flow_feed():
     try:
-        with open(f"json/options-flow/zero-dte/data.json", 'r') as file:
-            res_list = ujson.load(file)
+        with open(f"json/options-flow/zero-dte/data.json", 'rb') as file:
+            res_list = orjson.loads(file.read())
     except:
         res_list = []
-    data = ujson.dumps(res_list).encode('utf-8')
+    data = orjson.dumps(res_list)
     compressed_data = gzip.compress(data)
     return StreamingResponse(
         io.BytesIO(compressed_data),
@@ -2533,15 +2532,15 @@ async def get_options_bubble(data:TickerData):
     cache_key = f"options-bubble-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
     try:
-        with open(f"json/options-bubble/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/options-bubble/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = {}
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600*24)  # Set cache expiration time to 1 day
     return res
 
@@ -2551,15 +2550,15 @@ async def get_all_analysts():
     cache_key = f"top-analysts"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
     try:
-        with open(f"json/analyst/top-analysts.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/analyst/top-analysts.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 60*60*2)  # Set cache expiration time to 1 day
     return res
 
@@ -2568,15 +2567,15 @@ async def get_all_analysts():
     cache_key = f"top-analysts-stocks"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
     try:
-        with open(f"json/analyst/top-stocks.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/analyst/top-stocks.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 60*60*2)  # Set cache expiration time to 1 day
     return res
 
@@ -2587,15 +2586,15 @@ async def get_all_analysts(data:AnalystId):
     cache_key = f"analyst-stats-{analyst_id}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
     try:
-        with open(f"json/analyst/analyst-db/{analyst_id}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/analyst/analyst-db/{analyst_id}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = {}
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 60*60*2)  # Set cache expiration time to 1 day
     return res
 
@@ -2606,15 +2605,15 @@ async def get_wiim(data:TickerData):
     cache_key = f"wiim-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
 
     try:
-        with open(f"json/wiim/company/{ticker}.json", 'r') as file:
-            res = ujson.load(file)[:5]
+        with open(f"json/wiim/company/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())[:5]
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 60*60*2)
     return res
 
@@ -2624,14 +2623,14 @@ async def get_rss_feed_wiim():
     cache_key = f"rss_feed_wiim"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
     try:
-        with open(f"json/wiim/rss-feed/data.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/wiim/rss-feed/data.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 60*5)  # Set cache expiration time to 1 day
     return res
 
@@ -2641,14 +2640,14 @@ async def get_sentiment_analysis(data:TickerData):
     cache_key = f"sentiment-analysis-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
     try:
-        with open(f"json/sentiment-analysis/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/sentiment-analysis/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
     return res
 
@@ -2658,14 +2657,14 @@ async def get_trend_analysis(data:TickerData):
     cache_key = f"trend-analysis-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
     try:
-        with open(f"json/trend-analysis/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/trend-analysis/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
     return res
 
@@ -2681,12 +2680,12 @@ async def get_price_analysis(data:TickerData):
             headers={"Content-Encoding": "gzip"}
         )
     try:
-        with open(f"json/price-analysis/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/price-analysis/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = {}
 
-    data = ujson.dumps(res).encode('utf-8')
+    data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
 
     redis_client.set(cache_key, compressed_data)
@@ -2706,14 +2705,14 @@ async def get_fundamental_predictor_analysis(data:TickerData):
     cache_key = f"fundamental-predictor-analysis-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
     try:
-        with open(f"json/fundamental-predictor-analysis/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/fundamental-predictor-analysis/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = {}
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
     return res
 
@@ -2724,14 +2723,14 @@ async def get_trend_analysis(data:TickerData):
     cache_key = f"value-at-risk-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
     try:
-        with open(f"json/var/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/var/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = {}
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
     return res
 
@@ -2741,14 +2740,14 @@ async def get_government_contract(data:TickerData):
     cache_key = f"government-contract-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
     try:
-        with open(f"json/government-contract/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/government-contract/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
     return res
 
@@ -2758,14 +2757,14 @@ async def get_lobbying(data:TickerData):
     cache_key = f"lobbying-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
     try:
-        with open(f"json/lobbying/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/lobbying/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
     return res
 
@@ -2775,14 +2774,14 @@ async def get_enterprise_values(data:TickerData):
     cache_key = f"enterprise-values-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
     try:
-        with open(f"json/enterprise-values/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/enterprise-values/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
     return res
 
@@ -2793,14 +2792,14 @@ async def get_enterprise_values(data:TickerData):
     cache_key = f"share-statistics-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
     try:
-        with open(f"json/share-statistics/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/share-statistics/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = {}
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
     return res
 
@@ -2818,12 +2817,12 @@ async def get_politician_stats(data:PoliticianId):
         )
 
     try:
-        with open(f"json/congress-trading/politician-db/{politician_id}.json", 'r') as file:
-            res_list = ujson.load(file)
+        with open(f"json/congress-trading/politician-db/{politician_id}.json", 'rb') as file:
+            res_list = orjson.loads(file.read())
     except:
         res_list = []
 
-    data = ujson.dumps(res_list).encode('utf-8')
+    data = orjson.dumps(res_list)
     compressed_data = gzip.compress(data)
 
     redis_client.set(cache_key, compressed_data)
@@ -2849,12 +2848,12 @@ async def get_all_politician():
     
     
     try:
-        with open(f"json/congress-trading/search_list.json", 'r') as file:
-            res_list = ujson.load(file)
+        with open(f"json/congress-trading/search_list.json", 'rb') as file:
+            res_list = orjson.loads(file.read())
     except:
         res_list = []
 
-    data = ujson.dumps(res_list).encode('utf-8')
+    data = orjson.dumps(res_list)
     compressed_data = gzip.compress(data)
 
     redis_client.set(cache_key, compressed_data)
@@ -2872,14 +2871,14 @@ async def get_most_shorted_stocks():
     cache_key = f"most-shorted-stocks"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
     try:
-        with open(f"json/most-shorted-stocks/data.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/most-shorted-stocks/data.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
     return res
 
@@ -2888,14 +2887,14 @@ async def get_most_retail_volume():
     cache_key = f"most-retail-volume"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
     try:
-        with open(f"json/retail-volume/data.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/retail-volume/data.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
     return res
 
@@ -2906,14 +2905,14 @@ async def get_retail_volume(data:TickerData):
     cache_key = f"retail-volume-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
     try:
-        with open(f"json/retail-volume/companies/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/retail-volume/companies/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = {}
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
     return res
 
@@ -2923,14 +2922,14 @@ async def get_dark_pool(data:TickerData):
     cache_key = f"dark-pool-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
     try:
-        with open(f"json/dark-pool/companies/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/dark-pool/companies/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
     return res
 
@@ -2946,12 +2945,12 @@ async def get_dark_pool_flow():
         media_type="application/json",
         headers={"Content-Encoding": "gzip"})
     try:
-        with open(f"json/dark-pool/flow/data.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/dark-pool/flow/data.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    data = ujson.dumps(res).encode('utf-8')
+    data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
     redis_client.set(cache_key, compressed_data)
     redis_client.expire(cache_key, 60*15)  # Set cache expiration time to 15 min
@@ -2969,14 +2968,14 @@ async def get_market_maker(data:TickerData):
     cache_key = f"market-maker-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
     try:
-        with open(f"json/market-maker/companies/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/market-maker/companies/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = {}
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
     return res
 
@@ -2993,12 +2992,12 @@ async def get_clinical_trial(data:TickerData):
         )
 
     try:
-        with open(f"json/clinical-trial/companies/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/clinical-trial/companies/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    data = ujson.dumps(res).encode('utf-8')
+    data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
 
     redis_client.set(cache_key, compressed_data)
@@ -3016,14 +3015,14 @@ async def get_market_maker():
     cache_key = f"fda-calendar"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
     try:
-        with open(f"json/fda-calendar/data.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/fda-calendar/data.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
     return res
 
@@ -3034,14 +3033,14 @@ async def get_fail_to_deliver(data:TickerData):
     cache_key = f"fail-to-deliver-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
     try:
-        with open(f"json/fail-to-deliver/companies/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/fail-to-deliver/companies/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
     return res
 
@@ -3051,14 +3050,14 @@ async def get_borrowed_share(data:TickerData):
     cache_key = f"borrowed-share-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
     try:
-        with open(f"json/borrowed-share/companies/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/borrowed-share/companies/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
     return res
 
@@ -3069,14 +3068,14 @@ async def get_analyst_insight(data:TickerData):
     cache_key = f"analyst-insight-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return ujson.loads(cached_result)
+        return orjson.loads(cached_result)
     try:
-        with open(f"json/analyst/insight/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/analyst/insight/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = {}
 
-    redis_client.set(cache_key, ujson.dumps(res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
     return res
 
@@ -3094,12 +3093,12 @@ async def get_clinical_trial(data:TickerData):
         )
 
     try:
-        with open(f"json/implied-volatility/companies/{ticker}.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/implied-volatility/companies/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    data = ujson.dumps(res).encode('utf-8')
+    data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
 
     redis_client.set(cache_key, compressed_data)
