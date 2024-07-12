@@ -265,9 +265,9 @@ async def get_earnings_calendar(con, symbols):
         url = f"https://financialmodelingprep.com/api/v3/earning_calendar?from={start_date}&to={end_date}&apikey={api_key}"
         async with session.get(url) as response:
             data = await response.json()
-            filtered_data = [{k: v for k, v in stock.items() if stock['symbol'] in symbols and '.' not in stock['symbol']} for stock in data]
+            filtered_data = [{k: v for k, v in stock.items() if stock['symbol'] in symbols and '.' not in stock['symbol'] and '-' not in stock['symbol']} for stock in data]
             #filtered_data = [entry for entry in filtered_data if entry]
-
+            print(filtered_data)
             for entry in filtered_data:
                 try:
                     symbol = entry['symbol']
@@ -301,7 +301,7 @@ async def get_earnings_calendar(con, symbols):
             print(e)
 
         if symbol is None or symbol not in seen_symbols:
-            #bug in fmp endpoint. Double check that earnigns date is the same as in quote endpoint
+            #bug in fmp endpoint. Double check that earnings date is the same as in quote endpoint
             if item['date'] == earnings_date:
                 #print(symbol, item['date'], earnings_date)
                 unique_data.append(item)
@@ -1170,6 +1170,11 @@ async def save_json_files():
     crypto_symbols = [row[0] for row in crypto_cursor.fetchall()]
 
 
+    earnings_list = await get_earnings_calendar(con,symbols)
+    with open(f"json/earnings-calendar/calendar.json", 'w') as file:
+        ujson.dump(earnings_list, file)
+
+    
     data = await get_most_shorted_stocks(con)
     with open(f"json/most-shorted-stocks/data.json", 'w') as file:
         ujson.dump(data, file)
@@ -1183,10 +1188,6 @@ async def save_json_files():
     data = await get_magnificent_seven(con)
     with open(f"json/magnificent-seven/data.json", 'w') as file:
         ujson.dump(data, file)
-
-    earnings_list = await get_earnings_calendar(con,symbols)
-    with open(f"json/earnings-calendar/calendar.json", 'w') as file:
-        ujson.dump(earnings_list, file)
     
     data = await get_ipo_calendar(con, symbols)
     with open(f"json/ipo-calendar/data.json", 'w') as file:
@@ -1250,7 +1251,7 @@ async def save_json_files():
     stock_screener_data = await get_stock_screener(con,symbols)
     with open(f"json/stock-screener/data.json", 'w') as file:
         ujson.dump(stock_screener_data, file)
-
+    
     
 
     con.close()

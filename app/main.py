@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 import numpy as np
 import pandas as pd
 import ujson
+import orjson
 import aiohttp
 import pytz
 import redis
@@ -894,6 +895,7 @@ async def economic_calendar():
         headers={"Content-Encoding": "gzip"}
     )
 
+
 @app.get("/earnings-calendar")
 async def earnings_calendar():
     
@@ -905,19 +907,15 @@ async def earnings_calendar():
             media_type="application/json",
             headers={"Content-Encoding": "gzip"}
         )
-
     try:
-        with open(f"json/earnings-calendar/calendar.json", 'r') as file:
-            res = ujson.load(file)
+        with open(f"json/earnings-calendar/calendar.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
-
-    res = ujson.dumps(res).encode('utf-8')
+    res = orjson.dumps(res)
     compressed_data = gzip.compress(res)
-
     redis_client.set(cache_key, compressed_data)
     redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
-
     return StreamingResponse(
         io.BytesIO(compressed_data),
         media_type="application/json",
