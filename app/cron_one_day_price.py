@@ -63,7 +63,7 @@ async def get_todays_data(ticker):
                 try:
                     with open(f"json/quote/{ticker}.json", 'r') as file:
                         res = ujson.load(file)
-                        df_1d['close'].iloc[0] = res['previousClose']
+                        df_1d.loc[df_1d.index[0], 'close'] = res['previousClose']
                 except:
                     pass
 
@@ -81,7 +81,7 @@ async def get_todays_data(ticker):
                         remaining_df['time'] = remaining_df['time'].dt.strftime('%Y-%m-%d %H:%M:%S')
                         remainind_df = remaining_df.set_index('time')
 
-                        df_1d = pd.concat([df_1d, remaining_df[1:: ]])
+                        df_1d = pd.concat([df_1d, remaining_df[1::]], ignore_index=True)
                         #To-do FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
     
                 df_1d = ujson.loads(df_1d.to_json(orient="records"))
