@@ -171,20 +171,27 @@ fastify.register(async function (fastify) {
 
 
 
-    // Handle WebSocket messages
     ws.on('message', function (data, flags) {
       const stringData = data.toString('utf-8');
-      
-      if (connection.socket.readyState === WebSocket.OPEN && !isSend) {
-        connection.socket.send(stringData);
-        //console.log(stringData)
-        isSend = true
-        setTimeout(() => { 
-          isSend = false}, 1000);
-
-        //wait(2000);
+    
+    
+      try {
+        const jsonData = JSON.parse(stringData);
+        const bpData = jsonData.bp;
+    
+        // Check if bpData is a number and not equal to zero
+        if (typeof bpData === 'number' && bpData !== 0) {
+          if (connection.socket.readyState === WebSocket.OPEN && !isSend) {
+            connection.socket.send(JSON.stringify({ bp: bpData }));
+            isSend = true;
+            setTimeout(() => { 
+              isSend = false;
+            }, 1000);
+          }
+        }
+      } catch (error) {
+        console.error('Error parsing JSON:', error);
       }
-      //wait(2000);
     });
 
     
