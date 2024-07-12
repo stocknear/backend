@@ -84,9 +84,8 @@ def get_summary(data):
 try:
     stock_con = sqlite3.connect('stocks.db')
     stock_cursor = stock_con.cursor()
-    stock_cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 100E6 AND symbol NOT LIKE '%.%'")
+    stock_cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
     stock_symbols = [row[0] for row in stock_cursor.fetchall()]
-
 
     stock_con.close()
     
