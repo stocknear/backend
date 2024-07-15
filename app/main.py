@@ -2095,7 +2095,11 @@ async def etf_provider(data: ETFProviderData):
     cursor.close()
 
     # Extract only relevant data and sort it
-    res = [{'symbol': row[0], 'name': row[1], 'expenseRatio': row[2], 'totalAssets': row[3], 'numberOfHoldings': row[4]} for row in raw_data]
+    # Extract only relevant data and filter only integer totalAssets
+    res = [
+        {'symbol': row[0], 'name': row[1], 'expenseRatio': row[2], 'totalAssets': row[3], 'numberOfHoldings': row[4]}
+        for row in raw_data if isinstance(row[3], int)
+    ]
     sorted_res = sorted(res, key=lambda x: x['totalAssets'], reverse=True)
     redis_client.set(cache_key, orjson.dumps(sorted_res))
     redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day

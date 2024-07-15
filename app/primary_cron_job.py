@@ -347,15 +347,13 @@ def run_dark_pool_flow():
 
 
 def run_market_maker():
-    week = datetime.today().weekday()
-    if week <= 5:
-        run_command(["python3", "cron_market_maker.py"])
-        command = [
-            "sudo", "rsync", "-avz", "-e", "ssh",
-            "/root/backend/app/json/market-maker",
-            f"root@{useast_ip_address}:/root/backend/app/json"
-        ]
-        run_command(command)
+    run_command(["python3", "cron_market_maker.py"])
+    command = [
+        "sudo", "rsync", "-avz", "-e", "ssh",
+        "/root/backend/app/json/market-maker",
+        f"root@{useast_ip_address}:/root/backend/app/json"
+    ]
+    run_command(command)
 
 def run_ownership_stats():
     week = datetime.today().weekday()

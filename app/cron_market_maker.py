@@ -15,7 +15,7 @@ api_key = os.getenv('FINRA_API_KEY')
 api_secret = os.getenv('FINRA_API_SECRET')
 api_token = finra_api_queries.retrieve_api_token(finra_api_key_input=api_key, finra_api_secret_input=api_secret)
 
-start_date = datetime.today() - timedelta(365)
+start_date = datetime.today() - timedelta(180)
 end_date = datetime.today() 
 start_date = start_date.strftime("%Y-%m-%d")
 end_date = end_date.strftime("%Y-%m-%d")
@@ -83,7 +83,6 @@ async def save_json(symbol, data):
     # Use async file writing to avoid blocking the event loop
     loop = asyncio.get_event_loop()
     path = f"json/market-maker/companies/{symbol}.json"
-    os.makedirs(os.path.dirname(path), exist_ok=True)
     await loop.run_in_executor(None, ujson.dump, data, open(path, 'w'))
 
 async def process_ticker(ticker):
@@ -111,12 +110,10 @@ async def run():
     total_symbols = stocks_symbols + etf_symbols
 
     async with aiohttp.ClientSession() as session:
-        tasks = []
-        for ticker in total_symbols:
-            tasks.append(process_ticker(ticker))
+        tasks = [process_ticker(ticker) for ticker in total_symbols]
         
         # Run tasks concurrently in batches to avoid too many open connections
-        batch_size = 1  # Adjust based on your system's capacity
+        batch_size = 10  # Adjust based on your system's capacity
         for i in tqdm(range(0, len(tasks), batch_size)):
             batch = tasks[i:i + batch_size]
             await asyncio.gather(*batch)
