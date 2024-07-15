@@ -160,22 +160,23 @@ async def get_stock_screener(con,symbols):
         try:
             with open(f"json/trend-analysis/{symbol}.json", 'r') as file:
                 res = ujson.load(file)[-1]
-                if abs(res['accuracy'] - res['precision']) <=15:
-                    item['trendAnalysis'] = {"accuracy": res['accuracy'], 'sentiment': res['sentiment']}
+                if abs(res['accuracy'] - res['precision']) <=15 and res['sentiment'] == 'Bullish':
+                    item['trendAnalysis'] = {"accuracy": res['accuracy']}
                 else:
-                    item['trendAnalysis'] = {"accuracy": None, "sentiment": None}
+                    item['trendAnalysis'] = {"accuracy": None}
         except:
-            item['trendAnalysis'] = {"accuracy": None, "sentiment": None}
+            item['trendAnalysis'] = {"accuracy": None}
 
         try:
             with open(f"json/fundamental-predictor-analysis/{symbol}.json", 'r') as file:
                 res = ujson.load(file)
-                if abs(res['accuracy'] - res['precision']) <=15:
-                    item['fundamentalAnalysis'] = {"accuracy": res['accuracy'], 'sentiment': res['sentiment']}
+                if abs(res['accuracy'] - res['precision']) <=15 and res['sentiment'] == 'Bullish':
+                    print(res['sentiment'])
+                    item['fundamentalAnalysis'] = {"accuracy": res['accuracy']}
                 else:
-                    item['fundamentalAnalysis'] = {"accuracy": None, "sentiment": None}
+                    item['fundamentalAnalysis'] = {"accuracy": None}
         except:
-            item['fundamentalAnalysis'] = {"accuracy": None, "sentiment": None}
+            item['fundamentalAnalysis'] = {"accuracy": None}
 
 
     return stock_screener_data
@@ -1168,7 +1169,7 @@ async def save_json_files():
     crypto_cursor.execute("SELECT DISTINCT symbol FROM cryptos")
     crypto_symbols = [row[0] for row in crypto_cursor.fetchall()]
 
-
+    '''
     earnings_list = await get_earnings_calendar(con,symbols)
     with open(f"json/earnings-calendar/calendar.json", 'w') as file:
         ujson.dump(earnings_list, file)
@@ -1245,7 +1246,7 @@ async def save_json_files():
     data = await get_index_list(con,symbols,'sp500_constituent')
     with open(f"json/stocks-list/sp500_constituent.json", 'w') as file:
         ujson.dump(data, file)
-    
+    '''
  
     stock_screener_data = await get_stock_screener(con,symbols)
     with open(f"json/stock-screener/data.json", 'w') as file:
