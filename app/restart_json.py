@@ -171,7 +171,6 @@ async def get_stock_screener(con,symbols):
             with open(f"json/fundamental-predictor-analysis/{symbol}.json", 'r') as file:
                 res = ujson.load(file)
                 if abs(res['accuracy'] - res['precision']) <=15 and res['sentiment'] == 'Bullish':
-                    print(res['sentiment'])
                     item['fundamentalAnalysis'] = {"accuracy": res['accuracy']}
                 else:
                     item['fundamentalAnalysis'] = {"accuracy": None}
@@ -1169,7 +1168,7 @@ async def save_json_files():
     crypto_cursor.execute("SELECT DISTINCT symbol FROM cryptos")
     crypto_symbols = [row[0] for row in crypto_cursor.fetchall()]
 
-    '''
+    
     earnings_list = await get_earnings_calendar(con,symbols)
     with open(f"json/earnings-calendar/calendar.json", 'w') as file:
         ujson.dump(earnings_list, file)
@@ -1246,8 +1245,8 @@ async def save_json_files():
     data = await get_index_list(con,symbols,'sp500_constituent')
     with open(f"json/stocks-list/sp500_constituent.json", 'w') as file:
         ujson.dump(data, file)
-    '''
- 
+    
+
     stock_screener_data = await get_stock_screener(con,symbols)
     with open(f"json/stock-screener/data.json", 'w') as file:
         ujson.dump(stock_screener_data, file)
