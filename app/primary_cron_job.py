@@ -289,13 +289,11 @@ def run_options_bubble_ticker():
         run_command(command)
 
 def run_analyst_rating():
-    week = datetime.today().weekday()
-    if week <= 5:
-        run_command(["python3", "cron_analyst_db.py"])
-        run_command(["python3", "cron_analyst_ticker.py"])
-        run_command(["python3", "cron_analyst_insight.py"])
-        command = ["sudo", "rsync", "-avz", "-e", "ssh", "/root/backend/app/json/analyst", f"root@{useast_ip_address}:/root/backend/app/json"]
-        run_command(command)
+    run_command(["python3", "cron_analyst_insight.py"])
+    run_command(["python3", "cron_analyst_db.py"])
+    run_command(["python3", "cron_analyst_ticker.py"])
+    command = ["sudo", "rsync", "-avz", "-e", "ssh", "/root/backend/app/json/analyst", f"root@{useast_ip_address}:/root/backend/app/json"]
+    run_command(command)
 
 def run_market_moods():
     week = datetime.today().weekday()
@@ -479,7 +477,7 @@ schedule.every(10).minutes.do(run_threaded, run_dark_pool_flow).tag('dark_pool_f
 
 schedule.every(2).hours.do(run_threaded, run_fda_calendar).tag('fda_calendar_job')
 schedule.every(3).hours.do(run_threaded, run_json_job).tag('json_job')
-schedule.every(12).hours.do(run_threaded, run_analyst_rating).tag('analyst_job')
+schedule.every(6).hours.do(run_threaded, run_analyst_rating).tag('analyst_job')
 
 schedule.every(10).seconds.do(run_threaded, run_cron_options_flow).tag('options_flow_job')
 schedule.every(10).seconds.do(run_threaded, run_cron_options_zero_dte).tag('options_zero_dte_job')
