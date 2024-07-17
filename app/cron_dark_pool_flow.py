@@ -90,6 +90,8 @@ def run():
 	    for entry in filtered_data
 	]
 
+	print(res)
+
 	if len(res) > 0:
 		save_json(res)
 
@@ -99,7 +101,7 @@ if __name__ == "__main__":
     future = executor.submit(run)
     try:
         # Wait for the result with a timeout of 300 seconds (5 minutes)
-        future.result(timeout=300)
+        future.result(timeout=10)
     except TimeoutError:
         print("The operation timed out.")
     except Exception as e:

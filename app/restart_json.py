@@ -177,6 +177,14 @@ async def get_stock_screener(con,symbols):
         except:
             item['fundamentalAnalysis'] = {"accuracy": None}
 
+        try:
+            with open(f"json/forward-pe/{symbol}.json", 'r') as file:
+                res = ujson.load(file)
+                if res['forwardPE'] != 0:
+                    item['forwardPE'] = res['forwardPE']
+        except:
+            item['forwardPE'] = None
+
 
     return stock_screener_data
 

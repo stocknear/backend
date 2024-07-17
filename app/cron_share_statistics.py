@@ -8,9 +8,11 @@ import yfinance as yf
 import time
 
 
-async def save_as_json(symbol, data):
+async def save_as_json(symbol, forward_pe_dict, short_dict):
     with open(f"json/share-statistics/{symbol}.json", 'w') as file:
-        ujson.dump(data, file)
+        ujson.dump(short_dict, file)
+    with open(f"json/forward-pe/{symbol}.json", 'w') as file:
+        ujson.dump(forward_pe_dict, file)
 
 
 query_template = f"""
@@ -33,14 +35,15 @@ def filter_data_quarterly(data):
     
     return filtered_data
 
-def get_short_data(ticker, outstanding_shares, float_shares):
+def get_yahoo_data(ticker, outstanding_shares, float_shares):
     try:
         data_dict = yf.Ticker(ticker).info
+        forward_pe = round(data_dict['forwardPE'],2)
         short_outstanding_percent = round((data_dict['sharesShort']/outstanding_shares)*100,2)
         short_float_percent = round((data_dict['sharesShort']/float_shares)*100,2)
-        return {'sharesShort': data_dict['sharesShort'], 'shortRatio': data_dict['shortRatio'], 'sharesShortPriorMonth': data_dict['sharesShortPriorMonth'], 'shortOutStandingPercent': short_outstanding_percent, 'shortFloatPercent': short_float_percent}
+        return {'forwardPE': forward_pe}, {'sharesShort': data_dict['sharesShort'], 'shortRatio': data_dict['shortRatio'], 'sharesShortPriorMonth': data_dict['sharesShortPriorMonth'], 'shortOutStandingPercent': short_outstanding_percent, 'shortFloatPercent': short_float_percent}
     except:
-        return {'sharesShort': 0, 'shortRatio': 0, 'sharesShortPriorMonth': 0, 'shortOutStandingPercent': 0, 'shortFloatPercent': 0}
+        return {'forwardPE': 0}, {'sharesShort': 0, 'shortRatio': 0, 'sharesShortPriorMonth': 0, 'shortOutStandingPercent': 0, 'shortFloatPercent': 0}
 
 
 async def get_data(ticker, con):
@@ -66,13 +69,14 @@ async def get_data(ticker, con):
         # Filter out only quarter-end dates
         historical_shares = filter_data_quarterly(shareholder_statistics)
 
-        short_data = get_short_data(ticker, latest_outstanding_shares, latest_float_shares)
-        res = {**short_data, 'latestOutstandingShares': latest_outstanding_shares, 'latestFloatShares': latest_float_shares,'historicalShares': historical_shares}
+        forward_pe_data, short_data = get_yahoo_data(ticker, latest_outstanding_shares, latest_float_shares)
+        short_data = {**short_data, 'latestOutstandingShares': latest_outstanding_shares, 'latestFloatShares': latest_float_shares,'historicalShares': historical_shares}
     except Exception as e:
         print(e)
-        res = {}
+        short_data = {}
+        forward_pe_data = {}
 
-    return res
+    return forward_pe_data, short_data
 
 
 async def run():
@@ -87,9 +91,9 @@ async def run():
     counter = 0
 
     for ticker in tqdm(stock_symbols):
-        data_dict = await get_data(ticker, con)
-        if data_dict.keys():
-            await save_as_json(ticker, data_dict)
+        forward_pe_dict, short_dict = await get_data(ticker, con)
+        if forward_pe_dict.keys() and short_dict.keys():
+            await save_as_json(ticker, forward_pe_dict, short_dict)
 
         counter += 1
         if counter % 100 == 0:
