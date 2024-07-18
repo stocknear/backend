@@ -2471,6 +2471,36 @@ async def get_options_plot_ticker(data:TickerData, api_key: str = Security(get_a
     return res
 
 
+#api endpoint not for website but for user
+@app.post("/raw-options-flow-ticker")
+async def get_options_flow_ticker(data:TickerData, api_key: str = Security(get_api_key)):
+    ticker = data.ticker.upper()
+    cache_key = f"options-flow-{ticker}"
+
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+        io.BytesIO(cached_result),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"})
+    try:
+        data = fin.options_activity(company_tickers=ticker, pagesize=500)
+        data = orjson.loads(fin.output(data))['option_activity']
+    except:
+        data = []
+
+    data = orjson.dumps(data)
+    compressed_data = gzip.compress(data)
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 60)  # Set cache expiration time to 5 min
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
+
+
 @app.post("/options-flow-ticker")
 async def get_options_flow_ticker(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
