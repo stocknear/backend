@@ -24,11 +24,12 @@ from contextlib import contextmanager
 from pocketbase import PocketBase
 
 # FastAPI and related imports
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, Security, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.security.api_key import APIKeyHeader
 from fastapi.responses import StreamingResponse
 
 # DB constants & context manager
@@ -135,6 +136,7 @@ app.add_middleware(
 )
 
 
+
 security = HTTPBasic()
 
 #Hide /docs and /openai.json behind authentication
@@ -153,13 +155,22 @@ def get_current_username(credentials: HTTPBasicCredentials = Depends(security)):
     return credentials.username
 
 
+STOCKNEAR_API_KEY = os.getenv('STOCKNEAR_API_KEY')
+api_key_header = APIKeyHeader(name="X-API-KEY")
+
+
+async def get_api_key(api_key: str = Security(api_key_header)):
+    if api_key != STOCKNEAR_API_KEY:
+        raise HTTPException(status_code=403, detail="Could not validate credentials")
+
+
 @app.get("/docs")
-async def get_documentation(username: str = Depends(get_current_username)):
+async def get_documentation(username: str = Depends(get_current_username), api_key: str = Security(get_api_key)):
     return get_swagger_ui_html(openapi_url="/openapi.json", title="docs")
 
 
 @app.get("/openapi.json")
-async def openapi(username: str = Depends(get_current_username)):
+async def openapi(username: str = Depends(get_current_username), api_key: str = Security(get_api_key)):
     return get_openapi(title = "FastAPI", version="0.1.0", routes=app.routes)
 
 
@@ -276,13 +287,13 @@ def clean_financial_data(list1, list2):
 
 
 @app.get("/")
-async def hello_world():
+async def hello_world(api_key: str = Security(get_api_key)):
     return {"stocknear api"}
 
 
 
 @app.post("/stock-correlation")
-async def rating_stock(data: TickerData):
+async def rating_stock(data: TickerData, api_key: str = Security(get_api_key)):
     data = data.dict()
     ticker = data['ticker'].upper()
 
@@ -316,7 +327,7 @@ async def rating_stock(data: TickerData):
 
 
 @app.post("/stock-rating")
-async def rating_stock(data: TickerData):
+async def rating_stock(data: TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     cache_key = f"stock-rating-{ticker}"
     cached_result = redis_client.get(cache_key)
@@ -334,7 +345,7 @@ async def rating_stock(data: TickerData):
     return res
 
 @app.post("/historical-price")
-async def get_stock(data: HistoricalPrice):
+async def get_stock(data: HistoricalPrice, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     time_period = data.timePeriod
 
@@ -367,7 +378,7 @@ async def get_stock(data: HistoricalPrice):
 
 
 @app.post("/one-day-price")
-async def get_stock(data: TickerData):
+async def get_stock(data: TickerData, api_key: str = Security(get_api_key)):
     data = data.dict()
     ticker = data['ticker'].upper()
     cache_key = f"one-day-price-{ticker}"
@@ -407,7 +418,7 @@ def shuffle_list(lst):
 
 
 @app.post("/similar-stocks")
-async def similar_stocks(data: TickerData):
+async def similar_stocks(data: TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     cache_key = f"similar-stocks-{ticker}"
     cached_result = redis_client.get(cache_key)
@@ -425,7 +436,7 @@ async def similar_stocks(data: TickerData):
 
 
 @app.post("/similar-etfs")
-async def get_similar_etfs(data: TickerData):
+async def get_similar_etfs(data: TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
 
     cache_key = f"similar-etfs-{ticker}"
@@ -470,7 +481,7 @@ async def get_similar_etfs(data: TickerData):
 
 
 @app.get("/market-movers")
-async def get_market_movers():
+async def get_market_movers(api_key: str = Security(get_api_key)):
     cache_key = f"get-market-movers"
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -498,7 +509,7 @@ async def get_market_movers():
     )
 
 @app.get("/mini-plots-index")
-async def get_market_movers():
+async def get_market_movers(api_key: str = Security(get_api_key)):
     cache_key = f"get-mini-plots-index"
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -517,7 +528,7 @@ async def get_market_movers():
 
 
 @app.get("/market-news")
-async def get_market_news():
+async def get_market_news(api_key: str = Security(get_api_key)):
     cache_key = f"get-market-news"
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -544,7 +555,7 @@ async def get_market_news():
     )
 
 @app.get("/general-news")
-async def get_general_news():
+async def get_general_news(api_key: str = Security(get_api_key)):
     cache_key = f"get-general-news"
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -571,7 +582,7 @@ async def get_general_news():
     )
 
 @app.get("/crypto-news")
-async def get_crypto_news():
+async def get_crypto_news(api_key: str = Security(get_api_key)):
     cache_key = f"get-crypto-news"
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -599,7 +610,7 @@ async def get_crypto_news():
 
 
 @app.post("/stock-news")
-async def stock_news(data: TickerData):
+async def stock_news(data: TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     cache_key = f"stock-news-{ticker}"
 
@@ -633,7 +644,7 @@ async def stock_news(data: TickerData):
 
 
 @app.post("/stock-dividend")
-async def stock_dividend(data: TickerData):
+async def stock_dividend(data: TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     cache_key = f"stock-dividend-{ticker}"
 
@@ -683,7 +694,7 @@ async def stock_dividend(data: TickerData):
 
 
 @app.post("/stock-quote")
-async def stock_dividend(data: TickerData):
+async def stock_dividend(data: TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
 
     cache_key = f"stock-quote-{ticker}"
@@ -702,7 +713,7 @@ async def stock_dividend(data: TickerData):
     return res
 
 @app.post("/history-employees")
-async def history_employees(data: TickerData):
+async def history_employees(data: TickerData, api_key: str = Security(get_api_key)):
     data = data.dict()
     ticker = data['ticker'].upper()
 
@@ -732,7 +743,7 @@ async def history_employees(data: TickerData):
     return res
 
 @app.post("/stock-income")
-async def stock_income(data: TickerData):
+async def stock_income(data: TickerData, api_key: str = Security(get_api_key)):
     data = data.dict()
     ticker = data['ticker'].upper()
 
@@ -767,7 +778,7 @@ async def stock_income(data: TickerData):
     return res
 
 @app.post("/stock-balance-sheet")
-async def stock_balance_sheet(data: TickerData):
+async def stock_balance_sheet(data: TickerData, api_key: str = Security(get_api_key)):
     data = data.dict()
     ticker = data['ticker'].upper()
 
@@ -802,7 +813,7 @@ async def stock_balance_sheet(data: TickerData):
     return res    
 
 @app.post("/stock-ratios")
-async def stock_ratios(data: TickerData):
+async def stock_ratios(data: TickerData, api_key: str = Security(get_api_key)):
     data = data.dict()
     ticker = data['ticker'].upper()
 
@@ -832,7 +843,7 @@ async def stock_ratios(data: TickerData):
 
 
 @app.post("/stock-cash-flow")
-async def stock_cash_flow(data: TickerData):
+async def stock_cash_flow(data: TickerData, api_key: str = Security(get_api_key)):
     data = data.dict()
     ticker = data['ticker'].upper()
 
@@ -865,7 +876,7 @@ async def stock_cash_flow(data: TickerData):
 
 
 @app.get("/economic-calendar")
-async def economic_calendar():
+async def economic_calendar(api_key: str = Security(get_api_key)):
 
     cache_key = f"economic-calendar"
     cached_result = redis_client.get(cache_key)
@@ -896,7 +907,7 @@ async def economic_calendar():
 
 
 @app.get("/earnings-calendar")
-async def earnings_calendar():
+async def earnings_calendar(api_key: str = Security(get_api_key)):
     
     cache_key = f"earnings-calendar"
     cached_result = redis_client.get(cache_key)
@@ -923,7 +934,7 @@ async def earnings_calendar():
 
 
 @app.get("/dividends-calendar")
-async def dividends_calendar():
+async def dividends_calendar(api_key: str = Security(get_api_key)):
 
     cache_key = f"dividends-calendar"
     cached_result = redis_client.get(cache_key)
@@ -953,7 +964,7 @@ async def dividends_calendar():
     )
 
 @app.get("/stock-splits-calendar")
-async def stock_splits_calendar():
+async def stock_splits_calendar(api_key: str = Security(get_api_key)):
     cache_key = f"stock-splits-calendar"
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -983,7 +994,7 @@ async def stock_splits_calendar():
 
 
 @app.post("/stockdeck")
-async def rating_stock(data: TickerData):
+async def rating_stock(data: TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     cache_key = f"stockdeck-{ticker}"
     cached_result = redis_client.get(cache_key)
@@ -1001,7 +1012,7 @@ async def rating_stock(data: TickerData):
 
 
 @app.post("/analyst-summary-rating")
-async def get_analyst_rating(data: TickerData):
+async def get_analyst_rating(data: TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     cache_key = f"analyst-summary-rating-{ticker}"
     cached_result = redis_client.get(cache_key)
@@ -1018,7 +1029,7 @@ async def get_analyst_rating(data: TickerData):
     return res
 
 @app.post("/analyst-ticker-history")
-async def get_analyst_ticke_history(data: TickerData):
+async def get_analyst_ticke_history(data: TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     cache_key = f"analyst-ticker-history-{ticker}"
     cached_result = redis_client.get(cache_key)
@@ -1049,7 +1060,7 @@ async def get_analyst_ticke_history(data: TickerData):
 
 
 @app.post("/get-watchlist")
-async def get_watchlist(data: GetWatchList):
+async def get_watchlist(data: GetWatchList, api_key: str = Security(get_api_key)):
     data = data.dict()
     watchlist_id = data['watchListId']
     result = pb.collection("watchlist").get_one(watchlist_id)
@@ -1136,7 +1147,7 @@ async def get_watchlist(data: GetWatchList):
 
 
 @app.post("/price-prediction")
-async def brownian_motion(data:TickerData):
+async def brownian_motion(data:TickerData, api_key: str = Security(get_api_key)):
 
     data= data.dict()
     ticker = data['ticker'].upper()
@@ -1177,7 +1188,7 @@ async def brownian_motion(data:TickerData):
 
 
 @app.get("/stock-screener-data")
-async def stock_finder():
+async def stock_finder(api_key: str = Security(get_api_key)):
     
     cache_key = f"stock-screener-data"
     cached_result = redis_client.get(cache_key)
@@ -1212,7 +1223,7 @@ async def stock_finder():
 
 
 @app.post("/get-quant-stats")
-async def get_quant_stats(data: TickerData):
+async def get_quant_stats(data: TickerData, api_key: str = Security(get_api_key)):
     data = data.dict()
     ticker = data['ticker'].upper()
     cache_key = f"get-quant-stats-{ticker}"
@@ -1256,7 +1267,7 @@ async def get_quant_stats(data: TickerData):
 
 
 @app.post("/trading-signals")
-async def get_trading_signals(data: TickerData):
+async def get_trading_signals(data: TickerData, api_key: str = Security(get_api_key)):
 
     data = data.dict()
     ticker = data['ticker'].upper()
@@ -1300,7 +1311,7 @@ async def get_trading_signals(data: TickerData):
 
 
 @app.post("/fair-price")
-async def get_fair_price(data: TickerData):
+async def get_fair_price(data: TickerData, api_key: str = Security(get_api_key)):
     data = data.dict()
     ticker = data['ticker'].upper()
     cache_key = f"get-fair-price-{ticker}"
@@ -1330,7 +1341,7 @@ async def get_fair_price(data: TickerData):
 
 
 @app.post("/congress-trading-ticker")
-async def get_fair_price(data: TickerData):
+async def get_fair_price(data: TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
 
     cache_key = f"get-congress-trading-{ticker}"
@@ -1352,7 +1363,7 @@ async def get_fair_price(data: TickerData):
 
 
 @app.post("/shareholders")
-async def get_fair_price(data: TickerData):
+async def get_fair_price(data: TickerData, api_key: str = Security(get_api_key)):
 
     data = data.dict()
     ticker = data['ticker'].upper()
@@ -1385,7 +1396,7 @@ async def get_fair_price(data: TickerData):
 
 
 @app.post("/cik-data")
-async def get_hedge_funds_data(data: GetCIKData):
+async def get_hedge_funds_data(data: GetCIKData, api_key: str = Security(get_api_key)):
     data = data.dict()
     cik = data['cik']
 
@@ -1432,7 +1443,7 @@ async def get_hedge_funds_data(data: GetCIKData):
 
 
 @app.get("/searchbar-data")
-async def get_stock():
+async def get_stock(api_key: str = Security(get_api_key)):
     cache_key = f"searchbar-data"
     cached_result = redis_client.get(cache_key)
 
@@ -1458,7 +1469,7 @@ async def get_stock():
 
 
 @app.post("/revenue-segmentation")
-async def revenue_segmentation(data: TickerData):
+async def revenue_segmentation(data: TickerData, api_key: str = Security(get_api_key)):
     data = data.dict()
     ticker = data['ticker'].upper()
 
@@ -1500,7 +1511,7 @@ async def revenue_segmentation(data: TickerData):
 
 
 @app.post("/crypto-profile")
-async def get_crypto_profile(data: TickerData):
+async def get_crypto_profile(data: TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     cache_key = f"crypto-profile-{ticker}"
     cached_result = redis_client.get(cache_key)
@@ -1534,7 +1545,7 @@ async def get_crypto_profile(data: TickerData):
 
 
 @app.post("/etf-profile")
-async def get_fair_price(data: TickerData):
+async def get_fair_price(data: TickerData, api_key: str = Security(get_api_key)):
 
     data = data.dict()
     ticker = data['ticker'].upper()
@@ -1574,7 +1585,7 @@ async def get_fair_price(data: TickerData):
 
 
 @app.post("/etf-holdings")
-async def etf_holdings(data: TickerData):
+async def etf_holdings(data: TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     cache_key = f"etf-holdings-{ticker}"
 
@@ -1595,7 +1606,7 @@ async def etf_holdings(data: TickerData):
     return res
 
 @app.post("/etf-country-weighting")
-async def etf_holdings(data: TickerData):
+async def etf_holdings(data: TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     cache_key = f"etf-country-weighting-{ticker}"
 
@@ -1628,7 +1639,7 @@ async def etf_holdings(data: TickerData):
 
 
 @app.get("/ai-signals")
-async def top_ai_signals():
+async def top_ai_signals(api_key: str = Security(get_api_key)):
     cache_key = f"ai-signals"
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -1648,7 +1659,7 @@ async def top_ai_signals():
 
 
 @app.post("/exchange-constituents")
-async def top_ai_signals(data:FilterStockList):
+async def top_ai_signals(data:FilterStockList, api_key: str = Security(get_api_key)):
     data = data.dict()
     filter_list = data['filterList']
 
@@ -1677,7 +1688,7 @@ async def top_ai_signals(data:FilterStockList):
 
 
 @app.get("/all-stock-tickers")
-async def get_all_stock_tickers():
+async def get_all_stock_tickers(api_key: str = Security(get_api_key)):
     cache_key = f"all_stock_tickers"
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -1707,7 +1718,7 @@ async def get_all_stock_tickers():
 
 
 @app.get("/all-etf-tickers")
-async def get_all_etf_tickers():
+async def get_all_etf_tickers(api_key: str = Security(get_api_key)):
     cache_key = f"all-etf-tickers"
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -1736,7 +1747,7 @@ async def get_all_etf_tickers():
     )
 
 @app.get("/all-crypto-tickers")
-async def get_all_crypto_tickers():
+async def get_all_crypto_tickers(api_key: str = Security(get_api_key)):
     cache_key = f"all-crypto-tickers"
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -1765,7 +1776,7 @@ async def get_all_crypto_tickers():
     )
 
 @app.get("/congress-rss-feed")
-async def get_congress_rss_feed():
+async def get_congress_rss_feed(api_key: str = Security(get_api_key)):
     cache_key = f"congress-rss-feed"
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -1781,7 +1792,7 @@ async def get_congress_rss_feed():
     return res
 
 @app.get("/analysts-price-targets-rss-feed")
-async def get_analysts_price_targets_rss_feed():
+async def get_analysts_price_targets_rss_feed(api_key: str = Security(get_api_key)):
     cache_key = f"analysts-price-targets-rss-feed"
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -1809,7 +1820,7 @@ async def get_analysts_price_targets_rss_feed():
 
 
 @app.get("/analysts-upgrades-downgrades-rss-feed")
-async def get_analysts_upgrades_downgrades_rss_feed():
+async def get_analysts_upgrades_downgrades_rss_feed(api_key: str = Security(get_api_key)):
     cache_key = f"analysts-upgrades-downgrades-rss-feed"
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -1836,7 +1847,7 @@ async def get_analysts_upgrades_downgrades_rss_feed():
     )
 
 @app.get("/delisted-companies")
-async def get_delisted_companies():
+async def get_delisted_companies(api_key: str = Security(get_api_key)):
 
     cache_key = f"delisted-companies"
     cached_result = redis_client.get(cache_key)
@@ -1855,7 +1866,7 @@ async def get_delisted_companies():
 
 
 @app.post("/filter-stock-list")
-async def filter_stock_list(data:FilterStockList):
+async def filter_stock_list(data:FilterStockList, api_key: str = Security(get_api_key)):
     data = data.dict()
     filter_list = data['filterList']
     cache_key = f"filter-list-{filter_list}"
@@ -1964,7 +1975,7 @@ def extract_names_and_descriptions(text):
 
 
 @app.post("/earnings-call-transcripts")
-async def get_earnings_call_transcripts(data:TranscriptData):
+async def get_earnings_call_transcripts(data:TranscriptData, api_key: str = Security(get_api_key)):
     data = data.dict()
     ticker = data['ticker']
     year = data['year']
@@ -1993,7 +2004,7 @@ async def get_earnings_call_transcripts(data:TranscriptData):
     return res
 
 @app.get("/ticker-mentioning")
-async def get_ticker_mentioning():
+async def get_ticker_mentioning(api_key: str = Security(get_api_key)):
 
     cache_key = f"get-ticker-mentioning"
     cached_result = redis_client.get(cache_key)
@@ -2012,7 +2023,7 @@ async def get_ticker_mentioning():
 
 
 @app.post("/top-etf-ticker-holder")
-async def top_etf_ticker_holder(data: TickerData):
+async def top_etf_ticker_holder(data: TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     cache_key = f"top-etf-{ticker}-holder"
     cached_result = redis_client.get(cache_key)
@@ -2030,7 +2041,7 @@ async def top_etf_ticker_holder(data: TickerData):
 
 
 @app.get("/popular-etfs")
-async def get_popular_etfs():
+async def get_popular_etfs(api_key: str = Security(get_api_key)):
     cache_key = "popular-etfs"
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -2058,7 +2069,7 @@ async def get_popular_etfs():
 
 
 @app.get("/all-etf-providers")
-async def get_all_etf_providers():
+async def get_all_etf_providers(api_key: str = Security(get_api_key)):
 
     cache_key = f"get-all-etf-providers"
     cached_result = redis_client.get(cache_key)
@@ -2077,7 +2088,7 @@ async def get_all_etf_providers():
 
 
 @app.post("/etf-provider")
-async def etf_provider(data: ETFProviderData):
+async def etf_provider(data: ETFProviderData, api_key: str = Security(get_api_key)):
     data = data.dict()
     etf_provider = data['etfProvider'].lower()
 
@@ -2106,7 +2117,7 @@ async def etf_provider(data: ETFProviderData):
     return sorted_res
 
 @app.get("/etf-new-launches")
-async def etf_provider():
+async def etf_provider(api_key: str = Security(get_api_key)):
     cache_key = f"etf-new-launches"
     cached_result = redis_client.get(cache_key)
     limit = 100
@@ -2127,7 +2138,7 @@ async def etf_provider():
     return res
 
 @app.get("/etf-bitcoin-list")
-async def get_etf_bitcoin_list():
+async def get_etf_bitcoin_list(api_key: str = Security(get_api_key)):
 
     cache_key = f"get-etf-bitcoin-list"
     cached_result = redis_client.get(cache_key)
@@ -2145,7 +2156,7 @@ async def get_etf_bitcoin_list():
 
 
 @app.post("/analyst-estimate")
-async def get_analyst_estimate(data:TickerData):
+async def get_analyst_estimate(data:TickerData, api_key: str = Security(get_api_key)):
     data = data.dict()
     ticker = data['ticker'].upper()
 
@@ -2166,7 +2177,7 @@ async def get_analyst_estimate(data:TickerData):
 
 
 @app.post("/insider-trading")
-async def get_insider_trading(data:TickerData):
+async def get_insider_trading(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
 
     cache_key = f"insider-trading-{ticker}"
@@ -2200,7 +2211,7 @@ async def get_insider_trading(data:TickerData):
     
 
 @app.post("/insider-trading-statistics")
-async def get_insider_trading_statistics(data:TickerData):
+async def get_insider_trading_statistics(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
 
     cache_key = f"insider-trading-statistics-{ticker}"
@@ -2219,7 +2230,7 @@ async def get_insider_trading_statistics(data:TickerData):
     return res
 
 @app.post("/get-executives")
-async def get_executives(data:TickerData):
+async def get_executives(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
 
     cache_key = f"get-executives-{ticker}"
@@ -2238,7 +2249,7 @@ async def get_executives(data:TickerData):
     return res
 
 @app.post("/get-sec-filings")
-async def get_sec_filings(data:TickerData):
+async def get_sec_filings(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
 
     cache_key = f"get-sec-filings-{ticker}"
@@ -2271,7 +2282,7 @@ async def get_sec_filings(data:TickerData):
 
 
 @app.get("/magnificent-seven")
-async def get_magnificent_seven():
+async def get_magnificent_seven(api_key: str = Security(get_api_key)):
     cache_key = f"all_magnificent_seven"
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -2300,7 +2311,7 @@ async def get_magnificent_seven():
     )
 
 @app.post("/ipo-calendar")
-async def get_ipo_calendar(data:IPOData):
+async def get_ipo_calendar(data:IPOData, api_key: str = Security(get_api_key)):
     year = data.year
     cache_key = f"ipo-calendar-{year}"
     cached_result = redis_client.get(cache_key)
@@ -2330,7 +2341,7 @@ async def get_ipo_calendar(data:IPOData):
     )
 
 @app.get("/trending")
-async def get_trending():
+async def get_trending(api_key: str = Security(get_api_key)):
     cache_key = f"get-trending"
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -2357,7 +2368,7 @@ async def get_trending():
     )
 
 @app.post("/heatmaps")
-async def get_trending(data: HeatMapData):
+async def get_trending(data: HeatMapData, api_key: str = Security(get_api_key)):
     index = data.index
     cache_key = f"get-heatmaps-{index}"
     cached_result = redis_client.get(cache_key)
@@ -2385,7 +2396,7 @@ async def get_trending(data: HeatMapData):
     )
 
 @app.post("/pre-post-quote")
-async def get_pre_post_quote(data:TickerData):
+async def get_pre_post_quote(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
 
     cache_key = f"get-pre-post-quote-{ticker}"
@@ -2404,7 +2415,7 @@ async def get_pre_post_quote(data:TickerData):
     return res
 
 @app.post("/bull-bear-say")
-async def get_bull_bear_say(data:TickerData):
+async def get_bull_bear_say(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
 
     cache_key = f"bull-bear-say-{ticker}"
@@ -2424,7 +2435,7 @@ async def get_bull_bear_say(data:TickerData):
 
 
 @app.post("/options-net-flow-ticker")
-async def get_options_net_flow(data:TickerData):
+async def get_options_net_flow(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     cache_key = f"options-net-flow-ticker-{ticker}"
     cached_result = redis_client.get(cache_key)
@@ -2442,7 +2453,7 @@ async def get_options_net_flow(data:TickerData):
     return res
 
 @app.post("/options-plot-ticker")
-async def get_options_plot_ticker(data:TickerData):
+async def get_options_plot_ticker(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     cache_key = f"options-plot-ticker-{ticker}"
     cached_result = redis_client.get(cache_key)
@@ -2461,7 +2472,7 @@ async def get_options_plot_ticker(data:TickerData):
 
 
 @app.post("/options-flow-ticker")
-async def get_options_flow_ticker(data:TickerData):
+async def get_options_flow_ticker(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     cache_key = f"options-flow-{ticker}"
 
@@ -2498,7 +2509,7 @@ async def get_options_flow_ticker(data:TickerData):
     )
 
 @app.get("/options-flow-feed")
-async def get_options_flow_feed():
+async def get_options_flow_feed(api_key: str = Security(get_api_key)):
     try:
         with open(f"json/options-flow/feed/data.json", 'rb') as file:
             res_list = orjson.loads(file.read())
@@ -2514,7 +2525,7 @@ async def get_options_flow_feed():
 
 
 @app.get("/options-zero-dte")
-async def get_options_flow_feed():
+async def get_options_flow_feed(api_key: str = Security(get_api_key)):
     try:
         with open(f"json/options-flow/zero-dte/data.json", 'rb') as file:
             res_list = orjson.loads(file.read())
@@ -2530,7 +2541,7 @@ async def get_options_flow_feed():
 
 
 @app.post("/options-bubble")
-async def get_options_bubble(data:TickerData):
+async def get_options_bubble(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
 
     cache_key = f"options-bubble-{ticker}"
@@ -2550,7 +2561,7 @@ async def get_options_bubble(data:TickerData):
 
 
 @app.get("/top-analysts")
-async def get_all_analysts():
+async def get_all_analysts(api_key: str = Security(get_api_key)):
     cache_key = f"top-analysts"
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -2567,7 +2578,7 @@ async def get_all_analysts():
     return res
 
 @app.get("/top-analysts-stocks")
-async def get_all_analysts():
+async def get_all_analysts(api_key: str = Security(get_api_key)):
     cache_key = f"top-analysts-stocks"
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -2584,7 +2595,7 @@ async def get_all_analysts():
     return res
 
 @app.post("/analyst-stats")
-async def get_all_analysts(data:AnalystId):
+async def get_all_analysts(data:AnalystId, api_key: str = Security(get_api_key)):
     analyst_id = data.analystId
 
     cache_key = f"analyst-stats-{analyst_id}"
@@ -2603,7 +2614,7 @@ async def get_all_analysts(data:AnalystId):
     return res
 
 @app.post("/wiim")
-async def get_wiim(data:TickerData):
+async def get_wiim(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
 
     cache_key = f"wiim-{ticker}"
@@ -2622,7 +2633,7 @@ async def get_wiim(data:TickerData):
     return res
 
 @app.get("/rss-feed-wiim")
-async def get_rss_feed_wiim():
+async def get_rss_feed_wiim(api_key: str = Security(get_api_key)):
 
     cache_key = f"rss_feed_wiim"
     cached_result = redis_client.get(cache_key)
@@ -2639,7 +2650,7 @@ async def get_rss_feed_wiim():
     return res
 
 @app.post("/sentiment-analysis")
-async def get_sentiment_analysis(data:TickerData):
+async def get_sentiment_analysis(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     cache_key = f"sentiment-analysis-{ticker}"
     cached_result = redis_client.get(cache_key)
@@ -2656,7 +2667,7 @@ async def get_sentiment_analysis(data:TickerData):
     return res
 
 @app.post("/trend-analysis")
-async def get_trend_analysis(data:TickerData):
+async def get_trend_analysis(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     cache_key = f"trend-analysis-{ticker}"
     cached_result = redis_client.get(cache_key)
@@ -2673,7 +2684,7 @@ async def get_trend_analysis(data:TickerData):
     return res
 
 @app.post("/price-analysis")
-async def get_price_analysis(data:TickerData):
+async def get_price_analysis(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     cache_key = f"price-analysis-{ticker}"
     cached_result = redis_client.get(cache_key)
@@ -2704,7 +2715,7 @@ async def get_price_analysis(data:TickerData):
 
 
 @app.post("/fundamental-predictor-analysis")
-async def get_fundamental_predictor_analysis(data:TickerData):
+async def get_fundamental_predictor_analysis(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     cache_key = f"fundamental-predictor-analysis-{ticker}"
     cached_result = redis_client.get(cache_key)
@@ -2722,7 +2733,7 @@ async def get_fundamental_predictor_analysis(data:TickerData):
 
 
 @app.post("/value-at-risk")
-async def get_trend_analysis(data:TickerData):
+async def get_trend_analysis(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     cache_key = f"value-at-risk-{ticker}"
     cached_result = redis_client.get(cache_key)
@@ -2739,7 +2750,7 @@ async def get_trend_analysis(data:TickerData):
     return res
 
 @app.post("/government-contract")
-async def get_government_contract(data:TickerData):
+async def get_government_contract(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     cache_key = f"government-contract-{ticker}"
     cached_result = redis_client.get(cache_key)
@@ -2756,7 +2767,7 @@ async def get_government_contract(data:TickerData):
     return res
 
 @app.post("/lobbying")
-async def get_lobbying(data:TickerData):
+async def get_lobbying(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     cache_key = f"lobbying-{ticker}"
     cached_result = redis_client.get(cache_key)
@@ -2773,7 +2784,7 @@ async def get_lobbying(data:TickerData):
     return res
 
 @app.post("/enterprise-values")
-async def get_enterprise_values(data:TickerData):
+async def get_enterprise_values(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     cache_key = f"enterprise-values-{ticker}"
     cached_result = redis_client.get(cache_key)
@@ -2791,7 +2802,7 @@ async def get_enterprise_values(data:TickerData):
 
 
 @app.post("/share-statistics")
-async def get_enterprise_values(data:TickerData):
+async def get_enterprise_values(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     cache_key = f"share-statistics-{ticker}"
     cached_result = redis_client.get(cache_key)
@@ -2809,7 +2820,7 @@ async def get_enterprise_values(data:TickerData):
 
 
 @app.post("/politician-stats")
-async def get_politician_stats(data:PoliticianId):
+async def get_politician_stats(data:PoliticianId, api_key: str = Security(get_api_key)):
     politician_id = data.politicianId.lower()
     cache_key = f"politician-stats-{politician_id}"
     cached_result = redis_client.get(cache_key)
@@ -2839,7 +2850,7 @@ async def get_politician_stats(data:PoliticianId):
     )
 
 @app.get("/all-politicians")
-async def get_all_politician():
+async def get_all_politician(api_key: str = Security(get_api_key)):
     
     cache_key = f"all-politician"
     cached_result = redis_client.get(cache_key)
@@ -2871,7 +2882,7 @@ async def get_all_politician():
 
 
 @app.get("/most-shorted-stocks")
-async def get_most_shorted_stocks():
+async def get_most_shorted_stocks(api_key: str = Security(get_api_key)):
     cache_key = f"most-shorted-stocks"
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -2887,7 +2898,7 @@ async def get_most_shorted_stocks():
     return res
 
 @app.get("/most-retail-volume")
-async def get_most_retail_volume():
+async def get_most_retail_volume(api_key: str = Security(get_api_key)):
     cache_key = f"most-retail-volume"
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -2904,7 +2915,7 @@ async def get_most_retail_volume():
 
 
 @app.post("/retail-volume")
-async def get_retail_volume(data:TickerData):
+async def get_retail_volume(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     cache_key = f"retail-volume-{ticker}"
     cached_result = redis_client.get(cache_key)
@@ -2921,7 +2932,7 @@ async def get_retail_volume(data:TickerData):
     return res
 
 @app.post("/dark-pool")
-async def get_dark_pool(data:TickerData):
+async def get_dark_pool(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     cache_key = f"dark-pool-{ticker}"
     cached_result = redis_client.get(cache_key)
@@ -2939,7 +2950,7 @@ async def get_dark_pool(data:TickerData):
 
 
 @app.get("/dark-pool-flow")
-async def get_dark_pool_flow():
+async def get_dark_pool_flow(api_key: str = Security(get_api_key)):
     cache_key = f"dark-flow-flow"
 
     cached_result = redis_client.get(cache_key)
@@ -2967,7 +2978,7 @@ async def get_dark_pool_flow():
 
 
 @app.post("/market-maker")
-async def get_market_maker(data:TickerData):
+async def get_market_maker(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     cache_key = f"market-maker-{ticker}"
     cached_result = redis_client.get(cache_key)
@@ -2984,7 +2995,7 @@ async def get_market_maker(data:TickerData):
     return res
 
 @app.post("/clinical-trial")
-async def get_clinical_trial(data:TickerData):
+async def get_clinical_trial(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     cache_key = f"clinical-trial-{ticker}"
     cached_result = redis_client.get(cache_key)
@@ -3015,7 +3026,7 @@ async def get_clinical_trial(data:TickerData):
 
 
 @app.get("/fda-calendar")
-async def get_market_maker():
+async def get_market_maker(api_key: str = Security(get_api_key)):
     cache_key = f"fda-calendar"
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -3032,7 +3043,7 @@ async def get_market_maker():
 
 
 @app.post("/fail-to-deliver")
-async def get_fail_to_deliver(data:TickerData):
+async def get_fail_to_deliver(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     cache_key = f"fail-to-deliver-{ticker}"
     cached_result = redis_client.get(cache_key)
@@ -3049,7 +3060,7 @@ async def get_fail_to_deliver(data:TickerData):
     return res
 
 @app.post("/borrowed-share")
-async def get_borrowed_share(data:TickerData):
+async def get_borrowed_share(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     cache_key = f"borrowed-share-{ticker}"
     cached_result = redis_client.get(cache_key)
@@ -3067,7 +3078,7 @@ async def get_borrowed_share(data:TickerData):
 
 
 @app.post("/analyst-insight")
-async def get_analyst_insight(data:TickerData):
+async def get_analyst_insight(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     cache_key = f"analyst-insight-{ticker}"
     cached_result = redis_client.get(cache_key)
@@ -3085,7 +3096,7 @@ async def get_analyst_insight(data:TickerData):
 
 
 @app.post("/implied-volatility")
-async def get_clinical_trial(data:TickerData):
+async def get_clinical_trial(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     cache_key = f"implied-volatility-{ticker}"
     cached_result = redis_client.get(cache_key)
