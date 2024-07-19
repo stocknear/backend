@@ -2493,7 +2493,7 @@ async def get_options_plot_ticker(data:TickerData, api_key: str = Security(get_a
 
 #api endpoint not for website but for user
 @app.post("/raw-options-flow-ticker")
-@limiter.limit("100/minute")
+@limiter.limit("500/minute")
 async def get_raw_options_flow_ticker(data:OptionsFlowData, request: Request, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     start_date = data.start_date
