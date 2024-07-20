@@ -136,4 +136,5 @@ if __name__ == '__main__':
     #best_hedge_funds(con)
     #worst_hedge_funds(con)
     all_hedge_funds(con)
+    spy_performance()
     con.close()
