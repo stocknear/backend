@@ -3,6 +3,7 @@ import numpy as np
 import glob
 import requests
 import os
+import sqlite3
 from zipfile import ZipFile
 import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -11,18 +12,25 @@ from tqdm import tqdm
 # Define some configuration variables
 OUTPUT_PATH = r"./json/swap"
 COMPANIES_PATH = r"./json/swap/companies"
-MAX_WORKERS = 1
+MAX_WORKERS = 4
 CHUNK_SIZE = 1000  # Adjust this value based on your system's RAM
 executor = ThreadPoolExecutor(max_workers=MAX_WORKERS)
 
 # Ensure the companies directory exists
 os.makedirs(COMPANIES_PATH, exist_ok=True)
 
-# List of stock symbols you're interested in
-stock_symbols = ['AAPL', 'GME', 'AMD']  # Add more symbols as needed
+con = sqlite3.connect('stocks.db')
+
+cursor = con.cursor()
+cursor.execute("PRAGMA journal_mode = wal")
+cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
+stock_symbols = [row[0] for row in cursor.fetchall()]
+
+con.close()
 
 
-start = datetime.datetime.today() - datetime.timedelta(days=30)
+
+start = datetime.datetime.today() - datetime.timedelta(days=180)
 end = datetime.datetime.today()
 dates = [start + datetime.timedelta(days=i) for i in range((end - start).days + 1)]
 
@@ -37,6 +45,11 @@ filenames = [
 
 
 def download_and_process(filename):
+    csv_output_filename = os.path.join(OUTPUT_PATH, filename.replace('.zip', '.csv'))
+    if os.path.exists(csv_output_filename ):
+        print(f"{csv_output_filename} already exists. Skipping download and processing.")
+        return
+
     url = f"https://pddata.dtcc.com/ppd/api/report/cumulative/sec/{filename}"
     req = requests.get(url)
     if req.status_code != 200:
