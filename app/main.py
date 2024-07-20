@@ -1383,7 +1383,7 @@ async def get_fair_price(data: TickerData, api_key: str = Security(get_api_key))
 
 
 @app.post("/shareholders")
-async def get_fair_price(data: TickerData, api_key: str = Security(get_api_key)):
+async def get_shareholders(data: TickerData, api_key: str = Security(get_api_key)):
 
     data = data.dict()
     ticker = data['ticker'].upper()

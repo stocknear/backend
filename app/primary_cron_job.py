@@ -127,26 +127,22 @@ def run_share_statistics():
         run_command(command)
 
 def run_retail_volume():
-    week = datetime.today().weekday()
-    if week <= 5:
-        run_command(["python3", "cron_retail_volume.py"])
-        command = [
-            "sudo", "rsync", "-avz", "-e", "ssh",
-            "/root/backend/app/json/retail-volume",
-            f"root@{useast_ip_address}:/root/backend/app/json"
-        ]
-        run_command(command)
+    run_command(["python3", "cron_retail_volume.py"])
+    command = [
+        "sudo", "rsync", "-avz", "-e", "ssh",
+        "/root/backend/app/json/retail-volume",
+        f"root@{useast_ip_address}:/root/backend/app/json"
+    ]
+    run_command(command)
 
 def run_cron_market_movers():
-    week = datetime.today().weekday()
-    if week <= 4:
-        run_command(["python3", "cron_market_movers.py"])
-        command = [
-            "sudo", "rsync", "-avz", "-e", "ssh",
-            "/root/backend/app/json/market-movers",
-            f"root@{useast_ip_address}:/root/backend/app/json"
-        ]
-        run_command(command)
+    run_command(["python3", "cron_market_movers.py"])
+    command = [
+        "sudo", "rsync", "-avz", "-e", "ssh",
+        "/root/backend/app/json/market-movers",
+        f"root@{useast_ip_address}:/root/backend/app/json"
+    ]
+    run_command(command)
 
     
 def run_cron_market_news():
@@ -159,15 +155,13 @@ def run_cron_market_news():
     run_command(command)
 
 def run_cron_heatmap():
-    week = datetime.today().weekday()
-    if week <= 4:
-        run_command(["python3", "cron_heatmap.py"])
-        command = [
-            "sudo", "rsync", "-avz", "-e", "ssh",
-            "/root/backend/app/json/heatmaps",
-            f"root@{useast_ip_address}:/root/backend/app/json"
-        ]
-        run_command(command)
+    run_command(["python3", "cron_heatmap.py"])
+    command = [
+        "sudo", "rsync", "-avz", "-e", "ssh",
+        "/root/backend/app/json/heatmaps",
+        f"root@{useast_ip_address}:/root/backend/app/json"
+    ]
+    run_command(command)
 
 def run_cron_quote():
     week = datetime.today().weekday()
