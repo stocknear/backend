@@ -58,7 +58,7 @@ async def run():
 
 		try:
 			with open(f"json/wiim/rss-feed/data.json", 'r') as file:
-				wiim_feed = ujson.load(file)
+				wiim_feed = ujson.load(file)[0:5]
 
 		except:
 			wiim_feed = []
