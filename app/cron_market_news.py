@@ -10,6 +10,9 @@ finnhub_api_key = os.getenv('FINNHUB_API_KEY')
 finnhub_client = finnhub.Client(api_key=finnhub_api_key)
 
 
+headers = {"accept": "application/json"}
+
+
 '''
 async def run():
     limit = 200
@@ -34,7 +37,9 @@ async def run():
         with open(f"json/market-news/{data_name}.json", 'w') as file:
             ujson.dump(data, file)
 '''
-#Finnhub data
+
+
+
 async def run():
     limit = 200
     urls = [
@@ -54,12 +59,13 @@ async def run():
         with open(f"json/market-news/{data_name}.json", 'w') as file:
             ujson.dump(data, file)
 
+
+
     general_news = finnhub_client.general_news('general')
     general_news = [item for item in general_news if item["source"] != "" and item["image"] != ""]
     with open(f"json/market-news/general-news.json", 'w') as file:
             ujson.dump(general_news, file)
 
-    
 try:
     asyncio.run(run())
 except Exception as e:

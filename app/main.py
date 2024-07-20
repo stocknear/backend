@@ -2687,21 +2687,21 @@ async def get_wiim(data:TickerData, api_key: str = Security(get_api_key)):
     redis_client.expire(cache_key, 60*60*2)
     return res
 
-@app.get("/rss-feed-wiim")
-async def get_rss_feed_wiim(api_key: str = Security(get_api_key)):
+@app.get("/dashboard-info")
+async def get_dashboard_info(api_key: str = Security(get_api_key)):
 
-    cache_key = f"rss_feed_wiim"
+    cache_key = f"dashboard-info"
     cached_result = redis_client.get(cache_key)
     if cached_result:
         return orjson.loads(cached_result)
     try:
-        with open(f"json/wiim/rss-feed/data.json", 'rb') as file:
+        with open(f"json/dashboard/data.json", 'rb') as file:
             res = orjson.loads(file.read())
     except:
         res = []
 
     redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 60*5)  # Set cache expiration time to 1 day
+    redis_client.expire(cache_key, 60*5)
     return res
 
 @app.post("/sentiment-analysis")

@@ -422,6 +422,15 @@ def run_government_contract():
     ]
     run_command(command)
 
+def run_dashboard():
+    run_command(["python3", "cron_dashboard.py"])
+    command = [
+        "sudo", "rsync", "-avz", "-e", "ssh",
+        "/root/backend/app/json/dashboard",
+        f"root@{useast_ip_address}:/root/backend/app/json"
+    ]
+    run_command(command)
+
 # Create functions to run each schedule in a separate thread
 def run_threaded(job_func):
     job_thread = threading.Thread(target=job_func)
@@ -465,6 +474,7 @@ schedule.every().saturday.at("05:00").do(run_threaded, run_ownership_stats).tag(
 
 schedule.every(1).minutes.do(run_threaded, run_cron_portfolio).tag('portfolio_job')
 schedule.every(5).minutes.do(run_threaded, run_cron_market_movers).tag('market_movers_job')
+schedule.every(5).minutes.do(run_threaded, run_dashboard).tag('dashboard_job')
 
 schedule.every(15).minutes.do(run_threaded, run_cron_market_news).tag('market_news_job')
 schedule.every(10).minutes.do(run_threaded, run_one_day_price).tag('one_day_price_job')

@@ -107,7 +107,7 @@ async def get_endpoint(session, symbol, con):
 
 async def get_latest_wiim(session, stock_symbols, etf_symbols):
     url = "https://api.benzinga.com/api/v2/news"
-    querystring = {"token": api_key,"channels":"WIIM","pageSize":"20","displayOutput":"full"}
+    querystring = {"token": api_key,"channels":"WIIM","pageSize":"5","displayOutput":"full"}
     
     try:
         async with session.get(url, params=querystring, headers=headers) as response:
