@@ -65,6 +65,7 @@ def main():
         for item in data:
             symbol = item['ticker']
             try:
+                item['returnSince'] = round(float(item['returnSince'].replace('%','')),2)
                 db_data = pd.read_sql_query(query_template, con, params=(symbol,))
                 res.append({**item, 'name': db_data['name'].iloc[0], 'sector': db_data['sector'].iloc[0]})
             except Exception as e:
