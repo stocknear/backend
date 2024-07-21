@@ -3181,7 +3181,7 @@ async def get_clinical_trial(data:TickerData, api_key: str = Security(get_api_ke
     )
 
 @app.post("/swap-ticker")
-async def get_clinical_trial(data:TickerData, api_key: str = Security(get_api_key)):
+async def get_swap_data(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     cache_key = f"swap-{ticker}"
     cached_result = redis_client.get(cache_key)
@@ -3194,6 +3194,35 @@ async def get_clinical_trial(data:TickerData, api_key: str = Security(get_api_ke
 
     try:
         with open(f"json/swap/companies/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
+    except:
+        res = []
+
+    data = orjson.dumps(res)
+    compressed_data = gzip.compress(data)
+
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 3600*3600)
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
+
+@app.get("/cramer-tracker")
+async def get_cramer_tracker(api_key: str = Security(get_api_key)):
+    cache_key = f"cramer-tracker"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
+
+    try:
+        with open(f"json/cramer-tracker/data.json", 'rb') as file:
             res = orjson.loads(file.read())
     except:
         res = []
