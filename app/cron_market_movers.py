@@ -129,6 +129,7 @@ async def get_gainer_loser_active_stocks():
 
         active_json = [{k: v for k, v in stock.items() if stock['symbol'] in symbols} for stock in active_json]
         active_json = [entry for entry in active_json if entry]
+        filtered_active_json = []
         for entry in active_json:
             try:
                 symbol = entry['symbol']
@@ -137,11 +138,12 @@ async def get_gainer_loser_active_stocks():
                 volume = pd.read_sql_query(query, con)
                 entry['marketCap'] = int(fundamental_data['marketCap'].iloc[0])
                 entry['volume'] = int(volume['volume'].iloc[0])
+                filtered_active_json.append(entry)
             except:
                 entry['marketCap'] = None
                 entry['volume'] = None
 
-        active_json = sorted(active_json, key=lambda x: (x['marketCap'] >= 10**9, x['volume']), reverse=True)
+        active_json = sorted(filtered_active_json, key=lambda x: (x['marketCap'] >= 10**9, x['volume']), reverse=True)
 
 
         stocks = gainer_json[:20] + loser_json[:20] + active_json[:20]
