@@ -1,18 +1,7 @@
-import pytz
-from datetime import datetime, timedelta
-from urllib.request import urlopen
-import certifi
-import json
-import ujson
+from datetime import datetime
 import schedule
 import time
 import subprocess
-import asyncio
-import aiohttp
-import pytz
-import sqlite3
-import pandas as pd
-import numpy as np
 import threading  # Import threading module for parallel execution
 import logging  # Import logging module
 from logging.handlers import RotatingFileHandler
@@ -468,7 +457,7 @@ schedule.every().saturday.at("05:00").do(run_threaded, run_ownership_stats).tag(
 
 schedule.every(1).minutes.do(run_threaded, run_cron_portfolio).tag('portfolio_job')
 schedule.every(5).minutes.do(run_threaded, run_cron_market_movers).tag('market_movers_job')
-schedule.every(5).minutes.do(run_threaded, run_dashboard).tag('dashboard_job')
+schedule.every(2).minutes.do(run_threaded, run_dashboard).tag('dashboard_job')
 
 schedule.every(15).minutes.do(run_threaded, run_cron_market_news).tag('market_news_job')
 schedule.every(10).minutes.do(run_threaded, run_one_day_price).tag('one_day_price_job')
