@@ -1239,9 +1239,6 @@ async def stock_finder(api_key: str = Security(get_api_key)):
     )
 
 
-
-
-
 @app.post("/get-quant-stats")
 async def get_quant_stats(data: TickerData, api_key: str = Security(get_api_key)):
     data = data.dict()
