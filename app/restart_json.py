@@ -1,20 +1,14 @@
 import pytz
 from datetime import datetime, timedelta
-from urllib.request import urlopen
-import certifi
 import json
 import ujson
-import schedule
-import time
-import subprocess
 import asyncio
 import aiohttp
 import aiofiles
-import pytz
 import sqlite3
 import pandas as pd
 import numpy as np
-from pocketbase import PocketBase
+
 from collections import Counter
 import re
 import hashlib
@@ -24,7 +18,7 @@ from tqdm import tqdm
 from dotenv import load_dotenv
 import os
 
-pb = PocketBase('http://127.0.0.1:8090')
+
 load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
 
@@ -1220,11 +1214,13 @@ async def save_json_files():
     data = await etf_providers(etf_con, etf_symbols)
     with open(f"json/all-etf-providers/data.json", 'w') as file:
         ujson.dump(data, file)
-
+    
+    '''
     data = await ticker_mentioning(con)
     with open(f"json/ticker-mentioning/data.json", 'w') as file:
         ujson.dump(data, file)
-
+    '''
+    
     delisted_data = await get_delisted_list()
     with open(f"json/delisted-companies/data.json", 'w') as file:
         ujson.dump(delisted_data, file)
