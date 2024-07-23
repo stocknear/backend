@@ -25,7 +25,7 @@ prophet
 nbformat
 nbconvert
 nbclient
-schedule
+schedule==1.2.1
 pocketbase
 quantstats
 ipython
@@ -37,3 +37,4 @@ finnhub-python
 intrinio_sdk
 openai
 slowapi
+orjson
