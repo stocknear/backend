@@ -23,9 +23,9 @@ def save_json(data):
 
 identifier = 'GME'
 source = 'cta_a_delayed'
-start_date, end_date = GetStartEndDate().run()
-start_date = start_date.strftime("%Y-%m-%d")
-end_date = end_date.strftime("%Y-%m-%d")
+#start_date, end_date = GetStartEndDate().run()
+start_date = '2024-07-22' #start_date.strftime("%Y-%m-%d")
+end_date = '2024-07-22' #end_date.strftime("%Y-%m-%d")
 start_time = ''
 end_time = ''
 timezone = 'UTC'
@@ -43,10 +43,10 @@ def get_data():
 			next_page = ''
 		try:
 			response = intrinio.SecurityApi().get_security_trades_by_symbol(identifier, source, start_date=start_date, start_time=start_time, end_date=end_date, end_time=end_time, timezone=timezone, page_size=page_size, darkpool_only=darkpool_only, min_size=min_size, next_page=next_page)
-			
+
 			filtered_entries = [
                 entry.__dict__ for entry in response.trades 
-                if int(entry._price * entry._total_volume) >= 2E9
+                #if int(entry._price * entry._total_volume) >= 2E9
             ]
 
 			data.extend(filtered_entries)
