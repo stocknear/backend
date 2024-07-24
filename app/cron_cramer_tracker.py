@@ -4,6 +4,7 @@ import ujson
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.options import Options
 from dotenv import load_dotenv
 import sqlite3
@@ -34,6 +35,7 @@ def main():
     options.add_argument("--disable-dev-shm-usage")
 
     # Initialize the WebDriver
+    service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(options=options)
 
     try:
@@ -63,7 +65,7 @@ def main():
                 res.append({**item, 'name': db_data['name'].iloc[0], 'sector': db_data['sector'].iloc[0]})
             except Exception as e:
                 pass
-                
+
         # Save the JSON data
         if len(res) > 0:
             save_json(res, 'json/cramer-tracker/data.json')
