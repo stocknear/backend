@@ -4,12 +4,17 @@ import aiohttp
 import sqlite3
 from datetime import datetime
 from aiofiles import open as async_open
-
+from tqdm import tqdm
 from dotenv import load_dotenv
 import os
 
 load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
+
+
+keys_to_remove_insider_history = {"symbol", "link", "filingDate", "reportingCik"}
+keys_to_remove_insider_statistics = {"symbol", "cik", "purchases", "sales", "pPurchases", "sSales"}
+
 
 # Function to check if the year is at least 2015
 def is_at_least_2015(date_string):
@@ -39,6 +44,8 @@ async def get_insider_trading_endpoints(session, symbol):
     filtered_data = [item for item in aggregated_data if is_at_least_2015(item["transactionDate"][:10])]
 
     if len(filtered_data) > 0:
+        filtered_data = [{k: v for k, v in item.items() if k not in keys_to_remove_insider_history} for item in filtered_data]
+        
         await save_insider_trading_as_json(symbol, filtered_data)
 
 
@@ -50,28 +57,6 @@ async def save_statistics_as_json(symbol, data):
 async def save_insider_trading_as_json(symbol, data):
     async with async_open(f"json/insider-trading/history/{symbol}.json", 'w') as file:
         await file.write(ujson.dumps(data))
-
-async def aggregate_statistics(symbol, data):
-    aggregated_data = {}
-    for entry in data:
-        year = entry['year']
-        if year >= 2015:
-            if year not in aggregated_data:
-                aggregated_data[year] = {
-                    'year': year,
-                    'totalBought': 0,
-                    'totalSold': 0,
-                    'purchases': 0,
-                    'sales': 0
-                }
-            aggregated_data[year]['totalBought'] += entry['totalBought']
-            aggregated_data[year]['totalSold'] += entry['totalSold']
-            aggregated_data[year]['purchases'] += entry['purchases']
-            aggregated_data[year]['sales'] += entry['sales']
-
-    res = list(aggregated_data.values())
-
-    await save_statistics_as_json(symbol, res)
 
 
 async def process_symbols(session, symbols):
@@ -85,7 +70,8 @@ async def process_symbols(session, symbols):
     results = await asyncio.gather(*tasks)
     for symbol, data in results:
         if data:
-            await aggregate_statistics(symbol, data)
+            filtered_data = [{k: v for k, v in item.items() if k not in keys_to_remove_insider_statistics} for item in data]
+            await save_statistics_as_json(symbol, filtered_data)
     
 
 async def run():
@@ -100,12 +86,10 @@ async def run():
     chunks = [stock_symbols[i:i + chunk_size] for i in range(0, len(stock_symbols), chunk_size)]
 
     async with aiohttp.ClientSession() as session:
-        for chunk in chunks:
+        for chunk in tqdm(chunks):
             await process_symbols(session, chunk)
             await asyncio.sleep(60)
-            print('sleep')
-
-
+           
 try:
     asyncio.run(run())
 except Exception as e:

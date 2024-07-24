@@ -2236,9 +2236,9 @@ async def get_insider_trading_statistics(data:TickerData, api_key: str = Securit
 
     try:
         with open(f"json/insider-trading/statistics/{ticker}.json", 'rb') as file:
-            res = orjson.loads(file.read())
+            res = orjson.loads(file.read())[0]
     except:
-        res = []
+        res = {}
     
     redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
