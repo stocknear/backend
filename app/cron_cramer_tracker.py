@@ -5,14 +5,12 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
-from webdriver_manager.chrome import ChromeDriverManager
 from dotenv import load_dotenv
 import sqlite3
 
 def save_json(data, file_path):
     with open(file_path, 'w') as file:
         ujson.dump(data, file)
-
 
 query_template = """
     SELECT 
@@ -23,7 +21,6 @@ query_template = """
         symbol = ?
 """
 
-
 def main():
     # Load environment variables
     con = sqlite3.connect('stocks.db')
@@ -32,24 +29,22 @@ def main():
 
     # Set up the WebDriver options
     options = Options()
-    options.headless = True  # Run in headless mode
+    options.add_argument("--headless")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
 
     # Initialize the WebDriver
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+    driver = webdriver.Chrome(options=options)
 
     try:
         # Fetch the website
         driver.get(url)
-
         # Find the table element
         table = driver.find_element(By.TAG_NAME, 'table')
-
         # Extract the table HTML
         table_html = table.get_attribute('outerHTML')
-
         # Use pandas to read the HTML table
         df = pd.read_html(table_html)[0]
-
         # Rename the columns
         df = df.rename(columns={
             'Ticker': 'ticker',
@@ -57,10 +52,8 @@ def main():
             'Date': 'date',
             'Return Since': 'returnSince'
         })
-
         # Convert the DataFrame to JSON
         data = ujson.loads(df.to_json(orient='records'))
-
         res = []
         for item in data:
             symbol = item['ticker']
@@ -70,9 +63,10 @@ def main():
                 res.append({**item, 'name': db_data['name'].iloc[0], 'sector': db_data['sector'].iloc[0]})
             except Exception as e:
                 pass
-
+                
         # Save the JSON data
-        save_json(res, 'json/cramer-tracker/data.json')
+        if len(res) > 0:
+            save_json(res, 'json/cramer-tracker/data.json')
     
     finally:
         # Ensure the WebDriver is closed
