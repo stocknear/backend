@@ -177,12 +177,12 @@ async def get_api_key(api_key: str = Security(api_key_header)):
 
 
 @app.get("/docs")
-async def get_documentation(username: str = Depends(get_current_username), api_key: str = Security(get_api_key)):
+async def get_documentation(username: str = Depends(get_current_username)):
     return get_swagger_ui_html(openapi_url="/openapi.json", title="docs")
 
 
 @app.get("/openapi.json")
-async def openapi(username: str = Depends(get_current_username), api_key: str = Security(get_api_key)):
+async def openapi(username: str = Depends(get_current_username)):
     return get_openapi(title = "FastAPI", version="0.1.0", routes=app.routes)
 
 
@@ -278,6 +278,11 @@ class IPOData(BaseModel):
 
 class HeatMapData(BaseModel):
     index: str
+
+class StockScreenerData(BaseModel):
+    ruleOfList: List[str]
+
+
 
 # Replace NaN values with None in the resulting JSON object
 def replace_nan_inf_with_none(obj):
@@ -1205,26 +1210,33 @@ async def brownian_motion(data:TickerData, api_key: str = Security(get_api_key))
 
 
 
-@app.get("/stock-screener-data")
-async def stock_finder(api_key: str = Security(get_api_key)):
-    
-    cache_key = f"stock-screener-data"
+@app.post("/stock-screener-data")
+async def stock_finder(data:StockScreenerData, api_key: str = Security(get_api_key)):
+    rule_of_list = sorted(data.ruleOfList)
+    cache_key = f"stock-screener-data-{rule_of_list}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
+        print('cached')
         return StreamingResponse(
             io.BytesIO(cached_result),
             media_type="application/json",
             headers={"Content-Encoding": "gzip"}
         )
 
+    always_include = ['symbol', 'marketCap', 'price', 'changesPercentage', 'name']
+
     try:
         with open(f"json/stock-screener/data.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = []
+            data = orjson.loads(file.read())
+            filtered_data = [
+                {key: item.get(key) for key in set(always_include + rule_of_list) if key in item}
+                for item in data
+            ]
+    except Exception as e:
+        filtered_data = []
 
     # Compress the JSON data
-    res = orjson.dumps(res)
+    res = orjson.dumps(filtered_data)
     compressed_data = gzip.compress(res)
 
     redis_client.set(cache_key, compressed_data)
