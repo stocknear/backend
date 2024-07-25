@@ -27,7 +27,7 @@ warnings.filterwarnings("ignore", category=RuntimeWarning, message="invalid valu
 start_date = datetime(2015, 1, 1).strftime("%Y-%m-%d")
 end_date = datetime.today().strftime("%Y-%m-%d")
 
-
+quarter_date = '2024-6-30'
 
 
 if os.path.exists("backup_db/stocks.db"):
@@ -114,7 +114,7 @@ class StockDatabase:
                 f"https://financialmodelingprep.com/api/v3/ratios/{symbol}?period=quarter&apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v3/historical-price-full/stock_split/{symbol}?apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v4/stock_peers?symbol={symbol}&apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v4/institutional-ownership/institutional-holders/symbol-ownership-percent?date=2024-03-31&symbol={symbol}&page=0&apikey={api_key}",
+                f"https://financialmodelingprep.com/api/v4/institutional-ownership/institutional-holders/symbol-ownership-percent?date={quarter_date}&symbol={symbol}&page=0&apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v4/historical/shares_float?symbol={symbol}&apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v4/revenue-product-segmentation?symbol={symbol}&structure=flat&period=annual&apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v4/revenue-geographic-segmentation?symbol={symbol}&structure=flat&apikey={api_key}",
