@@ -1216,7 +1216,6 @@ async def stock_finder(data:StockScreenerData, api_key: str = Security(get_api_k
     cache_key = f"stock-screener-data-{rule_of_list}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        print('cached')
         return StreamingResponse(
             io.BytesIO(cached_result),
             media_type="application/json",
