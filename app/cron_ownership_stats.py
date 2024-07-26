@@ -2,27 +2,56 @@ from datetime import datetime, timedelta
 import ujson
 import time
 import sqlite3
-import pandas as pd
-import numpy as np
-from collections import defaultdict
 import time 
 import asyncio
 import aiohttp
-from faker import Faker
+import random
 from tqdm import tqdm
 
 from dotenv import load_dotenv
 import os
+
+
 load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
 
 
-async def get_data(session, symbol):
-    url = f"https://financialmodelingprep.com/api/v4/institutional-ownership/symbol-ownership?symbol={symbol}&includeCurrentQuarter=true&apikey={api_key}"
-    async with session.get(url) as response:
-        data = await response.json()
-        if len(data) > 0:
-            await save_json(symbol, data[0]) #return only the latest ownership stats
+include_current_quarter = False
+
+
+async def get_data(session, symbol, max_retries=3, initial_delay=1):
+    url = f"https://financialmodelingprep.com/api/v4/institutional-ownership/symbol-ownership?symbol={symbol}&includeCurrentQuarter={include_current_quarter}&apikey={api_key}"
+    
+    for attempt in range(max_retries):
+        try:
+            async with session.get(url) as response:
+                if response.status == 200:
+                    content_type = response.headers.get('Content-Type', '')
+                    if 'application/json' in content_type:
+                        data = await response.json()
+                        if len(data) > 0:
+                            await save_json(symbol, data[0])
+                        return
+                    else:
+                        print(f"Unexpected content type for {symbol}: {content_type}")
+                elif response.status == 504:
+                    if attempt < max_retries - 1:
+                        delay = initial_delay * (2 ** attempt) + random.uniform(0, 1)
+                        print(f"Gateway Timeout for {symbol}. Retrying in {delay:.2f} seconds...")
+                        await asyncio.sleep(delay)
+                    else:
+                        print(f"Max retries reached for {symbol} after Gateway Timeout")
+                else:
+                    print(f"Error fetching data for {symbol}: HTTP {response.status}")
+                    return
+        except Exception as e:
+            print(f"Error processing {symbol}: {str(e)}")
+            if attempt < max_retries - 1:
+                delay = initial_delay * (2 ** attempt) + random.uniform(0, 1)
+                print(f"Retrying in {delay:.2f} seconds...")
+                await asyncio.sleep(delay)
+            else:
+                print(f"Max retries reached for {symbol}")
 
 
 async def save_json(symbol, data):
