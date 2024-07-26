@@ -315,37 +315,26 @@ async def hello_world(api_key: str = Security(get_api_key)):
 
 
 
-@app.post("/stock-correlation")
+@app.post("/correlation-ticker")
 async def rating_stock(data: TickerData, api_key: str = Security(get_api_key)):
     data = data.dict()
     ticker = data['ticker'].upper()
 
-    cache_key = f"stock-correlation-{ticker}"
+    cache_key = f"correlation-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
         return orjson.loads(cached_result)
 
-    if ticker in etf_symbols:
-        path_name = 'etf'
-    else:
-        path_name = 'stock'
-
     try:
-        with open(f"json/correlation/{path_name}/{ticker}.json", 'rb') as file:
-            output = orjson.loads(file.read())
-            
-            sorted_data = sorted(output, key=lambda x: x['value'], reverse=True)
-            # Remove duplicates based on 'symbol'
-            res = list({d['symbol']: d for d in sorted_data}.values())
+        with open(f"json/correlation/companies/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    final_res = {'correlation': res, 'type': 'etf' if path_name == 'etf' else 'stocks'}
-
-    redis_client.set(cache_key, orjson.dumps(final_res))
+    redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 3600*24) # Set cache expiration time to 12 hour
 
-    return final_res
+    return res
 
 
 
