@@ -74,7 +74,6 @@ for submission in subreddit.new(limit=1000):
         existing_posts[post_id] = extracted_post
         data_changed = True
 
-    time.sleep(1)  # Add a 1-second delay between processing submissions
 
 if data_changed:
     # Convert the dictionary back to a list and sort by created_utc
