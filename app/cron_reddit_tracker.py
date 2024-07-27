@@ -8,6 +8,11 @@ url = "https://www.reddit.com/r/wallstreetbets/new.json"
 # File path for the JSON data
 file_path = 'json/reddit-tracker/wallstreetbets/data.json'
 
+headers = {
+    'User-Agent': 'python:myapp:v1.0 (by /u/realstocknear)'
+}
+
+
 # Ensure the directory exists
 os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
@@ -26,7 +31,7 @@ def save_data(data):
 # Function to get updated post data
 def get_updated_post_data(permalink):
     post_url = f"https://www.reddit.com{permalink}.json"
-    response = requests.get(post_url, headers={'User-agent': 'Mozilla/5.0'})
+    response = requests.get(post_url, headers=headers)
     if response.status_code == 200:
         post_data = response.json()[0]['data']['children'][0]['data']
         return post_data
@@ -37,10 +42,6 @@ existing_data = load_existing_data()
 
 # Create a dictionary of existing posts for faster lookup and update
 existing_posts = {post['id']: post for post in existing_data}
-
-headers = {
-    'User-Agent': 'python:myapp:v1.0 (by /u/mrahimi114313)'
-}
 
 # Send a GET request to the API
 response = requests.get(url, headers=headers)
