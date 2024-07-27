@@ -37,3 +37,4 @@ finnhub-python
 intrinio_sdk
 openai
 slowapi
+praw

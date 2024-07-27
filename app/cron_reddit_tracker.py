@@ -1,17 +1,17 @@
-import requests
+import praw
 import json
 from datetime import datetime
 import os
+from dotenv import load_dotenv
+import time
 
-# URL of the Reddit API endpoint
-url = "https://www.reddit.com/r/wallstreetbets/new.json"
+load_dotenv()
+client_key = os.getenv('REDDIT_API_KEY')
+client_secret = os.getenv('REDDIT_API_SECRET')
+user_agent = os.getenv('REDDIT_USER_AGENT')
+
 # File path for the JSON data
 file_path = 'json/reddit-tracker/wallstreetbets/data.json'
-
-headers = {
-    'User-Agent': 'python:myapp:v1.0 (by /u/realstocknear)'
-}
-
 
 # Ensure the directory exists
 os.makedirs(os.path.dirname(file_path), exist_ok=True)
@@ -28,14 +28,12 @@ def save_data(data):
     with open(file_path, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
 
-# Function to get updated post data
-def get_updated_post_data(permalink):
-    post_url = f"https://www.reddit.com{permalink}.json"
-    response = requests.get(post_url, headers=headers)
-    if response.status_code == 200:
-        post_data = response.json()[0]['data']['children'][0]['data']
-        return post_data
-    return None
+# Initialize Reddit instance
+reddit = praw.Reddit(
+    client_id=client_key,
+    client_secret=client_secret,
+    user_agent=user_agent
+)
 
 # Load existing data
 existing_data = load_existing_data()
@@ -43,61 +41,48 @@ existing_data = load_existing_data()
 # Create a dictionary of existing posts for faster lookup and update
 existing_posts = {post['id']: post for post in existing_data}
 
-# Send a GET request to the API
-response = requests.get(url, headers=headers)
+# Flag to check if any data was added or updated
+data_changed = False
 
-counter = 0
-# Check if the request was successful
-if response.status_code == 200:
-    # Parse the JSON data
-    data = response.json()
-    
-    # Flag to check if any data was added or updated
-    data_changed = False
-    
-    # Iterate through each post in the 'children' list
-    for post in data['data']['children']:
-        post_data = post['data']
-        post_id = post_data.get('id', '')
-        
-        # Check if this post is already in our data
-        if post_id in existing_posts:
-            # Update existing post
-            if counter < 25: #Only update the latest 25 posts to not overload the reddit server
-	            updated_data = get_updated_post_data(post_data['permalink'])
-	            if updated_data:
-	                existing_posts[post_id]['upvote_ratio'] = updated_data.get('upvote_ratio', existing_posts[post_id]['upvote_ratio'])
-	                existing_posts[post_id]['num_comments'] = updated_data.get('num_comments', existing_posts[post_id]['num_comments'])
-	                data_changed = True
-	                counter +=1
-	                print(counter)
-        else:
-            # Extract the required fields for new post
-            extracted_post = {
-                "id": post_id,
-                "permalink": post_data.get('permalink', ''),
-                "title": post_data.get('title', ''),
-                "selftext": post_data.get('selftext', ''),
-                "created_utc": post_data.get('created_utc', ''),
-                "upvote_ratio": post_data.get('upvote_ratio', ''),
-                "num_comments": post_data.get('num_comments', ''),
-                "link_flair_text": post_data.get('link_flair_text', ''),
-                "author": post_data.get('author', ''),
-            }
-            
-            # Add the new post to the existing data
-            existing_posts[post_id] = extracted_post
-            data_changed = True
-    
-    if data_changed:
-        # Convert the dictionary back to a list and sort by created_utc
-        updated_data = list(existing_posts.values())
-        updated_data.sort(key=lambda x: x['created_utc'], reverse=True)
-        
-        # Save the updated data
-        save_data(updated_data)
-        print(f"Data updated and saved to {file_path}")
+# Get the subreddit
+subreddit = reddit.subreddit("wallstreetbets")
+
+# Iterate through new submissions
+for submission in subreddit.new(limit=1000):
+    post_id = submission.id
+    # Check if this post is already in our data
+    if post_id in existing_posts:
+        # Update existing post
+        existing_posts[post_id]['upvote_ratio'] = submission.upvote_ratio
+        existing_posts[post_id]['num_comments'] = submission.num_comments
+        data_changed = True
     else:
-        print("No new data to add or update.")
+        # Extract the required fields for new post
+        extracted_post = {
+            "id": post_id,
+            "permalink": submission.permalink,
+            "title": submission.title,
+            "selftext": submission.selftext,
+            "created_utc": int(submission.created_utc),
+            "upvote_ratio": submission.upvote_ratio,
+            "num_comments": submission.num_comments,
+            "link_flair_text": submission.link_flair_text,
+            "author": str(submission.author),
+        }
+        
+        # Add the new post to the existing data
+        existing_posts[post_id] = extracted_post
+        data_changed = True
+
+    time.sleep(1)  # Add a 1-second delay between processing submissions
+
+if data_changed:
+    # Convert the dictionary back to a list and sort by created_utc
+    updated_data = list(existing_posts.values())
+    updated_data.sort(key=lambda x: x['created_utc'], reverse=True)
+    
+    # Save the updated data
+    save_data(updated_data)
+    print(f"Data updated and saved to {file_path}")
 else:
-    print(f"Failed to retrieve data. Status code: {response.status_code}")
+    print("No new data to add or update.")
