@@ -37,6 +37,12 @@ reddit = praw.Reddit(
     user_agent=user_agent
 )
 
+# Get subscriber count and active user count
+#subreddit = reddit.subreddit("wallstreetbets")
+#subscriber_count = subreddit.subscribers
+#active_user_count = subreddit.active_user_count
+
+
 # Function to save data
 def save_data(data, filename):
     with open(f'json/reddit-tracker/wallstreetbets/{filename}', 'w', encoding='utf-8') as f:

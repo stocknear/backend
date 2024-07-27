@@ -473,7 +473,7 @@ schedule.every(15).minutes.do(run_threaded, run_cron_market_news).tag('market_ne
 schedule.every(10).minutes.do(run_threaded, run_one_day_price).tag('one_day_price_job')
 schedule.every(15).minutes.do(run_threaded, run_cron_heatmap).tag('heatmap_job')
 
-schedule.every(30).minutes.do(run_threaded, run_reddit_tracker).tag('reddit_tracker_job')
+schedule.every(10).minutes.do(run_threaded, run_reddit_tracker).tag('reddit_tracker_job')
 
 
 schedule.every(1).minutes.do(run_threaded, run_cron_quote).tag('quote_job')
