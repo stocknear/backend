@@ -38,8 +38,12 @@ existing_data = load_existing_data()
 # Create a dictionary of existing posts for faster lookup and update
 existing_posts = {post['id']: post for post in existing_data}
 
+headers = {
+    'User-Agent': 'python:myapp:v1.0 (by /u/mrahimi114313)'
+}
+
 # Send a GET request to the API
-response = requests.get(url, headers={'User-agent': 'Mozilla/5.0'})
+response = requests.get(url, headers=headers)
 
 counter = 0
 # Check if the request was successful
