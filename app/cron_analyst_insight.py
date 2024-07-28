@@ -61,7 +61,7 @@ def get_summary(data):
     )
 
     response = client.chat.completions.create(
-        model="gpt-3.5-turbo-0125",
+        model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": "Summarize analyst insights clearly and concisely in under 400 characters. Ensure the summary is professional and easy to understand. Conclude with whether the report is bullish or bearish."},
             {"role": "user", "content": data_string}
