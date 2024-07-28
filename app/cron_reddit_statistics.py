@@ -140,7 +140,7 @@ def compute_trending_tickers(daily_stats):
             'count': counts['total'],
             'put': counts['PUT'],
             'call': counts['CALL'],
-            'avgSentiment': sum(counts['sentiment']) / len(counts['sentiment']) if counts['sentiment'] else 0
+            'avgSentiment': round(sum(counts['sentiment']) / len(counts['sentiment']),2) if counts['sentiment'] else 0
         }
         for symbol, counts in trending.items()
     ]
@@ -148,10 +148,28 @@ def compute_trending_tickers(daily_stats):
 
     for item in trending_list:
         symbol = item['symbol']
+        try:
+            with open(f'json/quote/{symbol}.json') as f:
+                data = json.load(f)
+                name = data['name']
+                price = round(data['price'],2)
+                changes_percentage = round(data['changesPercentage'],2)
+        except Exception as e:
+            print(e)
+            name = None
+            price = None
+            changes_percentage = None
+
         if symbol in stock_symbols:
             item['assetType'] = 'stocks'
+            item['name'] = name
+            item['price'] = price
+            item['changesPercentage'] = changes_percentage
         elif symbol in etf_symbols:
             item['assetType'] = 'etf'
+            item['name'] = name
+            item['price'] = price
+            item['changesPercentage'] = changes_percentage
         else:
             item['assetType'] = ''
     
