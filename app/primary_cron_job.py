@@ -424,6 +424,15 @@ def run_reddit_tracker():
     ]
     run_command(command)
 
+def run_cramer_tracker():
+    run_command(["python3", "cron_cramer_tracker.py"])
+    command = [
+        "sudo", "rsync", "-avz", "-e", "ssh",
+        "/root/backend/app/json/cramer-tracker",
+        f"root@{useast_ip_address}:/root/backend/app/json"
+    ]
+    run_command(command)
+
 # Create functions to run each schedule in a separate thread
 def run_threaded(job_func):
     job_thread = threading.Thread(target=job_func)
@@ -474,6 +483,7 @@ schedule.every(10).minutes.do(run_threaded, run_one_day_price).tag('one_day_pric
 schedule.every(15).minutes.do(run_threaded, run_cron_heatmap).tag('heatmap_job')
 
 schedule.every(10).minutes.do(run_threaded, run_reddit_tracker).tag('reddit_tracker_job')
+schedule.every(10).minutes.do(run_threaded, run_cramer_tracker).tag('cramer_tracker_job')
 
 
 schedule.every(1).minutes.do(run_threaded, run_cron_quote).tag('quote_job')
