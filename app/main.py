@@ -3314,3 +3314,12 @@ async def get_reddit_tracker(api_key: str = Security(get_api_key)):
         media_type="application/json",
         headers={"Content-Encoding": "gzip"}
     )
+
+@app.get("/newsletter")
+async def get_newsletter():
+    try:
+        with open(f"json/newsletter/data.json", 'rb') as file:
+            res = orjson.loads(file.read())
+    except:
+        res = []
+    return res
