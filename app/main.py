@@ -121,9 +121,9 @@ load_dotenv()
 
 pb = PocketBase('http://127.0.0.1:8090')
 
-api_key = os.getenv('FMP_API_KEY')
-benzinga_key = os.getenv('BENZINGA_API_KEY')
-fin = financial_data.Benzinga(benzinga_key)
+FMP_API_KEY = os.getenv('FMP_API_KEY')
+Benzinga_API_KEY = os.getenv('BENZINGA_API_KEY')
+fin = financial_data.Benzinga(Benzinga_API_KEY)
 
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url = None)
@@ -1997,13 +1997,14 @@ async def get_earnings_call_transcripts(data:TranscriptData, api_key: str = Secu
     quarter = data['quarter']
     cache_key = f"earnings-call-transcripts-{ticker}-{year}-{quarter}"
     cached_result = redis_client.get(cache_key)
-
+    print(data)
     if cached_result:
         return orjson.loads(cached_result)
     
     try:
         async with aiohttp.ClientSession() as session:
-            url = f"https://financialmodelingprep.com/api/v3/earning_call_transcript/{ticker}?year={year}&quarter={quarter}&apikey={api_key}"
+            url = f"https://financialmodelingprep.com/api/v3/earning_call_transcript/{ticker}?year={year}&quarter={quarter}&apikey={FMP_API_KEY}"
+            print(url)
             async with session.get(url) as response:
                 data = (await response.json())[0]
         
