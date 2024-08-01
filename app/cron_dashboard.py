@@ -62,10 +62,10 @@ async def run():
 	async with aiohttp.ClientSession() as session:
 		benzinga_news = await get_latest_bezinga_market_news(session)
 		try:
-			with open(f"json/congress-trading/rss-feed/data.json", 'r') as file:
-				congress_flow = ujson.load(file)[0:4]
+			with open(f"json/retail-volume/data.json", 'r') as file:
+				retail_tracker = ujson.load(file)[0:5]
 		except:
-			congress_flow = []
+			retail_tracker = []
 		try:
 			with open(f"json/options-flow/feed/data.json", 'r') as file:
 				options_flow = ujson.load(file)
@@ -102,7 +102,7 @@ async def run():
 
 		quick_info = {**market_mover, 'shorted': shorted_stock}
 
-		data = {'quickInfo': quick_info, 'optionsFlow': options_flow, 'congressFlow': congress_flow, 'wiimFeed': wiim_feed, 'marketNews': benzinga_news}
+		data = {'quickInfo': quick_info, 'optionsFlow': options_flow, 'retailTracker': retail_tracker, 'wiimFeed': wiim_feed, 'marketNews': benzinga_news}
 		
 		if len(data) > 0:
 			await save_json(data)
