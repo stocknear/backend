@@ -84,7 +84,7 @@ async def run():
     
     total_symbols = stocks_symbols+etf_symbols
     
-    chunk_size = len(total_symbols) // 70  # Divide the list into N chunks
+    chunk_size = len(total_symbols) // 700  # Divide the list into N chunks
     chunks = [total_symbols[i:i + chunk_size] for i in range(0, len(total_symbols), chunk_size)]
     
     most_retail_volume = []
@@ -124,7 +124,9 @@ async def run():
 
                 #Add stocks for most retail volume
                 if symbol in stocks_symbols:
-                    most_retail_volume.append({'symbol': res[-1]['symbol'], 'name': name, 'traded': res[-1]['traded'], 'sentiment': res[-1]['sentiment'], 'retailStrength': retailer_strength})
+                    most_retail_volume.append({'symbol': res[-1]['symbol'], 'name': name, 'assetType': 'stocks','traded': res[-1]['traded'], 'sentiment': res[-1]['sentiment'], 'retailStrength': retailer_strength})
+                elif symbol in etf_symbols:
+                    most_retail_volume.append({'symbol': res[-1]['symbol'], 'name': name, 'assetType': 'etf', 'traded': res[-1]['traded'], 'sentiment': res[-1]['sentiment'], 'retailStrength': retailer_strength})
             except Exception as e:
                 print(e)
 

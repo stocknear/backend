@@ -11,9 +11,9 @@ import os
 
 
 load_dotenv()
-api_key = os.getenv('INTRINIO_API_KEY')
+API_KEY = os.getenv('INTRINIO_API_KEY')
 
-intrinio.ApiClient().set_api_key(api_key)
+intrinio.ApiClient().set_api_key(API_KEY)
 intrinio.ApiClient().allow_retries(True)
 
 def save_json(data):

@@ -1997,14 +1997,14 @@ async def get_earnings_call_transcripts(data:TranscriptData, api_key: str = Secu
     quarter = data['quarter']
     cache_key = f"earnings-call-transcripts-{ticker}-{year}-{quarter}"
     cached_result = redis_client.get(cache_key)
-    print(data)
+
     if cached_result:
         return orjson.loads(cached_result)
     
     try:
         async with aiohttp.ClientSession() as session:
             url = f"https://financialmodelingprep.com/api/v3/earning_call_transcript/{ticker}?year={year}&quarter={quarter}&apikey={FMP_API_KEY}"
-            print(url)
+
             async with session.get(url) as response:
                 data = (await response.json())[0]
         
