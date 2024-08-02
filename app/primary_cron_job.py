@@ -1,4 +1,5 @@
-from datetime import datetime
+
+from datetime import datetime, time as datetime_time
 import schedule
 import time
 import subprocess
@@ -172,8 +173,9 @@ def run_cron_portfolio():
 def run_cron_options_flow():
     week = datetime.today().weekday()
     current_time = datetime.now().time()
-    start_time = time(15, 30)  # 15:30
-    end_time = time(22, 0)     # 22:00
+    start_time = datetime_time(15, 30)
+    end_time = datetime_time(15, 30)
+
     if week <= 4 and start_time <= current_time < end_time:
         run_command(["python3", "cron_options_flow.py"])        
         
@@ -188,8 +190,8 @@ def run_cron_options_flow():
 def run_cron_options_zero_dte():
     week = datetime.today().weekday()
     current_time = datetime.now().time()
-    start_time = time(15, 30)  # 15:30
-    end_time = time(22, 0)     # 22:00
+    start_time = datetime_time(15, 30)
+    end_time = datetime_time(15, 30)
     if week <= 4 and start_time <= current_time < end_time:
         run_command(["python3", "cron_options_zero_dte.py"])
         command = [
@@ -501,8 +503,8 @@ schedule.every(2).hours.do(run_threaded, run_fda_calendar).tag('fda_calendar_job
 schedule.every(3).hours.do(run_threaded, run_json_job).tag('json_job')
 schedule.every(6).hours.do(run_threaded, run_analyst_rating).tag('analyst_job')
 
-schedule.every(20).seconds.do(run_threaded, run_cron_options_flow).tag('options_flow_job')
-schedule.every(20).seconds.do(run_threaded, run_cron_options_zero_dte).tag('options_zero_dte_job')
+schedule.every(10).seconds.do(run_threaded, run_cron_options_flow).tag('options_flow_job')
+schedule.every(10).seconds.do(run_threaded, run_cron_options_zero_dte).tag('options_zero_dte_job')
 
 
 # Run the scheduled jobs indefinitelyp
