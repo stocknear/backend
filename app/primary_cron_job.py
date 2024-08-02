@@ -171,7 +171,10 @@ def run_cron_portfolio():
 
 def run_cron_options_flow():
     week = datetime.today().weekday()
-    if week <= 4:
+    current_time = datetime.now().time()
+    start_time = time(15, 30)  # 15:30
+    end_time = time(22, 0)     # 22:00
+    if week <= 4 and start_time <= current_time < end_time:
         run_command(["python3", "cron_options_flow.py"])        
         
         command = [
@@ -184,7 +187,10 @@ def run_cron_options_flow():
         
 def run_cron_options_zero_dte():
     week = datetime.today().weekday()
-    if week <= 4:
+    current_time = datetime.now().time()
+    start_time = time(15, 30)  # 15:30
+    end_time = time(22, 0)     # 22:00
+    if week <= 4 and start_time <= current_time < end_time:
         run_command(["python3", "cron_options_zero_dte.py"])
         command = [
             "sudo", "rsync", "-avz", "-e", "ssh",
