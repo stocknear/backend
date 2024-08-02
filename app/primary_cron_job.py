@@ -174,7 +174,7 @@ def run_cron_options_flow():
     week = datetime.today().weekday()
     current_time = datetime.now().time()
     start_time = datetime_time(15, 30)
-    end_time = datetime_time(15, 30)
+    end_time = datetime_time(22, 30)
 
     if week <= 4 and start_time <= current_time < end_time:
         run_command(["python3", "cron_options_flow.py"])        
@@ -191,7 +191,7 @@ def run_cron_options_zero_dte():
     week = datetime.today().weekday()
     current_time = datetime.now().time()
     start_time = datetime_time(15, 30)
-    end_time = datetime_time(15, 30)
+    end_time = datetime_time(22, 30)
     if week <= 4 and start_time <= current_time < end_time:
         run_command(["python3", "cron_options_zero_dte.py"])
         command = [
