@@ -9,14 +9,17 @@ import time
 
 from dotenv import load_dotenv
 import os
+
+keys_to_keep = {'date','stockpx', 'iv60', 'iv90', '252dclshv','60dorhv'}
+
 load_dotenv()
 api_key = os.getenv('NASDAQ_API_KEY')
 
 
 # Get today's date
 today = datetime.today()
-# Calculate the date six months ago
-dates = [today - timedelta(days=i) for i in range(365)] #six months ago
+# Calculate the date 12 months ago
+dates = [today - timedelta(days=i) for i in range(365)]
 date_str = ','.join(date.strftime('%Y-%m-%d') for date in dates)
 
 async def save_json(symbol, data):
@@ -76,6 +79,8 @@ async def run():
         for element in tqdm(data):
             # Assuming the number of columns matches the length of each element in `data`
             filtered_data.append({columns[i]["name"]: element[i] for i in range(len(columns))})
+
+        filtered_data = [{k: v for k, v in item.items() if k in keys_to_keep} for item in filtered_data]
 
         try:
             sorted_data = sorted(filtered_data, key=lambda x: datetime.strptime(x['date'], '%Y-%m-%d'))
