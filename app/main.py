@@ -2970,6 +2970,7 @@ async def get_all_politician(api_key: str = Security(get_api_key)):
     )
 
 
+
 @app.get("/most-shorted-stocks")
 async def get_most_shorted_stocks(api_key: str = Security(get_api_key)):
     cache_key = f"most-shorted-stocks"
