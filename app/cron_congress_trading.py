@@ -98,6 +98,7 @@ def replace_representative(office):
         'Blunt, Roy (Senator)': 'Roy Blunt',
         'Thune, John (Senator)': 'John Thune',
         'Rosen, Jacky (Senator)': 'Jacky Rosen',
+        'Britt, Katie (Senator)': 'Katie Britt',
         'James Costa': 'Jim Costa',
         'Lummis, Cynthia (Senator)': 'Cynthia Lummis',
         'Coons, Chris (Senator)': 'Chris Coons',
@@ -170,7 +171,7 @@ async def get_endpoints(symbol, session):
                     if any('exchange' in word.lower() for word in item['type'].split()):
                         item['type'] = 'Exchange'
 
- 
+
                     if 'representative' in item:
                         item['representative'] = replace_representative(item['representative'])
 

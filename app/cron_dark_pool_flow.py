@@ -21,8 +21,8 @@ def save_json(data):
         ujson.dump(data, file)
 
 
-identifier = 'GME'
-source = 'cta_a_delayed'
+identifier = 'INTC'
+source = 'utp_delayed'
 start_date, end_date = GetStartEndDate().run()
 start_date = start_date.strftime("%Y-%m-%d")
 end_date = end_date.strftime("%Y-%m-%d")
@@ -42,8 +42,8 @@ def get_data():
         if count == 0:
             next_page = ''
         try:
-            response = intrinio.SecurityApi().get_security_trades(
-                source, start_date=start_date, start_time=start_time, 
+            response = intrinio.SecurityApi().get_security_trades_by_symbol(
+                identifier, source, start_date=start_date, start_time=start_time, 
                 end_date=end_date, end_time=end_time, timezone=timezone, 
                 page_size=page_size, darkpool_only=darkpool_only, min_size=min_size, 
                 next_page=next_page
