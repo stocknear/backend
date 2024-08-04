@@ -3317,6 +3317,24 @@ async def get_reddit_tracker(api_key: str = Security(get_api_key)):
         headers={"Content-Encoding": "gzip"}
     )
 
+@app.get("/dividend-kings")
+async def get_dividend_kings():
+    try:
+        with open(f"json/stocks-list/dividend-kings.json", 'rb') as file:
+            res = orjson.loads(file.read())
+    except:
+        res = []
+    return res
+
+@app.get("/dividend-aristocrats")
+async def get_dividend_kings():
+    try:
+        with open(f"json/stocks-list/dividend-aristocrats.json", 'rb') as file:
+            res = orjson.loads(file.read())
+    except:
+        res = []
+    return res
+
 @app.get("/newsletter")
 async def get_newsletter():
     try:
