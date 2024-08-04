@@ -13,7 +13,7 @@ admin_data = pb.admins.auth_with_password(pb_admin_email, pb_password)
 
 
 now = datetime.now()
-seven_days_ago = now - timedelta(days=7)
+one_month_ago = now - timedelta(days=30)
 
 
 async def update_free_trial():
@@ -22,8 +22,8 @@ async def update_free_trial():
 
     for item in data:
         created_date = item.created
-        # Check if the created date is more than 7 days ago
-        if created_date < seven_days_ago:
+        # Check if the created date is more than N days ago
+        if created_date < one_month_ago:
             # Update the user record
             pb.collection("users").update(item.id, {
                 "tier": 'Free',
