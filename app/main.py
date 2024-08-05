@@ -189,6 +189,9 @@ async def openapi(username: str = Depends(get_current_username)):
 class TickerData(BaseModel):
     ticker: str
 
+class MarketNews(BaseModel):
+    newsType: str
+
 class OptionsFlowData(BaseModel):
     ticker: str = ''
     start_date: str = ''
@@ -539,9 +542,11 @@ async def get_market_movers(api_key: str = Security(get_api_key)):
 
 
 
-@app.get("/market-news")
-async def get_market_news(api_key: str = Security(get_api_key)):
-    cache_key = f"get-market-news"
+@app.post("/market-news")
+async def get_market_news(data: MarketNews, api_key: str = Security(get_api_key)):
+    news_type = data.newsType
+
+    cache_key = f"market-news-{news_type}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
         return StreamingResponse(
@@ -550,7 +555,7 @@ async def get_market_news(api_key: str = Security(get_api_key)):
         headers={"Content-Encoding": "gzip"})
 
     try:
-        with open(f"json/market-news/stock-news.json", 'rb') as file:
+        with open(f"json/market-news/{news_type}.json", 'rb') as file:
             res = orjson.loads(file.read())
     except:
         res = []
@@ -558,61 +563,7 @@ async def get_market_news(api_key: str = Security(get_api_key)):
     data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
     redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 60*15)  # Set cache expiration time to 15 min
-
-    return StreamingResponse(
-        io.BytesIO(compressed_data),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"}
-    )
-
-@app.get("/general-news")
-async def get_general_news(api_key: str = Security(get_api_key)):
-    cache_key = f"get-general-news"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return StreamingResponse(
-        io.BytesIO(cached_result),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"})
-
-    try:
-        with open(f"json/market-news/general-news.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = []
-
-    data = orjson.dumps(res)
-    compressed_data = gzip.compress(data)
-    redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 60*15)  # Set cache expiration time to 15 min
-
-    return StreamingResponse(
-        io.BytesIO(compressed_data),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"}
-    )
-
-@app.get("/crypto-news")
-async def get_crypto_news(api_key: str = Security(get_api_key)):
-    cache_key = f"get-crypto-news"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return StreamingResponse(
-        io.BytesIO(cached_result),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"})
-
-    try:
-        with open(f"json/market-news/crypto-news.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = []
-
-    data = orjson.dumps(res)
-    compressed_data = gzip.compress(data)
-    redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 60*15)  # Set cache expiration time to 15 min
+    redis_client.expire(cache_key, 60*5)  # Set cache expiration time to 15 min
 
     return StreamingResponse(
         io.BytesIO(compressed_data),
