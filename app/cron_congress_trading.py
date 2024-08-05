@@ -99,6 +99,7 @@ def replace_representative(office):
         'Thune, John (Senator)': 'John Thune',
         'Rosen, Jacky (Senator)': 'Jacky Rosen',
         'Britt, Katie (Senator)': 'Katie Britt',
+        'Britt, Katie': 'Katie Britt',
         'James Costa': 'Jim Costa',
         'Lummis, Cynthia (Senator)': 'Cynthia Lummis',
         'Coons, Chris (Senator)': 'Chris Coons',

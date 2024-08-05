@@ -3319,20 +3319,58 @@ async def get_reddit_tracker(api_key: str = Security(get_api_key)):
 
 @app.get("/dividend-kings")
 async def get_dividend_kings():
+    cache_key = f"dividend-kings"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
     try:
         with open(f"json/stocks-list/dividend-kings.json", 'rb') as file:
             res = orjson.loads(file.read())
     except:
         res = []
-    return res
+
+    data = orjson.dumps(res)
+    compressed_data = gzip.compress(data)
+
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 60*20)
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
 
 @app.get("/dividend-aristocrats")
 async def get_dividend_kings():
+    cache_key = f"dividend-aristocrats"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
     try:
         with open(f"json/stocks-list/dividend-aristocrats.json", 'rb') as file:
             res = orjson.loads(file.read())
     except:
         res = []
+    data = orjson.dumps(res)
+    compressed_data = gzip.compress(data)
+
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 60*20)
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
     return res
 
 @app.get("/newsletter")

@@ -72,6 +72,22 @@ def run_congress_trading():
         ]
         run_command(command)
 
+def run_dividend_list():
+    week = datetime.today().weekday()
+    current_time = datetime.now().time()
+    start_time = datetime_time(15, 30)
+    end_time = datetime_time(22, 30)
+
+    if week <= 4 and start_time <= current_time < end_time:
+        run_command(["python3", "cron_dividend_kings.py"])
+        run_command(["python3", "cron_dividend_aristocrats.py"])
+        command = [
+            "sudo", "rsync", "-avz", "-e", "ssh",
+            "/root/backend/app/json/stocks-list",
+            f"root@{useast_ip_address}:/root/backend/app/json"
+        ]
+        run_command(command)
+
 def run_cron_var():
     week = datetime.today().weekday()
     if week <= 5:
@@ -486,6 +502,7 @@ schedule.every(1).minutes.do(run_threaded, run_cron_portfolio).tag('portfolio_jo
 schedule.every(5).minutes.do(run_threaded, run_cron_market_movers).tag('market_movers_job')
 schedule.every(2).minutes.do(run_threaded, run_dashboard).tag('dashboard_job')
 
+schedule.every(30).minutes.do(run_threaded, run_dividend_list).tag('dividend_list_job')
 schedule.every(15).minutes.do(run_threaded, run_cron_market_news).tag('market_news_job')
 schedule.every(10).minutes.do(run_threaded, run_one_day_price).tag('one_day_price_job')
 schedule.every(15).minutes.do(run_threaded, run_cron_heatmap).tag('heatmap_job')
