@@ -90,10 +90,13 @@ async def run():
             custom_domains = ['prnewswire.com', 'globenewswire.com', 'accesswire.com']
             data = filter_and_deduplicate(data, excluded_domains=custom_domains)
             data_name = 'stock-news'
+
+            
         #elif "press-releases" in url:
         #    data_name = 'press-releases'
-        #with open(f"json/market-news/{data_name}.json", 'w') as file:
-        #    ujson.dump(data, file)
+
+        with open(f"json/market-news/{data_name}.json", 'w') as file:
+            ujson.dump(data, file)
 
 
 
