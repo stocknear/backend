@@ -38,3 +38,5 @@ intrinio_sdk
 openai
 slowapi
 praw
+fuzzywuzzy
+python-Levenshtein
