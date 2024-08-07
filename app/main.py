@@ -1924,15 +1924,28 @@ def remove_text_before_operator(text):
 
 
 def extract_names_and_descriptions(text):
-    # Define a regular expression pattern to match names and descriptions
     pattern = r'([A-Z][a-zA-Z\s]+):\s+(.*?)(?=\n[A-Z][a-zA-Z\s]+:|$)'
     matches = re.findall(pattern, text, re.DOTALL)
     extracted_data = []
+    
     for match in matches:
         name = match[0].strip()
         description = match[1].strip()
-        # Append the current name and description to the list
-        extracted_data.append({'name': name, 'description': description})
+        
+        # Split the description into sentences
+        sentences = re.split(r'(?<=[.!?])\s+', description)
+        
+        # Add line breaks every 3 sentences
+        formatted_description = ""
+        for i, sentence in enumerate(sentences, 1):
+            formatted_description += sentence + " "
+            if i % 3 == 0:
+                formatted_description += "<br><br>"
+        
+        formatted_description = formatted_description.strip()
+        
+        extracted_data.append({'name': name, 'description': formatted_description})
+    
     return extracted_data
 
 
