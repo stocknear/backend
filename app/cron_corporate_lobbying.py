@@ -8,8 +8,11 @@ from time import sleep
 import pandas as pd
 from dotenv import load_dotenv
 import requests
-
-
+from collections import defaultdict
+import math
+from fuzzywuzzy import process
+import sqlite3
+import concurrent.futures
 
 BASE_SESSION = requests.Session()
 
@@ -345,60 +348,48 @@ def save_json(symbol, data):
     with open(f"json/corporate-lobbying/companies/{symbol}.json", 'w') as file:
         json.dump(data, file)
 
-def create_dataset():
-    from fuzzywuzzy import process
-    import sqlite3
-    import math
-    from collections import defaultdict
 
+def process_stock(stock, csv_files, reports_folder, threshold):
+    print(stock['name'])
+    year_totals = defaultdict(float)
+    stock_name_lower = stock['name'].lower()
+    
+    for csv_file in csv_files:
+        print(csv_file)
+        df = pd.read_csv(os.path.join(reports_folder, csv_file), usecols=['ClientName', 'AmountReported', 'FilingYear'])
+        
+        df['ClientName_lower'] = df['ClientName'].str.lower()
+        df['score'] = df['ClientName_lower'].apply(lambda x: process.extractOne(stock_name_lower, [x])[1])
+        
+        matched_df = df[df['score'] >= threshold]
+        
+        year_totals.update(matched_df.groupby('FilingYear')['AmountReported'].sum().to_dict())
+    
+    all_res_list = [{'year': year, 'amount': amount} for year, amount in year_totals.items()]
+    
+    if all_res_list:
+        save_json(stock['symbol'], all_res_list)
+        print(f"Saved data for {stock['symbol']} ({len(all_res_list)} matches)")
+
+def create_dataset():
+    reports_folder = "json/corporate-lobbying/reports"
+    threshold = 95
+    csv_files = [f for f in os.listdir(reports_folder) if f.endswith('.csv')]
+    
     con = sqlite3.connect('stocks.db')
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
-    cursor.execute("SELECT DISTINCT symbol,name FROM stocks WHERE marketCap >= 1E9 AND symbol NOT LIKE '%.%'")
+    cursor.execute("SELECT DISTINCT symbol, name FROM stocks WHERE marketCap >= 10E9 AND symbol NOT LIKE '%.%' AND symbol NOT LIKE '%-%'")
     stock_data = [{'symbol': row[0], 'name': row[1]} for row in cursor.fetchall()]
+    print(len(stock_data))
     con.close()
-    # Set a threshold for similarity (0-100)
-    threshold = 95
-
-
-    # Get all CSV files in the reports folder
-    reports_folder = 'json/corporate-lobbying/reports'
-    csv_files = [f for f in os.listdir(reports_folder) if f.endswith('.csv')]
     
-    for stock in stock_data:
-        all_res_list = []
-        print(stock['name'])
-        for csv_file in csv_files:
-            # Read the CSV file into a DataFrame
-            print(csv_file)
-            df = pd.read_csv(os.path.join(reports_folder, csv_file))
-            
-            # Convert the DataFrame to a list of dictionaries
-            df_list = df.to_dict(orient='records')
-            
-            for item in df_list:
-                company_name = item['ClientName']
-                
-                best_match, score = process.extractOne(stock['name'].lower(), [company_name.lower()])
-                if score >= threshold:
-                    all_res_list.append({'amount': item['AmountReported'], 'year': item['FilingYear']})
-        
-        all_res_list = [item for item in all_res_list if isinstance(item.get("amount"), (int, float)) and not math.isnan(item["amount"])]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+        executor.map(lambda stock: process_stock(stock, csv_files, reports_folder, threshold), stock_data)
 
-        # Group amounts by year
-        year_totals = defaultdict(float)
-        for item in all_res_list:
-            year_totals[item['year']] += item['amount']
-
-        all_res_list = [{'year': year, 'amount': amount} for year, amount in year_totals.items()]
-
-
-        if len(all_res_list) > 0:
-            save_json(stock['symbol'], all_res_list)
-            print(f"Saved data for {stock['symbol']} ({len(all_res_list)} matches)")
 
 if '__main__' == __name__:
 
-    #get_historical_data()
+    get_historical_data()
     #update_latest_quarter()
-    create_dataset()
+    #create_dataset()

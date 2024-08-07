@@ -1922,22 +1922,18 @@ def remove_text_before_operator(text):
         return "Operator not found in the text."
 
 
+
 def extract_names_and_descriptions(text):
     # Define a regular expression pattern to match names and descriptions
-    pattern = r'([A-Z][a-zA-Z\s]+):\s+(.*?)(?=\n[A-Z][a-zA-Z\s]*:|$)'
+    pattern = r'([A-Z][a-zA-Z\s]+):\s+(.*?)(?=\n[A-Z][a-zA-Z\s]+:|$)'
     matches = re.findall(pattern, text, re.DOTALL)
-
     extracted_data = []
-
     for match in matches:
         name = match[0].strip()
         description = match[1].strip()
-
         # Append the current name and description to the list
         extracted_data.append({'name': name, 'description': description})
-
     return extracted_data
-
 
 
 @app.post("/earnings-call-transcripts")
