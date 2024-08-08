@@ -390,6 +390,6 @@ def create_dataset():
 
 if '__main__' == __name__:
 
-    get_historical_data()
-    #update_latest_quarter()
-    #create_dataset()
+    #get_historical_data()
+    update_latest_quarter()
+    create_dataset()
