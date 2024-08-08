@@ -2815,15 +2815,15 @@ async def get_government_contract(data:TickerData, api_key: str = Security(get_a
     redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
     return res
 
-@app.post("/lobbying")
+@app.post("/corporate-lobbying")
 async def get_lobbying(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
-    cache_key = f"lobbying-{ticker}"
+    cache_key = f"corporate-lobbying-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
         return orjson.loads(cached_result)
     try:
-        with open(f"json/lobbying/{ticker}.json", 'rb') as file:
+        with open(f"json/corporate-lobbying/companies/{ticker}.json", 'rb') as file:
             res = orjson.loads(file.read())
     except:
         res = []
