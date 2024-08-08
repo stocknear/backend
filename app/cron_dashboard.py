@@ -123,6 +123,7 @@ async def get_recent_earnings(session):
 					try:
 						symbol = item['ticker']
 						name = item['name']
+						time = item['time']
 						eps_prior = float(item['eps_prior']) if item['eps_prior'] != '' else 0
 						eps_surprise = float(item['eps_surprise']) if item['eps_surprise'] != '' else 0
 						eps = float(item['eps']) if item['eps'] != '' else 0
@@ -135,6 +136,7 @@ async def get_recent_earnings(session):
 							res_list.append({
 								'symbol': symbol,
 								'name': name,
+								'time': time,
 								'marketCap': market_cap,
 								'epsPrior':eps_prior,
 								'epsSurprise': eps_surprise,

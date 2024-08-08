@@ -349,27 +349,28 @@ def save_json(symbol, data):
         json.dump(data, file)
 
 
-def process_stock(stock, csv_files, reports_folder, threshold):
-    print(stock['name'])
-    year_totals = defaultdict(float)
-    stock_name_lower = stock['name'].lower()
+def process_stocks_batch(stocks, csv_files, reports_folder, threshold):
+    all_df = pd.concat([pd.read_csv(os.path.join(reports_folder, csv_file), usecols=['ClientName', 'AmountReported', 'FilingYear']) for csv_file in csv_files])
+    all_df['ClientName_lower'] = all_df['ClientName'].str.lower()
     
-    for csv_file in csv_files:
-        print(csv_file)
-        df = pd.read_csv(os.path.join(reports_folder, csv_file), usecols=['ClientName', 'AmountReported', 'FilingYear'])
+    results = {}
+    for stock in stocks:
+        print(stock['name'])
+        stock_name_lower = stock['name'].lower()
         
-        df['ClientName_lower'] = df['ClientName'].str.lower()
-        df['score'] = df['ClientName_lower'].apply(lambda x: process.extractOne(stock_name_lower, [x])[1])
+        all_df['score'] = all_df['ClientName_lower'].apply(lambda x: process.extractOne(stock_name_lower, [x])[1])
+        matched_df = all_df[all_df['score'] >= threshold]
         
-        matched_df = df[df['score'] >= threshold]
+        year_totals = matched_df.groupby('FilingYear')['AmountReported'].sum().to_dict()
+        all_res_list = [{'year': year, 'amount': amount} for year, amount in year_totals.items()]
         
-        year_totals.update(matched_df.groupby('FilingYear')['AmountReported'].sum().to_dict())
+        if all_res_list:
+            save_json(stock['symbol'], all_res_list)
+            print(f"Saved data for {stock['symbol']} ({len(all_res_list)} matches)")
+        
+        results[stock['symbol']] = all_res_list
     
-    all_res_list = [{'year': year, 'amount': amount} for year, amount in year_totals.items()]
-    
-    if all_res_list:
-        save_json(stock['symbol'], all_res_list)
-        print(f"Saved data for {stock['symbol']} ({len(all_res_list)} matches)")
+    return results
 
 def create_dataset():
     reports_folder = "json/corporate-lobbying/reports"
@@ -381,11 +382,19 @@ def create_dataset():
     cursor.execute("PRAGMA journal_mode = wal")
     cursor.execute("SELECT DISTINCT symbol, name FROM stocks WHERE marketCap >= 10E9 AND symbol NOT LIKE '%.%' AND symbol NOT LIKE '%-%'")
     stock_data = [{'symbol': row[0], 'name': row[1]} for row in cursor.fetchall()]
-    print(len(stock_data))
+    print(f"Total stocks: {len(stock_data)}")
     con.close()
     
-    with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
-        executor.map(lambda stock: process_stock(stock, csv_files, reports_folder, threshold), stock_data)
+    batch_size = 10
+    stock_batches = [stock_data[i:i+batch_size] for i in range(0, len(stock_data), batch_size)]
+    
+    with concurrent.futures.ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
+        futures = [executor.submit(process_stocks_batch, batch, csv_files, reports_folder, threshold) for batch in stock_batches]
+        
+        for future in concurrent.futures.as_completed(futures):
+            results = future.result()
+            print(f"Processed batch with {len(results)} stocks")
+
 
 
 if '__main__' == __name__:
