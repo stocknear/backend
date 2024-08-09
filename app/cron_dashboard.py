@@ -8,7 +8,7 @@ import pytz
 import time
 import os
 from dotenv import load_dotenv
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import sqlite3
 
 
@@ -33,6 +33,20 @@ async def save_json(data):
     with open(f"json/dashboard/data.json", 'w') as file:
         ujson.dump(data, file)
 
+
+def parse_time(time_str):
+    try:
+        # Try parsing as full datetime
+        return datetime.strptime(time_str, '%Y-%m-%d %H:%M:%S')
+    except ValueError:
+        try:
+            # Try parsing as time only
+            time_obj = datetime.strptime(time_str, '%H:%M:%S').time()
+            # Combine with today's date
+            return datetime.combine(date.today(), time_obj)
+        except ValueError:
+            # If all else fails, return a default datetime
+            return datetime.min
 
 def remove_duplicates(elements):
     seen = set()
@@ -151,7 +165,8 @@ async def get_recent_earnings(session):
 		except Exception as e:
 			pass
 	res_list = remove_duplicates(res_list)
-	res_list.sort(key=lambda x: x['marketCap'], reverse=True)
+	#res_list.sort(key=lambda x: x['marketCap'], reverse=True)
+	res_list.sort(key=lambda x: (-parse_time(x['time']).timestamp(), -x['marketCap']))
 	res_list = [{k: v for k, v in d.items() if k != 'marketCap'} for d in res_list]
 	return res_list[0:5]
 

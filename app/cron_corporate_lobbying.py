@@ -380,15 +380,15 @@ def create_dataset():
     con = sqlite3.connect('stocks.db')
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
-    cursor.execute("SELECT DISTINCT symbol, name FROM stocks WHERE marketCap >= 10E9 AND symbol NOT LIKE '%.%' AND symbol NOT LIKE '%-%'")
+    cursor.execute("SELECT DISTINCT symbol, name FROM stocks WHERE symbol NOT LIKE '%.%' AND symbol NOT LIKE '%-%'")
     stock_data = [{'symbol': row[0], 'name': row[1]} for row in cursor.fetchall()]
     print(f"Total stocks: {len(stock_data)}")
     con.close()
     
-    batch_size = 3
+    batch_size = 5
     stock_batches = [stock_data[i:i+batch_size] for i in range(0, len(stock_data), batch_size)]
     
-    with concurrent.futures.ProcessPoolExecutor(max_workers=4) as executor:
+    with concurrent.futures.ProcessPoolExecutor(max_workers=5) as executor:
         futures = [executor.submit(process_stocks_batch, batch, csv_files, reports_folder, threshold) for batch in stock_batches]
         
         for future in concurrent.futures.as_completed(futures):
