@@ -3232,6 +3232,35 @@ async def get_cramer_tracker(api_key: str = Security(get_api_key)):
         headers={"Content-Encoding": "gzip"}
     )
 
+@app.get("/lobbying-tracker")
+async def get_cramer_tracker(api_key: str = Security(get_api_key)):
+    cache_key = f"corporate-lobbying-tracker"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
+    try:
+        with open(f"json/corporate-lobbying/tracker/data.json", 'rb') as file:
+            res = orjson.loads(file.read())
+    except:
+        res = []
+
+    data = orjson.dumps(res)
+    compressed_data = gzip.compress(data)
+
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 60*15)
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
+
+
 @app.get("/reddit-tracker")
 async def get_reddit_tracker(api_key: str = Security(get_api_key)):
     cache_key = f"reddit-tracker"

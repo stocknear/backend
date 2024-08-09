@@ -439,24 +439,28 @@ def run_dashboard():
     ]
     run_command(command)
 
-def run_reddit_tracker():
-    run_command(["python3", "cron_reddit_tracker.py"])
-    run_command(["python3", "cron_reddit_statistics.py"])
-    command = [
-        "sudo", "rsync", "-avz", "-e", "ssh",
-        "/root/backend/app/json/reddit-tracker",
-        f"root@{useast_ip_address}:/root/backend/app/json"
+def run_tracker():
+    # Run Python scripts
+    scripts = [
+        "cron_reddit_tracker.py",
+        "cron_reddit_statistics.py",
+        "cron_cramer_tracker.py",
+        "cron_lobbying_tracker.py"
     ]
-    run_command(command)
+    for script in scripts:
+        run_command(["python3", script])
 
-def run_cramer_tracker():
-    run_command(["python3", "cron_cramer_tracker.py"])
-    command = [
-        "sudo", "rsync", "-avz", "-e", "ssh",
-        "/root/backend/app/json/cramer-tracker",
-        f"root@{useast_ip_address}:/root/backend/app/json"
+    # Rsync commands
+    rsync_commands = [
+        ("/root/backend/app/json/reddit-tracker", "/root/backend/app/json"),
+        ("/root/backend/app/json/cramer-tracker", "/root/backend/app/json"),
+        ("/root/backend/app/json/corporate-lobbying/tracker", "/root/backend/app/json/corporate-lobbying")
     ]
-    run_command(command)
+
+    base_command = ["sudo", "rsync", "-avz", "-e", "ssh"]
+    for source, dest in rsync_commands:
+        command = base_command + [source, f"root@{useast_ip_address}:{dest}"]
+        run_command(command)
 
 
 # Create functions to run each schedule in a separate thread
@@ -509,8 +513,7 @@ schedule.every(15).minutes.do(run_threaded, run_cron_market_news).tag('market_ne
 schedule.every(10).minutes.do(run_threaded, run_one_day_price).tag('one_day_price_job')
 schedule.every(15).minutes.do(run_threaded, run_cron_heatmap).tag('heatmap_job')
 
-schedule.every(10).minutes.do(run_threaded, run_reddit_tracker).tag('reddit_tracker_job')
-schedule.every(10).minutes.do(run_threaded, run_cramer_tracker).tag('cramer_tracker_job')
+schedule.every(10).minutes.do(run_threaded, run_tracker).tag('tracker_job')
 
 
 schedule.every(1).minutes.do(run_threaded, run_cron_quote).tag('quote_job')
