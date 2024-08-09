@@ -36,7 +36,7 @@ def main():
 
     # Initialize the WebDriver
     service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=options)
+    driver = webdriver.Chrome(options=options)
 
     try:
         # Fetch the website
