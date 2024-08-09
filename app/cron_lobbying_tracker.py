@@ -70,6 +70,8 @@ def main():
             try:
                 db_data = pd.read_sql_query(query_template, con, params=(symbol,))
                 if not db_data.empty:
+                    item['date'] = item['date'].replace('p.m.', 'PM')
+                    item['date'] = item['date'].replace('a.m.', 'AM')
                     res.append({
                         **item, 
                         'name': db_data['name'].iloc[0], 
