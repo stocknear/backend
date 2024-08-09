@@ -5,6 +5,7 @@ import sqlite3
 from tqdm import tqdm
 from dotenv import load_dotenv
 import os
+import time
 
 load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
@@ -59,8 +60,21 @@ async def process_symbols(symbols):
 
             custom_domains = ['prnewswire.com', 'globenewswire.com', 'accesswire.com']
             data = await filter_and_deduplicate(data, excluded_domains=custom_domains)
+
+            grouped_data = {}
+            for item in data:
+                symbol = item['symbol']
+                if symbol in chunk:
+                    if symbol not in grouped_data:
+                        grouped_data[symbol] = []
+                    grouped_data[symbol].append(item)
             
-            tasks = [save_news(data, symbol) for symbol in chunk]
+            # Save the filtered data for each symbol in the chunk
+            tasks = []
+            for symbol in chunk:
+                filtered_data = grouped_data.get(symbol, [])
+                tasks.append(save_news(filtered_data, symbol))
+            
             await asyncio.gather(*tasks)
 
 def get_symbols(db_name, table_name):
