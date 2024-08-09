@@ -188,7 +188,6 @@ class ETFDatabase:
                 f"https://financialmodelingprep.com/api/v3/etf-country-weightings/{symbol}?apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v3/quote/{symbol}?apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v3/historical-price-full/stock_dividend/{symbol}?apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v3/stock_news?tickers={symbol}&limit=50&apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v4/institutional-ownership/institutional-holders/symbol-ownership-percent?date=2023-09-30&symbol={symbol}&page=0&apikey={api_key}",
             ]
 
@@ -228,8 +227,7 @@ class ETFDatabase:
                                         }
                             fundamental_data.update(data_dict)
 
-                        elif isinstance(parsed_data, list) and "stock_news" in url:
-                            fundamental_data['etf_news'] = ujson.dumps(parsed_data)
+
                         elif isinstance(parsed_data, list) and "etf-holder" in url:
                             fundamental_data['holding'] = ujson.dumps(parsed_data)
                             data_dict = {'numberOfHoldings': len(json.loads(fundamental_data['holding']))}

@@ -209,7 +209,6 @@ class CryptoDatabase:
 
             urls = [
                 f"https://financialmodelingprep.com/api/v3/quote/{symbol}?apikey={API_KEY}",
-                f"https://financialmodelingprep.com/api/v4/crypto_news?tickers={symbol}&limit=50&apikey={API_KEY}",
                 f"https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids={crypto_id}"
             ]
 
@@ -231,9 +230,7 @@ class CryptoDatabase:
                                         'previousClose': parsed_data[0]['previousClose'],
                                         }
                             fundamental_data.update(data_dict)
-
-                        elif isinstance(parsed_data, list) and "crypto_news" in url:
-                            fundamental_data['crypto_news'] = ujson.dumps(parsed_data)
+                            
                         elif "coingecko" in url:
                             headers = {
                                 "accept": "application/json",

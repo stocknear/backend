@@ -102,7 +102,6 @@ class StockDatabase:
                 f"https://financialmodelingprep.com/api/v3/quote/{symbol}?apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v3/income-statement/{symbol}?period=quarter&apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v3/income-statement-growth/{symbol}?period=quarter&apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v3/stock_news?tickers={symbol}&limit=50&apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v4/esg-environmental-social-governance-data-ratings?symbol={symbol}&apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v4/esg-environmental-social-governance-data?symbol={symbol}&apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v3/historical-price-full/stock_dividend/{symbol}?limit=400&apikey={api_key}",
@@ -285,9 +284,6 @@ class StockDatabase:
                         elif isinstance(parsed_data, list) and "cash-flow-statement-growth/" in url:
                             # Handle list response, save as JSON object
                             fundamental_data['cashflow_growth'] = ujson.dumps(parsed_data)
-                        elif isinstance(parsed_data, list) and "stock_news" in url:
-                            # Handle list response, save as JSON object
-                            fundamental_data['stock_news'] = ujson.dumps(parsed_data)
                         elif isinstance(parsed_data, list) and "esg-environmental-social-governance-data?" in url:
                             # Handle list response, save as JSON object
                             fundamental_data['esg_data'] = ujson.dumps(parsed_data[0])

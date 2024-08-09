@@ -153,6 +153,7 @@ def run_cron_market_movers():
     
 def run_cron_market_news():
     run_command(["python3", "cron_market_news.py"])
+    run_command(["python3", "cron_company_news.py"])
     command = [
             "sudo", "rsync", "-avz", "-e", "ssh",
             "/root/backend/app/json/market-news",
@@ -456,6 +457,7 @@ def run_cramer_tracker():
         f"root@{useast_ip_address}:/root/backend/app/json"
     ]
     run_command(command)
+
 
 # Create functions to run each schedule in a separate thread
 def run_threaded(job_func):
