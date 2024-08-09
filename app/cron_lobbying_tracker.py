@@ -55,11 +55,12 @@ def main():
                 company = columns[0].find_element(By.TAG_NAME, 'span').text
                 amount = columns[1].text.strip()
                 date = columns[2].text.strip()
+                amount_int = int(amount.replace('$', '').replace(',', ''))
                 
                 data.append({
                     'ticker': ticker,
                     'company': company,
-                    'amount': amount,
+                    'amount': amount_int,
                     'date': date
                 })
 
