@@ -1027,31 +1027,6 @@ async def get_watchlist(data: GetWatchList, api_key: str = Security(get_api_key)
     result = pb.collection("watchlist").get_one(watchlist_id)
     ticker_list = result.ticker
 
-    query_stocks = """
-    SELECT 
-        stock_news
-    FROM 
-        stocks 
-    WHERE
-        symbol = ?
-    """
-    query_etf = """
-    SELECT 
-        etf_news
-    FROM 
-        etfs 
-    WHERE
-        symbol = ?
-    """
-
-    query_crypto = """
-    SELECT 
-        crypto_news
-    FROM 
-        cryptos
-    WHERE
-        symbol = ?
-    """
 
     combined_results = []  # List to store the combined results
     combined_news = []
@@ -1066,13 +1041,12 @@ async def get_watchlist(data: GetWatchList, api_key: str = Security(get_api_key)
                     combined_results.append(quote_dict)
             except:
                 pass
-            df = pd.read_sql_query(query_etf, etf_con, params=(ticker,))
-            if not df.empty:
-                df_dict = df.to_dict()
-                try:
-                    combined_news.append(orjson.loads(df_dict['etf_news'][0])[0])
-                except:
-                    pass
+            try:
+                with open(f"json/market-news/companies/{ticker}.json", 'rb') as file:
+                    news_dict = orjson.loads(file.read())[0]
+                    combined_news.append(news_dict)
+            except:
+                pass
         elif ticker in crypto_symbols:
             try:
                 with open(f"json/quote/{ticker}.json", 'rb') as file:
@@ -1081,13 +1055,12 @@ async def get_watchlist(data: GetWatchList, api_key: str = Security(get_api_key)
                     combined_results.append(quote_dict)
             except:
                 pass
-            df = pd.read_sql_query(query_crypto, crypto_con, params=(ticker,))
-            if not df.empty:
-                df_dict = df.to_dict()
-                try:
-                    combined_news.append(orjson.loads(df_dict['crypto_news'][0])[0])
-                except:
-                    pass
+            try:
+                with open(f"json/market-news/companies/{ticker}.json", 'rb') as file:
+                    news_dict = orjson.loads(file.read())[0]
+                    combined_news.append(news_dict)
+            except:
+                pass
         else:
             try:
                 with open(f"json/quote/{ticker}.json", 'rb') as file:
@@ -1096,13 +1069,12 @@ async def get_watchlist(data: GetWatchList, api_key: str = Security(get_api_key)
                     combined_results.append(quote_dict)
             except:
                 pass
-            df = pd.read_sql_query(query_stocks, con, params=(ticker,))
-            if not df.empty:
-                df_dict = df.to_dict()
-                try:
-                    combined_news.append(orjson.loads(df_dict['stock_news'][0])[0])
-                except:
-                    pass
+            try:
+                with open(f"json/market-news/companies/{ticker}.json", 'rb') as file:
+                    news_dict = orjson.loads(file.read())[0]
+                    combined_news.append(news_dict)
+            except:
+                pass
     res = [combined_results, combined_news]
     return res
 
