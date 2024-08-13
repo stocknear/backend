@@ -403,6 +403,7 @@ def run_borrowed_share():
     ]
     run_command(command)
 
+'''
 def run_implied_volatility():
     run_command(["python3", "cron_implied_volatility.py"])
     command = [
@@ -411,6 +412,7 @@ def run_implied_volatility():
         f"root@{useast_ip_address}:/root/backend/app/json"
     ]
     run_command(command)
+'''
 
 def run_options_net_flow():
     run_command(["python3", "cron_options_net_flow.py"])
@@ -488,7 +490,7 @@ schedule.every().day.at("10:30").do(run_threaded, run_sec_filings).tag('sec_fili
 schedule.every().day.at("11:00").do(run_threaded, run_executive).tag('executive_job')
 schedule.every().day.at("03:00").do(run_threaded, run_retail_volume).tag('retail_volume_job')
 schedule.every().day.at("11:45").do(run_threaded, run_clinical_trial).tag('clinical_trial_job')
-schedule.every().day.at("05:00").do(run_threaded, run_implied_volatility).tag('implied_volatility_job')
+#schedule.every().day.at("05:00").do(run_threaded, run_implied_volatility).tag('implied_volatility_job')
 
 
 schedule.every().day.at("13:30").do(run_threaded, run_stockdeck).tag('stockdeck_job')
