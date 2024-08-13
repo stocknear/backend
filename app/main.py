@@ -710,33 +710,39 @@ async def stock_income(data: TickerData, api_key: str = Security(get_api_key)):
 
     cache_key = f"stock-income-{ticker}"
     cached_result = redis_client.get(cache_key)
+
     if cached_result:
-        return orjson.loads(cached_result)
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
 
-    query_template = """
-    SELECT 
-        income, income_growth
-    FROM 
-        stocks 
-    WHERE
-        symbol = ?
-    """
     try:
-        with db_connection(STOCK_DB) as cursor:
-            cursor.execute(query_template, (ticker,))
-            result = cursor.fetchone()
-            if result:
-                income_statement = orjson.loads(result[0])
-                income_statement_growth = orjson.loads(result[1])
-                res = clean_financial_data(income_statement, income_statement_growth)
-            else:
-                res = []
+        with open(f"json/financial-statements/income-statement/quarter/{ticker}.json", 'rb') as file:
+            quarter_res = orjson.loads(file.read())
     except:
-        res = []
+        quarter_res = []
 
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 3600*3600) # Set cache expiration time to 1 hour
-    return res
+    try:
+        with open(f"json/financial-statements/income-statement/annual/{ticker}.json", 'rb') as file:
+            annual_res = orjson.loads(file.read())
+    except:
+        annual_res = []
+
+    res = {'quarter': quarter_res, 'annual': annual_res}
+
+    res = orjson.dumps(res)
+    compressed_data = gzip.compress(res)
+
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
 
 @app.post("/stock-balance-sheet")
 async def stock_balance_sheet(data: TickerData, api_key: str = Security(get_api_key)):
@@ -745,33 +751,39 @@ async def stock_balance_sheet(data: TickerData, api_key: str = Security(get_api_
 
     cache_key = f"stock-balance-sheet-{ticker}"
     cached_result = redis_client.get(cache_key)
+
     if cached_result:
-        return orjson.loads(cached_result)
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
 
-    query_template = """
-    SELECT 
-        balance, balance_growth
-    FROM 
-        stocks 
-    WHERE
-        symbol = ?
-    """
     try:
-        with db_connection(STOCK_DB) as cursor:
-            cursor.execute(query_template, (ticker,))
-            result = cursor.fetchone()
-            if result:
-                balance_statement = orjson.loads(result[0])
-                balance_statement_growth = orjson.loads(result[1])
-                res = clean_financial_data(balance_statement, balance_statement_growth)
-            else:
-                res = []
+        with open(f"json/financial-statements/balance-sheet-statement/quarter/{ticker}.json", 'rb') as file:
+            quarter_res = orjson.loads(file.read())
     except:
-        res = []
+        quarter_res = []
 
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 3600*3600)
-    return res    
+    try:
+        with open(f"json/financial-statements/balance-sheet-statement/annual/{ticker}.json", 'rb') as file:
+            annual_res = orjson.loads(file.read())
+    except:
+        annual_res = []
+
+    res = {'quarter': quarter_res, 'annual': annual_res}
+
+    res = orjson.dumps(res)
+    compressed_data = gzip.compress(res)
+
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    ) 
 
 @app.post("/stock-ratios")
 async def stock_ratios(data: TickerData, api_key: str = Security(get_api_key)):
@@ -780,27 +792,39 @@ async def stock_ratios(data: TickerData, api_key: str = Security(get_api_key)):
 
     cache_key = f"stock-ratios-{ticker}"
     cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return orjson.loads(cached_result)
 
-    query_template = """
-    SELECT 
-        ratios
-    FROM 
-        stocks 
-    WHERE
-        symbol = ?
-    """
+    if cached_result:
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
 
     try:
-        df = pd.read_sql_query(query_template,con, params=(ticker,))
-        res =  orjson.loads(df['ratios'].iloc[0])
+        with open(f"json/financial-statements/ratios/quarter/{ticker}.json", 'rb') as file:
+            quarter_res = orjson.loads(file.read())
     except:
-        res = []
+        quarter_res = []
 
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 3600*3600) # Set cache expiration time to 1 hour
-    return res
+    try:
+        with open(f"json/financial-statements/ratios/annual/{ticker}.json", 'rb') as file:
+            annual_res = orjson.loads(file.read())
+    except:
+        annual_res = []
+
+    res = {'quarter': quarter_res, 'annual': annual_res}
+
+    res = orjson.dumps(res)
+    compressed_data = gzip.compress(res)
+
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    ) 
 
 
 @app.post("/stock-cash-flow")
@@ -810,29 +834,40 @@ async def stock_cash_flow(data: TickerData, api_key: str = Security(get_api_key)
 
     cache_key = f"stock-cash-flow-{ticker}"
     cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return orjson.loads(cached_result)
 
-    query_template = """
-    SELECT 
-        cashflow, cashflow_growth
-    FROM 
-        stocks 
-    WHERE
-        symbol = ?
-    """
+    if cached_result:
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
 
     try:
-        df = pd.read_sql_query(query_template,con, params=(ticker,))
-        cash_flow_statement =  orjson.loads(df['cashflow'].iloc[0])
-        cash_flow_statement_growth =  orjson.loads(df['cashflow_growth'].iloc[0])
-        res = clean_financial_data(cash_flow_statement,cash_flow_statement_growth)
+        with open(f"json/financial-statements/cash-flow-statement/quarter/{ticker}.json", 'rb') as file:
+            quarter_res = orjson.loads(file.read())
     except:
-        res = []
+        quarter_res = []
 
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 3600*3600) # Set cache expiration time to 1 hour
-    return res
+    try:
+        with open(f"json/financial-statements/cash-flow-statement/annual/{ticker}.json", 'rb') as file:
+            annual_res = orjson.loads(file.read())
+    except:
+        annual_res = []
+
+    res = {'quarter': quarter_res, 'annual': annual_res}
+
+    res = orjson.dumps(res)
+    compressed_data = gzip.compress(res)
+
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    ) 
+
 
 
 

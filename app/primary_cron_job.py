@@ -464,6 +464,14 @@ def run_tracker():
         command = base_command + [source, f"root@{useast_ip_address}:{dest}"]
         run_command(command)
 
+def run_financial_statements():
+    run_command(["python3", "cron_financial_statements.py"])
+    command = [
+        "sudo", "rsync", "-avz", "-e", "ssh",
+        "/root/backend/app/json/financial-statements",
+        f"root@{useast_ip_address}:/root/backend/app/json"
+    ]
+    run_command(command)
 
 # Create functions to run each schedule in a separate thread
 def run_threaded(job_func):
@@ -481,6 +489,8 @@ schedule.every().day.at("06:30").do(run_threaded, run_pocketbase).tag('pocketbas
 
 schedule.every().day.at("07:00").do(run_threaded, run_ta_rating).tag('ta_rating_job')
 schedule.every().day.at("07:30").do(run_threaded, run_government_contract).tag('government_contract_job')
+schedule.every().day.at("07:30").do(run_threaded, run_financial_statements).tag('financial_statements_job')
+
 
 schedule.every().day.at("08:00").do(run_threaded, run_cron_insider_trading).tag('insider_trading_job')
 schedule.every().day.at("09:00").do(run_threaded, run_congress_trading).tag('congress_job')
