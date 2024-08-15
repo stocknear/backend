@@ -12,12 +12,6 @@ from dotenv import load_dotenv
 import os
 load_dotenv()
 
-# Create a dictionary to store the status of each job
-job_status = {
-    'options_flow_job': {'running': False},
-    'options_zero_dte_job': {'running': False}
-}
-
 useast_ip_address = os.getenv('USEAST_IP_ADDRESS')
 
 
@@ -35,16 +29,6 @@ logger.addHandler(handler)
 # Set the system's timezone to Berlin at the beginning
 subprocess.run(["timedatectl", "set-timezone", "Europe/Berlin"])
 
-
-def run_if_not_running(job_func, job_tag):
-    def wrapper():
-        if not job_status[job_tag]['running']:
-            job_status[job_tag]['running'] = True
-            try:
-                job_func()
-            finally:
-                job_status[job_tag]['running'] = False
-    return wrapper
 
 # Function to run commands and log output
 def run_command(command):
@@ -210,7 +194,7 @@ def run_cron_options_flow():
     end_time = datetime_time(22, 30)
 
     if week <= 4 and start_time <= current_time < end_time:
-        run_command(["python3", "cron_options_flow.py"])
+        run_command(["python3", "cron_options_flow.py"])        
         
         command = [
             "sudo", "rsync", "-avz", "-e", "ssh",
@@ -558,8 +542,8 @@ schedule.every(2).hours.do(run_threaded, run_fda_calendar).tag('fda_calendar_job
 schedule.every(3).hours.do(run_threaded, run_json_job).tag('json_job')
 schedule.every(6).hours.do(run_threaded, run_analyst_rating).tag('analyst_job')
 
-schedule.every(10).seconds.do(run_threaded, run_if_not_running(run_cron_options_flow, 'options_flow_job')).tag('options_flow_job')
-schedule.every(10).seconds.do(run_threaded, run_if_not_running(run_cron_options_zero_dte, 'options_zero_dte_job')).tag('options_zero_dte_job')
+schedule.every(10).seconds.do(run_threaded, run_cron_options_flow).tag('options_flow_job')
+schedule.every(10).seconds.do(run_threaded, run_cron_options_zero_dte).tag('options_zero_dte_job')
 
 
 # Run the scheduled jobs indefinitelyp
