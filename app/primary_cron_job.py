@@ -287,14 +287,18 @@ def run_executive():
 
 def run_options_bubble_ticker():
     week = datetime.today().weekday()
-    if week <= 4:
+    current_time = datetime.now().time()
+    start_time = datetime_time(15, 30)
+    end_time = datetime_time(22, 30)
+    if week <= 4 and start_time <= current_time < end_time:
         run_command(["python3", "cron_options_bubble.py"])
 
-        command = ["sudo", "rsync", "-avz", "-e", "ssh", "/root/backend/app/json/options-bubble/", f"root@{useast_ip_address}:/root/backend/app/json/options-bubble/"]
+        command = ["sudo", "rsync", "-avz", "-e", "ssh", "/root/backend/app/json/options-bubble", f"root@{useast_ip_address}:/root/backend/app/json"]
         run_command(command)
 
-        command = ["sudo", "rsync", "-avz", "-e", "ssh", "/root/backend/app/json/options-flow/company/", f"root@{useast_ip_address}:/root/backend/app/json/options-flow/company/"]
+        command = ["sudo", "rsync", "-avz", "-e", "ssh", "/root/backend/app/json/options-flow/company", f"root@{useast_ip_address}:/root/backend/app/json/options-flow"]
         run_command(command)
+
 
 def run_analyst_rating():
     run_command(["python3", "cron_analyst_insight.py"])
@@ -524,6 +528,7 @@ schedule.every(30).minutes.do(run_threaded, run_dividend_list).tag('dividend_lis
 schedule.every(15).minutes.do(run_threaded, run_cron_market_news).tag('market_news_job')
 schedule.every(10).minutes.do(run_threaded, run_one_day_price).tag('one_day_price_job')
 schedule.every(15).minutes.do(run_threaded, run_cron_heatmap).tag('heatmap_job')
+
 
 schedule.every(10).minutes.do(run_threaded, run_tracker).tag('tracker_job')
 

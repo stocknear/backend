@@ -36,7 +36,7 @@ def options_bubble_data(chunk):
     try:
         company_tickers = ','.join(chunk)
         end_date = date.today()
-        start_date = end_date - timedelta(90)
+        start_date = end_date - timedelta(365) #look 1 year ago
 
         end_date_str = end_date.strftime('%Y-%m-%d')
         start_date_str = start_date.strftime('%Y-%m-%d')
@@ -87,7 +87,7 @@ def options_bubble_data(chunk):
         for ticker in chunk:
 
             bubble_data = {}
-            for time_period, days in {'oneDay': 1, 'oneWeek': 7, 'oneMonth': 30, 'threeMonth': 90}.items():
+            for time_period, days in {'oneDay': 1, 'oneWeek': 7, 'oneMonth': 30, 'threeMonth': 90, 'sixMonth': 180, 'oneYear': 252}.items():
                 start_date = end_date - timedelta(days=days) #end_date is today
 
                 filtered_data = [item for item in res_filtered if start_date <= datetime.strptime(item['date'], '%Y-%m-%d').date() <= end_date]
@@ -114,7 +114,7 @@ def options_bubble_data(chunk):
 try:
     stock_con = sqlite3.connect('stocks.db')
     stock_cursor = stock_con.cursor()
-    stock_cursor.execute("SELECT DISTINCT symbol FROM stocks")
+    stock_cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
     stock_symbols = [row[0] for row in stock_cursor.fetchall()]
 
     etf_con = sqlite3.connect('etf.db')
@@ -128,7 +128,7 @@ try:
     total_symbols = stock_symbols + etf_symbols
     total_symbols = [item.replace("BRK-B", "BRK.B") for item in total_symbols]
 
-    chunk_size = len(total_symbols) // 20  # Divide the list into N chunks
+    chunk_size = len(total_symbols) // 40  # Divide the list into N chunks
     chunks = [total_symbols[i:i + chunk_size] for i in range(0, len(total_symbols), chunk_size)]
     
     for chunk in chunks:
