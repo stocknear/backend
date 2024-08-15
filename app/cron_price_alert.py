@@ -147,7 +147,7 @@ async def run():
                     }
                     pb.collection('notifications').create(newNotification)
                     #send alert via email
-                    recipient = (pb.collection('users').get_one(item.user)).email
+                    recipient = item.email
                     send_email(recipient, symbol, item.asset_type, current_price, target_price, item.condition)
 try:
     asyncio.run(run())
