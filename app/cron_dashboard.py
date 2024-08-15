@@ -82,7 +82,7 @@ tomorrow = tomorrow.strftime('%Y-%m-%d')
 async def get_upcoming_earnings(session):
 	url = "https://api.benzinga.com/api/v2.1/calendar/earnings"
 
-	importance_list = ["3","4","5"]
+	importance_list = ["2","3","4","5"]
 	res_list = []
 	for importance in importance_list:
 
