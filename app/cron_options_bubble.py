@@ -113,12 +113,12 @@ async def main():
     try:
         stock_con = sqlite3.connect('stocks.db')
         stock_cursor = stock_con.cursor()
-        stock_cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 500E6 AND symbol NOT LIKE '%.%'")
+        stock_cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
         stock_symbols = [row[0] for row in stock_cursor.fetchall()]
 
         etf_con = sqlite3.connect('etf.db')
         etf_cursor = etf_con.cursor()
-        etf_cursor.execute("SELECT DISTINCT symbol FROM etfs WHERE totalAssets >= 10E9")
+        etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
         etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
         stock_con.close()
@@ -129,7 +129,7 @@ async def main():
 
         print(len(total_symbols))
 
-        chunk_size = len(total_symbols) // 100  # Divide the list into N chunks
+        chunk_size = len(total_symbols) // 1000  # Divide the list into N chunks
         chunks = [total_symbols[i:i + chunk_size] for i in range(0, len(total_symbols), chunk_size)]
 
         loop = asyncio.get_running_loop()
