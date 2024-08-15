@@ -5,8 +5,8 @@ import asyncio
 import os
 from dotenv import load_dotenv
 from benzinga import financial_data
-import time
-
+from tqdm import tqdm
+from concurrent.futures import ThreadPoolExecutor
 
 load_dotenv()
 api_key = os.getenv('BENZINGA_API_KEY')
@@ -59,7 +59,6 @@ def options_bubble_data(chunk):
                     if item['ticker'] in ['BRK.A', 'BRK.B']:
                         item['ticker'] = f"BRK-{item['ticker'][-1]}"
 
-
         #Save raw data for each ticker for options page stack bar chart
         for ticker in chunk:
             ticker_filtered_data = [entry for entry in res_filtered if entry['ticker'] == ticker]
@@ -92,7 +91,6 @@ def options_bubble_data(chunk):
 
                 filtered_data = [item for item in res_filtered if start_date <= datetime.strptime(item['date'], '%Y-%m-%d').date() <= end_date]
 
-
                 ticker_filtered_data = [entry for entry in filtered_data if entry['ticker'] == ticker]
                 put_volume, call_volume = calculate_put_call_volumes(ticker_filtered_data)
                 avg_dte = calculate_avg_dte(ticker_filtered_data)
@@ -104,36 +102,44 @@ def options_bubble_data(chunk):
             else:
                 with open(f"json/options-bubble/{ticker}.json", 'w') as file:
                     ujson.dump(bubble_data, file)
-    
 
     except ValueError as ve:
         print(ve)
     except Exception as e:
         print(e)
 
-try:
-    stock_con = sqlite3.connect('stocks.db')
-    stock_cursor = stock_con.cursor()
-    stock_cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
-    stock_symbols = [row[0] for row in stock_cursor.fetchall()]
 
-    etf_con = sqlite3.connect('etf.db')
-    etf_cursor = etf_con.cursor()
-    etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
-    etf_symbols = [row[0] for row in etf_cursor.fetchall()]
+async def main():
+    try:
+        stock_con = sqlite3.connect('stocks.db')
+        stock_cursor = stock_con.cursor()
+        stock_cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 500E6 AND symbol NOT LIKE '%.%'")
+        stock_symbols = [row[0] for row in stock_cursor.fetchall()]
 
-    stock_con.close()
-    etf_con.close()
-    
-    total_symbols = stock_symbols + etf_symbols
-    total_symbols = [item.replace("BRK-B", "BRK.B") for item in total_symbols]
+        etf_con = sqlite3.connect('etf.db')
+        etf_cursor = etf_con.cursor()
+        etf_cursor.execute("SELECT DISTINCT symbol FROM etfs WHERE totalAssets >= 10E9")
+        etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
-    chunk_size = len(total_symbols) // 40  # Divide the list into N chunks
-    chunks = [total_symbols[i:i + chunk_size] for i in range(0, len(total_symbols), chunk_size)]
-    
-    for chunk in chunks:
-        options_bubble_data(chunk)
+        stock_con.close()
+        etf_con.close()
+        
+        total_symbols = stock_symbols + etf_symbols
+        total_symbols = [item.replace("BRK-B", "BRK.B") for item in total_symbols]
 
-except Exception as e:
-    print(e)
+        print(len(total_symbols))
 
+        chunk_size = len(total_symbols) // 100  # Divide the list into N chunks
+        chunks = [total_symbols[i:i + chunk_size] for i in range(0, len(total_symbols), chunk_size)]
+
+        loop = asyncio.get_running_loop()
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            tasks = [loop.run_in_executor(executor, options_bubble_data, chunk) for chunk in chunks]
+            for f in tqdm(asyncio.as_completed(tasks), total=len(tasks)):
+                await f
+
+    except Exception as e:
+        print(e)
+
+if __name__ == "__main__":
+    asyncio.run(main())
