@@ -1400,6 +1400,7 @@ async def get_hedge_funds_data(data: GetCIKData, api_key: str = Security(get_api
         'summary': orjson.loads(row[11]),
     } for row in cik_data]
 
+
     res_json = orjson.dumps(res[0])
     compressed_data = gzip.compress(res_json)
 
@@ -1412,6 +1413,36 @@ async def get_hedge_funds_data(data: GetCIKData, api_key: str = Security(get_api
         headers={"Content-Encoding": "gzip"}
     )
 
+
+@app.get("/all-hedge-funds")
+async def get_all_hedge_funds_data(api_key: str = Security(get_api_key)):
+    
+    cache_key = f"all-hedge-funds"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
+
+    try:
+        with open(f"json/hedge-funds/all-hedge-funds.json", 'rb') as file:
+            res = orjson.loads(file.read())
+    except:
+        res = []
+
+    res = orjson.dumps(res)
+    compressed_data = gzip.compress(res)
+
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 3600 * 3600) # Set cache expiration time to Infinity
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
 
 @app.get("/searchbar-data")
 async def get_stock(api_key: str = Security(get_api_key)):

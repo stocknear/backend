@@ -46,7 +46,7 @@ def best_hedge_funds(con):
         'performancePercentage3year': row[6]
     } for row in best_performing_ciks]
 
-    with open(f"{frontend_json_url}/best-hedge-funds.json", 'w') as file:
+    with open(f"json/hedge-funds/best-hedge-funds.json", 'w') as file:
         json.dump(res_list, file)
 
 
@@ -68,7 +68,7 @@ def worst_hedge_funds(con):
         'performancePercentage3year': row[6]
     } for row in worst_performing_ciks]
 
-    with open(f"{frontend_json_url}/worst-hedge-funds.json", 'w') as file:
+    with open(f"json/hedge-funds/worst-hedge-funds.json", 'w') as file:
         json.dump(res_list, file)
 
 
@@ -92,7 +92,7 @@ def all_hedge_funds(con):
 
     sorted_res_list = sorted(res_list, key=lambda x: x['marketValue'], reverse=True)
 
-    with open(f"{frontend_json_url}/all-hedge-funds.json", 'w') as file:
+    with open(f"json/hedge-funds/all-hedge-funds.json", 'w') as file:
         json.dump(sorted_res_list, file)
 
 
@@ -127,7 +127,6 @@ def spy_performance():
         # Get the close price for the found or closest date
         close_price = round(df[df['date'] == target_date]['close'].values[0],2)
         data.append({'date': original_date, 'price': close_price})
-    print(data)
 
 
 

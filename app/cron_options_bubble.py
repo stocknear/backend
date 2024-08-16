@@ -42,7 +42,7 @@ def options_bubble_data(chunk):
         start_date_str = start_date.strftime('%Y-%m-%d')
 
         res_list = []
-        for page in range(0, 100):
+        for page in range(0, 500):
             try:
                 data = fin.options_activity(company_tickers=company_tickers, page=page, pagesize=500, date_from=start_date_str, date_to=end_date_str)
                 data = ujson.loads(fin.output(data))['option_activity']
