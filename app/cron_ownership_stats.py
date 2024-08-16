@@ -16,7 +16,7 @@ load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
 
 
-include_current_quarter = False
+include_current_quarter = True
 
 
 async def get_data(session, symbol, max_retries=3, initial_delay=1):
