@@ -85,20 +85,24 @@ async def run():
 
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
-    cursor.execute("SELECT DISTINCT symbol FROM stocks")
+    cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
     stock_symbols = [row[0] for row in cursor.fetchall()]
     
     counter = 0
 
     for ticker in tqdm(stock_symbols):
-        forward_pe_dict, short_dict = await get_data(ticker, con)
-        if forward_pe_dict.keys() and short_dict.keys():
-            await save_as_json(ticker, forward_pe_dict, short_dict)
+        try:
+            forward_pe_dict, short_dict = await get_data(ticker, con)
+            if forward_pe_dict.keys() and short_dict.keys():
+                await save_as_json(ticker, forward_pe_dict, short_dict)
 
-        counter += 1
-        if counter % 100 == 0:
-            print(f"Processed {counter} tickers, waiting for 10 seconds...")
-            await asyncio.sleep(10)
+            counter += 1
+            if counter % 20 == 0:
+                print(f"Processed {counter} tickers, waiting for 5 seconds...")
+                await asyncio.sleep(5)
+        except Exception as e:
+            print(ticker, e)
+
 
     con.close()
 

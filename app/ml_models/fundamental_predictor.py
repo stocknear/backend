@@ -144,7 +144,7 @@ class FundamentalPredictor:
 
         
         # Second LSTM layer with dropout and batch normalization
-        model.add(LSTM(128, return_sequences=True, kernel_regularizer=regularizers.l2(0.01)))
+        model.add(LSTM(256, return_sequences=True, kernel_regularizer=regularizers.l2(0.01)))
         model.add(Dropout(0.5))
         model.add(BatchNormalization())
         
@@ -153,7 +153,7 @@ class FundamentalPredictor:
         model.add(Dropout(0.5))
         model.add(BatchNormalization())
 
-        model.add(Dense(32, activation='relu', kernel_regularizer=regularizers.l2(0.01)))
+        model.add(Dense(64, activation='relu', kernel_regularizer=regularizers.l2(0.01)))
         model.add(Dropout(0.2))
         model.add(BatchNormalization())
         
