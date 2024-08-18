@@ -97,9 +97,9 @@ async def run():
                 await save_as_json(ticker, forward_pe_dict, short_dict)
 
             counter += 1
-            if counter % 20 == 0:
-                print(f"Processed {counter} tickers, waiting for 5 seconds...")
-                await asyncio.sleep(5)
+            if counter % 50 == 0:
+                print(f"Processed {counter} tickers, waiting for 60 seconds...")
+                await asyncio.sleep(60)
         except Exception as e:
             print(ticker, e)
 
