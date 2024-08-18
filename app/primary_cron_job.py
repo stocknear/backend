@@ -515,7 +515,6 @@ schedule.every().day.at("07:30").do(run_threaded, run_financial_statements).tag(
 schedule.every().day.at("08:00").do(run_threaded, run_cron_insider_trading).tag('insider_trading_job')
 schedule.every().day.at("09:00").do(run_threaded, run_congress_trading).tag('congress_job')
 schedule.every().day.at("10:00").do(run_threaded, run_shareholders).tag('shareholders_job')
-schedule.every().day.at("10:15").do(run_threaded, run_share_statistics).tag('share_statistics_job')
 schedule.every().day.at("10:30").do(run_threaded, run_sec_filings).tag('sec_filings_job')
 schedule.every().day.at("11:00").do(run_threaded, run_executive).tag('executive_job')
 schedule.every().day.at("03:00").do(run_threaded, run_retail_volume).tag('retail_volume_job')
@@ -556,6 +555,7 @@ schedule.every(15).minutes.do(run_threaded, run_market_moods).tag('market_moods_
 
 schedule.every(2).hours.do(run_threaded, run_fda_calendar).tag('fda_calendar_job')
 schedule.every(3).hours.do(run_threaded, run_json_job).tag('json_job')
+schedule.every(4).hours.do(run_threaded, run_share_statistics).tag('share_statistics_job')
 schedule.every(6).hours.do(run_threaded, run_analyst_rating).tag('analyst_job')
 
 schedule.every(10).seconds.do(run_threaded, run_if_not_running(run_cron_options_flow, 'options_flow_job')).tag('options_flow_job')
