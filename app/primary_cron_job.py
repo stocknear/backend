@@ -565,7 +565,7 @@ schedule.every(15).minutes.do(run_threaded, run_market_moods).tag('market_moods_
 
 schedule.every(2).hours.do(run_threaded, run_fda_calendar).tag('fda_calendar_job')
 schedule.every(3).hours.do(run_threaded, run_json_job).tag('json_job')
-schedule.every(4).hours.do(run_threaded, run_share_statistics).tag('share_statistics_job')
+#schedule.every(4).hours.do(run_threaded, run_share_statistics).tag('share_statistics_job')
 schedule.every(6).hours.do(run_threaded, run_analyst_rating).tag('analyst_job')
 
 schedule.every(10).seconds.do(run_threaded, run_if_not_running(run_cron_options_flow, 'options_flow_job')).tag('options_flow_job')
