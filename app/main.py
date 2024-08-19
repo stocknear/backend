@@ -1380,29 +1380,14 @@ async def get_hedge_funds_data(data: GetCIKData, api_key: str = Security(get_api
             headers={"Content-Encoding": "gzip"}
         )
     
-    cursor = con_inst.cursor()
+    try:
+        with open(f"json/hedge-funds/companies/{cik}.json", 'rb') as file:
+            res = orjson.loads(file.read())
+    except:
+        res = []
 
-    # Execute a SQL query to select the top 10 best performing cik entries by winRate
-    cursor.execute("SELECT cik, name, numberOfStocks, performancePercentage3year, performancePercentage5year, performanceSinceInceptionPercentage, averageHoldingPeriod, turnover, marketValue, winRate, holdings, summary FROM institutes WHERE cik = ?", (cik,))
-    cik_data = cursor.fetchall()
-    res = [{
-        'cik': row[0],
-        'name': row[1],
-        'numberOfStocks': row[2],
-        'performancePercentage3year': row[3],
-        'performancePercentage5year': row[4],
-        'performanceSinceInceptionPercentage': row[5],
-        'averageHoldingPeriod': row[6],
-        'turnover': row[7],
-        'marketValue': row[8],
-        'winRate': row[9],
-        'holdings': orjson.loads(row[10]),
-        'summary': orjson.loads(row[11]),
-    } for row in cik_data]
-
-
-    res_json = orjson.dumps(res[0])
-    compressed_data = gzip.compress(res_json)
+    res = orjson.dumps(res)
+    compressed_data = gzip.compress(res)
 
     redis_client.set(cache_key, compressed_data)
     redis_client.expire(cache_key, 3600 * 3600) # Set cache expiration time to Infinity
