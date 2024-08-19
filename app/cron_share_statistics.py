@@ -5,96 +5,104 @@ import pandas as pd
 from tqdm import tqdm
 from datetime import datetime
 import yfinance as yf
+import time
 
-# Constants
-JSON_DIR = "json/"
-QUARTERLY_FREQ = 'QE'
 
-# SQL Query
-QUERY_TEMPLATE = """
-    SELECT historicalShares
-    FROM stocks
-    WHERE symbol = ?
+async def save_as_json(symbol, forward_pe_dict, short_dict):
+    with open(f"json/share-statistics/{symbol}.json", 'w') as file:
+        ujson.dump(short_dict, file)
+    with open(f"json/forward-pe/{symbol}.json", 'w') as file:
+        ujson.dump(forward_pe_dict, file)
+
+
+query_template = f"""
+    SELECT 
+        historicalShares
+    FROM 
+        stocks
+    WHERE
+        symbol = ?
 """
 
-def filter_quarterly_data(data):
-    """Filter data to keep only quarter-end dates."""
-    quarter_ends = pd.date_range(start=data[0]['date'], end=datetime.now(), freq=QUARTERLY_FREQ).strftime('%Y-%m-%d').tolist()
-    return [entry for entry in data if entry['date'] in quarter_ends]
+def filter_data_quarterly(data):
+    # Generate a range of quarter-end dates from the start to the end date
+    start_date = data[0]['date']
+    end_date = datetime.today().strftime('%Y-%m-%d')
+    quarter_ends = pd.date_range(start=start_date, end=end_date, freq='QE').strftime('%Y-%m-%d').tolist()
 
-def get_yahoo_finance_data(ticker, shares):
-    """Fetch and process Yahoo Finance data."""
+    # Filter data to keep only entries with dates matching quarter-end dates
+    filtered_data = [entry for entry in data if entry['date'] in quarter_ends]
+    
+    return filtered_data
+
+def get_yahoo_data(ticker, outstanding_shares, float_shares):
     try:
-        info = yf.Ticker(ticker).info
-        return {
-            'forwardPE': round(info.get('forwardPE', 0), 2),
-            'short': {
-                'shares': info.get('sharesShort', 0),
-                'ratio': info.get('shortRatio', 0),
-                'priorMonth': info.get('sharesShortPriorMonth', 0),
-                'outstandingPercent': round((info.get('sharesShort', 0) / shares['outstandingShares']) * 100, 2),
-                'floatPercent': round((info.get('sharesShort', 0) / shares['floatShares']) * 100, 2)
-            }
-        }
-    except Exception as e:
-        #print(ticker)
-        #print(e)
-        #print("============")
-        return {'forwardPE': 0, 'short': {k: 0 for k in ['shares', 'ratio', 'priorMonth', 'outstandingPercent', 'floatPercent']}}
+        data_dict = yf.Ticker(ticker).info
+        forward_pe = round(data_dict['forwardPE'],2)
+        short_outstanding_percent = round((data_dict['sharesShort']/outstanding_shares)*100,2)
+        short_float_percent = round((data_dict['sharesShort']/float_shares)*100,2)
+        return {'forwardPE': forward_pe}, {'sharesShort': data_dict['sharesShort'], 'shortRatio': data_dict['shortRatio'], 'sharesShortPriorMonth': data_dict['sharesShortPriorMonth'], 'shortOutStandingPercent': short_outstanding_percent, 'shortFloatPercent': short_float_percent}
+    except:
+        return {'forwardPE': 0}, {'sharesShort': 0, 'shortRatio': 0, 'sharesShortPriorMonth': 0, 'shortOutStandingPercent': 0, 'shortFloatPercent': 0}
 
-async def save_json(symbol, data):
-    """Save data to JSON files."""
-    for key, path in [("forwardPE", f"{JSON_DIR}forward-pe/{symbol}.json"), ("short", f"{JSON_DIR}share-statistics/{symbol}.json")]:
-        with open(path, 'w') as file:
-            ujson.dump(data.get(key, {}), file)
 
-async def process_ticker(ticker, con):
-    """Process a single ticker."""
+async def get_data(ticker, con):
+
     try:
-        df = pd.read_sql_query(QUERY_TEMPLATE, con, params=(ticker,))
-        stats = ujson.loads(df.to_dict()['historicalShares'][0])
-        
-        # Filter and convert data
-        filtered_stats = [
-            {k: int(v) if k in ["floatShares", "outstandingShares"] else v 
-             for k, v in d.items() if k in ["date", "floatShares", "outstandingShares"]}
-            for d in sorted(stats, key=lambda x: datetime.strptime(x['date'], '%Y-%m-%d'))
+        df = pd.read_sql_query(query_template, con, params=(ticker,))
+        shareholder_statistics = ujson.loads(df.to_dict()['historicalShares'][0])
+        # Keys to keep
+        keys_to_keep = ["date","floatShares", "outstandingShares"]
+
+        # Create new list with only the specified keys and convert floatShares and outstandingShares to integers
+        shareholder_statistics = [
+            {key: int(d[key]) if key in ["floatShares", "outstandingShares"] else d[key] 
+             for key in keys_to_keep}
+            for d in shareholder_statistics
         ]
+
+        shareholder_statistics = sorted(shareholder_statistics, key=lambda x: datetime.strptime(x['date'], '%Y-%m-%d'), reverse=False)
         
-        latest_shares = filtered_stats[-1]
-        
-        quarterly_stats = filter_quarterly_data(filtered_stats)
-        
-        data = get_yahoo_finance_data(ticker, latest_shares)
-        data['short'].update({
-            'latestOutstandingShares': latest_shares['outstandingShares'],
-            'latestFloatShares': latest_shares['floatShares'],
-            'historicalShares': quarterly_stats
-        })
-        
-        await save_json(ticker, data)
-        return True
+        latest_outstanding_shares = shareholder_statistics[-1]['outstandingShares']
+        latest_float_shares = shareholder_statistics[-1]['floatShares']
+
+        # Filter out only quarter-end dates
+        historical_shares = filter_data_quarterly(shareholder_statistics)
+
+        forward_pe_data, short_data = get_yahoo_data(ticker, latest_outstanding_shares, latest_float_shares)
+        short_data = {**short_data, 'latestOutstandingShares': latest_outstanding_shares, 'latestFloatShares': latest_float_shares,'historicalShares': historical_shares}
     except Exception as e:
-        print(f"Error processing {ticker}: {e}")
-        return False
+        print(e)
+        short_data = {}
+        forward_pe_data = {}
+
+    return forward_pe_data, short_data
+
 
 async def run():
-    """Main function to process all tickers."""
-    con = sqlite3.connect('stocks.db')
-    con.execute("PRAGMA journal_mode = wal")
-    
-    with con:
-        stock_symbols = [row[0] for row in con.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")]
 
-    processed = 0
+    con = sqlite3.connect('stocks.db')
+
+    cursor = con.cursor()
+    cursor.execute("PRAGMA journal_mode = wal")
+    cursor.execute("SELECT DISTINCT symbol FROM stocks")
+    stock_symbols = [row[0] for row in cursor.fetchall()]
+    
+    counter = 0
+
     for ticker in tqdm(stock_symbols):
-        if await process_ticker(ticker, con):
-            processed += 1
-            if processed % 50 == 0:
-                print(f"Processed {processed} tickers, waiting for 60 seconds...")
-                await asyncio.sleep(60)
+        forward_pe_dict, short_dict = await get_data(ticker, con)
+        if forward_pe_dict.keys() and short_dict.keys():
+            await save_as_json(ticker, forward_pe_dict, short_dict)
+
+        counter += 1
+        if counter % 100 == 0:
+            print(f"Processed {counter} tickers, waiting for 10 seconds...")
+            await asyncio.sleep(30)
 
     con.close()
 
-if __name__ == "__main__":
+try:
     asyncio.run(run())
+except Exception as e:
+    print(e)
