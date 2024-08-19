@@ -517,7 +517,7 @@ schedule.every().day.at("06:00").do(run_threaded, run_historical_price).tag('his
 schedule.every().day.at("06:30").do(run_threaded, run_pocketbase).tag('pocketbase_job')
 
 schedule.every().day.at("07:00").do(run_threaded, run_ta_rating).tag('ta_rating_job')
-schedule.every().day.at("07:00").do(run_threaded, run_hedge_fund).tag('hedge_fund_job')
+schedule.every().day.at("09:00").do(run_threaded, run_hedge_fund).tag('hedge_fund_job')
 schedule.every().day.at("07:30").do(run_threaded, run_government_contract).tag('government_contract_job')
 schedule.every().day.at("07:30").do(run_threaded, run_financial_statements).tag('financial_statements_job')
 
