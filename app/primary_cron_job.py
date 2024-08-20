@@ -502,6 +502,15 @@ def run_financial_statements():
     ]
     run_command(command)
 
+def run_market_cap():
+    run_command(["python3", "cron_market_cap.py"])
+    command = [
+        "sudo", "rsync", "-avz", "-e", "ssh",
+        "/root/backend/app/json/market-cap",
+        f"root@{useast_ip_address}:/root/backend/app/json"
+    ]
+    run_command(command)
+
 # Create functions to run each schedule in a separate thread
 def run_threaded(job_func):
     job_thread = threading.Thread(target=job_func)
@@ -529,6 +538,8 @@ schedule.every().day.at("10:30").do(run_threaded, run_sec_filings).tag('sec_fili
 schedule.every().day.at("11:00").do(run_threaded, run_executive).tag('executive_job')
 schedule.every().day.at("03:00").do(run_threaded, run_retail_volume).tag('retail_volume_job')
 schedule.every().day.at("11:45").do(run_threaded, run_clinical_trial).tag('clinical_trial_job')
+schedule.every().day.at("12:00").do(run_threaded, run_market_cap).tag('market_cap_josb')
+
 #schedule.every().day.at("05:00").do(run_threaded, run_implied_volatility).tag('implied_volatility_job')
 
 

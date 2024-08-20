@@ -69,7 +69,7 @@ async def run():
         tasks = []
         for i, symbol in enumerate(tqdm(symbols), 1):
             tasks.append(get_data(session, symbol))
-            if i % 150 == 0:
+            if i % 100 == 0:
                 await asyncio.gather(*tasks)
                 tasks = []
                 print(f'sleeping mode: {i}')
