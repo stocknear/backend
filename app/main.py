@@ -2905,7 +2905,7 @@ async def get_politician_stats(data:PoliticianId, api_key: str = Security(get_ap
         with open(f"json/congress-trading/politician-db/{politician_id}.json", 'rb') as file:
             res_list = orjson.loads(file.read())
     except:
-        res_list = []
+        res_list = {}
 
     data = orjson.dumps(res_list)
     compressed_data = gzip.compress(data)

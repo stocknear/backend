@@ -6,8 +6,8 @@ import sqlite3
 import pandas as pd
 import time
 import hashlib
-from collections import defaultdict
-
+from collections import defaultdict, Counter
+from tqdm import tqdm
 from dotenv import load_dotenv
 import os
 
@@ -229,19 +229,47 @@ def create_politician_db(data, stock_symbols, stock_raw_data, etf_symbols, etf_r
 
         grouped_data[item['id']].append(item)
 
-
     # Convert defaultdict to list
     grouped_data_list = list(grouped_data.values())
-    for item in grouped_data_list:
+
+    for item in tqdm(grouped_data_list):
+        # Sort items by 'transactionDate'
         item = sorted(item, key=lambda x: x['transactionDate'], reverse=True)
+
+        # Calculate top sectors
+        sector_counts = Counter()
+        for holding in item:
+            symbol = holding['ticker']
+            sector = next((entry['sector'] for entry in stock_raw_data if entry['symbol'] == symbol), None)
+            if sector:
+                sector_counts[sector] += 1
+
+        # Calculate the total number of holdings
+        total_holdings = sum(sector_counts.values())
+
+        # Calculate the percentage for each sector and get the top 5
+        top_5_sectors_percentage = [
+            {sector: round((count / total_holdings) * 100, 2)}
+            for sector, count in sector_counts.most_common(5)
+        ]
+
+        # Prepare the data to save in the file
+        result = {
+            'topSectors': top_5_sectors_percentage,
+            'history': item
+        }
+
+        # Save to JSON file
         with open(f"json/congress-trading/politician-db/{item[0]['id']}.json", 'w') as file:
-            ujson.dump(item, file)
+            ujson.dump(result, file)
 
 
 def create_search_list():
     folder_path = 'json/congress-trading/politician-db/'
-    # Loop through all files in the folder
+    # Initialize the list that will hold the search data
     search_politician_list = []
+
+    # Loop through all files in the folder
     for filename in os.listdir(folder_path):
         # Check if the file is a JSON file
         if filename.endswith('.json'):
@@ -249,19 +277,32 @@ def create_search_list():
             # Open and read the JSON file
             with open(file_path, 'r') as file:
                 data = ujson.load(file)
-                first_item = data[0]
-                if 'Senator' in first_item['representative']:
-                    pass
-                else:
-                    search_politician_list.append({
-                        'representative': first_item['representative'],
-                        'id': first_item['id'],
-                        'totalTrades': len(data),
-                        'district': first_item['district'] if 'district' in first_item else '',
-                        'lastTrade': first_item['transactionDate'],
-                        })
+                
+                # Access the history, which is a list of transactions
+                history = data.get('history', [])
+                if not history:
+                    continue  # Skip if there is no history
+                
+                # Get the first item in the history list
+                first_item = history[0]
 
+                # Filter out senators (assuming you only want to process non-senators)
+                if 'Senator' in first_item['representative']:
+                    continue
+
+                # Create the politician search entry
+                search_politician_list.append({
+                    'representative': first_item['representative'],
+                    'id': first_item['id'],
+                    'totalTrades': len(history),
+                    'district': first_item.get('district', ''),
+                    'lastTrade': first_item['transactionDate'],
+                })
+
+    # Sort the list by the 'lastTrade' date in descending order
     search_politician_list = sorted(search_politician_list, key=lambda x: x['lastTrade'], reverse=True)
+
+    # Write the search list to a JSON file
     with open('json/congress-trading/search_list.json', 'w') as file:
         ujson.dump(search_politician_list, file)
 
@@ -271,16 +312,19 @@ async def run():
         con = sqlite3.connect('stocks.db')
         cursor = con.cursor()
         cursor.execute("PRAGMA journal_mode = wal")
-        cursor.execute("SELECT symbol, name FROM stocks WHERE symbol NOT LIKE '%.%'")
+        cursor.execute("SELECT symbol, name, sector FROM stocks WHERE symbol NOT LIKE '%.%'")
         stock_raw_data = cursor.fetchall()
         stock_raw_data = [{
             'symbol': row[0],
             'name': row[1],
+            'sector': row[2],
         } for row in stock_raw_data]
 
         stock_symbols = [item['symbol'] for item in stock_raw_data]
 
         con.close()
+
+
 
         etf_con = sqlite3.connect('etf.db')
         etf_cursor = etf_con.cursor()
@@ -307,7 +351,6 @@ async def run():
         crypto_con.close()
 
         total_symbols = crypto_symbols +etf_symbols + stock_symbols
-        total_raw_data = stock_raw_data + etf_raw_data + crypto_raw_data
         chunk_size = 500
         politician_list = []
 
@@ -319,12 +362,13 @@ async def run():
         
         connector = aiohttp.TCPConnector(limit=100)  # Adjust the limit as needed
         async with aiohttp.ClientSession(connector=connector) as session:
-            for i in range(0, len(total_symbols), chunk_size):
+            for i in tqdm(range(0, len(total_symbols), chunk_size)):
                 symbols_chunk = total_symbols[i:i + chunk_size]
                 data = await get_congress_data(symbols_chunk,session)
                 politician_list +=data
                 print('sleeping for 60 sec')
                 await asyncio.sleep(60)  # Wait for 60 seconds between chunks
+        
         
         create_politician_db(politician_list, stock_symbols, stock_raw_data, etf_symbols, etf_raw_data, crypto_symbols, crypto_raw_data)
         create_search_list()
