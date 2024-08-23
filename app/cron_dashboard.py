@@ -82,7 +82,7 @@ tomorrow = tomorrow.strftime('%Y-%m-%d')
 async def get_upcoming_earnings(session):
 	url = "https://api.benzinga.com/api/v2.1/calendar/earnings"
 
-	importance_list = ["2","3","4","5"]
+	importance_list = ["1","2","3","4","5"]
 	res_list = []
 	for importance in importance_list:
 
@@ -170,6 +170,50 @@ async def get_recent_earnings(session):
 	res_list = [{k: v for k, v in d.items() if k != 'marketCap'} for d in res_list]
 	return res_list[0:5]
 
+async def get_recent_dividends(session):
+	url = "https://api.benzinga.com/api/v2.1/calendar/dividends"
+	importance_list = ["2","3","4","5"]
+	res_list = []
+	for importance in importance_list:
+		querystring = {"token": benzinga_api_key_extra,"parameters[importance]":importance,"parameters[date_from]":yesterday,"parameters[date_to]":today}
+		try:
+			async with session.get(url, params=querystring, headers=headers) as response:
+				res = ujson.loads(await response.text())['dividends']
+				for item in res:
+					try:
+						symbol = item['ticker']
+						name = item['name']
+						dividend = float(item['dividend']) if item['dividend'] != '' else 0
+						dividend_prior = float(item['dividend_prior']) if item['dividend_prior'] != '' else 0
+						dividend_yield = float(item['dividend_yield']) if item['dividend_yield'] != '' else 0
+						ex_dividend_date = item['ex_dividend_date'] if item['ex_dividend_date'] != '' else 0
+						payable_date = item['payable_date'] if item['payable_date'] != '' else 0
+						record_date = item['record_date'] if item['record_date'] != '' else 0
+						if symbol in stock_symbols and dividend != 0 and payable_date != 0 and dividend_prior != 0 and ex_dividend_date != 0 and record_date != 0 and dividend_yield != 0:
+							df = pd.read_sql_query(query_template, con, params=(symbol,))
+							market_cap = float(df['marketCap'].iloc[0]) if df['marketCap'].iloc[0] != '' else 0
+							res_list.append({
+								'symbol': symbol,
+								'name': name,
+								'dividend': dividend,
+								'marketCap': market_cap,
+								'dividendPrior':dividend_prior,
+								'dividendYield': dividend_yield,
+								'exDividendDate': ex_dividend_date,
+								'payableDate': payable_date,
+								'recordDate': record_date,
+								'updated': item['updated']
+								})
+					except Exception as e:
+						print('Recent Earnings:', e)
+						pass
+		except Exception as e:
+			print(e)
+			pass
+	res_list = remove_duplicates(res_list)
+	res_list.sort(key=lambda x: x['marketCap'], reverse=True)
+	res_list = [{k: v for k, v in d.items() if k != 'marketCap'} for d in res_list]
+	return res_list[0:5]
 
 async def get_latest_bezinga_market_news(session):
     url = "https://api.benzinga.com/api/v2/news"
@@ -193,6 +237,8 @@ async def run():
 		benzinga_news = await get_latest_bezinga_market_news(session)
 		recent_earnings = await get_recent_earnings(session)
 		upcoming_earnings = await get_upcoming_earnings(session)
+
+		recent_dividends = await get_recent_dividends(session)
 
 		try:
 			with open(f"json/retail-volume/data.json", 'r') as file:
@@ -242,7 +288,8 @@ async def run():
 		    'wiimFeed': wiim_feed,
 		    'marketNews': benzinga_news,
 		    'recentEarnings': recent_earnings,
-		    'upcomingEarnings': upcoming_earnings
+		    'upcomingEarnings': upcoming_earnings,
+		    'recentDividends': recent_dividends,
 		}
 
 		

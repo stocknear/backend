@@ -1624,27 +1624,6 @@ async def etf_holdings(data: TickerData, api_key: str = Security(get_api_key)):
 
 
 
-
-@app.get("/ai-signals")
-async def top_ai_signals(api_key: str = Security(get_api_key)):
-    cache_key = f"ai-signals"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return orjson.loads(cached_result)
-
-    try:
-        with open(f"json/ai-signals/data.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = []
-
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
-
-    return res
-
-
-
 @app.post("/exchange-constituents")
 async def top_ai_signals(data:FilterStockList, api_key: str = Security(get_api_key)):
     data = data.dict()
