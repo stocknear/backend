@@ -185,7 +185,7 @@ async def get_recent_dividends(session):
 						name = item['name']
 						dividend = float(item['dividend']) if item['dividend'] != '' else 0
 						dividend_prior = float(item['dividend_prior']) if item['dividend_prior'] != '' else 0
-						dividend_yield = float(item['dividend_yield']) if item['dividend_yield'] != '' else 0
+						dividend_yield = round(float(item['dividend_yield'])*100,2) if item['dividend_yield'] != '' else 0
 						ex_dividend_date = item['ex_dividend_date'] if item['ex_dividend_date'] != '' else 0
 						payable_date = item['payable_date'] if item['payable_date'] != '' else 0
 						record_date = item['record_date'] if item['record_date'] != '' else 0
@@ -284,7 +284,7 @@ async def run():
 		data = {
 		    'quickInfo': quick_info,
 		    'optionsFlow': options_flow,
-		    'retailTracker': retail_tracker,
+		    #'retailTracker': retail_tracker,
 		    'wiimFeed': wiim_feed,
 		    'marketNews': benzinga_news,
 		    'recentEarnings': recent_earnings,
