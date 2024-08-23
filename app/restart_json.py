@@ -179,6 +179,19 @@ async def get_stock_screener(con,symbols):
         except:
             item['forwardPE'] = None
 
+        try:
+            with open(f"json/dividends/companies/{symbol}.json", 'r') as file:
+                res = ujson.load(file)
+                item['annualDividend'] = res['annualDividend']
+                item['dividendYield'] = res['dividendYield']
+                item['payoutRatio'] = res['payoutRatio']
+                item['dividendGrowth'] = res['dividendGrowth']
+        except:
+            item['annualDividend'] = None
+            item['dividendYield'] = None
+            item['payoutRatio'] = None
+            item['dividendGrowth'] = None
+
 
     return stock_screener_data
 
