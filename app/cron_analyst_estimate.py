@@ -88,6 +88,12 @@ async def get_data(ticker, con):
                         estimated_eps_avg = round(item_estimate['estimatedEpsAvg'],2)
                     except:
                         estimated_eps_avg = None
+
+                    try:
+                        numOfAnalysts = int((item_estimate['numberAnalystEstimatedRevenue']+item_estimate['numberAnalystsEstimatedEps'])/2)
+                    except:
+                        numOfAnalysts = None
+
                     combined_data[year].update({
                     'symbol': item_estimate['symbol'],
                     'date': int(item_estimate['date'][:4]),
@@ -98,7 +104,8 @@ async def get_data(ticker, con):
                     'revenue': revenue,
                     'netIncome': net_income,
                     'ebitda': ebitda,
-                    'eps': eps
+                    'eps': eps,
+                    'numOfAnalysts': numOfAnalysts,
                 })
 
         for item_estimate in analyst_estimates:
@@ -123,6 +130,11 @@ async def get_data(ticker, con):
                 except:
                     estimated_eps_avg = None
 
+                try:
+                    numOfAnalysts = int((item_estimate['numberAnalystEstimatedRevenue']+item_estimate['numberAnalystsEstimatedEps'])/2)
+                except:
+                    numOfAnalysts = None
+
                 combined_data[year].update({
                 'symbol': item_estimate['symbol'],
                 'date': int(item_estimate['date'][:4]),
@@ -130,6 +142,7 @@ async def get_data(ticker, con):
                 'estimatedEbitdaAvg': estimated_ebitda_avg,
                 'estimatedNetIncomeAvg': estimated_net_income_avg,
                 'estimatedEpsAvg': estimated_eps_avg,
+                'numOfAnalysts': numOfAnalysts,
                 'revenue': None,
                 'netIncome': None,
                 'ebitda': None,
