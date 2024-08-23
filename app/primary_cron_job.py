@@ -511,6 +511,16 @@ def run_market_cap():
     ]
     run_command(command)
 
+
+def run_dividends():
+    run_command(["python3", "cron_dividends.py"])
+    command = [
+        "sudo", "rsync", "-avz", "-e", "ssh",
+        "/root/backend/app/json/dividends",
+        f"root@{useast_ip_address}:/root/backend/app/json"
+    ]
+    run_command(command)
+
 # Create functions to run each schedule in a separate thread
 def run_threaded(job_func):
     job_thread = threading.Thread(target=job_func)
@@ -530,8 +540,8 @@ schedule.every().day.at("09:00").do(run_threaded, run_hedge_fund).tag('hedge_fun
 schedule.every().day.at("07:30").do(run_threaded, run_government_contract).tag('government_contract_job')
 schedule.every().day.at("07:30").do(run_threaded, run_financial_statements).tag('financial_statements_job')
 
-
 schedule.every().day.at("08:00").do(run_threaded, run_cron_insider_trading).tag('insider_trading_job')
+schedule.every().day.at("08:30").do(run_threaded, run_dividends).tag('dividends_job')
 schedule.every().day.at("09:00").do(run_threaded, run_congress_trading).tag('congress_job')
 schedule.every().day.at("10:00").do(run_threaded, run_shareholders).tag('shareholders_job')
 schedule.every().day.at("10:30").do(run_threaded, run_sec_filings).tag('sec_filings_job')

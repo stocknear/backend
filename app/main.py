@@ -611,46 +611,27 @@ async def stock_dividend(data: TickerData, api_key: str = Security(get_api_key))
 
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return orjson.loads(cached_result)
-
-    if ticker in etf_symbols:
-        table_name = 'etfs'
-        column_name = 'etf_dividend'
-    else:
-        table_name = 'stocks'
-        column_name = 'stock_dividend'
-
-    query_template = f"""
-    SELECT 
-        {column_name}, quote
-    FROM 
-        {table_name}
-    WHERE
-        symbol = ?
-    """
-
-    df = pd.read_sql_query(query_template, etf_con if table_name == 'etfs' else con, params=(ticker,))
-    
-    try:
-        dividend_data = orjson.loads(df[column_name].iloc[0])
-        if column_name == 'stock_dividend':
-            res = dividend_data.get('historical', [])
-        else:
-            res = dividend_data.get('historical', [])
-    except:
-        res = []
+        return StreamingResponse(
+        io.BytesIO(cached_result),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"})
 
     try:
-        quote_data = orjson.loads(df['quote'].iloc[0])[0]
-        eps = quote_data.get('eps')
-        current_price = quote_data.get('price')
+        with open(f"json/dividends/companies/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
-        eps = None
-        current_price = None
+        res = {'history': []}
 
-    final_res = [res, eps, current_price]
-    redis_client.set(cache_key, orjson.dumps(final_res), 3600*3600)  # Set cache expiration time to 1 hour
-    return final_res
+    data = orjson.dumps(res)
+    compressed_data = gzip.compress(data)
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 3600*3600)
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
 
 
 
