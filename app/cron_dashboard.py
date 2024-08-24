@@ -18,6 +18,8 @@ headers = {"accept": "application/json"}
 load_dotenv()
 benzinga_api_key = os.getenv('BENZINGA_API_KEY')
 benzinga_api_key_extra = os.getenv('BENZINGA_API_KEY_EXTRA')
+fmp_api_key = os.getenv('FMP_API_KEY')
+
 
 query_template = """
     SELECT 
@@ -33,6 +35,26 @@ async def save_json(data):
     with open(f"json/dashboard/data.json", 'w') as file:
         ujson.dump(data, file)
 
+
+def get_sector_path(sector):
+    sector_paths = {
+        'Financials': "/list/financial-sector",
+        'Healthcare': "/list/healthcare-sector",
+        'Information Technology': "/list/technology-sector",
+        'Technology': "/list/technology-sector",
+        'Financial Services': "/list/financial-sector",
+        'Industrials': "/list/industrials-sector",
+        'Energy': "/list/energy-sector",
+        'Utilities': "/list/utilities-sector",
+        'Consumer Cyclical': "/list/consumer-cyclical-sector",
+        'Real Estate': "/list/real-estate-sector",
+        'Basic Materials': "/list/basic-materials-sector",
+        'Communication Services': "/list/communication-services-sector",
+        'Consumer Defensive': "/list/consumer-defensive-sector"
+    }
+
+    # Return the path if the sector exists in the dictionary, otherwise return None or a default path
+    return sector_paths.get(sector, None)
 
 def parse_time(time_str):
     try:
@@ -215,6 +237,24 @@ async def get_recent_dividends(session):
 	res_list = [{k: v for k, v in d.items() if k != 'marketCap'} for d in res_list]
 	return res_list[0:5]
 
+async def get_top_sector(session):
+    url = f"https://financialmodelingprep.com/api/v3/sectors-performance?apikey={fmp_api_key}"
+    try:
+        async with session.get(url) as response:
+            if response.status == 200:
+                sectors = await response.json()
+                sectors = [{'sector': item['sector'], 'changesPercentage': round(float(item['changesPercentage'].strip('%')), 2)} for item in sectors]
+                res = max(sectors, key=lambda x: x['changesPercentage'])
+                res['link'] = get_sector_path(res['sector'])
+
+                return res
+            else:
+                print(f"Failed to retrieve data: {response.status}")
+                return None
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None
+
 async def get_latest_bezinga_market_news(session):
     url = "https://api.benzinga.com/api/v2/news"
     querystring = {"token": benzinga_api_key,"channels":"News","pageSize":"10","displayOutput":"full"}
@@ -237,7 +277,7 @@ async def run():
 		benzinga_news = await get_latest_bezinga_market_news(session)
 		recent_earnings = await get_recent_earnings(session)
 		upcoming_earnings = await get_upcoming_earnings(session)
-
+		top_sector = await get_top_sector(session)
 		recent_dividends = await get_recent_dividends(session)
 
 		try:
@@ -270,6 +310,7 @@ async def run():
 		except:
 			market_mover = {}
 
+		'''
 		try:
 			with open(f"json/most-shorted-stocks/data.json", 'r') as file:
 				data = ujson.load(file)[0]
@@ -277,9 +318,9 @@ async def run():
 				
 		except:
 			shorted_stock = {}
+		'''
 
-
-		quick_info = {**market_mover, 'shorted': shorted_stock}
+		quick_info = {**market_mover, 'topSector': top_sector}
 
 		data = {
 		    'quickInfo': quick_info,
