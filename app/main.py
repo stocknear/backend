@@ -1812,6 +1812,38 @@ async def get_delisted_companies(api_key: str = Security(get_api_key)):
     return res
 
 
+@app.post("/historical-sector-price")
+async def historical_sector_price(data:FilterStockList, api_key: str = Security(get_api_key)):
+    data = data.dict()
+    print(data)
+    sector = data['filterList']
+    cache_key = f"history-price-sector-{sector}"
+    cached_result = redis_client.get(cache_key)
+
+    if cached_result:
+        return StreamingResponse(
+        io.BytesIO(cached_result),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"})
+
+    try:
+        with open(f"json/sector/{sector}.json", 'rb') as file:
+            res = orjson.loads(file.read())
+    except:
+        res = []
+
+    data = orjson.dumps(res)
+    compressed_data = gzip.compress(data)
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 60*60)  # Set cache expiration time to 1 day
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
+
+
 @app.post("/filter-stock-list")
 async def filter_stock_list(data:FilterStockList, api_key: str = Security(get_api_key)):
     data = data.dict()
@@ -1828,8 +1860,7 @@ async def filter_stock_list(data:FilterStockList, api_key: str = Security(get_ap
     base_query = """
         SELECT symbol, name, price, changesPercentage, marketCap, revenue, netIncome
         FROM stocks 
-        WHERE symbol != ? 
-        AND (price IS NOT NULL OR changesPercentage IS NOT NULL) 
+        WHERE (price IS NOT NULL OR changesPercentage IS NOT NULL) 
         AND {}
     """
 
@@ -1867,7 +1898,7 @@ async def filter_stock_list(data:FilterStockList, api_key: str = Security(get_ap
     # Execute the query with the relevant country
     if filter_list in conditions:
         full_query = base_query.format(conditions[filter_list])
-        cursor.execute(full_query, ('%5EGSPC',))
+        cursor.execute(full_query)
 
     # Fetch the results
     raw_data = cursor.fetchall()
