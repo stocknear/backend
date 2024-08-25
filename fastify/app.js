@@ -5,13 +5,13 @@ const fastify = require('fastify')({})
 const cors = require('@fastify/cors');
 
 //Load API KEYS
-require('dotenv').config({ path: '../app/.env' });
+//require('dotenv').config({ path: '../app/.env' });
 const fmpAPIKey = process.env.FMP_API_KEY;
-const mixpanelAPIKey =  process.env.MIXPANEL_API_KEY;
+//const mixpanelAPIKey =  process.env.MIXPANEL_API_KEY;
 const twitchAPIKey =  process.env.TWITCH_API_KEY;
 const twitchSecretKey =  process.env.TWITCH_SECRET_KEY;
 
-const Mixpanel = require('mixpanel');
+//const Mixpanel = require('mixpanel');
 const UAParser = require('ua-parser-js');
 
 const got = require('got'); //Only version npm i got@11.8.3 works with ESM 
@@ -20,9 +20,9 @@ const sharp = require('sharp');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
-const pino = require('pino');
+//const pino = require('pino');
 
-const mixpanel = Mixpanel.init(mixpanelAPIKey, { debug: false });
+//const mixpanel = Mixpanel.init(mixpanelAPIKey, { debug: false });
 
 
 const PocketBase = require('pocketbase/cjs')
@@ -55,7 +55,7 @@ fastify.addHook('onRequest', corsMiddleware);
 
 
 
-fastify.register(require('./mixpanel/server'), { mixpanel, UAParser });
+//fastify.register(require('./mixpanel/server'), { mixpanel, UAParser });
 fastify.register(require('./get-user-stats/server'), { pb });
 fastify.register(require('./get-community-stats/server'), { pb });
 fastify.register(require('./get-moderators/server'), { pb });
