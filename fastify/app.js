@@ -12,7 +12,7 @@ const twitchAPIKey =  process.env.TWITCH_API_KEY;
 const twitchSecretKey =  process.env.TWITCH_SECRET_KEY;
 
 //const Mixpanel = require('mixpanel');
-const UAParser = require('ua-parser-js');
+//const UAParser = require('ua-parser-js');
 
 const got = require('got'); //Only version npm i got@11.8.3 works with ESM 
 const cheerio = require('cheerio');

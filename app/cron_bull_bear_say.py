@@ -5,10 +5,12 @@ import asyncio
 import os
 from dotenv import load_dotenv
 from datetime import datetime
-
+import re
 
 load_dotenv()
 api_key = os.getenv('BENZINGA_API_KEY')
+
+
 
 async def get_endpoint(session, symbol):
     url = "https://api.benzinga.com/api/v1/bulls_bears_say"
@@ -21,8 +23,10 @@ async def get_endpoint(session, symbol):
                 for item in res['bulls_say_bears_say']:
                     date = datetime.fromtimestamp(item['updated'])
                     date = date.strftime("%B %d, %Y")
-                    formatted_data = {'date': date, 'bearSays': item['bear_case'], 'bullSays': item['bull_case']}
-            except:
+                    bull_case = item['bull_case']
+                    bear_case = item['bear_case']
+                    formatted_data = {'date': date, 'bullSays': bull_case, 'bearSays': bear_case}
+            except Exception as e:
                 formatted_data = {}
     except Exception as e:
         formatted_data = {}
@@ -35,7 +39,7 @@ async def run():
 
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
-    cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol != ?", ('%5EGSPC',))
+    cursor.execute("SELECT DISTINCT symbol FROM stocks")
     stocks_symbols = [row[0] for row in cursor.fetchall()]
     #stocks_symbols = ['NVDA']
     con.close()
