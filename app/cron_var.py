@@ -1,13 +1,10 @@
 import pandas as pd
 from datetime import datetime
-#import yfinance as yf
 import numpy as np
 import ujson
 import asyncio
 import sqlite3
 from tqdm import tqdm
-
-
 
 async def save_json(symbol, data):
     with open(f"json/var/{symbol}.json", 'w') as file:
@@ -15,7 +12,7 @@ async def save_json(symbol, data):
 
 # Define risk rating scale
 def assign_risk_rating(var):
-    if var >= 25:  # This threshold can be adjusted based on your specific criteria
+    if var >= 25: 
         return 1
     elif var >= 20:
         return 2
@@ -45,18 +42,7 @@ def compute_var(df):
     var = abs(np.percentile(df['Returns'], 100 * (1 - confidence_level)))
     var_N_days = round(var * np.sqrt(5)*100,2) # N days
 
-    # Assign risk rating
-    risk_rating = assign_risk_rating(var_N_days)
-    outlook = 'Neutral'
-    if risk_rating < 5:
-        outlook = 'Risky'
-    elif risk_rating > 5:
-        outlook = 'Minimum Risk'
-
-    return {'rating': risk_rating, 'var': -var_N_days, 'outlook': outlook}
-
-    #print(f"The Value at a 95% confidence level is: {var_N_days}%")
-    #print(f"The risk rating based on the Value at Risk is: {risk_rating}")
+    return -var_N_days #{'rating': risk_rating, 'var': -var_N_days, 'outlook': outlook}
 
 async def run():
     start_date = "2015-01-01"
@@ -84,11 +70,11 @@ async def run():
     total_symbols = stocks_symbols + etf_symbols + crypto_symbols
 
     for symbol in tqdm(total_symbols):
-        if symbol in etf_symbols:  # Fixed variable name from symbols to symbol
+        if symbol in etf_symbols:  
             query_con = etf_con
-        elif symbol in crypto_symbols:  # Fixed variable name from symbols to symbol
+        elif symbol in crypto_symbols:  
             query_con = crypto_con
-        elif symbol in stocks_symbols:  # Fixed variable name from symbols to symbol
+        elif symbol in stocks_symbols:  
             query_con = con
 
         query_template = """
@@ -102,13 +88,30 @@ async def run():
         query = query_template.format(symbol=symbol)
         df = pd.read_sql_query(query, query_con, params=(start_date, end_date))
 
+        # Convert date to datetime
+        df['date'] = pd.to_datetime(df['date'])
+
+        # Group by year and month
+        monthly_groups = df.groupby(df['date'].dt.to_period('M'))
+
+        history = []
         try:
-            res_dict = compute_var(df)
+            for period, group in monthly_groups:
+                var_data = compute_var(group)
+                history.append({'date': str(period), 'var': var_data})
             
-            await save_json(symbol, res_dict)
+            risk_rating = assign_risk_rating(abs(history[-1]['var']))
+            outlook = 'Neutral'
+            if risk_rating < 5:
+                outlook = 'Risky'
+            elif risk_rating > 5:
+                outlook = 'Minimum Risk'
+            res = {'rating': risk_rating, 'history': history, 'outlook': outlook}
+
+            await save_json(symbol, res)
+
         except Exception as e:
-            print(e)
-            
+            print(f"Error processing {symbol}: {e}")
 
     con.close()
     etf_con.close()
@@ -118,20 +121,3 @@ try:
     asyncio.run(run())
 except Exception as e:
     print(e)
-
-#Test mode
-'''
-
-# Download data
-ticker = 'TCON'
-start_date = datetime(2015, 1, 1)
-end_date = datetime.today()
-
-df = yf.download(ticker, start=start_date, end=end_date, interval="1d")
-df = df.reset_index()
-df = df[['Date', 'Close']]
-
-# Calculate daily returns
-df['Returns'] = df['Close'].pct_change()
-df = df.dropna()
-'''
