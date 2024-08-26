@@ -115,6 +115,17 @@ def run_cron_var():
         ]
         run_command(command)
 
+def run_cron_sector():
+    week = datetime.today().weekday()
+    if week <= 5:
+        run_command(["python3", "cron_sector.py"])
+        command = [
+            "sudo", "rsync", "-avz", "-e", "ssh",
+            "/root/backend/app/json/sector",
+            f"root@{useast_ip_address}:/root/backend/app/json"
+        ]
+        run_command(command)
+
 def run_analyst_estimate():
     week = datetime.today().weekday()
     if week <= 5:
@@ -557,6 +568,7 @@ schedule.every().day.at("13:30").do(run_threaded, run_stockdeck).tag('stockdeck_
 schedule.every().day.at("13:40").do(run_threaded, run_analyst_estimate).tag('analyst_estimate_job')
 schedule.every().day.at("13:45").do(run_threaded, run_similar_stocks).tag('similar_stocks_job')
 schedule.every().day.at("14:00").do(run_threaded, run_cron_var).tag('var_job')
+schedule.every().day.at("14:00").do(run_threaded, run_cron_sector).tag('sector_job')
 
 
 schedule.every().day.at("15:45").do(run_threaded, run_restart_cache)
