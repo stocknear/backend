@@ -53,6 +53,8 @@ async def get_data(ticker):
             try:
                 with open(f"json/forward-pe/{ticker}.json", 'r') as file:
                     forward_pe = ujson.load(file)['forwardPE']
+                    if forward_pe == 0:
+                        forward_pe = None
             except:
                 forward_pe = None
 
