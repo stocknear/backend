@@ -50,6 +50,12 @@ async def get_data(ticker):
             except:
                 company_quote = {}
 
+            try:
+                with open(f"json/forward-pe/{ticker}.json", 'r') as file:
+                    forward_pe = ujson.load(file)['forwardPE']
+            except:
+                forward_pe = None
+
             if data['esg_data'] == None:
                 company_esg_score = {'ESGScore': 'n/a', 'socialScore': 'n/a', 'environmentalScore': 'n/a', 'governanceScore': 'n/a'}
                 company_esg_rating = {'ESGRiskRating': 'n/a', 'industry': 'n/a'}
@@ -70,7 +76,6 @@ async def get_data(ticker):
                     'ceoName': company_profile[0]['ceo'],
                     'companyName': company_profile[0]['companyName'],
                     'industry': company_profile[0]['industry'],
-                    'image': company_profile[0]['image'],
                     'sector': company_profile[0]['sector'],
                     'beta': company_profile[0]['beta'],
                     'marketCap': company_profile[0]['mktCap'],
@@ -78,6 +83,10 @@ async def get_data(ticker):
                     'country': company_profile[0]['country'],
                     'exchange': company_profile[0]['exchangeShortName'],
                     'earning': company_quote['earningsAnnouncement'],
+                    'pe': company_quote['pe'],
+                    'eps': company_quote['eps'],
+                    'sharesOutstanding': company_quote['sharesOutstanding'],
+                    'forwardPE': forward_pe,
                     'previousClose': company_quote['price'], #This is true because I update my db before the market opens hence the price will be the previousClose price.
                     'website': company_profile[0]['website'],
                     'description': company_profile[0]['description'],
@@ -116,7 +125,7 @@ async def run():
     cursor.execute("PRAGMA journal_mode = wal")
     cursor.execute("SELECT DISTINCT symbol FROM stocks")
     stocks_symbols = [row[0] for row in cursor.fetchall()]
-    for ticker in stocks_symbols:
+    for ticker in tqdm(stocks_symbols):
         res = await get_data(ticker)  
         await save_stockdeck(ticker, [res])
 

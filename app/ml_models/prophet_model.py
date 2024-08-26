@@ -66,11 +66,12 @@ class PricePredictor:
 
 #Test Mode
 async def main():
-    for ticker in ['TSLA']:
+    for ticker in ['NVDA']:
         start_date = datetime(2000, 1, 1).strftime("%Y-%m-%d")
         end_date = datetime.today().strftime("%Y-%m-%d")
         df = await download_data(ticker, start_date, end_date)
         data = PricePredictor().run(df)
+        print(data)
 
 # Run the main function
 #asyncio.run(main())
