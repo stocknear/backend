@@ -53,7 +53,7 @@ async def run():
     con.close()
     etf_con.close()
 
-    total_symbols = stocks_symbols #['AAPL', 'NVDA', 'GME','PLTR','AMC'] #stocks_symbols + etf_symbols
+    total_symbols = stocks_symbols #+ etf_symbols
 
     async with aiohttp.ClientSession() as session:
         tasks = []
@@ -61,11 +61,11 @@ async def run():
             tasks.append(process_ticker(ticker))
         
         # Run tasks concurrently in batches to avoid too many open connections
-        batch_size = 3  # Adjust based on your system's capacity
+        batch_size = 1  # Adjust based on your system's capacity
         for i in tqdm(range(0, len(tasks), batch_size)):
             batch = tasks[i:i + batch_size]
             await asyncio.gather(*batch)
-            await asyncio.sleep(60)
+            await asyncio.sleep(5)
 
 if __name__ == "__main__":
     try:
