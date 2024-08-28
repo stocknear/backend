@@ -600,8 +600,8 @@ schedule.every(3).hours.do(run_threaded, run_json_job).tag('json_job')
 #schedule.every(4).hours.do(run_threaded, run_share_statistics).tag('share_statistics_job')
 schedule.every(6).hours.do(run_threaded, run_analyst_rating).tag('analyst_job')
 
-schedule.every(10).seconds.do(run_threaded, run_if_not_running(run_cron_options_flow, 'options_flow_job')).tag('options_flow_job')
-schedule.every(10).seconds.do(run_threaded, run_if_not_running(run_cron_options_zero_dte, 'options_zero_dte_job')).tag('options_zero_dte_job')
+schedule.every(20).seconds.do(run_threaded, run_if_not_running(run_cron_options_flow, 'options_flow_job')).tag('options_flow_job')
+schedule.every(60).seconds.do(run_threaded, run_if_not_running(run_cron_options_zero_dte, 'options_zero_dte_job')).tag('options_zero_dte_job')
 
 schedule.every(2).minutes.do(run_threaded, run_dashboard).tag('dashboard_job')
 
