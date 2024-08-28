@@ -135,12 +135,13 @@ async def get_upcoming_earnings(session):
 								'revenueEst': revenue_est
 								})
 					except Exception as e:
-						print('1 Upcoming Earnings:', e)
+						print('Upcoming Earnings:', e)
 						pass
 			res_list = remove_duplicates(res_list)
 			res_list.sort(key=lambda x: x['marketCap'], reverse=True)
 			res_list = [{k: v for k, v in d.items() if k != 'marketCap'} for d in res_list]
 		except Exception as e:
+			print(e)
 			pass
 
 	return res_list[0:5]
@@ -227,7 +228,7 @@ async def get_recent_dividends(session):
 								'updated': item['updated']
 								})
 					except Exception as e:
-						print('Recent Earnings:', e)
+						print('Recent Dividends:', e)
 						pass
 		except Exception as e:
 			print(e)

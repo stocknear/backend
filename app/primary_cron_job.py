@@ -580,7 +580,6 @@ schedule.every().saturday.at("05:00").do(run_threaded, run_ownership_stats).tag(
 
 schedule.every(1).minutes.do(run_threaded, run_cron_portfolio).tag('portfolio_job')
 schedule.every(5).minutes.do(run_threaded, run_cron_market_movers).tag('market_movers_job')
-schedule.every(2).minutes.do(run_threaded, run_dashboard).tag('dashboard_job')
 
 schedule.every(30).minutes.do(run_threaded, run_dividend_list).tag('dividend_list_job')
 schedule.every(15).minutes.do(run_threaded, run_cron_market_news).tag('market_news_job')
@@ -603,6 +602,8 @@ schedule.every(6).hours.do(run_threaded, run_analyst_rating).tag('analyst_job')
 
 schedule.every(10).seconds.do(run_threaded, run_if_not_running(run_cron_options_flow, 'options_flow_job')).tag('options_flow_job')
 schedule.every(10).seconds.do(run_threaded, run_if_not_running(run_cron_options_zero_dte, 'options_zero_dte_job')).tag('options_zero_dte_job')
+
+schedule.every(2).minutes.do(run_threaded, run_dashboard).tag('dashboard_job')
 
 
 # Run the scheduled jobs indefinitelyp
