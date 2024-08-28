@@ -13,9 +13,9 @@ api_key = os.getenv('FMP_API_KEY')
 
 
 # Function to save JSON data
-async def save_json(data, name):
+async def save_json(data):
     os.makedirs('json/economic-indicator', exist_ok=True)
-    with open(f'json/economic-indicator/{name}.json', 'w') as file:
+    with open(f'json/economic-indicator/data.json', 'w') as file:
         ujson.dump(data, file)
 
 # Function to fetch data from the API
@@ -61,12 +61,88 @@ async def get_cpi():
         data = sorted(data, key=lambda x: x['date'])
     return data
 
+async def get_gdp():
+    start_date = datetime(2000,1,1).strftime('%Y-%m-%d')
+    end_date = datetime.now().strftime('%Y-%m-%d')
+    async with aiohttp.ClientSession() as session:
+        url = f"https://financialmodelingprep.com/api/v4/economic?name=GDP&from={start_date}&to={end_date}&apikey={api_key}"
+        data = await get_data(session,url)
+        data = sorted(data, key=lambda x: x['date'])
+
+    return data
+
+async def get_real_gdp():
+    start_date = datetime(2000,1,1).strftime('%Y-%m-%d')
+    end_date = datetime.now().strftime('%Y-%m-%d')
+    async with aiohttp.ClientSession() as session:
+        url = f"https://financialmodelingprep.com/api/v4/economic?name=realGDP&from={start_date}&to={end_date}&apikey={api_key}"
+        data = await get_data(session,url)
+        data = sorted(data, key=lambda x: x['date'])
+        
+    return data
+
+async def get_real_gdp_per_capita():
+    start_date = datetime(2000,1,1).strftime('%Y-%m-%d')
+    end_date = datetime.now().strftime('%Y-%m-%d')
+    async with aiohttp.ClientSession() as session:
+        url = f"https://financialmodelingprep.com/api/v4/economic?name=realGDPPerCapita&from={start_date}&to={end_date}&apikey={api_key}"
+        data = await get_data(session,url)
+        data = sorted(data, key=lambda x: x['date'])
+        
+    return data
+
+async def get_unemployment_rate():
+    start_date = datetime(2000,1,1).strftime('%Y-%m-%d')
+    end_date = datetime.now().strftime('%Y-%m-%d')
+    async with aiohttp.ClientSession() as session:
+        url = f"https://financialmodelingprep.com/api/v4/economic?name=unemploymentRate&from={start_date}&to={end_date}&apikey={api_key}"
+        data = await get_data(session,url)
+        data = sorted(data, key=lambda x: x['date'])
+        
+    return data
+
+async def get_recession_probability():
+    start_date = datetime(2000,1,1).strftime('%Y-%m-%d')
+    end_date = datetime.now().strftime('%Y-%m-%d')
+    async with aiohttp.ClientSession() as session:
+        url = f"https://financialmodelingprep.com/api/v4/economic?name=smoothedUSRecessionProbabilities&from={start_date}&to={end_date}&apikey={api_key}"
+        data = await get_data(session,url)
+        data = sorted(data, key=lambda x: x['date'])
+        
+    return data
+
+async def get_inflation_rate():
+    start_date = datetime(2000,1,1).strftime('%Y-%m-%d')
+    end_date = datetime.now().strftime('%Y-%m-%d')
+    async with aiohttp.ClientSession() as session:
+        url = f"https://financialmodelingprep.com/api/v4/economic?name=inflationRate&from={start_date}&to={end_date}&apikey={api_key}"
+        data = await get_data(session,url)
+        data = sorted(data, key=lambda x: x['date'])
+        data = [entry for entry in data if datetime.strptime(entry['date'], "%Y-%m-%d").day == 1]
+    return data
+
 # Main function to manage the date iteration and API calls
 async def run():
     cpi = await get_cpi()
     treasury = await get_treasury()
-    data = {'cpi': cpi, 'treasury': treasury}
-    await save_json(data, 'data')
+    unemployment_rate = await get_unemployment_rate()
+    #recession_probability = await get_recession_probability()
+    gdp = await get_gdp()
+    real_gdp = await get_real_gdp()
+    real_gdp_per_capita = await get_real_gdp_per_capita()
+    inflation_rate = await get_inflation_rate()
+    data = {
+        'cpi': cpi,
+        'treasury': treasury,
+        'unemploymentRate': unemployment_rate,
+        #'recessionProbability': recession_probability,
+        'gdp': gdp,
+        'realGDP': real_gdp,
+        'realGDPPerCapita': real_gdp_per_capita,
+        'inflationRate': inflation_rate
+    }
+
+    await save_json(data)
 
 
 # Run the asyncio event loop
