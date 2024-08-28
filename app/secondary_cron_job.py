@@ -33,6 +33,7 @@ def run_json_job():
     # Run the asynchronous function inside an asyncio loop
     subprocess.run(["python3", "restart_json.py"])
     subprocess.run(["pm2", "restart","fastapi"])
+    subprocess.run(["pm2", "restart","fastify"])
 
 
 # Create functions to run each schedule in a separate thread
@@ -42,7 +43,7 @@ def run_threaded(job_func):
 
 
 schedule.every().day.at("15:45").do(run_threaded, run_restart_cache)
-schedule.every(3).hours.do(run_threaded, run_json_job).tag('json_job')
+schedule.every(2).hours.do(run_threaded, run_json_job).tag('json_job')
 
 while True:
     schedule.run_pending()
