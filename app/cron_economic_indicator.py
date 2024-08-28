@@ -20,7 +20,6 @@ async def save_json(data, name):
 
 # Function to fetch data from the API
 async def get_data(session, url):
-    #url = f"https://financialmodelingprep.com/api/v4/treasury?from={start_date}&to={end_date}&apikey={api_key}"
     async with session.get(url) as response:
         data = await response.json()
         return data

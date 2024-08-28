@@ -17,8 +17,8 @@ load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
 
 
-
-
+market_cap_threshold = 1E6
+volume_threshold = 50_000
 
 async def get_todays_data(ticker):
 
@@ -129,6 +129,41 @@ async def get_gainer_loser_active_stocks():
 
         active_json = [{k: v for k, v in stock.items() if stock['symbol'] in symbols} for stock in active_json]
         active_json = [entry for entry in active_json if entry]
+
+        # Process gainer_json to add marketCap and volume data
+        filtered_gainer_json = []
+        for entry in gainer_json:
+            try:
+                symbol = entry['symbol']
+                query = query_template.format(ticker=symbol)
+                fundamental_data = pd.read_sql_query(query_fundamental_template, con, params=(symbol,))
+                volume = pd.read_sql_query(query, con)
+                entry['marketCap'] = int(fundamental_data['marketCap'].iloc[0])
+                entry['volume'] = int(volume['volume'].iloc[0])
+                if entry['marketCap'] >= market_cap_threshold and entry['volume'] >= volume_threshold:
+                    filtered_gainer_json.append(entry)
+            except:
+                entry['marketCap'] = None
+                entry['volume'] = None
+
+        # Process loser_json to add marketCap and volume data
+        filtered_loser_json = []
+        for entry in loser_json:
+            try:
+                symbol = entry['symbol']
+                query = query_template.format(ticker=symbol)
+                fundamental_data = pd.read_sql_query(query_fundamental_template, con, params=(symbol,))
+                volume = pd.read_sql_query(query, con)
+                entry['marketCap'] = int(fundamental_data['marketCap'].iloc[0])
+                entry['volume'] = int(volume['volume'].iloc[0])
+                if entry['marketCap'] >= market_cap_threshold and entry['volume'] >= volume_threshold:
+                    filtered_loser_json.append(entry)
+            except:
+                entry['marketCap'] = None
+                entry['volume'] = None
+            
+
+        
         filtered_active_json = []
         for entry in active_json:
             try:
@@ -143,27 +178,13 @@ async def get_gainer_loser_active_stocks():
                 entry['marketCap'] = None
                 entry['volume'] = None
 
-        active_json = sorted(filtered_active_json, key=lambda x: (x['marketCap'] >= 10**9, x['volume']), reverse=True)
+        filtered_active_json = sorted(filtered_active_json, key=lambda x: (x['marketCap'] >= 10**9, x['volume']), reverse=True)
 
 
-        stocks = gainer_json[:20] + loser_json[:20] + active_json[:20]
+        stocks = filtered_gainer_json[:20] + filtered_loser_json[:20] + filtered_active_json[:20]
 
         #remove change key element
         stocks = [{k: v for k, v in stock.items() if k != "change"} for stock in stocks]
-
-
-        for entry in stocks:
-            try:
-                symbol = entry['symbol']
-                query = query_template.format(ticker=symbol)
-                fundamental_data = pd.read_sql_query(query_fundamental_template, con, params=(symbol,))
-                volume = pd.read_sql_query(query, con)
-                entry['marketCap'] = int(fundamental_data['marketCap'].iloc[0])
-                entry['volume'] = int(volume['volume'].iloc[0])
-            except:
-                entry['marketCap'] = None
-                entry['volume'] = None
-
       
         day_gainer_json = stocks[:20]
         day_loser_json = stocks[20:40]
