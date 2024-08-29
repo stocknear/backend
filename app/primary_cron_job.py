@@ -533,6 +533,15 @@ def run_dividends():
     ]
     run_command(command)
 
+def run_economy_indicator():
+    run_command(["python3", "cron_economic_indicator.py"])
+    command = [
+        "sudo", "rsync", "-avz", "-e", "ssh",
+        "/root/backend/app/json/economy-indicator",
+        f"root@{useast_ip_address}:/root/backend/app/json"
+    ]
+    run_command(command)
+
 # Create functions to run each schedule in a separate thread
 def run_threaded(job_func):
     job_thread = threading.Thread(target=job_func)
@@ -551,7 +560,7 @@ schedule.every().day.at("07:00").do(run_threaded, run_ta_rating).tag('ta_rating_
 schedule.every().day.at("09:00").do(run_threaded, run_hedge_fund).tag('hedge_fund_job')
 schedule.every().day.at("07:30").do(run_threaded, run_government_contract).tag('government_contract_job')
 schedule.every().day.at("07:30").do(run_threaded, run_financial_statements).tag('financial_statements_job')
-
+schedule.every().day.at("08:00").do(run_threaded, run_economy_indicator).tag('economy_indicator_job')
 schedule.every().day.at("08:00").do(run_threaded, run_cron_insider_trading).tag('insider_trading_job')
 schedule.every().day.at("08:30").do(run_threaded, run_dividends).tag('dividends_job')
 schedule.every().day.at("09:00").do(run_threaded, run_congress_trading).tag('congress_job')
@@ -570,7 +579,6 @@ schedule.every().day.at("13:40").do(run_threaded, run_analyst_estimate).tag('ana
 schedule.every().day.at("13:45").do(run_threaded, run_similar_stocks).tag('similar_stocks_job')
 schedule.every().day.at("14:00").do(run_threaded, run_cron_var).tag('var_job')
 schedule.every().day.at("14:00").do(run_threaded, run_cron_sector).tag('sector_job')
-
 
 schedule.every().day.at("15:45").do(run_threaded, run_restart_cache)
 
@@ -600,7 +608,7 @@ schedule.every(2).hours.do(run_threaded, run_json).tag('json_job')
 #schedule.every(4).hours.do(run_threaded, run_share_statistics).tag('share_statistics_job')
 #schedule.every(2).days.at("01:00").do(run_borrowed_share).tag('borrowed_share_job')
 
-schedule.every(6).hours.do(run_threaded, run_analyst_rating).tag('analyst_job')
+schedule.every(12).hours.do(run_threaded, run_analyst_rating).tag('analyst_job')
 
 schedule.every(20).seconds.do(run_threaded, run_if_not_running(run_cron_options_flow, 'options_flow_job')).tag('options_flow_job')
 schedule.every(60).seconds.do(run_threaded, run_if_not_running(run_cron_options_zero_dte, 'options_zero_dte_job')).tag('options_zero_dte_job')
