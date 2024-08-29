@@ -2,6 +2,7 @@ import pytz
 from datetime import datetime, timedelta
 import json
 import ujson
+import orjson
 import asyncio
 import aiohttp
 import aiofiles
@@ -132,13 +133,13 @@ async def get_stock_screener(con,symbols):
         
         try:
             with open(f"json/var/{symbol}.json", 'r') as file:
-                item['var'] = ujson.load(file)['var']
+                item['var'] = orjson.loads(file.read())['var']
         except:
             item['var'] = None
 
         try:
             with open(f"json/analyst/summary/{symbol}.json", 'r') as file:
-                rating = ujson.load(file)['consensusRating']
+                rating = orjson.loads(file.read())['consensusRating']
                 if rating == 'Sell':
                     item['ratingRecommendation'] = 0
                 elif rating == 'Hold':
@@ -153,7 +154,7 @@ async def get_stock_screener(con,symbols):
 
         try:
             with open(f"json/trend-analysis/{symbol}.json", 'r') as file:
-                res = ujson.load(file)[-1]
+                res = orjson.loads(file.read())[-1]
                 if abs(res['accuracy'] - res['precision']) <=15 and res['sentiment'] == 'Bullish':
                     item['trendAnalysis'] = {"accuracy": res['accuracy']}
                 else:
@@ -163,7 +164,7 @@ async def get_stock_screener(con,symbols):
 
         try:
             with open(f"json/fundamental-predictor-analysis/{symbol}.json", 'r') as file:
-                res = ujson.load(file)
+                res = orjson.loads(file.read())
                 if abs(res['accuracy'] - res['precision']) <=15 and res['sentiment'] == 'Bullish':
                     item['fundamentalAnalysis'] = {"accuracy": res['accuracy']}
                 else:
@@ -173,7 +174,7 @@ async def get_stock_screener(con,symbols):
 
         try:
             with open(f"json/forward-pe/{symbol}.json", 'r') as file:
-                res = ujson.load(file)
+                res = orjson.loads(file.read())
                 if res['forwardPE'] != 0:
                     item['forwardPE'] = res['forwardPE']
         except:
@@ -181,16 +182,35 @@ async def get_stock_screener(con,symbols):
 
         try:
             with open(f"json/dividends/companies/{symbol}.json", 'r') as file:
-                res = ujson.load(file)
-                item['annualDividend'] = res['annualDividend']
-                item['dividendYield'] = res['dividendYield']
-                item['payoutRatio'] = res['payoutRatio']
-                item['dividendGrowth'] = res['dividendGrowth']
+                res = orjson.loads(file.read())
+                item['annualDividend'] = round(res['annualDividend'],2)
+                item['dividendYield'] = round(res['dividendYield'],2)
+                item['payoutRatio'] = round(res['payoutRatio'],2)
+                item['dividendGrowth'] = round(res['dividendGrowth'],2)
         except:
             item['annualDividend'] = None
             item['dividendYield'] = None
             item['payoutRatio'] = None
             item['dividendGrowth'] = None
+
+        try:
+            with open(f"json/financial-statements/ratios/annual/{symbol}.json", 'r') as file:
+                res = orjson.loads(file.read())[0]
+                
+                item['returnOnAssets'] = round(float(res['returnOnAssets']),2)
+                item['returnOnEquity'] = round(float(res['returnOnEquity']),2)
+                item['debtRatio'] = round(float(res['debtRatio']),2)
+                item['debtEquityRatio'] = round(float(res['debtEquityRatio']),2)
+                item['quickRatio'] = round(float(res['quickRatio']),2)
+                item['currentRatio'] = round(float(res['currentRatio']),2)
+
+        except:
+            item['returnOnAssets'] = None
+            item['returnOnEquity'] = None
+            item['debtRatio'] = None
+            item['debtEquityRatio'] = None
+            item['quickRatio'] = None
+            item['currentRatio'] = None
 
 
     return stock_screener_data
@@ -1229,11 +1249,6 @@ async def save_json_files():
     with open(f"json/all-etf-providers/data.json", 'w') as file:
         ujson.dump(data, file)
     
-    '''
-    data = await ticker_mentioning(con)
-    with open(f"json/ticker-mentioning/data.json", 'w') as file:
-        ujson.dump(data, file)
-    '''
     
     delisted_data = await get_delisted_list()
     with open(f"json/delisted-companies/data.json", 'w') as file:
