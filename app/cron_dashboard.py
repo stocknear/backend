@@ -291,12 +291,20 @@ async def run():
 				options_flow = ujson.load(file)
 				
 				# Filter the options_flow to include only items with ticker in total_symbol
-				options_flow = [item for item in options_flow if item['ticker'] in total_symbols]
+				options_flow = [item for item in options_flow if item['ticker'] in stock_symbols]
 				
-				options_flow = sorted(options_flow, key=lambda x: x['cost_basis'], reverse=True)
-				options_flow = [{key: item[key] for key in ['cost_basis', 'ticker','assetType', 'date_expiration', 'put_call', 'sentiment', 'strike_price']} for item in options_flow[0:4]]
+				highest_volume = sorted(options_flow, key=lambda x: int(x['volume']), reverse=True)
+				highest_volume = [{key: item[key] for key in ['cost_basis', 'ticker','assetType', 'date_expiration', 'put_call', 'volume', 'strike_price']} for item in highest_volume[0:4]]
+
+				highest_premium = sorted(options_flow, key=lambda x: int(x['cost_basis']), reverse=True)
+				highest_premium = [{key: item[key] for key in ['cost_basis', 'ticker','assetType', 'date_expiration', 'put_call', 'volume', 'strike_price']} for item in highest_premium[0:4]]
+
+				highest_open_interest = sorted(options_flow, key=lambda x: int(x['open_interest']), reverse=True)
+				highest_open_interest = [{key: item[key] for key in ['cost_basis', 'ticker','assetType', 'date_expiration', 'put_call', 'open_interest', 'strike_price']} for item in highest_open_interest[0:4]]
+
+				options_flow = {'premium': highest_premium, 'volume': highest_volume, 'openInterest':highest_open_interest}
 		except:
-			options_flow = []
+			options_flow = {}
 		try:
 			with open(f"json/wiim/rss-feed/data.json", 'r') as file:
 				wiim_feed = ujson.load(file)[0:5]
