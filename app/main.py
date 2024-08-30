@@ -3431,6 +3431,23 @@ async def get_economic_indicator(api_key: str = Security(get_api_key)):
         headers={"Content-Encoding": "gzip"}
     )
 
+@app.post("/next-earnings")
+async def get_economic_indicator(data:TickerData, api_key: str = Security(get_api_key)):
+    ticker = data.ticker
+    cache_key = f"next-earnings-{ticker}"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return orjson.loads(cached_result)
+    try:
+        with open(f"json/next-earnings/companies/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
+    except:
+        res = {}
+
+    redis_client.set(cache_key, orjson.dumps(res))
+    redis_client.expire(cache_key,3600*3600)
+
+    return res
 
 @app.get("/newsletter")
 async def get_newsletter():
