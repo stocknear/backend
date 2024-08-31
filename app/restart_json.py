@@ -132,9 +132,15 @@ async def get_stock_screener(con,symbols):
         
         try:
             with open(f"json/var/{symbol}.json", 'r') as file:
-                item['var'] = orjson.loads(file.read())['var']
+                item['var'] = orjson.loads(file.read())['history'][-1]['var']
         except:
             item['var'] = None
+
+        try:
+            with open(f"json/enterprise-values/{symbol}.json", 'r') as file:
+                item['enterpriseValue'] = orjson.loads(file.read())[-1]['enterpriseValue']
+        except:
+            item['enterpriseValue'] = None
 
         try:
             with open(f"json/analyst/summary/{symbol}.json", 'r') as file:
