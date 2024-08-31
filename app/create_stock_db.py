@@ -100,17 +100,17 @@ class StockDatabase:
             urls = [
                 f"https://financialmodelingprep.com/api/v3/profile/{symbol}?apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v3/quote/{symbol}?apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v3/income-statement/{symbol}?period=quarter&apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v3/income-statement-growth/{symbol}?period=quarter&apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v4/esg-environmental-social-governance-data-ratings?symbol={symbol}&apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v4/esg-environmental-social-governance-data?symbol={symbol}&apikey={api_key}",
+                f"https://financialmodelingprep.com/api/v3/income-statement/{symbol}?period=annual&apikey={api_key}",
+                f"https://financialmodelingprep.com/api/v3/income-statement-growth/{symbol}?period=annual&apikey={api_key}",
+                #f"https://financialmodelingprep.com/api/v4/esg-environmental-social-governance-data-ratings?symbol={symbol}&apikey={api_key}",
+                #f"https://financialmodelingprep.com/api/v4/esg-environmental-social-governance-data?symbol={symbol}&apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v3/historical-price-full/stock_dividend/{symbol}?limit=400&apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v4/historical/employee_count?symbol={symbol}&apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v3/balance-sheet-statement/{symbol}?period=quarter&apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v3/balance-sheet-statement-growth/{symbol}?period=quarter&apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v3/cash-flow-statement/{symbol}?period=quarter&apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v3/cash-flow-statement-growth/{symbol}?period=quarter&apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v3/ratios/{symbol}?period=quarter&apikey={api_key}",
+                f"https://financialmodelingprep.com/api/v3/balance-sheet-statement/{symbol}?period=annual&apikey={api_key}",
+                f"https://financialmodelingprep.com/api/v3/balance-sheet-statement-growth/{symbol}?period=annual&apikey={api_key}",
+                f"https://financialmodelingprep.com/api/v3/cash-flow-statement/{symbol}?period=annual&apikey={api_key}",
+                f"https://financialmodelingprep.com/api/v3/cash-flow-statement-growth/{symbol}?period=annual&apikey={api_key}",
+                f"https://financialmodelingprep.com/api/v3/ratios/{symbol}?period=annual&apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v3/historical-price-full/stock_split/{symbol}?apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v4/stock_peers?symbol={symbol}&apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v4/institutional-ownership/institutional-holders/symbol-ownership-percent?date={quarter_date}&symbol={symbol}&page=0&apikey={api_key}",
@@ -124,7 +124,7 @@ class StockDatabase:
 
             # Check if 'income' and 'income_growth' data already exist for the symbol
             try:
-                self.cursor.execute("SELECT income, income_growth, balance, balance_growth, cashflow, cashflow_growth, ratios, stock_peers, esg_data, esg_ratings FROM stocks WHERE symbol = ?", (symbol,))
+                self.cursor.execute("SELECT income, income_growth, balance, balance_growth, cashflow, cashflow_growth, ratios, stock_peersFROM stocks WHERE symbol = ?", (symbol,))
                 existing_data = self.cursor.fetchone()
                 income_exists = existing_data and existing_data[0] is not None
                 income_growth_exists = existing_data and existing_data[1] is not None
@@ -176,12 +176,7 @@ class StockDatabase:
                 elif 'stock_peers/' in url and stock_peers_exists:
                     print(f"Skipping stock_peers for {symbol} as it already exists.")
                     continue
-                elif 'esg-environmental-social-governance-data' in url and esg_data_exists:
-                    print(f"Skipping esg_data for {symbol} as it already exists.")
-                    continue
-                elif 'esg-environmental-social-governance-data-ratings?' in url and esg_ratings_exists:
-                    print(f"Skipping esg_ratings for {symbol} as it already exists.")
-                    continue
+
 
 
                 async with session.get(url) as response:
@@ -284,16 +279,7 @@ class StockDatabase:
                         elif isinstance(parsed_data, list) and "cash-flow-statement-growth/" in url:
                             # Handle list response, save as JSON object
                             fundamental_data['cashflow_growth'] = ujson.dumps(parsed_data)
-                        elif isinstance(parsed_data, list) and "esg-environmental-social-governance-data?" in url:
-                            # Handle list response, save as JSON object
-                            fundamental_data['esg_data'] = ujson.dumps(parsed_data[0])
-                            data_dict = {'ESGScore': parsed_data[0]['ESGScore']}
-                            fundamental_data.update(data_dict)
-
-                        elif isinstance(parsed_data, list) and "esg-environmental-social-governance-data-ratings?" in url:
-                            # Handle list response, save as JSON object
-                            fundamental_data['esg_ratings'] = ujson.dumps(parsed_data[0])
-
+                       
                         elif "stock_dividend" in url:
                             # Handle list response, save as JSON object
                             fundamental_data['stock_dividend'] = ujson.dumps(parsed_data)

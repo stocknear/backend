@@ -58,16 +58,6 @@ async def get_data(ticker):
             except:
                 forward_pe = None
 
-            if data['esg_data'] == None:
-                company_esg_score = {'ESGScore': 'n/a', 'socialScore': 'n/a', 'environmentalScore': 'n/a', 'governanceScore': 'n/a'}
-                company_esg_rating = {'ESGRiskRating': 'n/a', 'industry': 'n/a'}
-            else:
-                company_esg_score =  ujson.loads(data['esg_data'])
-            if data['esg_ratings'] == None:
-                company_esg_rating = {'ESGRiskRating': 'n/a', 'industry': 'n/a'}
-            else:
-                company_esg_rating =  ujson.loads(data['esg_ratings'])
-
             if data['stock_split'] == None:
                 company_stock_split = []
             else:
@@ -92,26 +82,10 @@ async def get_data(ticker):
                     'previousClose': company_quote['price'], #This is true because I update my db before the market opens hence the price will be the previousClose price.
                     'website': company_profile[0]['website'],
                     'description': company_profile[0]['description'],
-                    'esgScore': company_esg_score['ESGScore'],
-                    'socialScore': company_esg_score['socialScore'],
-                    'environmentalScore': company_esg_score['environmentalScore'],
-                    'governanceScore': company_esg_score['governanceScore'],
-                    'esgRiskRating': company_esg_rating['ESGRiskRating'],
                     'fullTimeEmployees': company_profile[0]['fullTimeEmployees'],
                     'stockSplits': company_stock_split,
                 }
             ]
-
-
-            if data['esg_data'] == None:
-                company_esg_score = {'ESGScore': 'n/a', 'socialScore': 'n/a', 'environmentalScore': 'n/a', 'governanceScore': 'n/a'}
-                company_esg_rating = {'ESGRiskRating': 'n/a', 'industry': 'n/a'}
-            else:
-                company_esg_score =  ujson.loads(data['esg_data'])
-            if data['esg_ratings'] == None:
-                company_esg_rating = {'ESGRiskRating': 'n/a', 'industry': 'n/a'}
-            else:
-                company_esg_rating =  ujson.loads(data['esg_ratings'])
 
 
             final_res = {k: v for d in [res_profile] for dict in d for k, v in dict.items()}
