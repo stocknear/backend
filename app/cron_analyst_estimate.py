@@ -74,20 +74,36 @@ async def get_data(ticker, con):
                         eps = None
                     try:
                         estimated_ebitda_avg = item_estimate['estimatedEbitdaAvg']
+                        estimated_ebitda_high = item_estimate['estimatedEbitdaHigh']
+                        estimated_ebitda_low = item_estimate['estimatedEbitdaLow']
                     except:
                         estimated_ebitda_avg = None
+                        estimated_ebitda_high = None
+                        estimated_ebitda_low = None
                     try:
                         estimated_net_income_avg = item_estimate['estimatedNetIncomeAvg']
+                        estimated_net_income_high = item_estimate['estimatedNetIncomeHigh']
+                        estimated_net_income_low = item_estimate['estimatedNetIncomeLow']
                     except:
                         estimated_net_income_avg = None
+                        estimated_net_income_high = None
+                        estimated_net_income_low = None
                     try:
                         estimated_revenue_avg = item_estimate['estimatedRevenueAvg']
+                        estimated_revenue_high = item_estimate['estimatedRevenueHigh']
+                        estimated_revenue_low = item_estimate['estimatedRevenueLow']
                     except:
                         estimated_revenue_avg = None
+                        estimated_revenue_high = None
+                        estimated_revenue_low = None
                     try:
                         estimated_eps_avg = round(item_estimate['estimatedEpsAvg'],2)
+                        estimated_eps_high = round(item_estimate['estimatedEpsHigh'],2)
+                        estimated_eps_low = round(item_estimate['estimatedEpsLow'],2)
                     except:
                         estimated_eps_avg = None
+                        estimated_eps_high = None
+                        estimated_eps_low = None
 
                     try:
                         numOfAnalysts = int((item_estimate['numberAnalystEstimatedRevenue']+item_estimate['numberAnalystsEstimatedEps'])/2)
@@ -98,9 +114,17 @@ async def get_data(ticker, con):
                     'symbol': item_estimate['symbol'],
                     'date': int(item_estimate['date'][:4]),
                     'estimatedRevenueAvg': estimated_revenue_avg,
+                    'estimatedRevenueHigh': estimated_revenue_high,
+                    'estimatedRevenueLow': estimated_revenue_low,
                     'estimatedEbitdaAvg': estimated_ebitda_avg,
+                    'estimatedEbitdaHigh': estimated_ebitda_high,
+                    'estimatedEbitdaLow': estimated_ebitda_low,
                     'estimatedNetIncomeAvg': estimated_net_income_avg,
+                    'estimatedNetIncomeHigh': estimated_net_income_high,
+                    'estimatedNetIncomeLow': estimated_net_income_low,
                     'estimatedEpsAvg': estimated_eps_avg,
+                    'estimatedEpsHigh': estimated_eps_high,
+                    'estimatedEpsLow': estimated_eps_low,
                     'revenue': revenue,
                     'netIncome': net_income,
                     'ebitda': ebitda,
@@ -115,20 +139,36 @@ async def get_data(ticker, con):
             else:
                 try:
                     estimated_revenue_avg = item_estimate['estimatedRevenueAvg']
+                    estimated_revenue_high = item_estimate['estimatedRevenueHigh']
+                    estimated_revenue_low = item_estimate['estimatedRevenueLow']
                 except:
                     estimated_revenue_avg = None
+                    estimated_revenue_high = None
+                    estimated_revenue_low = None
                 try:
                     estimated_ebitda_avg = item_estimate['estimatedEbitdaAvg']
+                    estimated_ebitda_high = item_estimate['estimatedEbitdaHigh']
+                    estimated_ebitda_low = item_estimate['estimatedEbitdaLow']
                 except:
                     estimated_ebitda_avg = None
+                    estimated_ebitda_high = None
+                    estimated_ebitda_low = None
                 try:
                     estimated_net_income_avg = item_estimate['estimatedNetIncomeAvg']
+                    estimated_net_income_high = item_estimate['estimatedNetIncomeHigh']
+                    estimated_net_income_low = item_estimate['estimatedNetIncomeLow']
                 except:
                     estimated_net_income_avg = None
+                    estimated_net_income_high = None
+                    estimated_net_income_low = None
                 try:
-                    estimated_eps_avg = item_estimate['estimatedEpsAvg']
+                    estimated_eps_avg = round(item_estimate['estimatedEpsAvg'],2)
+                    estimated_eps_high = round(item_estimate['estimatedEpsHigh'],2)
+                    estimated_eps_low = round(item_estimate['estimatedEpsLow'],2)
                 except:
                     estimated_eps_avg = None
+                    estimated_eps_high = None
+                    estimated_eps_low = None
 
                 try:
                     numOfAnalysts = int((item_estimate['numberAnalystEstimatedRevenue']+item_estimate['numberAnalystsEstimatedEps'])/2)
@@ -139,9 +179,17 @@ async def get_data(ticker, con):
                 'symbol': item_estimate['symbol'],
                 'date': int(item_estimate['date'][:4]),
                 'estimatedRevenueAvg': estimated_revenue_avg,
+                'estimatedRevenueHigh': estimated_revenue_high,
+                'estimatedRevenueLow': estimated_revenue_low,
                 'estimatedEbitdaAvg': estimated_ebitda_avg,
+                'estimatedEbitdaHigh': estimated_ebitda_high,
+                'estimatedEbitdaLow': estimated_ebitda_low,
                 'estimatedNetIncomeAvg': estimated_net_income_avg,
+                'estimatedNetIncomeHigh': estimated_net_income_high,
+                'estimatedNetIncomeLow': estimated_net_income_low,
                 'estimatedEpsAvg': estimated_eps_avg,
+                'estimatedEpsHigh': estimated_eps_high,
+                'estimatedEpsLow': estimated_eps_low,
                 'numOfAnalysts': numOfAnalysts,
                 'revenue': None,
                 'netIncome': None,
