@@ -65,7 +65,8 @@ def process_page(page):
                 page_list.append(item)
 
         return page_list
-    except:
+    except Exception as e:
+        print(e)
         return []
 
 

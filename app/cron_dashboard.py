@@ -303,7 +303,8 @@ async def run():
 				highest_open_interest = [{key: item[key] for key in ['cost_basis', 'ticker','assetType', 'date_expiration', 'put_call', 'open_interest', 'strike_price']} for item in highest_open_interest[0:4]]
 
 				options_flow = {'premium': highest_premium, 'volume': highest_volume, 'openInterest':highest_open_interest}
-		except:
+		except Exception as e:
+			print(e)
 			options_flow = {}
 		try:
 			with open(f"json/wiim/rss-feed/data.json", 'r') as file:

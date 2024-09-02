@@ -9,8 +9,8 @@ class GetStartEndDate:
 
     def check_if_holiday(self):
         holiday_dates = {
-            datetime(2023, 9, 4): 'labor_day',
-            datetime(2023, 9, 5): 'labor_day+1',
+            datetime(2024, 9, 2): 'labor_day',
+            datetime(2024, 9, 3): 'labor_day+1',
             datetime(2023, 11, 23): 'thanks_giving',
             datetime(2023, 12, 25): 'christmas',
             datetime(2024, 1, 1): 'new_year',
@@ -27,7 +27,7 @@ class GetStartEndDate:
 
     def correct_1d_interval(self, holiday):
         if holiday in ('labor_day', 'labor_day+1'):
-            start_date_1d = datetime(2023, 9, 1)
+            start_date_1d = datetime(2024, 8, 30)
         elif holiday == 'thanks_giving':
             start_date_1d = datetime(2023, 11, 22)
         elif holiday == 'new_year':
@@ -61,8 +61,8 @@ class GetStartEndDate:
         is_afternoon = current_time_new_york.hour > 9 or (current_time_new_york.hour == 9 and current_time_new_york.minute >= 30)
         if holiday:
             holiday_dates = {
-                'labor_day': datetime(2023, 9, 1),
-                'labor_day+1': datetime(2023, 9, 1),
+                'labor_day': datetime(2024, 8, 30),
+                'labor_day+1': datetime(2024, 8, 30),
                 'thanks_giving': datetime(2023, 11, 22),
                 'christmas': datetime(2023, 12, 22),
                 'new_year': datetime(2023, 12, 29),
