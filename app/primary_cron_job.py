@@ -604,7 +604,7 @@ schedule.every(15).minutes.do(run_threaded, run_market_moods).tag('market_moods_
 #schedule.every(10).minutes.do(run_threaded, run_dark_pool_flow).tag('dark_pool_flow_job')
 
 schedule.every(2).hours.do(run_threaded, run_fda_calendar).tag('fda_calendar_job')
-schedule.every(2).hours.do(run_threaded, run_json).tag('json_job')
+schedule.every(3).hours.do(run_threaded, run_json).tag('json_job')
 #schedule.every(4).hours.do(run_threaded, run_share_statistics).tag('share_statistics_job')
 #schedule.every(2).days.at("01:00").do(run_borrowed_share).tag('borrowed_share_job')
 

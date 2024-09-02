@@ -56,12 +56,18 @@ async def get_stock_screener(con,symbols):
    
     #Stock Screener Data
     
-    cursor.execute("SELECT symbol, name, avgVolume, sma_50, sma_200, ema_50, ema_200, rsi, atr, stoch_rsi, mfi, cci, priceToSalesRatio, priceToBookRatio, eps, pe, marketCap, revenue, netIncome, grossProfit, costOfRevenue, costAndExpenses, interestIncome, interestExpense, researchAndDevelopmentExpenses, ebitda, operatingExpenses, operatingIncome, growthRevenue, growthNetIncome, growthGrossProfit, growthCostOfRevenue, growthCostAndExpenses, growthInterestExpense, growthResearchAndDevelopmentExpenses, growthEBITDA, growthEPS, growthOperatingExpenses, growthOperatingIncome, beta FROM stocks WHERE eps IS NOT NULL AND revenue IS NOT NULL AND marketCap IS NOT NULL AND beta IS NOT NULL")
+    cursor.execute("SELECT symbol, name, avgVolume, change_1W, change_1M, change_3M, change_6M, change_1Y, change_3Y, sma_50, sma_200, ema_50, ema_200, rsi, atr, stoch_rsi, mfi, cci, priceToSalesRatio, priceToBookRatio, eps, pe, ESGScore, marketCap, revenue, netIncome, grossProfit, costOfRevenue, costAndExpenses, interestIncome, interestExpense, researchAndDevelopmentExpenses, ebitda, operatingExpenses, operatingIncome, growthRevenue, growthNetIncome, growthGrossProfit, growthCostOfRevenue, growthCostAndExpenses, growthInterestExpense, growthResearchAndDevelopmentExpenses, growthEBITDA, growthEPS, growthOperatingExpenses, growthOperatingIncome, beta FROM stocks WHERE eps IS NOT NULL AND revenue IS NOT NULL AND marketCap IS NOT NULL AND beta IS NOT NULL")
     raw_data = cursor.fetchall()
     stock_screener_data = [{
             'symbol': symbol,
             'name': name,
             'avgVolume': avgVolume,
+            'change1W': change_1W,
+            'change1M': change_1M,
+            'change3M': change_3M,
+            'change6M': change_6M,
+            'change1Y': change_1Y,
+            'change3Y': change_3Y,
             'sma50': sma_50,
             'sma200': sma_200,
             'ema50': ema_50,
@@ -75,6 +81,7 @@ async def get_stock_screener(con,symbols):
             'priceToBookRatio': priceToBookRatio,
             'eps': eps,
             'pe': pe,
+            'esgScore': ESGScore,
             'marketCap': marketCap,
             'revenue': revenue,
             'netIncome': netIncome,
@@ -99,7 +106,7 @@ async def get_stock_screener(con,symbols):
             'growthOperatingExpenses': growthOperatingExpenses,
             'growthOperatingIncome': growthOperatingIncome,
             'beta': beta,
-        } for (symbol, name, avgVolume, sma_50, sma_200, ema_50, ema_200, rsi, atr, stoch_rsi, mfi, cci, priceToSalesRatio, priceToBookRatio, eps, pe, marketCap, revenue, netIncome, grossProfit,costOfRevenue, costAndExpenses, interestIncome, interestExpense, researchAndDevelopmentExpenses, ebitda, operatingExpenses, operatingIncome, growthRevenue, growthNetIncome, growthGrossProfit, growthCostOfRevenue, growthCostAndExpenses, growthInterestExpense, growthResearchAndDevelopmentExpenses, growthEBITDA, growthEPS, growthOperatingExpenses, growthOperatingIncome, beta) in raw_data]
+        } for (symbol, name, avgVolume, change_1W, change_1M, change_3M, change_6M, change_1Y, change_3Y, sma_50, sma_200, ema_50, ema_200, rsi, atr, stoch_rsi, mfi, cci, priceToSalesRatio, priceToBookRatio, eps, pe, ESGScore, marketCap, revenue, netIncome, grossProfit,costOfRevenue, costAndExpenses, interestIncome, interestExpense, researchAndDevelopmentExpenses, ebitda, operatingExpenses, operatingIncome, growthRevenue, growthNetIncome, growthGrossProfit, growthCostOfRevenue, growthCostAndExpenses, growthInterestExpense, growthResearchAndDevelopmentExpenses, growthEBITDA, growthEPS, growthOperatingExpenses, growthOperatingIncome, beta) in raw_data]
 
     stock_screener_data = [{k: round(v, 2) if isinstance(v, (int, float)) else v for k, v in entry.items()} for entry in stock_screener_data]
 
