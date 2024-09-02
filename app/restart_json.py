@@ -143,17 +143,17 @@ async def get_stock_screener(con):
 
         try:
             with open(f"json/analyst/summary/{symbol}.json", 'r') as file:
-                rating = orjson.loads(file.read())['consensusRating']
-                if rating == 'Sell':
-                    item['ratingRecommendation'] = 0
-                elif rating == 'Hold':
-                    item['ratingRecommendation'] = 1
-                elif rating == 'Buy':
-                    item['ratingRecommendation'] = 2
-                else:
-                    item['ratingRecommendation'] = None
-        except:
-            item['ratingRecommendation'] = None
+                res = orjson.loads(file.read())
+                item['analystRating'] = res['consensusRating']
+        except Exception as e:
+            item['analystRating'] = None
+
+        try:
+            with open(f"json/fail-to-deliver/companies/{symbol}.json", 'r') as file:
+                res = orjson.loads(file.read())[-1]
+                item['failToDeliver'] = res['failToDeliver']
+        except Exception as e:
+            item['failToDeliver'] = None
         
 
         try:
@@ -1226,6 +1226,9 @@ async def save_json_files():
     crypto_cursor.execute("SELECT DISTINCT symbol FROM cryptos")
     crypto_symbols = [row[0] for row in crypto_cursor.fetchall()]
 
+    stock_screener_data = await get_stock_screener(con)
+    with open(f"json/stock-screener/data.json", 'w') as file:
+        ujson.dump(stock_screener_data, file)
     
     earnings_list = await get_earnings_calendar(con,symbols)
     with open(f"json/earnings-calendar/calendar.json", 'w') as file:
@@ -1300,11 +1303,6 @@ async def save_json_files():
     data = await get_index_list(con,symbols,'sp500_constituent')
     with open(f"json/stocks-list/sp500_constituent.json", 'w') as file:
         ujson.dump(data, file)
-    
-
-    stock_screener_data = await get_stock_screener(con)
-    with open(f"json/stock-screener/data.json", 'w') as file:
-        ujson.dump(stock_screener_data, file)
     
     
 
