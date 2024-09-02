@@ -224,8 +224,20 @@ async def get_stock_screener(con,symbols):
             item['priceToFreeCashFlowsRatio'] = None
 
 
-    return stock_screener_data
+        try:
+            with open(f"json/share-statistics/{symbol}.json", 'r') as file:
+                res = orjson.loads(file.read())
+                item['sharesShort'] = round(float(res['sharesShort']),2)
+                item['shortRatio'] = round(float(res['shortRatio']),2)
+                item['shortOutStandingPercent'] = round(float(res['shortOutStandingPercent']),2)
+                item['shortFloatPercent'] = round(float(res['shortFloatPercent']),2)
+        except:
+            item['sharesShort'] = None
+            item['shortRatio'] = None
+            item['shortOutStandingPercent'] = None
+            item['shortFloatPercent'] = None
 
+    return stock_screener_data
 
 
 async def get_dividends_calendar(con,symbols):
@@ -1189,7 +1201,7 @@ async def get_most_shorted_stocks(con):
             symbol = item['symbol']
             data = pd.read_sql_query(query_template, con, params=(symbol,))
             item['name'] = data['name'].iloc[0]
-            item['sector'] = data['sector'].iloc[0]
+            #item['sector'] = data['sector'].iloc[0]
         except Exception as e:
             print(e)
 
