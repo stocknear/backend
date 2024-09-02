@@ -124,7 +124,7 @@ class StockDatabase:
 
             # Check if 'income' and 'income_growth' data already exist for the symbol
             try:
-                self.cursor.execute("SELECT income, income_growth, balance, balance_growth, cashflow, cashflow_growth, ratios, stock_peersFROM stocks WHERE symbol = ?", (symbol,))
+                self.cursor.execute("SELECT income, income_growth, balance, balance_growth, cashflow, cashflow_growth, ratios, stock_peers FROM stocks WHERE symbol = ?", (symbol,))
                 existing_data = self.cursor.fetchone()
                 income_exists = existing_data and existing_data[0] is not None
                 income_growth_exists = existing_data and existing_data[1] is not None
