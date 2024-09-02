@@ -48,15 +48,14 @@ def generate_id(name):
     hashed = hashlib.sha256(name.encode()).hexdigest()
     return hashed[:10]
 
-async def get_stock_screener(con,symbols):
-    
+async def get_stock_screener(con):
     #Stock Screener Data
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
    
     #Stock Screener Data
     
-    cursor.execute("SELECT symbol, name, avgVolume, change_1W, change_1M, change_3M, change_6M, change_1Y, change_3Y, sma_50, sma_200, ema_50, ema_200, rsi, atr, stoch_rsi, mfi, cci, priceToSalesRatio, priceToBookRatio, eps, pe, marketCap, revenue, netIncome, grossProfit, costOfRevenue, costAndExpenses, interestIncome, interestExpense, researchAndDevelopmentExpenses, ebitda, operatingExpenses, operatingIncome, growthRevenue, growthNetIncome, growthGrossProfit, growthCostOfRevenue, growthCostAndExpenses, growthInterestExpense, growthResearchAndDevelopmentExpenses, growthEBITDA, growthEPS, growthOperatingExpenses, growthOperatingIncome, beta FROM stocks WHERE eps IS NOT NULL AND revenue IS NOT NULL AND marketCap IS NOT NULL AND beta IS NOT NULL")
+    cursor.execute("SELECT symbol, name, avgVolume, change_1W, change_1M, change_3M, change_6M, change_1Y, change_3Y, sma_50, sma_200, ema_50, ema_200, rsi, atr, stoch_rsi, mfi, cci, priceToSalesRatio, priceToBookRatio, eps, pe, marketCap, revenue, netIncome, grossProfit, costOfRevenue, costAndExpenses, interestIncome, interestExpense, researchAndDevelopmentExpenses, ebitda, operatingExpenses, operatingIncome, growthRevenue, growthNetIncome, growthGrossProfit, growthCostOfRevenue, growthCostAndExpenses, growthInterestExpense, growthResearchAndDevelopmentExpenses, growthEBITDA, growthEPS, growthOperatingExpenses, growthOperatingIncome, beta FROM stocks WHERE symbol NOT LIKE '%.%' AND eps IS NOT NULL AND revenue IS NOT NULL AND marketCap IS NOT NULL AND beta IS NOT NULL")
     raw_data = cursor.fetchall()
     stock_screener_data = [{
             'symbol': symbol,
@@ -1303,7 +1302,7 @@ async def save_json_files():
         ujson.dump(data, file)
     
 
-    stock_screener_data = await get_stock_screener(con,symbols)
+    stock_screener_data = await get_stock_screener(con)
     with open(f"json/stock-screener/data.json", 'w') as file:
         ujson.dump(stock_screener_data, file)
     
