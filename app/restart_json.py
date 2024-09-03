@@ -60,11 +60,13 @@ def process_financial_data(file_path, key_list):
             for key in key_list:
                 if key in res:
                     try:
-                        data[key] = round(float(res[key]), 2)
+                        value = float(res[key])
+                        if key in ['grossProfitMargin','netProfitMargin','pretaxProfitMargin','operatingProfitMargin']:
+                            value *= 100  # Multiply by 100 if key is 'grossProfitMargin'
+                        data[key] = round(value, 2)
                     except (ValueError, TypeError):
                         data[key] = None
     except:
-        # File read or JSON parse error
         pass
     return data
 
@@ -140,6 +142,14 @@ def get_financial_statements(item, symbol):
         item['freeCashFlowMargin'] = (item['freeCashFlow'] / item['revenue']) * 100
     except:
         item['freeCashFlowMargin'] = None
+    try:
+        item['earningsYield'] = (item['eps'] / item['price']) * 100
+    except:
+        item['earningsYield'] = None
+    try:
+        item['freeCashFlowYield'] = (item['freeCashFlow'] / item['marketCap']) * 100
+    except:
+        item['freeCashFlowYield'] = None
 
     return item
 
