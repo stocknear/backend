@@ -9,7 +9,7 @@ import aiofiles
 import sqlite3
 import pandas as pd
 import numpy as np
-
+from collections import defaultdict
 from collections import Counter
 import re
 import hashlib
@@ -48,6 +48,96 @@ def generate_id(name):
     hashed = hashlib.sha256(name.encode()).hexdigest()
     return hashed[:10]
 
+
+def process_financial_data(file_path, key_list):
+    """
+    Read JSON data from file and extract specified keys with rounding.
+    """
+    data = defaultdict(lambda: None)  # Initialize with default value of None
+    try:
+        with open(file_path, 'r') as file:
+            res = orjson.loads(file.read())[0]
+            for key in key_list:
+                if key in res:
+                    try:
+                        data[key] = round(float(res[key]), 2)
+                    except (ValueError, TypeError):
+                        data[key] = None
+    except:
+        # File read or JSON parse error
+        pass
+    return data
+
+def get_financial_statements(item, symbol):
+    """
+    Update item with financial data from various JSON files.
+    """
+    # Define the keys to be extracted for each type of statement
+    key_ratios = [
+        "currentRatio", "quickRatio", "cashRatio", "daysOfSalesOutstanding",
+        "daysOfInventoryOutstanding", "operatingCycle", "daysOfPayablesOutstanding",
+        "cashConversionCycle", "grossProfitMargin", "operatingProfitMargin",
+        "pretaxProfitMargin", "netProfitMargin", "effectiveTaxRate", "returnOnAssets",
+        "returnOnEquity", "returnOnCapitalEmployed", "netIncomePerEBT", "ebtPerEbit",
+        "ebitPerRevenue", "debtRatio", "debtEquityRatio", "longTermDebtToCapitalization",
+        "totalDebtToCapitalization", "interestCoverage", "cashFlowToDebtRatio",
+        "companyEquityMultiplier", "receivablesTurnover", "payablesTurnover",
+        "inventoryTurnover", "fixedAssetTurnover", "assetTurnover",
+        "operatingCashFlowPerShare", "freeCashFlowPerShare", "cashPerShare", "payoutRatio",
+        "operatingCashFlowSalesRatio", "freeCashFlowOperatingCashFlowRatio",
+        "cashFlowCoverageRatios", "shortTermCoverageRatios", "capitalExpenditureCoverageRatio",
+        "dividendPaidAndCapexCoverageRatio", "dividendPayoutRatio", "priceBookValueRatio",
+        "priceToBookRatio", "priceToSalesRatio", "priceEarningsRatio", "priceToFreeCashFlowsRatio",
+        "priceToOperatingCashFlowsRatio", "priceCashFlowRatio", "priceEarningsToGrowthRatio",
+        "priceSalesRatio", "dividendYield", "enterpriseValueMultiple", "priceFairValue"
+    ]
+    
+    key_cash_flow = [
+        "netIncome", "depreciationAndAmortization", "deferredIncomeTax", "stockBasedCompensation",
+        "changeInWorkingCapital", "accountsReceivables", "inventory", "accountsPayables",
+        "otherWorkingCapital", "otherNonCashItems", "netCashProvidedByOperatingActivities",
+        "investmentsInPropertyPlantAndEquipment", "acquisitionsNet", "purchasesOfInvestments",
+        "salesMaturitiesOfInvestments", "otherInvestingActivites", "netCashUsedForInvestingActivites",
+        "debtRepayment", "commonStockIssued", "commonStockRepurchased", "dividendsPaid",
+        "otherFinancingActivites", "netCashUsedProvidedByFinancingActivities", "effectOfForexChangesOnCash",
+        "netChangeInCash", "cashAtEndOfPeriod", "cashAtBeginningOfPeriod", "operatingCashFlow",
+        "capitalExpenditure", "freeCashFlow"
+    ]
+
+    key_income = [
+        "revenue", "costOfRevenue", "grossProfit", "grossProfitRatio",
+        "researchAndDevelopmentExpenses", "generalAndAdministrativeExpenses", "sellingAndMarketingExpenses",
+        "sellingGeneralAndAdministrativeExpenses", "otherExpenses", "operatingExpenses",
+        "costAndExpenses", "interestIncome", "interestExpense", "depreciationAndAmortization",
+        "ebitda", "ebitdaratio", "operatingIncome", "operatingIncomeRatio",
+        "totalOtherIncomeExpensesNet", "incomeBeforeTax", "incomeBeforeTaxRatio", "incomeTaxExpense",
+        "netIncome", "netIncomeRatio", "eps", "epsdiluted", "weightedAverageShsOut",
+        "weightedAverageShsOutDil"
+    ]
+
+    key_balance_sheet = [
+        "cashAndCashEquivalents", "shortTermInvestments", "cashAndShortTermInvestments",
+        "netReceivables", "inventory", "otherCurrentAssets", "totalCurrentAssets",
+        "propertyPlantEquipmentNet", "goodwill", "intangibleAssets", "goodwillAndIntangibleAssets",
+        "longTermInvestments", "taxAssets", "otherNonCurrentAssets", "totalNonCurrentAssets",
+        "otherAssets", "totalAssets", "accountPayables", "shortTermDebt", "taxPayables",
+        "deferredRevenue", "otherCurrentLiabilities", "totalCurrentLiabilities", "longTermDebt",
+        "deferredRevenueNonCurrent", "deferredTaxLiabilitiesNonCurrent", "otherNonCurrentLiabilities",
+        "totalNonCurrentLiabilities", "otherLiabilities", "capitalLeaseObligations", "totalLiabilities",
+        "preferredStock", "commonStock", "retainedEarnings", "accumulatedOtherComprehensiveIncomeLoss",
+        "othertotalStockholdersEquity", "totalStockholdersEquity", "totalEquity",
+        "totalLiabilitiesAndStockholdersEquity", "minorityInterest", "totalLiabilitiesAndTotalEquity",
+        "totalInvestments", "totalDebt", "netDebt"
+    ]
+
+    # Process each financial statement
+    item.update(process_financial_data(f"json/financial-statements/ratios/annual/{symbol}.json", key_ratios))
+    item.update(process_financial_data(f"json/financial-statements/cash-flow-statement/annual/{symbol}.json", key_cash_flow))
+    item.update(process_financial_data(f"json/financial-statements/income-statement/annual/{symbol}.json", key_income))
+    item.update(process_financial_data(f"json/financial-statements/balance-sheet-statement/annual/{symbol}.json", key_balance_sheet))
+
+    return item
+
 async def get_stock_screener(con):
     #Stock Screener Data
     cursor = con.cursor()
@@ -55,7 +145,7 @@ async def get_stock_screener(con):
    
     #Stock Screener Data
     
-    cursor.execute("SELECT symbol, name, avgVolume, change_1W, change_1M, change_3M, change_6M, change_1Y, change_3Y, sma_50, sma_200, ema_50, ema_200, rsi, atr, stoch_rsi, mfi, cci, priceToSalesRatio, priceToBookRatio, eps, pe, marketCap, revenue, netIncome, grossProfit, costOfRevenue, costAndExpenses, interestIncome, interestExpense, researchAndDevelopmentExpenses, ebitda, operatingExpenses, operatingIncome, growthRevenue, growthNetIncome, growthGrossProfit, growthCostOfRevenue, growthCostAndExpenses, growthInterestExpense, growthResearchAndDevelopmentExpenses, growthEBITDA, growthEPS, growthOperatingExpenses, growthOperatingIncome, beta FROM stocks WHERE symbol NOT LIKE '%.%' AND eps IS NOT NULL AND revenue IS NOT NULL AND marketCap IS NOT NULL AND beta IS NOT NULL")
+    cursor.execute("SELECT symbol, name, avgVolume, change_1W, change_1M, change_3M, change_6M, change_1Y, change_3Y, sma_50, sma_200, ema_50, ema_200, rsi, atr, stoch_rsi, mfi, cci, pe, marketCap, growthRevenue, growthNetIncome, growthGrossProfit, growthCostOfRevenue, growthCostAndExpenses, growthInterestExpense, growthResearchAndDevelopmentExpenses, growthEBITDA, growthEPS, growthOperatingExpenses, growthOperatingIncome, beta FROM stocks WHERE symbol NOT LIKE '%.%' AND eps IS NOT NULL AND revenue IS NOT NULL AND marketCap IS NOT NULL AND beta IS NOT NULL")
     raw_data = cursor.fetchall()
     stock_screener_data = [{
             'symbol': symbol,
@@ -76,22 +166,8 @@ async def get_stock_screener(con):
             'stochRSI': stoch_rsi,
             'mfi': mfi,
             'cci': cci,
-            'priceToSalesRatio': priceToSalesRatio,
-            'priceToBookRatio': priceToBookRatio,
-            'eps': eps,
             'pe': pe,
             'marketCap': marketCap,
-            'revenue': revenue,
-            'netIncome': netIncome,
-            'grossProfit': grossProfit,
-            'costOfRevenue': costOfRevenue,
-            'costAndExpenses': costAndExpenses,
-            'interestIncome': interestIncome,
-            'interestExpense': interestExpense,
-            'researchAndDevelopmentExpenses': researchAndDevelopmentExpenses,
-            'ebitda': ebitda,
-            'operatingExpenses': operatingExpenses,
-            'operatingIncome': operatingIncome,
             'growthRevenue': growthRevenue,
             'growthNetIncome': growthNetIncome,
             'growthGrossProfit': growthGrossProfit,
@@ -104,7 +180,7 @@ async def get_stock_screener(con):
             'growthOperatingExpenses': growthOperatingExpenses,
             'growthOperatingIncome': growthOperatingIncome,
             'beta': beta,
-        } for (symbol, name, avgVolume, change_1W, change_1M, change_3M, change_6M, change_1Y, change_3Y, sma_50, sma_200, ema_50, ema_200, rsi, atr, stoch_rsi, mfi, cci, priceToSalesRatio, priceToBookRatio, eps, pe, marketCap, revenue, netIncome, grossProfit,costOfRevenue, costAndExpenses, interestIncome, interestExpense, researchAndDevelopmentExpenses, ebitda, operatingExpenses, operatingIncome, growthRevenue, growthNetIncome, growthGrossProfit, growthCostOfRevenue, growthCostAndExpenses, growthInterestExpense, growthResearchAndDevelopmentExpenses, growthEBITDA, growthEPS, growthOperatingExpenses, growthOperatingIncome, beta) in raw_data]
+        } for (symbol, name, avgVolume, change_1W, change_1M, change_3M, change_6M, change_1Y, change_3Y, sma_50, sma_200, ema_50, ema_200, rsi, atr, stoch_rsi, mfi, cci, pe, marketCap, growthRevenue, growthNetIncome, growthGrossProfit, growthCostOfRevenue, growthCostAndExpenses, growthInterestExpense, growthResearchAndDevelopmentExpenses, growthEBITDA, growthEPS, growthOperatingExpenses, growthOperatingIncome, beta) in raw_data]
 
     stock_screener_data = [{k: round(v, 2) if isinstance(v, (int, float)) else v for k, v in entry.items()} for entry in stock_screener_data]
 
@@ -129,6 +205,9 @@ async def get_stock_screener(con):
         if symbol in stocks_data_map:
             item['price'], item['changesPercentage'] = stocks_data_map[symbol]
         
+        #Financial Statements
+        item.update(get_financial_statements(item, symbol))
+
         try:
             with open(f"json/var/{symbol}.json", 'r') as file:
                 item['var'] = orjson.loads(file.read())['history'][-1]['var']
@@ -197,30 +276,6 @@ async def get_stock_screener(con):
             item['payoutRatio'] = None
             item['dividendGrowth'] = None
 
-        try:
-            with open(f"json/financial-statements/ratios/annual/{symbol}.json", 'r') as file:
-                res = orjson.loads(file.read())[0]
-                
-                item['returnOnAssets'] = round(float(res['returnOnAssets']),2)
-                item['returnOnEquity'] = round(float(res['returnOnEquity']),2)
-                item['debtRatio'] = round(float(res['debtRatio']),2)
-                item['debtEquityRatio'] = round(float(res['debtEquityRatio']),2)
-                item['quickRatio'] = round(float(res['quickRatio']),2)
-                item['currentRatio'] = round(float(res['currentRatio']),2)
-                item['freeCashFlowPerShare'] = round(float(res['freeCashFlowPerShare']),2)
-                item['cashPerShare'] = round(float(res['cashPerShare']),2)
-                item['priceToFreeCashFlowsRatio'] = round(float(res['priceToFreeCashFlowsRatio']),2)
-
-        except:
-            item['returnOnAssets'] = None
-            item['returnOnEquity'] = None
-            item['debtRatio'] = None
-            item['debtEquityRatio'] = None
-            item['quickRatio'] = None
-            item['currentRatio'] = None
-            item['freeCashFlowPerShare'] = None
-            item['cashPerShare'] = None
-            item['priceToFreeCashFlowsRatio'] = None
 
 
         try:

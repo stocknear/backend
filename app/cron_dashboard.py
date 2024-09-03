@@ -233,6 +233,7 @@ async def get_recent_dividends(session):
 		except Exception as e:
 			print(e)
 			pass
+
 	res_list = remove_duplicates(res_list)
 	res_list.sort(key=lambda x: x['marketCap'], reverse=True)
 	res_list = [{k: v for k, v in d.items() if k != 'marketCap'} for d in res_list]
