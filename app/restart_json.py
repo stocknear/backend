@@ -151,6 +151,10 @@ def get_financial_statements(item, symbol):
     except:
         item['freeCashFlowYield'] = None
     try:
+        item['ebitdaMargin'] = (item['ebitda'] / item['revenue']) * 100
+    except:
+        item['ebitdaMargin'] = None
+    try:
         item['revenuePerEmployee'] = round((item['revenue'] / item['employees']),2)
     except:
         item['revenuePerEmployee'] = None
