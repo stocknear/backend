@@ -150,6 +150,14 @@ def get_financial_statements(item, symbol):
         item['freeCashFlowYield'] = (item['freeCashFlow'] / item['marketCap']) * 100
     except:
         item['freeCashFlowYield'] = None
+    try:
+        item['revenuePerEmployee'] = round((item['revenue'] / item['employees']),2)
+    except:
+        item['revenuePerEmployee'] = None
+    try:
+        item['profitPerEmployee'] = round((item['netIncome'] / item['employees']),2)
+    except:
+        item['profitPerEmployee'] = None
 
     return item
 
@@ -220,6 +228,15 @@ async def get_stock_screener(con):
         if symbol in stocks_data_map:
             item['price'], item['changesPercentage'] = stocks_data_map[symbol]
         
+        try:
+            with open(f"json/stockdeck/{symbol}.json", 'r') as file:
+                res = orjson.loads(file.read())[0]
+                item['employees'] = int(res['fullTimeEmployees'])
+                item['sharesOutStanding'] = int(res['sharesOutstanding'])
+        except:
+            item['employees'] = None
+            item['sharesOutStanding'] = None
+
         #Financial Statements
         item.update(get_financial_statements(item, symbol))
 

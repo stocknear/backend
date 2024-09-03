@@ -65,7 +65,7 @@ async def run():
         for i in tqdm(range(0, len(tasks), batch_size)):
             batch = tasks[i:i + batch_size]
             await asyncio.gather(*batch)
-            await asyncio.sleep(5)
+            await asyncio.sleep(30)
 
 if __name__ == "__main__":
     try:
