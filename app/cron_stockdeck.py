@@ -25,7 +25,7 @@ def clean_financial_data(self, list1, list2):
 query_template = """
     SELECT 
         profile, quote,
-        esg_ratings,esg_data,stock_split
+        stock_split
     FROM 
         stocks 
     WHERE

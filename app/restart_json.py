@@ -136,6 +136,11 @@ def get_financial_statements(item, symbol):
     item.update(process_financial_data(f"json/financial-statements/income-statement/annual/{symbol}.json", key_income))
     item.update(process_financial_data(f"json/financial-statements/balance-sheet-statement/annual/{symbol}.json", key_balance_sheet))
 
+    try:
+        item['freeCashFlowMargin'] = (item['freeCashFlow'] / item['revenue']) * 100
+    except:
+        item['freeCashFlowMargin'] = None
+
     return item
 
 async def get_stock_screener(con):

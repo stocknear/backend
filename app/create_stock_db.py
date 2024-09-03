@@ -122,62 +122,8 @@ class StockDatabase:
 
             fundamental_data = {}
 
-            # Check if 'income' and 'income_growth' data already exist for the symbol
-            try:
-                self.cursor.execute("SELECT income, income_growth, balance, balance_growth, cashflow, cashflow_growth, ratios, stock_peers FROM stocks WHERE symbol = ?", (symbol,))
-                existing_data = self.cursor.fetchone()
-                income_exists = existing_data and existing_data[0] is not None
-                income_growth_exists = existing_data and existing_data[1] is not None
-                balance_exists = existing_data and existing_data[0] is not None
-                balance_growth_exists = existing_data and existing_data[1] is not None
-                cashflow_exists = existing_data and existing_data[0] is not None
-                cashflow_growth_exists = existing_data and existing_data[1] is not None
-                ratios_exists = existing_data and existing_data[1] is not None
-                stock_peers_exists = existing_data and existing_data[0] is not None
-                esg_data_exists = existing_data and existing_data[0] is not None
-                esg_ratings_exists = existing_data and existing_data[0] is not None
-            except:
-                income_exists = False
-                income_growth_exists = False
-                balance_exists = False
-                balance_growth_exists = False
-                cashflow_exists = False
-                cashflow_growth_exists = False
-                ratios_exists = False
-                stock_peers_exists = False
-                esg_data_exists = False
-                esg_ratings_exists = False
 
             for url in urls:
-
-                # Skip the API calls if the data already exists
-                if 'income-statement/' in url and income_exists:
-                    print(f"Skipping income-statement for {symbol} as it already exists.")
-                    continue
-                elif 'income-statement-growth/' in url and income_growth_exists:
-                    print(f"Skipping income-statement-growth for {symbol} as it already exists.")
-                    continue
-                elif 'balance-sheet-statement/' in url and balance_exists:
-                    print(f"Skipping balance-statement for {symbol} as it already exists.")
-                    continue
-                elif 'balance-sheet-statement-growth/' in url and balance_growth_exists:
-                    print(f"Skipping balance-statement-growth for {symbol} as it already exists.")
-                    continue
-                elif 'cash-flow-statement/' in url and cashflow_exists:
-                    print(f"Skipping cashflow-statement for {symbol} as it already exists.")
-                    continue
-                elif 'cash-flow-statement-growth/' in url and cashflow_growth_exists:
-                    print(f"Skipping cashflow-statement-growth for {symbol} as it already exists.")
-                    continue
-                elif '/v3/ratios/' in url and ratios_exists:
-                    print(f"Skipping ratios for {symbol} as it already exists.")
-                    continue
-                
-                elif 'stock_peers/' in url and stock_peers_exists:
-                    print(f"Skipping stock_peers for {symbol} as it already exists.")
-                    continue
-
-
 
                 async with session.get(url) as response:
                     data = await response.text()
@@ -307,7 +253,8 @@ class StockDatabase:
                         elif "analyst-estimates" in url:
                             # Handle list response, save as JSON object
                             fundamental_data['analyst_estimates'] = ujson.dumps(parsed_data)
-                    except:
+                    except Exception as e:
+                        print(e)
                         pass
 
 
