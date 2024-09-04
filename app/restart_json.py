@@ -139,19 +139,19 @@ def get_financial_statements(item, symbol):
     item.update(process_financial_data(f"json/financial-statements/balance-sheet-statement/annual/{symbol}.json", key_balance_sheet))
 
     try:
-        item['freeCashFlowMargin'] = (item['freeCashFlow'] / item['revenue']) * 100
+        item['freeCashFlowMargin'] = round((item['freeCashFlow'] / item['revenue']) * 100,2)
     except:
         item['freeCashFlowMargin'] = None
     try:
-        item['earningsYield'] = (item['eps'] / item['price']) * 100
+        item['earningsYield'] = round((item['eps'] / item['price']) * 100,2)
     except:
         item['earningsYield'] = None
     try:
-        item['freeCashFlowYield'] = (item['freeCashFlow'] / item['marketCap']) * 100
+        item['freeCashFlowYield'] = round((item['freeCashFlow'] / item['marketCap']) * 100,2)
     except:
         item['freeCashFlowYield'] = None
     try:
-        item['ebitdaMargin'] = (item['ebitda'] / item['revenue']) * 100
+        item['ebitdaMargin'] = round((item['ebitda'] / item['revenue']) * 100,2)
     except:
         item['ebitdaMargin'] = None
     try:
@@ -293,7 +293,7 @@ async def get_stock_screener(con):
             with open(f"json/forward-pe/{symbol}.json", 'r') as file:
                 res = orjson.loads(file.read())
                 if res['forwardPE'] != 0:
-                    item['forwardPE'] = res['forwardPE']
+                    item['forwardPE'] = round(res['forwardPE'],2)
         except:
             item['forwardPE'] = None
 
