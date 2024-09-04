@@ -172,12 +172,11 @@ async def get_stock_screener(con):
    
     #Stock Screener Data
     
-    cursor.execute("SELECT symbol, name, avgVolume, change_1W, change_1M, change_3M, change_6M, change_1Y, change_3Y, sma_50, sma_200, ema_50, ema_200, rsi, atr, stoch_rsi, mfi, cci, pe, marketCap, growthRevenue, growthNetIncome, growthGrossProfit, growthCostOfRevenue, growthCostAndExpenses, growthInterestExpense, growthResearchAndDevelopmentExpenses, growthEBITDA, growthEPS, growthOperatingExpenses, growthOperatingIncome, beta FROM stocks WHERE symbol NOT LIKE '%.%' AND eps IS NOT NULL AND revenue IS NOT NULL AND marketCap IS NOT NULL AND beta IS NOT NULL")
+    cursor.execute("SELECT symbol, name, change_1W, change_1M, change_3M, change_6M, change_1Y, change_3Y, sma_50, sma_200, ema_50, ema_200, rsi, atr, stoch_rsi, mfi, cci, pe, marketCap, growthRevenue, growthNetIncome, growthGrossProfit, growthCostOfRevenue, growthCostAndExpenses, growthInterestExpense, growthResearchAndDevelopmentExpenses, growthEBITDA, growthEPS, growthOperatingExpenses, growthOperatingIncome, beta FROM stocks WHERE symbol NOT LIKE '%.%' AND eps IS NOT NULL AND revenue IS NOT NULL AND marketCap IS NOT NULL AND beta IS NOT NULL")
     raw_data = cursor.fetchall()
     stock_screener_data = [{
             'symbol': symbol,
             'name': name,
-            'avgVolume': avgVolume,
             'change1W': change_1W,
             'change1M': change_1M,
             'change3M': change_3M,
@@ -207,31 +206,30 @@ async def get_stock_screener(con):
             'growthOperatingExpenses': growthOperatingExpenses,
             'growthOperatingIncome': growthOperatingIncome,
             'beta': beta,
-        } for (symbol, name, avgVolume, change_1W, change_1M, change_3M, change_6M, change_1Y, change_3Y, sma_50, sma_200, ema_50, ema_200, rsi, atr, stoch_rsi, mfi, cci, pe, marketCap, growthRevenue, growthNetIncome, growthGrossProfit, growthCostOfRevenue, growthCostAndExpenses, growthInterestExpense, growthResearchAndDevelopmentExpenses, growthEBITDA, growthEPS, growthOperatingExpenses, growthOperatingIncome, beta) in raw_data]
+        } for (symbol, name, change_1W, change_1M, change_3M, change_6M, change_1Y, change_3Y, sma_50, sma_200, ema_50, ema_200, rsi, atr, stoch_rsi, mfi, cci, pe, marketCap, growthRevenue, growthNetIncome, growthGrossProfit, growthCostOfRevenue, growthCostAndExpenses, growthInterestExpense, growthResearchAndDevelopmentExpenses, growthEBITDA, growthEPS, growthOperatingExpenses, growthOperatingIncome, beta) in raw_data]
 
     stock_screener_data = [{k: round(v, 2) if isinstance(v, (int, float)) else v for k, v in entry.items()} for entry in stock_screener_data]
 
-    cursor.execute("SELECT symbol, name, price, changesPercentage FROM stocks WHERE price IS NOT NULL AND changesPercentage IS NOT NULL")
-    raw_data = cursor.fetchall()
-    stocks_data = [{
-        'symbol': row[0],
-        'name': row[1],
-        'price': row[2],
-        'changesPercentage': row[3],
-    } for row in raw_data]
-
-
-    # Create a dictionary to map symbols to 'price' and 'changesPercentage' from stocks_data
-    stocks_data_map = {entry['symbol']: (entry['price'], entry['changesPercentage']) for entry in stocks_data}
-    
+   
 
     # Iterate through stock_screener_data and update 'price' and 'changesPercentage' if symbols match
     # Add VaR value to stock screener
     for item in tqdm(stock_screener_data):
         symbol = item['symbol']
-        if symbol in stocks_data_map:
-            item['price'], item['changesPercentage'] = stocks_data_map[symbol]
-        
+
+        try:
+            with open(f"json/quote/{symbol}.json", 'r') as file:
+                res = orjson.loads(file.read())
+                item['price'] = round(float(res['price']),2)
+                item['changesPercentage'] = round(float(res['changesPercentage']),2)
+                item['avgVolume'] = int(res['avgVolume'])
+                item['volume'] = int(res['volume'])
+        except:
+            item['price'] = None
+            item['changesPercentage'] = None
+            item['avgVolume'] = None
+            item['volume'] = None
+
         try:
             with open(f"json/stockdeck/{symbol}.json", 'r') as file:
                 res = orjson.loads(file.read())[0]

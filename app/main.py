@@ -1133,9 +1133,6 @@ async def brownian_motion(data:TickerData, api_key: str = Security(get_api_key))
 
 
 
-
-
-
 @app.post("/stock-screener-data")
 async def stock_finder(data:StockScreenerData, api_key: str = Security(get_api_key)):
     rule_of_list = sorted(data.ruleOfList)
@@ -1148,7 +1145,7 @@ async def stock_finder(data:StockScreenerData, api_key: str = Security(get_api_k
             headers={"Content-Encoding": "gzip"}
         )
 
-    always_include = ['symbol', 'marketCap', 'price', 'changesPercentage', 'name']
+    always_include = ['symbol', 'marketCap', 'price', 'changesPercentage', 'name','volume','pe']
 
     try:
         with open(f"json/stock-screener/data.json", 'rb') as file:
