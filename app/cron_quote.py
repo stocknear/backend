@@ -28,7 +28,6 @@ async def get_pre_post_quote_of_stocks(ticker_list):
         url = f"https://financialmodelingprep.com/api/v4/batch-pre-post-market-trade/{ticker_str}?apikey={api_key}"
         async with session.get(url) as response:
             if response.status == 200:
-                print(await response.json())
                 return await response.json()
             else:
                 return {}
