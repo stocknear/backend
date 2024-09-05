@@ -15,6 +15,7 @@ import re
 import hashlib
 import glob
 from tqdm import tqdm
+from utils.country_list import country_list
 
 from dotenv import load_dotenv
 import os
@@ -24,6 +25,7 @@ load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
 
 berlin_tz = pytz.timezone('Europe/Berlin')
+
 
 # Replace NaN values with None in the resulting JSON object
 def replace_nan_inf_with_none(obj):
@@ -165,6 +167,12 @@ def get_financial_statements(item, symbol):
 
     return item
 
+def get_country_name(country_code):
+    for country in country_list:
+        if country['short'] == country_code:
+            return country['long']
+    return None
+
 async def get_stock_screener(con):
     #Stock Screener Data
     cursor = con.cursor()
@@ -235,7 +243,7 @@ async def get_stock_screener(con):
                 res = orjson.loads(file.read())[0]
                 item['employees'] = int(res['fullTimeEmployees'])
                 item['sharesOutStanding'] = int(res['sharesOutstanding'])
-                item['country'] = res['country']
+                item['country'] = get_country_name(res['country'])
                 item['sector'] = res['sector']
         except:
             item['employees'] = None
