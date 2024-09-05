@@ -235,9 +235,13 @@ async def get_stock_screener(con):
                 res = orjson.loads(file.read())[0]
                 item['employees'] = int(res['fullTimeEmployees'])
                 item['sharesOutStanding'] = int(res['sharesOutstanding'])
+                item['country'] = res['country']
+                item['sector'] = res['sector']
         except:
             item['employees'] = None
             item['sharesOutStanding'] = None
+            item['country'] = None
+            item['sector'] = None
 
         #Financial Statements
         item.update(get_financial_statements(item, symbol))
