@@ -24,9 +24,11 @@ async def get_quote_of_stocks(ticker_list):
 async def get_pre_post_quote_of_stocks(ticker_list):
     ticker_str = ','.join(ticker_list)
     async with aiohttp.ClientSession() as session:
-        url = f"https://financialmodelingprep.com/api/v4/batch-pre-post-market/{ticker_str}?apikey={api_key}" 
+        #url = f"https://financialmodelingprep.com/api/v4/batch-pre-post-market/{ticker_str}?apikey={api_key}" 
+        url = f"https://financialmodelingprep.com/api/v4/batch-pre-post-market-trade/{ticker_str}?apikey={api_key}"
         async with session.get(url) as response:
             if response.status == 200:
+                print(await response.json())
                 return await response.json()
             else:
                 return {}
@@ -39,11 +41,11 @@ async def save_pre_post_quote_as_json(symbol, data):
     try:
         with open(f"json/quote/{symbol}.json", 'r') as file:
             previous_close = (ujson.load(file))['price']
-            changes_percentage = round((data['ask']/previous_close-1)*100,2)
+            changes_percentage = round((data['price']/previous_close-1)*100,2)
         with open(f"json/pre-post-quote/{symbol}.json", 'w') as file:
-            res = {'symbol': symbol, 'price': round(data['ask'],2), 'changesPercentage': changes_percentage, 'time': data['timestamp']}
+            res = {'symbol': symbol, 'price': round(data['price'],2), 'changesPercentage': changes_percentage, 'time': data['timestamp']}
             ujson.dump(res, file)
-    except:
+    except Exception as e:
         pass
 
 async def run():
