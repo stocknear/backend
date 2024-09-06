@@ -78,7 +78,7 @@ max_workers = 6
 
 # Fetch pages concurrently
 with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-    future_to_page = {executor.submit(process_page, page): page for page in range(20)}
+    future_to_page = {executor.submit(process_page, page): page for page in range(150)}
     for future in concurrent.futures.as_completed(future_to_page):
         page = future_to_page[future]
         try:

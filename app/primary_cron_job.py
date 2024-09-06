@@ -455,6 +455,15 @@ def run_options_net_flow():
     ]
     run_command(command)
 
+def run_options_gex():
+    run_command(["python3", "cron_options_gex.py"])
+    command = [
+        "sudo", "rsync", "-avz", "-e", "ssh",
+        "/root/backend/app/json/options-gex",
+        f"root@{useast_ip_address}:/root/backend/app/json"
+    ]
+    run_command(command)
+
 def run_government_contract():
     run_command(["python3", "cron_government_contract.py"])
     command = [
@@ -553,6 +562,7 @@ schedule.every().day.at("01:00").do(run_threaded, run_options_bubble_ticker).tag
 schedule.every().day.at("02:00").do(run_threaded, run_db_schedule_job)
 schedule.every().day.at("03:00").do(run_threaded, run_dark_pool)
 schedule.every().day.at("04:00").do(run_threaded, run_options_net_flow).tag('options_net_flow_job')
+schedule.every().day.at("05:00").do(run_threaded, run_options_gex).tag('options_gex_job')
 schedule.every().day.at("06:00").do(run_threaded, run_historical_price).tag('historical_job')
 schedule.every().day.at("06:30").do(run_threaded, run_pocketbase).tag('pocketbase_job')
 
