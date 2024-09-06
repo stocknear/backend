@@ -50,6 +50,72 @@ def generate_id(name):
     hashed = hashlib.sha256(name.encode()).hexdigest()
     return hashed[:10]
 
+def compute_5_year_growth(start_value, end_value):
+    """
+    Compute the 5-year compound annual growth rate (CAGR).
+    """
+    try:
+        if start_value is None or end_value is None or start_value == 0:
+            return None
+        return round(((end_value / start_value) ** (1 / 5)) - 1, 4) * 100  # Return as percentage
+    except (ZeroDivisionError, TypeError):
+        return None
+
+def process_financial_data(file_path, key_list):
+    """
+    Read JSON data from file and extract specified keys with rounding.
+    """
+    data = defaultdict(lambda: None)  # Initialize with default value of None
+    try:
+        with open(file_path, 'r') as file:
+            res = orjson.loads(file.read())[0]
+            for key in key_list:
+                if key in res:
+                    try:
+                        value = float(res[key])
+                        if key in ['grossProfitMargin','netProfitMargin','pretaxProfitMargin','operatingProfitMargin']:
+                            value *= 100  # Multiply by 100 for percentage
+                        data[key] = round(value, 2)
+                    except (ValueError, TypeError):
+                        data[key] = None
+    except (FileNotFoundError, KeyError, IndexError):
+        pass
+
+    return data
+
+def process_financial_growth(file_path, key_list):
+    """
+    Process the financial growth data and calculate 5-year growth rates and latest growth rates.
+    """
+    data = defaultdict(lambda: None)
+    try:
+        with open(file_path, 'r') as file:
+            res = orjson.loads(file.read())
+            if len(res) < 6:  # Ensure we have at least 6 years of data
+                return {key: None for key in key_list}
+            # Get the values for the start (5 years ago) and end (most recent) year
+            start_year_data = res[-6]  # 5 years ago
+            end_year_data = res[-1]    # Most recent year
+            latest_year_data = res[-2] # Year before the most recent
+
+            for key in key_list:
+                start_value = float(start_year_data.get(key, None)) if key in start_year_data else None
+                end_value = float(end_year_data.get(key, None)) if key in end_year_data else None
+                latest_value = float(latest_year_data.get(key, None)) if key in latest_year_data else None
+                
+                # Calculate the 5-year growth rate
+                data[f'5YearGrowth_{key}'] = compute_5_year_growth(start_value, end_value)
+                
+                # Add the latest growth rate (if available)
+                if start_value and latest_value:
+                    data[f'latestGrowth_{key}'] = round(((latest_value / start_value) - 1) * 100, 2)
+                else:
+                    data[f'latestGrowth_{key}'] = None
+    except:
+        data = {f'5YearGrowth_{key}': None for key in key_list}
+        data.update({f'latestGrowth_{key}': None for key in key_list})
+    return data
+
 
 def process_financial_data(file_path, key_list):
     """
@@ -85,7 +151,7 @@ def check_and_process(file_path, key_list):
         return process_financial_data(file_path, key_list)
     else:
         return {key: None for key in key_list}
-        
+
 def get_financial_statements(item, symbol):
     """
     Update item with financial data from various JSON files.
@@ -298,6 +364,13 @@ def get_country_name(country_code):
             return country['long']
     return None
 
+def calculate_cagr(start_value, end_value, periods):
+    try:
+        return round(((end_value / start_value) ** (1 / periods) - 1) * 100, 2)
+    except:
+        return None
+
+
 async def get_stock_screener(con):
     #Stock Screener Data
     cursor = con.cursor()
@@ -369,6 +442,36 @@ async def get_stock_screener(con):
 
         #Financial Statements
         item.update(get_financial_statements(item, symbol))
+
+        try:
+            with open(f"json/financial-statements/income-statement/annual/{symbol}.json", 'r') as file:
+                res = orjson.loads(file.read())
+            
+            # Ensure there are enough elements in the list
+            if len(res) >= 5:
+                latest_revenue = int(res[0].get('revenue', 0))
+                revenue_3_years_ago = int(res[2].get('revenue', 0))
+                revenue_5_years_ago = int(res[4].get('revenue', 0))
+
+                latest_eps = int(res[0].get('eps', 0))
+                eps_3_years_ago = int(res[2].get('eps', 0))  # eps 3 years ago
+                eps_5_years_ago = int(res[4].get('eps', 0))  # eps 5 years ago
+                
+                item['cagr3YearRevenue'] = calculate_cagr(revenue_3_years_ago, latest_revenue, 3)
+                item['cagr5YearRevenue'] = calculate_cagr(revenue_5_years_ago, latest_revenue, 5)
+                item['cagr3YearEPS'] = calculate_cagr(eps_3_years_ago, latest_eps, 3)
+                item['cagr5YearEPS'] = calculate_cagr(eps_5_years_ago, latest_eps, 5)
+            else:
+                item['cagr3YearRevenue'] = None
+                item['cagr5YearRevenue'] = None
+                item['cagr3YearEPS'] = None
+                item['cagr3YearEPS'] = None
+
+        except (FileNotFoundError, orjson.JSONDecodeError) as e:
+            item['cagr3YearRevenue'] = None
+            item['cagr5YearRevenue'] = None
+            item['cagr3YearEPS'] = None
+            item['cagr5YearEPS'] = None
 
         try:
             with open(f"json/var/{symbol}.json", 'r') as file:
