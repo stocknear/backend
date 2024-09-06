@@ -114,8 +114,7 @@ with db_connection(INSTITUTE_DB) as cursor:
 #------Start Stock Screener--------#
 with open(f"json/stock-screener/data.json", 'rb') as file:
         stock_screener_data = orjson.loads(file.read())
-
-print([item for item in stock_screener_data if item['symbol'] == 'TYL'])
+        
 #------End Stock Screener--------#
 
 
