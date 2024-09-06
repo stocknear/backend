@@ -1,6 +1,5 @@
 import os
 import ujson
-import random
 import asyncio
 import aiohttp
 import sqlite3
@@ -35,18 +34,32 @@ async def save_json(symbol, period, data_type, data):
 async def get_financial_statements(session, symbol, semaphore, request_counter):
     base_url = "https://financialmodelingprep.com/api/v3"
     periods = ['quarter', 'annual']
-    data_types = ['income-statement', 'balance-sheet-statement', 'cash-flow-statement', 'ratios']
+    financial_data_types = ['income-statement', 'balance-sheet-statement', 'cash-flow-statement', 'ratios']
+    growth_data_types = ['income-statement-growth', 'balance-sheet-statement-growth', 'cash-flow-statement-growth']
     
     async with semaphore:
         for period in periods:
-            for data_type in data_types:
+            # Fetch regular financial statements
+            for data_type in financial_data_types:
                 url = f"{base_url}/{data_type}/{symbol}?period={period}&apikey={api_key}"
                 data = await fetch_data(session, url, symbol)
                 if data:
                     await save_json(symbol, period, data_type, data)
                 
                 request_counter[0] += 1  # Increment the request counter
-                if request_counter[0] >= 1000:
+                if request_counter[0] >= 500:
+                    await asyncio.sleep(60)  # Pause for 60 seconds
+                    request_counter[0] = 0  # Reset the request counter after the pause
+            
+            # Fetch financial statement growth data
+            for growth_type in growth_data_types:
+                growth_url = f"{base_url}/{growth_type}/{symbol}?period={period}&apikey={api_key}"
+                growth_data = await fetch_data(session, growth_url, symbol)
+                if growth_data:
+                    await save_json(symbol, period, growth_type, growth_data)
+
+                request_counter[0] += 1  # Increment the request counter
+                if request_counter[0] >= 500:
                     await asyncio.sleep(60)  # Pause for 60 seconds
                     request_counter[0] = 0  # Reset the request counter after the pause
 

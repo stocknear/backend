@@ -111,6 +111,14 @@ with db_connection(INSTITUTE_DB) as cursor:
   cik_list = [row[0] for row in cursor.fetchall()]
 #------End Institute DB------------#
 
+#------Start Stock Screener--------#
+with open(f"json/stock-screener/data.json", 'rb') as file:
+        stock_screener_data = orjson.loads(file.read())
+
+print([item for item in stock_screener_data if item['symbol'] == 'TYL'])
+#------End Stock Screener--------#
+
+
 ### TECH DEBT ###
 con = sqlite3.connect('stocks.db')
 etf_con = sqlite3.connect('etf.db')
@@ -1148,12 +1156,10 @@ async def stock_finder(data:StockScreenerData, api_key: str = Security(get_api_k
     always_include = ['symbol', 'marketCap', 'price', 'changesPercentage', 'name','volume','pe']
 
     try:
-        with open(f"json/stock-screener/data.json", 'rb') as file:
-            data = orjson.loads(file.read())
-            filtered_data = [
-                {key: item.get(key) for key in set(always_include + rule_of_list) if key in item}
-                for item in data
-            ]
+        filtered_data = [
+            {key: item.get(key) for key in set(always_include + rule_of_list) if key in item}
+            for item in stock_screener_data
+        ]
     except Exception as e:
         filtered_data = []
 

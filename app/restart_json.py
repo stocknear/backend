@@ -63,15 +63,29 @@ def process_financial_data(file_path, key_list):
                 if key in res:
                     try:
                         value = float(res[key])
-                        if key in ['grossProfitMargin','netProfitMargin','pretaxProfitMargin','operatingProfitMargin']:
-                            value *= 100  # Multiply by 100 if key is 'grossProfitMargin'
+                        if 'growth' in file_path or key in ['grossProfitMargin','netProfitMargin','pretaxProfitMargin','operatingProfitMargin']:
+                            value *= 100  # Multiply by 100 for percentage
                         data[key] = round(value, 2)
                     except (ValueError, TypeError):
+                        # If there's an issue converting the value, leave it as None
                         data[key] = None
-    except:
+    except (FileNotFoundError, KeyError, IndexError):
+        # If the file doesn't exist or there's an issue reading the data,
+        # data will retain None as the default value for all keys
         pass
+
     return data
 
+def check_and_process(file_path, key_list):
+    """
+    Check if the file exists, and then process the financial data if it does.
+    If the file doesn't exist, return a dictionary with all keys set to None.
+    """
+    if os.path.exists(file_path):
+        return process_financial_data(file_path, key_list)
+    else:
+        return {key: None for key in key_list}
+        
 def get_financial_statements(item, symbol):
     """
     Update item with financial data from various JSON files.
@@ -134,12 +148,123 @@ def get_financial_statements(item, symbol):
         "totalInvestments", "totalDebt", "netDebt"
     ]
 
-    # Process each financial statement
-    item.update(process_financial_data(f"json/financial-statements/ratios/annual/{symbol}.json", key_ratios))
-    item.update(process_financial_data(f"json/financial-statements/cash-flow-statement/annual/{symbol}.json", key_cash_flow))
-    item.update(process_financial_data(f"json/financial-statements/income-statement/annual/{symbol}.json", key_income))
-    item.update(process_financial_data(f"json/financial-statements/balance-sheet-statement/annual/{symbol}.json", key_balance_sheet))
+    key_income_growth = [
+        "growthRevenue",
+        "growthCostOfRevenue",
+        "growthGrossProfit",
+        "growthGrossProfitRatio",
+        "growthResearchAndDevelopmentExpenses",
+        "growthGeneralAndAdministrativeExpenses",
+        "growthSellingAndMarketingExpenses",
+        "growthOtherExpenses",
+        "growthOperatingExpenses",
+        "growthCostAndExpenses",
+        "growthInterestExpense",
+        "growthDepreciationAndAmortization",
+        "growthEBITDA",
+        "growthEBITDARatio",
+        "growthOperatingIncome",
+        "growthOperatingIncomeRatio",
+        "growthTotalOtherIncomeExpensesNet",
+        "growthIncomeBeforeTax",
+        "growthIncomeBeforeTaxRatio",
+        "growthIncomeTaxExpense",
+        "growthNetIncome",
+        "growthNetIncomeRatio",
+        "growthEPS",
+        "growthEPSDiluted",
+        "growthWeightedAverageShsOut",
+        "growthWeightedAverageShsOutDil"
+    ]
+    key_cash_flow_growth = [
+    "growthNetIncome",
+    "growthDepreciationAndAmortization",
+    "growthDeferredIncomeTax",
+    "growthStockBasedCompensation",
+    "growthChangeInWorkingCapital",
+    "growthAccountsReceivables",
+    "growthInventory",
+    "growthAccountsPayables",
+    "growthOtherWorkingCapital",
+    "growthOtherNonCashItems",
+    "growthNetCashProvidedByOperatingActivites",
+    "growthInvestmentsInPropertyPlantAndEquipment",
+    "growthAcquisitionsNet",
+    "growthPurchasesOfInvestments",
+    "growthSalesMaturitiesOfInvestments",
+    "growthOtherInvestingActivites",
+    "growthNetCashUsedForInvestingActivites",
+    "growthDebtRepayment",
+    "growthCommonStockIssued",
+    "growthCommonStockRepurchased",
+    "growthDividendsPaid",
+    "growthOtherFinancingActivites",
+    "growthNetCashUsedProvidedByFinancingActivities",
+    "growthEffectOfForexChangesOnCash",
+    "growthNetChangeInCash",
+    "growthCashAtEndOfPeriod",
+    "growthCashAtBeginningOfPeriod",
+    "growthOperatingCashFlow",
+    "growthCapitalExpenditure",
+    "growthFreeCashFlow"
+]
+    key_balance_sheet_growth = [
+        "growthCashAndCashEquivalents",
+        "growthShortTermInvestments",
+        "growthCashAndShortTermInvestments",
+        "growthNetReceivables",
+        "growthInventory",
+        "growthOtherCurrentAssets",
+        "growthTotalCurrentAssets",
+        "growthPropertyPlantEquipmentNet",
+        "growthGoodwill",
+        "growthIntangibleAssets",
+        "growthGoodwillAndIntangibleAssets",
+        "growthLongTermInvestments",
+        "growthTaxAssets",
+        "growthOtherNonCurrentAssets",
+        "growthTotalNonCurrentAssets",
+        "growthOtherAssets",
+        "growthTotalAssets",
+        "growthAccountPayables",
+        "growthShortTermDebt",
+        "growthTaxPayables",
+        "growthDeferredRevenue",
+        "growthOtherCurrentLiabilities",
+        "growthTotalCurrentLiabilities",
+        "growthLongTermDebt",
+        "growthDeferredRevenueNonCurrent",
+        "growthDeferredTaxLiabilitiesNonCurrent",
+        "growthOtherNonCurrentLiabilities",
+        "growthTotalNonCurrentLiabilities",
+        "growthOtherLiabilities",
+        "growthTotalLiabilities",
+        "growthCommonStock",
+        "growthRetainedEarnings",
+        "growthAccumulatedOtherComprehensiveIncomeLoss",
+        "growthOtherTotalStockholdersEquity",
+        "growthTotalStockholdersEquity",
+        "growthTotalLiabilitiesAndStockholdersEquity",
+        "growthTotalInvestments",
+        "growthTotalDebt",
+        "growthNetDebt"
+    ]
 
+    # Process each financial statement
+    statements = [
+        (f"json/financial-statements/ratios/annual/{symbol}.json", key_ratios),
+        (f"json/financial-statements/cash-flow-statement/annual/{symbol}.json", key_cash_flow),
+        (f"json/financial-statements/income-statement/annual/{symbol}.json", key_income),
+        (f"json/financial-statements/balance-sheet-statement/annual/{symbol}.json", key_balance_sheet),
+        (f"json/financial-statements/income-statement-growth/annual/{symbol}.json", key_income_growth),
+        (f"json/financial-statements/balance-sheet-statement-growth/annual/{symbol}.json", key_balance_sheet_growth),
+        (f"json/financial-statements/cash-flow-statement-growth/annual/{symbol}.json", key_cash_flow_growth)
+    ]
+
+    # Process each financial statement
+    for file_path, key_list in statements:
+        item.update(check_and_process(file_path, key_list))
+    
     try:
         item['freeCashFlowMargin'] = round((item['freeCashFlow'] / item['revenue']) * 100,2)
     except:
@@ -180,7 +305,7 @@ async def get_stock_screener(con):
    
     #Stock Screener Data
     
-    cursor.execute("SELECT symbol, name, change_1W, change_1M, change_3M, change_6M, change_1Y, change_3Y, sma_50, sma_200, ema_50, ema_200, rsi, atr, stoch_rsi, mfi, cci, pe, marketCap, growthRevenue, growthNetIncome, growthGrossProfit, growthCostOfRevenue, growthCostAndExpenses, growthInterestExpense, growthResearchAndDevelopmentExpenses, growthEBITDA, growthEPS, growthOperatingExpenses, growthOperatingIncome, beta FROM stocks WHERE symbol NOT LIKE '%.%' AND eps IS NOT NULL AND revenue IS NOT NULL AND marketCap IS NOT NULL AND beta IS NOT NULL")
+    cursor.execute("SELECT symbol, name, change_1W, change_1M, change_3M, change_6M, change_1Y, change_3Y, sma_50, sma_200, ema_50, ema_200, rsi, atr, stoch_rsi, mfi, cci, pe, marketCap, beta FROM stocks WHERE symbol NOT LIKE '%.%' AND eps IS NOT NULL AND marketCap IS NOT NULL AND beta IS NOT NULL")
     raw_data = cursor.fetchall()
     stock_screener_data = [{
             'symbol': symbol,
@@ -202,23 +327,14 @@ async def get_stock_screener(con):
             'cci': cci,
             'pe': pe,
             'marketCap': marketCap,
-            'growthRevenue': growthRevenue,
-            'growthNetIncome': growthNetIncome,
-            'growthGrossProfit': growthGrossProfit,
-            'growthCostOfRevenue': growthCostOfRevenue,
-            'growthCostAndExpenses': growthCostAndExpenses,
-            'growthInterestExpense': growthInterestExpense,
-            'growthResearchAndDevelopmentExpenses': growthResearchAndDevelopmentExpenses,
-            'growthEBITDA': growthEBITDA,
-            'growthEPS': growthEPS,
-            'growthOperatingExpenses': growthOperatingExpenses,
-            'growthOperatingIncome': growthOperatingIncome,
             'beta': beta,
-        } for (symbol, name, change_1W, change_1M, change_3M, change_6M, change_1Y, change_3Y, sma_50, sma_200, ema_50, ema_200, rsi, atr, stoch_rsi, mfi, cci, pe, marketCap, growthRevenue, growthNetIncome, growthGrossProfit, growthCostOfRevenue, growthCostAndExpenses, growthInterestExpense, growthResearchAndDevelopmentExpenses, growthEBITDA, growthEPS, growthOperatingExpenses, growthOperatingIncome, beta) in raw_data]
+        } for (symbol, name, change_1W, change_1M, change_3M, change_6M, change_1Y, change_3Y, sma_50, sma_200, ema_50, ema_200, rsi, atr, stoch_rsi, mfi, cci, pe, marketCap, beta) in raw_data]
 
     stock_screener_data = [{k: round(v, 2) if isinstance(v, (int, float)) else v for k, v in entry.items()} for entry in stock_screener_data]
 
    
+    cursor.execute("SELECT symbol, name, change_1W, change_1M, change_3M, change_6M, change_1Y, change_3Y, sma_50, sma_200, ema_50, ema_200, rsi, atr, stoch_rsi, mfi, cci, pe, marketCap, beta FROM stocks WHERE symbol NOT LIKE '%.%' AND eps IS NOT NULL AND marketCap IS NOT NULL AND beta IS NOT NULL")
+    raw_data = cursor.fetchall()
 
     # Iterate through stock_screener_data and update 'price' and 'changesPercentage' if symbols match
     # Add VaR value to stock screener
