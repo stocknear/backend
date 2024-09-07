@@ -355,6 +355,14 @@ def get_financial_statements(item, symbol):
         item['profitPerEmployee'] = round((item['netIncome'] / item['employees']),2)
     except:
         item['profitPerEmployee'] = None
+    try:
+        tax_rate = item['incomeTaxExpense'] / item['incomeBeforeTax'] if item['incomeBeforeTax'] != 0 else 0
+        nopat = item['operatingIncome'] * (1 - tax_rate)
+        invested_capital = item['totalDebt'] + item['totalEquity']
+        item['returnOnInvestedCapital'] = round((nopat / invested_capital)*100,2) if invested_capital != 0 else None
+    except:
+        item['returnOnInvestedCapital'] = None
+
 
     return item
 
