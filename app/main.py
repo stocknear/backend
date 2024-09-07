@@ -2516,6 +2516,7 @@ async def get_options_flow_ticker(data:TickerData, api_key: str = Security(get_a
             filtered_item = {key: value for key, value in item.items() if key in keys_to_keep}
             filtered_item['type'] = filtered_item['option_activity_type'].capitalize()
             filtered_item['sentiment'] = filtered_item['sentiment'].capitalize()
+            filtered_item['underlying_price'] = round(float(filtered_item['underlying_price']),2)
             #filtered_item['time'] = (datetime.strptime(filtered_item['time'], '%H:%M:%S')-timedelta(hours=0)).strftime('%H:%M:%S')
             filtered_item['put_call'] = 'Calls' if filtered_item['put_call'] == 'CALL' else 'Puts'
             res_list.append(filtered_item)

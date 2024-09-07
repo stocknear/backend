@@ -46,21 +46,29 @@ def gamma(S, K, T, r, sigma):
         return 0
 
 def compute_gex(option_data, r=0.05, sigma=0.2):
-    S = float(option_data['underlying_price'])
-    K = float(option_data['strike_price'])
-    size = float(option_data['open_interest'])
-    expiration_date = datetime.strptime(option_data['date_expiration'], "%Y-%m-%d")
+
     timestamp = datetime.strptime(option_data['date'], "%Y-%m-%d")
-    T = (expiration_date - timestamp).days / 365.0
-    if T <= 0:
+
+    try:
+        S = float(option_data['underlying_price'])
+        K = float(option_data['strike_price'])
+        size = float(option_data['open_interest'])
+        expiration_date = datetime.strptime(option_data['date_expiration'], "%Y-%m-%d")
+        T = (expiration_date - timestamp).days / 365.0
+        if T < 0:
+            return 0, timestamp.date()
+        elif T == 0:
+            T = 1 #Consider 0DTE options
+
+        option_type = option_data['put_call']
+        delta_value = delta(S, K, T, r, sigma, option_type)
+        gamma_value = gamma(S, K, T, r, sigma)
+        notional = size * S
+        gex = gamma_value * size * int(option_data['volume']) * S #gamma_value * notional * delta_value
+
+        return gex, timestamp.date()
+    except:
         return 0, timestamp.date()
-    
-    option_type = option_data['put_call']
-    delta_value = delta(S, K, T, r, sigma, option_type)
-    gamma_value = gamma(S, K, T, r, sigma)
-    notional = size * S
-    gex = gamma_value * notional * delta_value
-    return gex, timestamp.date()
 
 def compute_daily_gex(option_data_list, volatility):
     gex_data = []
@@ -98,10 +106,19 @@ start_date_str = start_date.strftime('%Y-%m-%d')
 
 # Connect to SQLite database
 stock_con = sqlite3.connect('stocks.db')
+etf_con = sqlite3.connect('etf.db')
+
 stock_cursor = stock_con.cursor()
 stock_cursor.execute("PRAGMA journal_mode = wal")
-stock_cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%' AND marketCap >= 1E9")
+stock_cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%' AND marketCap >= 500E6")
 stock_symbols = [row[0] for row in stock_cursor.fetchall()]
+
+etf_cursor = etf_con.cursor()
+etf_cursor.execute("PRAGMA journal_mode = wal")
+etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
+etf_symbols = [row[0] for row in etf_cursor.fetchall()]
+
+total_symbols = stock_symbols + etf_symbols
 
 query_template = """
     SELECT date, close
@@ -110,20 +127,22 @@ query_template = """
 """
 
 # Process each symbol
-for ticker in stock_symbols:
+for ticker in total_symbols:
     try:
         query = query_template.format(ticker=ticker)
-        df_price = pd.read_sql_query(query, stock_con, params=(start_date_str, end_date_str)).round(2)
+        df_price = pd.read_sql_query(query, stock_con if ticker in stock_symbols else etf_con, params=(start_date_str, end_date_str)).round(2)
         volatility = calculate_volatility(df_price)
-        
+
         ticker_data = get_data(ticker)
         daily_gex = compute_daily_gex(ticker_data, volatility)
         daily_gex = daily_gex.merge(df_price, on='date', how='inner')
-        
         if not daily_gex.empty:
             save_json(ticker, daily_gex.to_dict('records'))
-    except:
+
+    except Exception as e:
+        print(e)
         pass
 
 # Close the database connection
 stock_con.close()
+etf_con.close()
