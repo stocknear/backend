@@ -429,11 +429,13 @@ async def get_stock_screener(con):
                 item['changesPercentage'] = round(float(res['changesPercentage']),2)
                 item['avgVolume'] = int(res['avgVolume'])
                 item['volume'] = int(res['volume'])
+                item['relativeVolume'] = round(( item['volume'] / item['avgVolume'] )*100,2)
         except:
             item['price'] = None
             item['changesPercentage'] = None
             item['avgVolume'] = None
             item['volume'] = None
+            item['relativeVolume'] = None
 
         try:
             with open(f"json/stockdeck/{symbol}.json", 'r') as file:
