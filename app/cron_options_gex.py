@@ -4,6 +4,7 @@ from datetime import datetime, date, timedelta
 import pandas as pd
 from benzinga import financial_data
 import ujson
+from collections import defaultdict
 import sqlite3
 import os
 from dotenv import load_dotenv
@@ -222,6 +223,20 @@ def get_data(ticker):
             break
     return res_list
 
+
+# Define the keys to keep
+keys_to_keep = {'time', 'sentiment', 'option_activity_type', 'price', 'underlying_price', 'cost_basis', 'strike_price', 'date', 'date_expiration', 'open_interest', 'put_call', 'volume'}
+
+def filter_data(item):
+    # Filter the item to keep only the specified keys and format fields
+    filtered_item = {key: value for key, value in item.items() if key in keys_to_keep}
+    filtered_item['type'] = filtered_item['option_activity_type'].capitalize()
+    filtered_item['sentiment'] = filtered_item['sentiment'].capitalize()
+    filtered_item['underlying_price'] = round(float(filtered_item['underlying_price']), 2)
+    filtered_item['put_call'] = 'Calls' if filtered_item['put_call'] == 'CALL' else 'Puts'
+    return filtered_item
+
+
 # Define date range
 end_date = date.today()
 start_date = end_date - timedelta(180)
@@ -251,7 +266,7 @@ query_template = """
 """
 
 # Process each symbol
-for ticker in ['GME']: #total_symbols:
+for ticker in ['GME']:  # total_symbols
     try:
         query = query_template.format(ticker=ticker)
         df_price = pd.read_sql_query(query, stock_con if ticker in stock_symbols else etf_con, params=(start_date_str, end_date_str)).round(2)
@@ -260,16 +275,26 @@ for ticker in ['GME']: #total_symbols:
         volatility = calculate_volatility(df_price)
 
         ticker_data = get_data(ticker)
+        
+        # Group ticker_data by 'date' and collect all items for each date
+        grouped_history = defaultdict(list)
+        for item in ticker_data:
+            filtered_item = filter_data(item)
+            grouped_history[filtered_item['date']].append(filtered_item)
+
         daily_option_chain = summarize_option_chain_with_otm(ticker_data, df_price)
         daily_option_chain = daily_option_chain.merge(df_price[['date', 'changesPercentage']], on='date', how='inner')
+
+        # Add "history" column containing all filtered items with the same date
+        daily_option_chain['history'] = daily_option_chain['date'].apply(lambda x: grouped_history.get(x, []))
+
         if not daily_option_chain.empty:
             save_json(ticker, daily_option_chain.to_dict('records'), 'json/options-chain/companies')
-
 
         daily_gex = compute_daily_gex(ticker_data, volatility)
         daily_gex = daily_gex.merge(df_price[['date', 'close']], on='date', how='inner')
         if not daily_gex.empty:
-            save_json(ticker, daily_gex.to_dict('records'),'json/options-gex/companies')
+            save_json(ticker, daily_gex.to_dict('records'), 'json/options-gex/companies')
 
     except Exception as e:
         print(e)
