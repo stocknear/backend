@@ -292,6 +292,8 @@ class HeatMapData(BaseModel):
 class StockScreenerData(BaseModel):
     ruleOfList: List[str]
 
+class TransactionId(BaseModel):
+    transactionId: str
 
 
 # Replace NaN values with None in the resulting JSON object
@@ -2606,6 +2608,36 @@ async def get_options_chain(data:TickerData, api_key: str = Security(get_api_key
         with open(f"json/options-chain/companies/{ticker}.json", 'rb') as file:
             res_list = orjson.loads(file.read())
     except:
+        res_list = []
+
+    data = orjson.dumps(res_list)
+    compressed_data = gzip.compress(data)
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 5 min
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
+
+@app.post("/options-daily-transactions")
+async def get_options_chain(data:TransactionId, api_key: str = Security(get_api_key)):
+    transactionId = data.transactionId
+    print(transactionId)
+    cache_key = f"options-daily-transactions-{transactionId}"
+
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+        io.BytesIO(cached_result),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"})
+    try:
+        with open(f"json/options-historical-data/history/{transactionId}.json", 'rb') as file:
+            res_list = orjson.loads(file.read())
+    except Exception as e:
+        print(e)
         res_list = []
 
     data = orjson.dumps(res_list)

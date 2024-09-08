@@ -14,9 +14,13 @@ load_dotenv()
 api_key = os.getenv('BENZINGA_API_KEY')
 fin = financial_data.Benzinga(api_key)
 
-def save_json(symbol, data, file_path):
-    with open(f'{file_path}/{symbol}.json', 'w') as file:
-        ujson.dump(data, file)
+def save_json(symbol, data, file_path,filename=None):
+    if filename == None:
+        with open(f'{file_path}/{symbol}.json', 'w') as file:
+            ujson.dump(data, file)
+    else:
+        with open(f'{file_path}/{filename}.json', 'w') as file:
+            ujson.dump(data, file)
 
 
 # Define the keys to keep
@@ -344,14 +348,30 @@ for ticker in total_symbols:
         # Group ticker_data by 'date' and collect all items for each date
         grouped_history = defaultdict(list)
         for item in ticker_data:
-            filtered_item = filter_data(item)
-            grouped_history[filtered_item['date']].append(filtered_item)
+            try:
+                filtered_item = filter_data(item)
+                grouped_history[filtered_item['date']].append(filtered_item)
+                # Save each date's transactions separately
+            except:
+                pass
+        #save all single transaction from the daily date separately for faster performance of the end user. File would be too big.
+        for date, data in grouped_history.items():
+            try:
+                # Create a filename based on ticker and date, e.g., "AAPL_2024-09-07.json"
+                filename = f"{ticker}-{date}"
+                
+                # Save the JSON to the specified folder for historical data
+                save_json(ticker, data, 'json/options-historical-data/history', filename)
+            except:
+                pass
+
 
         daily_historical_option_data = get_historical_option_data(ticker_data, df_price)
         daily_historical_option_data = daily_historical_option_data.merge(df_price[['date', 'changesPercentage']], on='date', how='inner')
 
+
         # Add "history" column containing all filtered items with the same date
-        daily_historical_option_data['history'] = daily_historical_option_data['date'].apply(lambda x: grouped_history.get(x, []))
+        #daily_historical_option_data['history'] = daily_historical_option_data['date'].apply(lambda x: grouped_history.get(x, []))
 
         if not daily_historical_option_data.empty:
             save_json(ticker, daily_historical_option_data.to_dict('records'), 'json/options-historical-data/companies')
@@ -367,7 +387,7 @@ for ticker in total_symbols:
         daily_gex = daily_gex.merge(df_price[['date', 'close']], on='date', how='inner')
         if not daily_gex.empty:
             save_json(ticker, daily_gex.to_dict('records'), 'json/options-gex/companies')
-
+        
     except Exception as e:
         print(e)
         pass
