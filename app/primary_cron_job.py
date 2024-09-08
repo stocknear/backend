@@ -464,6 +464,13 @@ def run_options_gex():
     ]
     run_command(command)
 
+    command = [
+        "sudo", "rsync", "-avz", "-e", "ssh",
+        "/root/backend/app/json/options-chain",
+        f"root@{useast_ip_address}:/root/backend/app/json"
+    ]
+    run_command(command)
+
 def run_government_contract():
     run_command(["python3", "cron_government_contract.py"])
     command = [
