@@ -44,6 +44,9 @@ def compute_var(df):
     var = np.percentile(df['Returns'], 100 * (1 - confidence_level))
     var_N_days = round(var * np.sqrt(len(df)) * 100, 2)  # N days: the length of df represents the N days
 
+    if var_N_days <= -100:
+        var_N_days = -99
+
     return var_N_days  # Positive value represents a loss
 
 async def run():
