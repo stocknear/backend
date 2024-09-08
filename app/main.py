@@ -2563,10 +2563,38 @@ async def get_options_flow_ticker(data:TickerData, api_key: str = Security(get_a
         headers={"Content-Encoding": "gzip"}
     )
 
-@app.post("/options-chain-ticker")
+@app.post("/options-historical-data-ticker")
 async def get_options_chain(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
-    cache_key = f"options-chain-{ticker}"
+    cache_key = f"options-historical-data-{ticker}"
+
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+        io.BytesIO(cached_result),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"})
+    try:
+        with open(f"json/options-historical-data/companies/{ticker}.json", 'rb') as file:
+            res_list = orjson.loads(file.read())
+    except:
+        res_list = []
+
+    data = orjson.dumps(res_list)
+    compressed_data = gzip.compress(data)
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 5 min
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
+
+@app.post("/options-chain-data-ticker")
+async def get_options_chain(data:TickerData, api_key: str = Security(get_api_key)):
+    ticker = data.ticker.upper()
+    cache_key = f"options-chain-data-{ticker}"
 
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -2590,7 +2618,6 @@ async def get_options_chain(data:TickerData, api_key: str = Security(get_api_key
         media_type="application/json",
         headers={"Content-Encoding": "gzip"}
     )
-
 
 '''
 @app.post("/options-flow-feed")

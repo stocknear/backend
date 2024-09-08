@@ -18,6 +18,20 @@ def save_json(symbol, data, file_path):
     with open(f'{file_path}/{symbol}.json', 'w') as file:
         ujson.dump(data, file)
 
+
+# Define the keys to keep
+keys_to_keep = {'time', 'sentiment', 'option_activity_type', 'price', 'underlying_price', 'cost_basis', 'strike_price', 'date', 'date_expiration', 'open_interest', 'put_call', 'volume'}
+
+def filter_data(item):
+    # Filter the item to keep only the specified keys and format fields
+    filtered_item = {key: value for key, value in item.items() if key in keys_to_keep}
+    filtered_item['type'] = filtered_item['option_activity_type'].capitalize()
+    filtered_item['sentiment'] = filtered_item['sentiment'].capitalize()
+    filtered_item['underlying_price'] = round(float(filtered_item['underlying_price']), 2)
+    filtered_item['put_call'] = 'Calls' if filtered_item['put_call'] == 'CALL' else 'Puts'
+    return filtered_item
+
+
 def calculate_volatility(prices_df):
     prices_df = prices_df.sort_values(by='date')
     prices_df['return'] = prices_df['close'].pct_change()
@@ -103,7 +117,7 @@ def calculate_otm_percentage(option_data_list):
         return 0
 
 
-def summarize_option_chain_with_otm(option_data_list, df_price):
+def get_historical_option_data(option_data_list, df_price):
     summary_data = []
 
     for option_data in option_data_list:
@@ -207,6 +221,70 @@ def summarize_option_chain_with_otm(option_data_list, df_price):
     # Return the summarized dataframe
     return daily_summary
 
+def get_options_chain(option_data_list):
+    # Convert raw data to DataFrame and ensure correct data types
+    df = pd.DataFrame(option_data_list)
+    type_conversions = {
+        'cost_basis': float,
+        'volume': int,
+        'open_interest': int,
+        'strike_price': float,
+        'date_expiration': str  # Ensuring date_expiration is initially a string
+    }
+    for col, dtype in type_conversions.items():
+        df[col] = df[col].astype(dtype)
+    
+    # Convert 'date_expiration' to datetime
+    df['date_expiration'] = pd.to_datetime(df['date_expiration'])
+    
+    # Filter out rows where 'date_expiration' is in the past
+    current_date = datetime.now()
+    df = df[df['date_expiration'] > current_date]
+    
+    # Calculate total premium during grouping
+    df['total_premium'] = df['cost_basis']
+    
+    # Group and aggregate data
+    grouped = df.groupby(['date_expiration', 'strike_price', 'put_call']).agg(
+        total_open_interest=('open_interest', 'sum'),
+        total_volume=('volume', 'sum'),
+        total_premium=('total_premium', 'sum')
+    ).reset_index()
+    
+    # Pivot the data for puts and calls
+    pivoted = grouped.pivot_table(
+        index=['date_expiration', 'strike_price'],
+        columns='put_call',
+        values=['total_open_interest', 'total_volume', 'total_premium'],
+        fill_value=0
+    ).reset_index()
+    
+    # Flatten column names
+    pivoted.columns = [' '.join(col).strip() for col in pivoted.columns.values]
+    
+    # Rename columns for clarity
+    new_column_names = {
+        'total_open_interest CALL': 'total_open_interest_call',
+        'total_open_interest PUT': 'total_open_interest_put',
+        'total_volume CALL': 'total_volume_call',
+        'total_volume PUT': 'total_volume_put',
+        'total_premium CALL': 'total_premium_call',
+        'total_premium PUT': 'total_premium_put'
+    }
+    pivoted = pivoted.rename(columns=new_column_names)
+    
+    # Convert 'date_expiration' to string in ISO format
+    pivoted['date_expiration'] = pivoted['date_expiration'].dt.strftime('%Y-%m-%dT%H:%M:%S')
+    
+    # Ensure we capture all relevant columns
+    columns_to_keep = ['strike_price'] + [col for col in pivoted.columns if col not in ['strike_price', 'date_expiration']]
+    
+    # Construct the options chain
+    option_chain = pivoted.groupby('date_expiration').apply(
+        lambda x: x[columns_to_keep].to_dict(orient='records')
+    ).reset_index(name='chain')
+    
+    return option_chain
 
 def get_data(ticker):
     res_list = []
@@ -222,19 +300,6 @@ def get_data(ticker):
             print(f"Error retrieving data for {ticker}: {e}")
             break
     return res_list
-
-
-# Define the keys to keep
-keys_to_keep = {'time', 'sentiment', 'option_activity_type', 'price', 'underlying_price', 'cost_basis', 'strike_price', 'date', 'date_expiration', 'open_interest', 'put_call', 'volume'}
-
-def filter_data(item):
-    # Filter the item to keep only the specified keys and format fields
-    filtered_item = {key: value for key, value in item.items() if key in keys_to_keep}
-    filtered_item['type'] = filtered_item['option_activity_type'].capitalize()
-    filtered_item['sentiment'] = filtered_item['sentiment'].capitalize()
-    filtered_item['underlying_price'] = round(float(filtered_item['underlying_price']), 2)
-    filtered_item['put_call'] = 'Calls' if filtered_item['put_call'] == 'CALL' else 'Puts'
-    return filtered_item
 
 
 # Define date range
@@ -266,7 +331,7 @@ query_template = """
 """
 
 # Process each symbol
-for ticker in ['GME']:  # total_symbols
+for ticker in total_symbols:
     try:
         query = query_template.format(ticker=ticker)
         df_price = pd.read_sql_query(query, stock_con if ticker in stock_symbols else etf_con, params=(start_date_str, end_date_str)).round(2)
@@ -282,14 +347,21 @@ for ticker in ['GME']:  # total_symbols
             filtered_item = filter_data(item)
             grouped_history[filtered_item['date']].append(filtered_item)
 
-        daily_option_chain = summarize_option_chain_with_otm(ticker_data, df_price)
-        daily_option_chain = daily_option_chain.merge(df_price[['date', 'changesPercentage']], on='date', how='inner')
+        daily_historical_option_data = get_historical_option_data(ticker_data, df_price)
+        daily_historical_option_data = daily_historical_option_data.merge(df_price[['date', 'changesPercentage']], on='date', how='inner')
 
         # Add "history" column containing all filtered items with the same date
-        daily_option_chain['history'] = daily_option_chain['date'].apply(lambda x: grouped_history.get(x, []))
+        daily_historical_option_data['history'] = daily_historical_option_data['date'].apply(lambda x: grouped_history.get(x, []))
 
-        if not daily_option_chain.empty:
-            save_json(ticker, daily_option_chain.to_dict('records'), 'json/options-chain/companies')
+        if not daily_historical_option_data.empty:
+            save_json(ticker, daily_historical_option_data.to_dict('records'), 'json/options-historical-data/companies')
+
+
+        option_chain_data = get_options_chain(ticker_data)
+        if not option_chain_data.empty:
+            save_json(ticker, option_chain_data.to_dict('records'), 'json/options-chain/companies')
+
+
 
         daily_gex = compute_daily_gex(ticker_data, volatility)
         daily_gex = daily_gex.merge(df_price[['date', 'close']], on='date', how='inner')
