@@ -19,35 +19,6 @@ def date_range_days(steps=20):
         yield start_date.strftime("%Y-%m-%d"), min(next_date, end_date).strftime("%Y-%m-%d")
         start_date = next_date
 
-def get_existing_data(symbol, interval):
-    file_path = f"json/export/price/{interval}/{symbol}.json"
-    if os.path.exists(file_path):
-        with open(file_path, 'r') as file:
-            return ujson.load(file)
-    return []
-
-def get_missing_date_ranges(existing_data, start_date, end_date):
-    existing_dates = set(item['date'].split()[0] for item in existing_data)
-    current_date = datetime.strptime(start_date, "%Y-%m-%d")
-    end = datetime.strptime(end_date, "%Y-%m-%d")
-    missing_ranges = []
-    range_start = None
-
-    while current_date <= end:
-        date_str = current_date.strftime("%Y-%m-%d")
-        if date_str not in existing_dates:
-            if range_start is None:
-                range_start = date_str
-        elif range_start is not None:
-            missing_ranges.append((range_start, (current_date - timedelta(days=1)).strftime("%Y-%m-%d")))
-            range_start = None
-        current_date += timedelta(days=1)
-
-    if range_start is not None:
-        missing_ranges.append((range_start, end_date))
-
-    return missing_ranges
-
 async def get_data_batch(session, symbol, url_list):
     tasks = []
     for url in url_list:
@@ -59,6 +30,40 @@ async def get_data_batch(session, symbol, url_list):
         if result:
             data.extend(result)
     return data
+    
+def get_existing_data(symbol, interval):
+    file_path = f"json/export/price/{interval}/{symbol}.json"
+    if os.path.exists(file_path):
+        with open(file_path, 'r') as file:
+            return ujson.load(file)
+    return []
+
+def get_missing_date_ranges(existing_data, start_date, end_date):
+    existing_dates = {item['date'].split()[0] for item in existing_data}  # Use a set for O(1) lookup time
+    start_date = datetime.strptime(start_date, "%Y-%m-%d")
+    end_date = datetime.strptime(end_date, "%Y-%m-%d")
+    
+    missing_ranges = []
+    current_date = start_date
+    range_start = None
+
+    while current_date <= end_date:
+        date_str = current_date.strftime("%Y-%m-%d")
+        if date_str not in existing_dates:
+            if range_start is None:
+                range_start = current_date
+        else:
+            # If we found an existing date, and we have a start for a missing range, add it
+            if range_start:
+                missing_ranges.append((range_start.strftime("%Y-%m-%d"), date_str))
+                range_start = None
+        current_date += timedelta(days=1)
+
+    # If the loop ends and we still have an open range, add it
+    if range_start:
+        missing_ranges.append((range_start.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")))
+
+    return missing_ranges
 
 async def fetch_data(session, url):
     try:
