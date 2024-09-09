@@ -399,7 +399,43 @@ async def get_stock(data: HistoricalPrice, api_key: str = Security(get_api_key))
         headers={"Content-Encoding": "gzip"}
     )
     
+@app.post("/export-price-data")
+async def get_stock(data: HistoricalPrice, api_key: str = Security(get_api_key)):
+    ticker = data.ticker.upper()
+    time_period = data.timePeriod
 
+    cache_key = f"export-price-data-{ticker}-{time_period}"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
+
+    if time_period == '1day':
+        try:
+            with open(f"json/historical-price/{time_period}/{ticker}.json", 'rb') as file:
+                res = orjson.loads(file.read())
+        except:
+            res = []
+    else:
+        try:
+            with open(f"json/export/price/{time_period}/{ticker}.json", 'rb') as file:
+                res = orjson.loads(file.read())
+        except:
+            res = []
+
+    res_json = orjson.dumps(res)
+    compressed_data = gzip.compress(res_json)
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 3600*24) # Set cache expiration time to Infinity
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
 
 @app.post("/one-day-price")
 async def get_stock(data: TickerData, api_key: str = Security(get_api_key)):
