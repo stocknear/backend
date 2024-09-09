@@ -26,9 +26,13 @@ class TASignals:
     def run(self):
         ta_df = pd.DataFrame()
 
+        ta_df['sma_20'] = sma_indicator(self.data["Close"], window=20)
         ta_df['sma_50'] = sma_indicator(self.data["Close"], window=50)
+        ta_df['sma_100'] = sma_indicator(self.data["Close"], window=100)
         ta_df['sma_200'] = sma_indicator(self.data["Close"], window=200)
+        ta_df['ema_20'] = ema_indicator(self.data['Close'], window=20)
         ta_df['ema_50'] = ema_indicator(self.data['Close'], window=50)
+        ta_df['sma_100'] = sma_indicator(self.data["Close"], window=100)
         ta_df['ema_200'] = sma_indicator(self.data['Close'], window=200)
         ta_df['rsi'] = rsi(self.data['Close'], window=14)
         ta_df['stoch_rsi'] = stochrsi_k(self.data['Close'], window=14, smooth1 = 3, smooth2 =3)*100
