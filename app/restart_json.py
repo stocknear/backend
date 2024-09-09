@@ -512,6 +512,16 @@ async def get_stock_screener(con):
                 item['failToDeliver'] = res['failToDeliver']
         except Exception as e:
             item['failToDeliver'] = None
+
+        try:
+            with open(f"json/ownership-stats/{symbol}.json", 'r') as file:
+                res = orjson.loads(file.read())
+                if res['ownershipPercent'] > 100:
+                    item['institutionalOwnership'] = 99.99
+                else:
+                    item['institutionalOwnership'] = round(res['ownershipPercent'],2)
+        except Exception as e:
+            item['institutionalOwnership'] = None
         
 
         try:
