@@ -403,7 +403,7 @@ async def get_stock(data: HistoricalPrice, api_key: str = Security(get_api_key))
 async def get_stock(data: HistoricalPrice, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     time_period = data.timePeriod
-
+    print(time_period)
     cache_key = f"export-price-data-{ticker}-{time_period}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -415,7 +415,7 @@ async def get_stock(data: HistoricalPrice, api_key: str = Security(get_api_key))
 
     if time_period == '1day':
         try:
-            with open(f"json/historical-price/{time_period}/{ticker}.json", 'rb') as file:
+            with open(f"json/historical-price/max/{ticker}.json", 'rb') as file:
                 res = orjson.loads(file.read())
         except:
             res = []
