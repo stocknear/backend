@@ -1015,10 +1015,10 @@ async def get_economic_calendar():
     ny_tz = pytz.timezone('America/New_York')
     today = datetime.now(ny_tz)
 
-    start_date = today - timedelta(weeks=2)
+    start_date = today - timedelta(weeks=1)
     start_date = start_date - timedelta(days=(start_date.weekday() - 0) % 7)
 
-    end_date = today + timedelta(weeks=2)
+    end_date = today + timedelta(weeks=1)
     end_date = end_date + timedelta(days=(4 - end_date.weekday()) % 7)
 
     url = "https://api.benzinga.com/api/v2.1/calendar/economics"
@@ -1039,9 +1039,9 @@ async def get_economic_calendar():
             try:
                 async with session.get(url, params=querystring, headers=headers) as response:
                     data = ujson.loads(await response.text())['economics']
-
-                    all_data.extend(data)
-                    print(f"Fetched data for {date_str}: {len(data)} events")
+                    if len(data) > 0:
+                        all_data.extend(data)
+                        print(f"Fetched data for {date_str}: {len(data)} events")
             except Exception as e:
                 print(f'Error fetching data for {date_str}:', e)
 
@@ -1061,18 +1061,17 @@ async def get_economic_calendar():
                     'country': item['country'],
                     'time': item['time'][0:5],
                     'date': item['date'],
-                    'prior': round(float(item['prior']),2) if item['prior'] != '' else '',
-                    'consensus': round(float(item['consensus'],2)) if item['consensus'] != '' else '',
-                    'actual': round(float(item['actual'],2)) if item['actual'] != '' else '',
+                    'prior': round(float(item['prior']), 2) if item['prior'] != '' else '',
+                    'consensus': round(float(item['consensus']), 2) if item['consensus'] != '' else '',
+                    'actual': round(float(item['actual']), 2) if item['actual'] != '' else '',
                     'importance': item['importance'],
                     'event': item['event_name'],
                 })
-        except:
+        except Exception as e:
             pass
 
+
     return filtered_data
-
-
 
 
 async def get_index_list(con,symbols, index_list):
@@ -1773,6 +1772,7 @@ async def save_json_files():
     crypto_symbols = [row[0] for row in crypto_cursor.fetchall()]
 
     
+    
     stock_screener_data = await get_stock_screener(con)
     with open(f"json/stock-screener/data.json", 'w') as file:
         ujson.dump(stock_screener_data, file)
@@ -1852,6 +1852,7 @@ async def save_json_files():
     data = await get_index_list(con,symbols,'sp500_constituent')
     with open(f"json/stocks-list/sp500_constituent.json", 'w') as file:
         ujson.dump(data, file)
+
     
 
     con.close()
