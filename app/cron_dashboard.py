@@ -5,7 +5,6 @@ import sqlite3
 import pandas as pd
 import asyncio
 import pytz
-import time
 import os
 from dotenv import load_dotenv
 from datetime import datetime, timedelta, date
@@ -108,15 +107,17 @@ async def get_upcoming_earnings(session):
 	res_list = []
 	for importance in importance_list:
 
-		querystring = {"token": benzinga_api_key_extra,"parameters[importance]":importance,"parameters[date_from]":tomorrow,"parameters[date_to]":tomorrow,"parameters[date_sort]":"date"}
+		querystring = {"token": benzinga_api_key_extra,"parameters[importance]":importance,"parameters[date_from]":today,"parameters[date_to]":tomorrow,"parameters[date_sort]":"date"}
 		try:
 			async with session.get(url, params=querystring, headers=headers) as response:
 				res = ujson.loads(await response.text())['earnings']
+				res = [e for e in res if datetime.strptime(e['date'], "%Y-%m-%d").date() != date.today() or datetime.strptime(e['time'], "%H:%M:%S").time() >= datetime.strptime("16:00:00", "%H:%M:%S").time()]
 				for item in res:
 					try:
 						symbol = item['ticker']
 						name = item['name']
 						time = item['time']
+						is_today = True if item['date'] == datetime.today().strftime('%Y-%m-%d') else False
 						eps_prior = float(item['eps_prior']) if item['eps_prior'] != '' else 0
 						eps_est = float(item['eps_est']) if item['eps_est'] != '' else 0
 						revenue_est = float(item['revenue_est']) if item['revenue_est'] != '' else 0
@@ -128,6 +129,7 @@ async def get_upcoming_earnings(session):
 								'symbol': symbol,
 								'name': name,
 								'time': time,
+								'isToday': is_today,
 								'marketCap': market_cap,
 								'epsPrior':eps_prior,
 								'epsEst': eps_est,
@@ -140,6 +142,7 @@ async def get_upcoming_earnings(session):
 			res_list = remove_duplicates(res_list)
 			res_list.sort(key=lambda x: x['marketCap'], reverse=True)
 			res_list = [{k: v for k, v in d.items() if k != 'marketCap'} for d in res_list]
+			print(res_list)
 		except Exception as e:
 			print(e)
 			pass
