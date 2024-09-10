@@ -188,7 +188,7 @@ fastify.register(async function (fastify) {
             isSend = true;
             setTimeout(() => {
               isSend = false;
-            }, 500);
+            }, 800);
           }
         }
       } catch (error) {
@@ -278,7 +278,7 @@ fastify.register(async function (fastify) {
           isSend = true;
           setTimeout(() => {
             isSend = false;
-          }, 500);
+          }, 800);
 
           //wait(2000);
         }

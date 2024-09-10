@@ -23,6 +23,7 @@ import os
 
 load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
+benzinga_api_key = os.getenv('BENZINGA_API_KEY_EXTRA')
 
 berlin_tz = pytz.timezone('Europe/Berlin')
 
@@ -768,109 +769,310 @@ async def get_stock_splits_calendar(con,symbols):
 
 async def get_economic_calendar():
 
-    berlin_tz = pytz.timezone('Europe/Berlin')
-    today = datetime.now(berlin_tz)
+    country_list = [
+    {'short': 'AW', 'long': 'ABW'},
+    {'short': 'AF', 'long': 'AFG'},
+    {'short': 'AO', 'long': 'AGO'},
+    {'short': 'AI', 'long': 'AIA'},
+    {'short': 'AX', 'long': 'ALA'},
+    {'short': 'AL', 'long': 'ALB'},
+    {'short': 'AD', 'long': 'AND'},
+    {'short': 'AE', 'long': 'ARE'},
+    {'short': 'AR', 'long': 'ARG'},
+    {'short': 'AM', 'long': 'ARM'},
+    {'short': 'AS', 'long': 'ASM'},
+    {'short': 'AQ', 'long': 'ATA'},
+    {'short': 'TF', 'long': 'ATF'},
+    {'short': 'AG', 'long': 'ATG'},
+    {'short': 'AU', 'long': 'AUS'},
+    {'short': 'AT', 'long': 'AUT'},
+    {'short': 'AZ', 'long': 'AZE'},
+    {'short': 'BI', 'long': 'BDI'},
+    {'short': 'BE', 'long': 'BEL'},
+    {'short': 'BJ', 'long': 'BEN'},
+    {'short': 'BQ', 'long': 'BES'},
+    {'short': 'BF', 'long': 'BFA'},
+    {'short': 'BD', 'long': 'BGD'},
+    {'short': 'BG', 'long': 'BGR'},
+    {'short': 'BH', 'long': 'BHR'},
+    {'short': 'BS', 'long': 'BHS'},
+    {'short': 'BA', 'long': 'BIH'},
+    {'short': 'BL', 'long': 'BLM'},
+    {'short': 'BY', 'long': 'BLR'},
+    {'short': 'BZ', 'long': 'BLZ'},
+    {'short': 'BM', 'long': 'BMU'},
+    {'short': 'BO', 'long': 'BOL'},
+    {'short': 'BR', 'long': 'BRA'},
+    {'short': 'BB', 'long': 'BRB'},
+    {'short': 'BN', 'long': 'BRN'},
+    {'short': 'BT', 'long': 'BTN'},
+    {'short': 'BV', 'long': 'BVT'},
+    {'short': 'BW', 'long': 'BWA'},
+    {'short': 'CF', 'long': 'CAF'},
+    {'short': 'CA', 'long': 'CAN'},
+    {'short': 'CC', 'long': 'CCK'},
+    {'short': 'CH', 'long': 'CHE'},
+    {'short': 'CL', 'long': 'CHL'},
+    {'short': 'CN', 'long': 'CHN'},
+    {'short': 'CI', 'long': 'CIV'},
+    {'short': 'CM', 'long': 'CMR'},
+    {'short': 'CD', 'long': 'COD'},
+    {'short': 'CG', 'long': 'COG'},
+    {'short': 'CK', 'long': 'COK'},
+    {'short': 'CO', 'long': 'COL'},
+    {'short': 'KM', 'long': 'COM'},
+    {'short': 'CV', 'long': 'CPV'},
+    {'short': 'CR', 'long': 'CRI'},
+    {'short': 'CU', 'long': 'CUB'},
+    {'short': 'CW', 'long': 'CUW'},
+    {'short': 'CX', 'long': 'CXR'},
+    {'short': 'KY', 'long': 'CYM'},
+    {'short': 'CY', 'long': 'CYP'},
+    {'short': 'CZ', 'long': 'CZE'},
+    {'short': 'DE', 'long': 'DEU'},
+    {'short': 'DJ', 'long': 'DJI'},
+    {'short': 'DM', 'long': 'DMA'},
+    {'short': 'DK', 'long': 'DNK'},
+    {'short': 'DO', 'long': 'DOM'},
+    {'short': 'DZ', 'long': 'DZA'},
+    {'short': 'EC', 'long': 'ECU'},
+    {'short': 'EG', 'long': 'EGY'},
+    {'short': 'ER', 'long': 'ERI'},
+    {'short': 'EH', 'long': 'ESH'},
+    {'short': 'ES', 'long': 'ESP'},
+    {'short': 'EE', 'long': 'EST'},
+    {'short': 'ET', 'long': 'ETH'},
+    {'short': 'FI', 'long': 'FIN'},
+    {'short': 'FJ', 'long': 'FJI'},
+    {'short': 'FK', 'long': 'FLK'},
+    {'short': 'FR', 'long': 'FRA'},
+    {'short': 'FO', 'long': 'FRO'},
+    {'short': 'FM', 'long': 'FSM'},
+    {'short': 'GA', 'long': 'GAB'},
+    {'short': 'GB', 'long': 'GBR'},
+    {'short': 'GE', 'long': 'GEO'},
+    {'short': 'GG', 'long': 'GGY'},
+    {'short': 'GH', 'long': 'GHA'},
+    {'short': 'GI', 'long': 'GIB'},
+    {'short': 'GN', 'long': 'GIN'},
+    {'short': 'GP', 'long': 'GLP'},
+    {'short': 'GM', 'long': 'GMB'},
+    {'short': 'GW', 'long': 'GNB'},
+    {'short': 'GQ', 'long': 'GNQ'},
+    {'short': 'GR', 'long': 'GRC'},
+    {'short': 'GD', 'long': 'GRD'},
+    {'short': 'GL', 'long': 'GRL'},
+    {'short': 'GT', 'long': 'GTM'},
+    {'short': 'GF', 'long': 'GUF'},
+    {'short': 'GU', 'long': 'GUM'},
+    {'short': 'GY', 'long': 'GUY'},
+    {'short': 'HK', 'long': 'HKG'},
+    {'short': 'HM', 'long': 'HMD'},
+    {'short': 'HN', 'long': 'HND'},
+    {'short': 'HR', 'long': 'HRV'},
+    {'short': 'HT', 'long': 'HTI'},
+    {'short': 'HU', 'long': 'HUN'},
+    {'short': 'ID', 'long': 'IDN'},
+    {'short': 'IM', 'long': 'IMN'},
+    {'short': 'IN', 'long': 'IND'},
+    {'short': 'IO', 'long': 'IOT'},
+    {'short': 'IE', 'long': 'IRL'},
+    {'short': 'IR', 'long': 'IRN'},
+    {'short': 'IQ', 'long': 'IRQ'},
+    {'short': 'IS', 'long': 'ISL'},
+    {'short': 'IL', 'long': 'ISR'},
+    {'short': 'IT', 'long': 'ITA'},
+    {'short': 'JM', 'long': 'JAM'},
+    {'short': 'JE', 'long': 'JEY'},
+    {'short': 'JO', 'long': 'JOR'},
+    {'short': 'JP', 'long': 'JPN'},
+    {'short': 'KZ', 'long': 'KAZ'},
+    {'short': 'KE', 'long': 'KEN'},
+    {'short': 'KG', 'long': 'KGZ'},
+    {'short': 'KH', 'long': 'KHM'},
+    {'short': 'KI', 'long': 'KIR'},
+    {'short': 'KN', 'long': 'KNA'},
+    {'short': 'KR', 'long': 'KOR'},
+    {'short': 'KW', 'long': 'KWT'},
+    {'short': 'LA', 'long': 'LAO'},
+    {'short': 'LB', 'long': 'LBN'},
+    {'short': 'LR', 'long': 'LBR'},
+    {'short': 'LY', 'long': 'LBY'},
+    {'short': 'LC', 'long': 'LCA'},
+    {'short': 'LI', 'long': 'LIE'},
+    {'short': 'LK', 'long': 'LKA'},
+    {'short': 'LS', 'long': 'LSO'},
+    {'short': 'LT', 'long': 'LTU'},
+    {'short': 'LU', 'long': 'LUX'},
+    {'short': 'LV', 'long': 'LVA'},
+    {'short': 'MO', 'long': 'MAC'},
+    {'short': 'MF', 'long': 'MAF'},
+    {'short': 'MA', 'long': 'MAR'},
+    {'short': 'MC', 'long': 'MCO'},
+    {'short': 'MD', 'long': 'MDA'},
+    {'short': 'MG', 'long': 'MDG'},
+    {'short': 'MV', 'long': 'MDV'},
+    {'short': 'MX', 'long': 'MEX'},
+    {'short': 'MH', 'long': 'MHL'},
+    {'short': 'MK', 'long': 'MKD'},
+    {'short': 'ML', 'long': 'MLI'},
+    {'short': 'MT', 'long': 'MLT'},
+    {'short': 'MM', 'long': 'MMR'},
+    {'short': 'ME', 'long': 'MNE'},
+    {'short': 'MN', 'long': 'MNG'},
+    {'short': 'MP', 'long': 'MNP'},
+    {'short': 'MZ', 'long': 'MOZ'},
+    {'short': 'MR', 'long': 'MRT'},
+    {'short': 'MS', 'long': 'MSR'},
+    {'short': 'MQ', 'long': 'MTQ'},
+    {'short': 'MU', 'long': 'MUS'},
+    {'short': 'MW', 'long': 'MWI'},
+    {'short': 'MY', 'long': 'MYS'},
+    {'short': 'YT', 'long': 'MYT'},
+    {'short': 'NA', 'long': 'NAM'},
+    {'short': 'NC', 'long': 'NCL'},
+    {'short': 'NE', 'long': 'NER'},
+    {'short': 'NF', 'long': 'NFK'},
+    {'short': 'NG', 'long': 'NGA'},
+    {'short': 'NI', 'long': 'NIC'},
+    {'short': 'NU', 'long': 'NIU'},
+    {'short': 'NL', 'long': 'NLD'},
+    {'short': 'NO', 'long': 'NOR'},
+    {'short': 'NP', 'long': 'NPL'},
+    {'short': 'NR', 'long': 'NRU'},
+    {'short': 'NZ', 'long': 'NZL'},
+    {'short': 'OM', 'long': 'OMN'},
+    {'short': 'PK', 'long': 'PAK'},
+    {'short': 'PA', 'long': 'PAN'},
+    {'short': 'PN', 'long': 'PCN'},
+    {'short': 'PE', 'long': 'PER'},
+    {'short': 'PH', 'long': 'PHL'},
+    {'short': 'PW', 'long': 'PLW'},
+    {'short': 'PG', 'long': 'PNG'},
+    {'short': 'PL', 'long': 'POL'},
+    {'short': 'PR', 'long': 'PRI'},
+    {'short': 'KP', 'long': 'PRK'},
+    {'short': 'PT', 'long': 'PRT'},
+    {'short': 'PY', 'long': 'PRY'},
+    {'short': 'PS', 'long': 'PSE'},
+    {'short': 'PF', 'long': 'PYF'},
+    {'short': 'QA', 'long': 'QAT'},
+    {'short': 'RE', 'long': 'REU'},
+    {'short': 'RO', 'long': 'ROU'},
+    {'short': 'RU', 'long': 'RUS'},
+    {'short': 'RW', 'long': 'RWA'},
+    {'short': 'SA', 'long': 'SAU'},
+    {'short': 'SD', 'long': 'SDN'},
+    {'short': 'SN', 'long': 'SEN'},
+    {'short': 'SG', 'long': 'SGP'},
+    {'short': 'GS', 'long': 'SGS'},
+    {'short': 'SH', 'long': 'SHN'},
+    {'short': 'SJ', 'long': 'SJM'},
+    {'short': 'SB', 'long': 'SLB'},
+    {'short': 'SL', 'long': 'SLE'},
+    {'short': 'SV', 'long': 'SLV'},
+    {'short': 'SM', 'long': 'SMR'},
+    {'short': 'SO', 'long': 'SOM'},
+    {'short': 'PM', 'long': 'SPM'},
+    {'short': 'RS', 'long': 'SRB'},
+    {'short': 'SS', 'long': 'SSD'},
+    {'short': 'ST', 'long': 'STP'},
+    {'short': 'SR', 'long': 'SUR'},
+    {'short': 'SZ', 'long': 'SWZ'},
+    {'short': 'SE', 'long': 'SWE'},
+    {'short': 'SY', 'long': 'SYR'},
+    {'short': 'TH', 'long': 'THA'},
+    {'short': 'TJ', 'long': 'TJK'},
+    {'short': 'TK', 'long': 'TKL'},
+    {'short': 'TM', 'long': 'TKM'},
+    {'short': 'TL', 'long': 'TLS'},
+    {'short': 'TO', 'long': 'TON'},
+    {'short': 'TT', 'long': 'TTO'},
+    {'short': 'TN', 'long': 'TUN'},
+    {'short': 'TR', 'long': 'TUR'},
+    {'short': 'TV', 'long': 'TUV'},
+    {'short': 'TZ', 'long': 'TZA'},
+    {'short': 'UG', 'long': 'UGA'},
+    {'short': 'UA', 'long': 'UKR'},
+    {'short': 'UM', 'long': 'UMI'},
+    {'short': 'UY', 'long': 'URY'},
+    {'short': 'US', 'long': 'USA'},
+    {'short': 'UZ', 'long': 'UZB'},
+    {'short': 'VA', 'long': 'VAT'},
+    {'short': 'VC', 'long': 'VCT'},
+    {'short': 'VE', 'long': 'VEN'},
+    {'short': 'VG', 'long': 'VGB'},
+    {'short': 'VI', 'long': 'VIR'},
+    {'short': 'VN', 'long': 'VNM'},
+    {'short': 'VU', 'long': 'VUT'},
+    {'short': 'WF', 'long': 'WLF'},
+    {'short': 'WS', 'long': 'WSM'},
+    {'short': 'YE', 'long': 'YEM'},
+    {'short': 'ZA', 'long': 'ZAF'},
+    {'short': 'ZM', 'long': 'ZMB'},
+    {'short': 'ZW', 'long': 'ZWE'}
+    ]
+    ny_tz = pytz.timezone('America/New_York')
+    today = datetime.now(ny_tz)
 
-    # Calculate the start date (Monday) 4 weeks before
-    start_date = today - timedelta(weeks=4)
+    start_date = today - timedelta(weeks=2)
     start_date = start_date - timedelta(days=(start_date.weekday() - 0) % 7)
 
-    # Calculate the end date (Friday) 4 weeks after
-    end_date = today + timedelta(weeks=4)
+    end_date = today + timedelta(weeks=2)
     end_date = end_date + timedelta(days=(4 - end_date.weekday()) % 7)
 
-    # Format dates as strings in 'YYYY-MM-DD' format
-    start_date = start_date.strftime('%Y-%m-%d')
-    end_date = end_date.strftime('%Y-%m-%d')
-    country_list = [{'short': 'AW', 'long': 'Aruba'}, {'short': 'AF', 'long': 'Afghanistan'}, {'short': 'AO', 'long': 'Angola'}, {'short': 'AI', 'long': 'Anguilla'}, {'short': 'AX', 'long': 'Åland Islands'}, {'short': 'AL', 'long': 'Albania'}, {'short': 'AD', 'long': 'Andorra'}, {'short': 'AE', 'long': 'United Arab Emirates'}, {'short': 'AR', 'long': 'Argentina'}, {'short': 'AM', 'long': 'Armenia'}, {'short': 'AS', 'long': 'American Samoa'}, {'short': 'AQ', 'long': 'Antarctica'}, {'short': 'TF', 'long': 'French Southern Territories'}, {'short': 'AG', 'long': 'Antigua and Barbuda'}, {'short': 'AU', 'long': 'Australia'}, {'short': 'AT', 'long': 'Austria'}, {'short': 'AZ', 'long': 'Azerbaijan'}, {'short': 'BI', 'long': 'Burundi'}, {'short': 'BE', 'long': 'Belgium'}, {'short': 'BJ', 'long': 'Benin'}, {'short': 'BQ', 'long': 'Bonaire, Sint Eustatius and Saba'}, {'short': 'BF', 'long': 'Burkina Faso'}, {'short': 'BD', 'long': 'Bangladesh'}, {'short': 'BG', 'long': 'Bulgaria'}, {'short': 'BH', 'long': 'Bahrain'}, {'short': 'BS', 'long': 'Bahamas'}, {'short': 'BA', 'long': 'Bosnia and Herzegovina'}, {'short': 'BL', 'long': 'Saint Barthélemy'}, {'short': 'BY', 'long': 'Belarus'}, {'short': 'BZ', 'long': 'Belize'}, {'short': 'BM', 'long': 'Bermuda'}, {'short': 'BO', 'long': 'Bolivia, Plurinational State of'}, {'short': 'BR', 'long': 'Brazil'}, {'short': 'BB', 'long': 'Barbados'}, {'short': 'BN', 'long': 'Brunei Darussalam'}, {'short': 'BT', 'long': 'Bhutan'}, {'short': 'BV', 'long': 'Bouvet Island'}, {'short': 'BW', 'long': 'Botswana'}, {'short': 'CF', 'long': 'Central African Republic'}, {'short': 'CA', 'long': 'Canada'}, {'short': 'CC', 'long': 'Cocos (Keeling) Islands'}, {'short': 'CH', 'long': 'Switzerland'}, {'short': 'CL', 'long': 'Chile'}, {'short': 'CN', 'long': 'China'}, {'short': 'CI', 'long': "Côte d'Ivoire"}, {'short': 'CM', 'long': 'Cameroon'}, {'short': 'CD', 'long': 'Congo, The Democratic Republic of the'}, {'short': 'CG', 'long': 'Congo'}, {'short': 'CK', 'long': 'Cook Islands'}, {'short': 'CO', 'long': 'Colombia'}, {'short': 'KM', 'long': 'Comoros'}, {'short': 'CV', 'long': 'Cabo Verde'}, {'short': 'CR', 'long': 'Costa Rica'}, {'short': 'CU', 'long': 'Cuba'}, {'short': 'CW', 'long': 'Curaçao'}, {'short': 'CX', 'long': 'Christmas Island'}, {'short': 'KY', 'long': 'Cayman Islands'}, {'short': 'CY', 'long': 'Cyprus'}, {'short': 'CZ', 'long': 'Czechia'}, {'short': 'DE', 'long': 'Germany'}, {'short': 'DJ', 'long': 'Djibouti'}, {'short': 'DM', 'long': 'Dominica'}, {'short': 'DK', 'long': 'Denmark'}, {'short': 'DO', 'long': 'Dominican Republic'}, {'short': 'DZ', 'long': 'Algeria'}, {'short': 'EC', 'long': 'Ecuador'}, {'short': 'EG', 'long': 'Egypt'}, {'short': 'ER', 'long': 'Eritrea'}, {'short': 'EH', 'long': 'Western Sahara'}, {'short': 'ES', 'long': 'Spain'}, {'short': 'EE', 'long': 'Estonia'}, {'short': 'ET', 'long': 'Ethiopia'}, {'short': 'FI', 'long': 'Finland'}, {'short': 'FJ', 'long': 'Fiji'}, {'short': 'FK', 'long': 'Falkland Islands (Malvinas)'}, {'short': 'FR', 'long': 'France'}, {'short': 'FO', 'long': 'Faroe Islands'}, {'short': 'FM', 'long': 'Micronesia, Federated States of'}, {'short': 'GA', 'long': 'Gabon'}, {'short': 'GB', 'long': 'United Kingdom'}, {'short': 'GE', 'long': 'Georgia'}, {'short': 'GG', 'long': 'Guernsey'}, {'short': 'GH', 'long': 'Ghana'}, {'short': 'GI', 'long': 'Gibraltar'}, {'short': 'GN', 'long': 'Guinea'}, {'short': 'GP', 'long': 'Guadeloupe'}, {'short': 'GM', 'long': 'Gambia'}, {'short': 'GW', 'long': 'Guinea-Bissau'}, {'short': 'GQ', 'long': 'Equatorial Guinea'}, {'short': 'GR', 'long': 'Greece'}, {'short': 'GD', 'long': 'Grenada'}, {'short': 'GL', 'long': 'Greenland'}, {'short': 'GT', 'long': 'Guatemala'}, {'short': 'GF', 'long': 'French Guiana'}, {'short': 'GU', 'long': 'Guam'}, {'short': 'GY', 'long': 'Guyana'}, {'short': 'HK', 'long': 'Hong Kong'}, {'short': 'HM', 'long': 'Heard Island and McDonald Islands'}, {'short': 'HN', 'long': 'Honduras'}, {'short': 'HR', 'long': 'Croatia'}, {'short': 'HT', 'long': 'Haiti'}, {'short': 'HU', 'long': 'Hungary'}, {'short': 'ID', 'long': 'Indonesia'}, {'short': 'IM', 'long': 'Isle of Man'}, {'short': 'IN', 'long': 'India'}, {'short': 'IO', 'long': 'British Indian Ocean Territory'}, {'short': 'IE', 'long': 'Ireland'}, {'short': 'IR', 'long': 'Iran, Islamic Republic of'}, {'short': 'IQ', 'long': 'Iraq'}, {'short': 'IS', 'long': 'Iceland'}, {'short': 'IL', 'long': 'Israel'}, {'short': 'IT', 'long': 'Italy'}, {'short': 'JM', 'long': 'Jamaica'}, {'short': 'JE', 'long': 'Jersey'}, {'short': 'JO', 'long': 'Jordan'}, {'short': 'JP', 'long': 'Japan'}, {'short': 'KZ', 'long': 'Kazakhstan'}, {'short': 'KE', 'long': 'Kenya'}, {'short': 'KG', 'long': 'Kyrgyzstan'}, {'short': 'KH', 'long': 'Cambodia'}, {'short': 'KI', 'long': 'Kiribati'}, {'short': 'KN', 'long': 'Saint Kitts and Nevis'}, {'short': 'KR', 'long': 'Korea, Republic of'}, {'short': 'KW', 'long': 'Kuwait'}, {'short': 'LA', 'long': "Lao People's Democratic Republic"}, {'short': 'LB', 'long': 'Lebanon'}, {'short': 'LR', 'long': 'Liberia'}, {'short': 'LY', 'long': 'Libya'}, {'short': 'LC', 'long': 'Saint Lucia'}, {'short': 'LI', 'long': 'Liechtenstein'}, {'short': 'LK', 'long': 'Sri Lanka'}, {'short': 'LS', 'long': 'Lesotho'}, {'short': 'LT', 'long': 'Lithuania'}, {'short': 'LU', 'long': 'Luxembourg'}, {'short': 'LV', 'long': 'Latvia'}, {'short': 'MO', 'long': 'Macao'}, {'short': 'MF', 'long': 'Saint Martin (French part)'}, {'short': 'MA', 'long': 'Morocco'}, {'short': 'MC', 'long': 'Monaco'}, {'short': 'MD', 'long': 'Moldova, Republic of'}, {'short': 'MG', 'long': 'Madagascar'}, {'short': 'MV', 'long': 'Maldives'}, {'short': 'MX', 'long': 'Mexico'}, {'short': 'MH', 'long': 'Marshall Islands'}, {'short': 'MK', 'long': 'North Macedonia'}, {'short': 'ML', 'long': 'Mali'}, {'short': 'MT', 'long': 'Malta'}, {'short': 'MM', 'long': 'Myanmar'}, {'short': 'ME', 'long': 'Montenegro'}, {'short': 'MN', 'long': 'Mongolia'}, {'short': 'MP', 'long': 'Northern Mariana Islands'}, {'short': 'MZ', 'long': 'Mozambique'}, {'short': 'MR', 'long': 'Mauritania'}, {'short': 'MS', 'long': 'Montserrat'}, {'short': 'MQ', 'long': 'Martinique'}, {'short': 'MU', 'long': 'Mauritius'}, {'short': 'MW', 'long': 'Malawi'}, {'short': 'MY', 'long': 'Malaysia'}, {'short': 'YT', 'long': 'Mayotte'}, {'short': 'NA', 'long': 'Namibia'}, {'short': 'NC', 'long': 'New Caledonia'}, {'short': 'NE', 'long': 'Niger'}, {'short': 'NF', 'long': 'Norfolk Island'}, {'short': 'NG', 'long': 'Nigeria'}, {'short': 'NI', 'long': 'Nicaragua'}, {'short': 'NU', 'long': 'Niue'}, {'short': 'NL', 'long': 'Netherlands'}, {'short': 'NO', 'long': 'Norway'}, {'short': 'NP', 'long': 'Nepal'}, {'short': 'NR', 'long': 'Nauru'}, {'short': 'NZ', 'long': 'New Zealand'}, {'short': 'OM', 'long': 'Oman'}, {'short': 'PK', 'long': 'Pakistan'}, {'short': 'PA', 'long': 'Panama'}, {'short': 'PN', 'long': 'Pitcairn'}, {'short': 'PE', 'long': 'Peru'}, {'short': 'PH', 'long': 'Philippines'}, {'short': 'PW', 'long': 'Palau'}, {'short': 'PG', 'long': 'Papua New Guinea'}, {'short': 'PL', 'long': 'Poland'}, {'short': 'PR', 'long': 'Puerto Rico'}, {'short': 'KP', 'long': "Korea, Democratic People's Republic of"}, {'short': 'PT', 'long': 'Portugal'}, {'short': 'PY', 'long': 'Paraguay'}, {'short': 'PS', 'long': 'Palestine, State of'}, {'short': 'PF', 'long': 'French Polynesia'}, {'short': 'QA', 'long': 'Qatar'}, {'short': 'RE', 'long': 'Réunion'}, {'short': 'RO', 'long': 'Romania'}, {'short': 'RU', 'long': 'Russian Federation'}, {'short': 'RW', 'long': 'Rwanda'}, {'short': 'SA', 'long': 'Saudi Arabia'}, {'short': 'SD', 'long': 'Sudan'}, {'short': 'SN', 'long': 'Senegal'}, {'short': 'SG', 'long': 'Singapore'}, {'short': 'GS', 'long': 'South Georgia and the South Sandwich Islands'}, {'short': 'SH', 'long': 'Saint Helena, Ascension and Tristan da Cunha'}, {'short': 'SJ', 'long': 'Svalbard and Jan Mayen'}, {'short': 'SB', 'long': 'Solomon Islands'}, {'short': 'SL', 'long': 'Sierra Leone'}, {'short': 'SV', 'long': 'El Salvador'}, {'short': 'SM', 'long': 'San Marino'}, {'short': 'SO', 'long': 'Somalia'}, {'short': 'PM', 'long': 'Saint Pierre and Miquelon'}, {'short': 'RS', 'long': 'Serbia'}, {'short': 'SS', 'long': 'South Sudan'}, {'short': 'ST', 'long': 'Sao Tome and Principe'}, {'short': 'SR', 'long': 'Suriname'}, {'short': 'SK', 'long': 'Slovakia'}, {'short': 'SI', 'long': 'Slovenia'}, {'short': 'SE', 'long': 'Sweden'}, {'short': 'SZ', 'long': 'Eswatini'}, {'short': 'SX', 'long': 'Sint Maarten (Dutch part)'}, {'short': 'SC', 'long': 'Seychelles'}, {'short': 'SY', 'long': 'Syrian Arab Republic'}, {'short': 'TC', 'long': 'Turks and Caicos Islands'}, {'short': 'TD', 'long': 'Chad'}, {'short': 'TG', 'long': 'Togo'}, {'short': 'TH', 'long': 'Thailand'}, {'short': 'TJ', 'long': 'Tajikistan'}, {'short': 'TK', 'long': 'Tokelau'}, {'short': 'TM', 'long': 'Turkmenistan'}, {'short': 'TL', 'long': 'Timor-Leste'}, {'short': 'TO', 'long': 'Tonga'}, {'short': 'TT', 'long': 'Trinidad and Tobago'}, {'short': 'TN', 'long': 'Tunisia'}, {'short': 'TR', 'long': 'Türkiye'}, {'short': 'TV', 'long': 'Tuvalu'}, {'short': 'TW', 'long': 'Taiwan, Province of China'}, {'short': 'TZ', 'long': 'Tanzania, United Republic of'}, {'short': 'UG', 'long': 'Uganda'}, {'short': 'UA', 'long': 'Ukraine'}, {'short': 'UM', 'long': 'United States Minor Outlying Islands'}, {'short': 'UY', 'long': 'Uruguay'}, {'short': 'US', 'long': 'United States'}, {'short': 'UZ', 'long': 'Uzbekistan'}, {'short': 'VA', 'long': 'Holy See (Vatican City State)'}, {'short': 'VC', 'long': 'Saint Vincent and the Grenadines'}, {'short': 'VE', 'long': 'Venezuela, Bolivarian Republic of'}, {'short': 'VG', 'long': 'Virgin Islands, British'}, {'short': 'VI', 'long': 'Virgin Islands, U.S.'}, {'short': 'VN', 'long': 'Viet Nam'}, {'short': 'VU', 'long': 'Vanuatu'}, {'short': 'WF', 'long': 'Wallis and Futuna'}, {'short': 'WS', 'long': 'Samoa'}, {'short': 'YE', 'long': 'Yemen'}, {'short': 'ZA', 'long': 'South Africa'}, {'short': 'ZM', 'long': 'Zambia'}, {'short': 'ZW', 'long': 'Zimbabwe'}]
+    url = "https://api.benzinga.com/api/v2.1/calendar/economics"
+    headers = {"accept": "application/json"}
 
+    all_data = []
+    current_date = start_date
 
     async with aiohttp.ClientSession() as session:
+        while current_date <= end_date:
+            date_str = current_date.strftime('%Y-%m-%d')
+            querystring = {
+                "token": benzinga_api_key,
+                "parameters[date_from]": date_str,
+                "parameters[date_to]": date_str,
+            }
 
-        url = f"https://financialmodelingprep.com/api/v3/economic_calendar?from={start_date}&to={end_date}&apikey={api_key}"
-        async with session.get(url) as response:
-            data = await response.json()
-            for item in data:
-                date_obj = datetime.strptime(item['date'], '%Y-%m-%d %H:%M:%S')
-                item['date'] = date_obj.strftime('%Y-%m-%d')
-                item['time'] = date_obj.strftime('%H:%M')
+            try:
+                async with session.get(url, params=querystring, headers=headers) as response:
+                    data = ujson.loads(await response.text())['economics']
 
+                    all_data.extend(data)
+                    print(f"Fetched data for {date_str}: {len(data)} events")
+            except Exception as e:
+                print(f'Error fetching data for {date_str}:', e)
 
-                for country in country_list:
-                    if country['short'] == item['country']:
-                        if country['long'] == 'Korea, Republic of':
-                            item['country'] = 'Korea'
-                        elif country['long'] == 'Russian Federation':
-                            item['country'] = 'Russia'
-                        elif country['long'] == 'Taiwan, Province of China':
-                            item['country'] = 'Taiwan'
-                        else:
-                            item['country'] = country['long']
-                        item['countryCode'] = country['short'].lower()
+            current_date += timedelta(days=1)
 
+    filtered_data = []
 
-    return data
-
-async def get_ai_signals(con,symbols):
-        
-    query = f"""
-        SELECT
-            symbol,
-            name,
-            marketCap,
-            avgVolume,
-            tradingSignals
-        FROM
-            stocks
-        WHERE
-            symbol = ?
-    """
-    res_list = []
-    selected_data = []
-
-
-    for ticker in symbols:
+    for item in all_data:
         try:
-            # Execute the query and read the result into a DataFrame
-            query_result = pd.read_sql_query(query, con, params=(ticker,))
-            
-            # Convert the DataFrame to a JSON object
-            if not query_result.empty:
-                res = query_result['tradingSignals'][0]
-                res = ujson.loads(res)[0]  # Assuming 'tradingSignals' column contains JSON strings        
-                res = replace_nan_inf_with_none(res)
-                avgVolume = int(query_result['avgVolume'].iloc[0])
+            matching_country = next((c['short'] for c in country_list if c['long'] == item['country']), None)
 
-                # Check if "Win Rate [%]" is a number before adding it to the list
-                if "Win Rate [%]" in res and isinstance(res["Win Rate [%]"], (int, float)) and "# Trades" in res and res["# Trades"] >= 10 and avgVolume >= 20000:
-                    res['symbol'] = query_result['symbol'][0]
-                    res['name'] = query_result['name'][0]
-                    try:
-                        res['marketCap'] = int(query_result['marketCap'].iloc[0])
-                    except:
-                        res['marketCap'] = None
-                    res_list.append(res)
-            else:
-                pass
-        except Exception as e:
-            print("Error fetching data from the database:", e)
+            if matching_country:
+                country_code = matching_country.lower()
+
+                filtered_data.append({
+                    'countryCode': country_code,
+                    'country': item['country'],
+                    'time': item['time'][0:5],
+                    'date': item['date'],
+                    'prior': round(float(item['prior']),2) if item['prior'] != '' else '',
+                    'consensus': round(float(item['consensus'],2)) if item['consensus'] != '' else '',
+                    'actual': round(float(item['actual'],2)) if item['actual'] != '' else '',
+                    'importance': item['importance'],
+                    'event': item['event_name'],
+                })
+        except:
             pass
 
-    sorted_res = sorted(res_list, key=lambda x: x.get("Win Rate [%]", 0), reverse=True)
+    return filtered_data
 
-    for item in sorted_res[0:50]:
-        selected_item = {
-            "symbol": item.get("symbol", ""),
-            "name": item.get("name", ""),
-            "marketCap": item.get("marketCap", 0),
-            "winRate": round(item.get("Win Rate [%]", 0),2),
-            "maxDrawdown": round(item.get("Max. Drawdown [%]", 0),2),
-            "return": round(item.get("Return [%]", 0),2),
-            "nextSignal": item.get("nextSignal", ""),
-        }
-        selected_data.append(selected_item)
 
-    return selected_data
 
 
 async def get_index_list(con,symbols, index_list):
@@ -1570,10 +1772,17 @@ async def save_json_files():
     crypto_cursor.execute("SELECT DISTINCT symbol FROM cryptos")
     crypto_symbols = [row[0] for row in crypto_cursor.fetchall()]
 
+    
     stock_screener_data = await get_stock_screener(con)
     with open(f"json/stock-screener/data.json", 'w') as file:
         ujson.dump(stock_screener_data, file)
-    
+
+    economic_list = await get_economic_calendar()
+    if len(economic_list) > 0:
+        with open(f"json/economic-calendar/calendar.json", 'w') as file:
+            ujson.dump(economic_list, file)
+
+
     earnings_list = await get_earnings_calendar(con,symbols)
     with open(f"json/earnings-calendar/calendar.json", 'w') as file:
         ujson.dump(earnings_list, file)
@@ -1623,10 +1832,6 @@ async def save_json_files():
     with open(f"json/delisted-companies/data.json", 'w') as file:
         ujson.dump(delisted_data, file)
 
-    economic_list = await get_economic_calendar()
-    with open(f"json/economic-calendar/calendar.json", 'w') as file:
-        ujson.dump(economic_list, file)
-
     dividends_list = await get_dividends_calendar(con,symbols)
     with open(f"json/dividends-calendar/calendar.json", 'w') as file:
         ujson.dump(dividends_list, file)
@@ -1647,7 +1852,6 @@ async def save_json_files():
     data = await get_index_list(con,symbols,'sp500_constituent')
     with open(f"json/stocks-list/sp500_constituent.json", 'w') as file:
         ujson.dump(data, file)
-    
     
 
     con.close()
