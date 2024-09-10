@@ -142,12 +142,12 @@ async def get_upcoming_earnings(session):
 			res_list = remove_duplicates(res_list)
 			res_list.sort(key=lambda x: x['marketCap'], reverse=True)
 			res_list = [{k: v for k, v in d.items() if k != 'marketCap'} for d in res_list]
-			print(res_list)
+			
 		except Exception as e:
 			print(e)
 			pass
 
-	return res_list[0:5]
+	return res_list[:10]
 
 
 async def get_recent_earnings(session):
@@ -194,11 +194,11 @@ async def get_recent_earnings(session):
 	#res_list.sort(key=lambda x: x['marketCap'], reverse=True)
 	res_list.sort(key=lambda x: (-parse_time(x['time']).timestamp(), -x['marketCap']))
 	res_list = [{k: v for k, v in d.items() if k != 'marketCap'} for d in res_list]
-	return res_list[0:5]
+	return res_list[0:10]
 
 async def get_recent_dividends(session):
 	url = "https://api.benzinga.com/api/v2.1/calendar/dividends"
-	importance_list = ["2","3","4","5"]
+	importance_list = ["1","2","3","4","5"]
 	res_list = []
 	for importance in importance_list:
 		querystring = {"token": benzinga_api_key_extra,"parameters[importance]":importance,"parameters[date_from]":yesterday,"parameters[date_to]":today}
@@ -284,6 +284,9 @@ async def run():
 		upcoming_earnings = await get_upcoming_earnings(session)
 		top_sector = await get_top_sector(session)
 		recent_dividends = await get_recent_dividends(session)
+
+		#Avoid clashing of recent and upcoming earnings
+		upcoming_earnings = [item for item in upcoming_earnings if item['symbol'] not in [earning['symbol'] for earning in recent_earnings]]
 
 		try:
 			with open(f"json/retail-volume/data.json", 'r') as file:
