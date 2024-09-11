@@ -3587,20 +3587,38 @@ async def get_economic_indicator(api_key: str = Security(get_api_key)):
     )
 
 @app.post("/next-earnings")
-async def get_economic_indicator(data:TickerData, api_key: str = Security(get_api_key)):
+async def get_next_earnings(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker
     cache_key = f"next-earnings-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
         return orjson.loads(cached_result)
     try:
-        with open(f"json/next-earnings/companies/{ticker}.json", 'rb') as file:
+        with open(f"json/earnings/next/{ticker}.json", 'rb') as file:
             res = orjson.loads(file.read())
     except:
         res = {}
 
     redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key,3600*3600)
+
+    return res
+
+@app.post("/earnings-surprise")
+async def get_surprise_earnings(data:TickerData, api_key: str = Security(get_api_key)):
+    ticker = data.ticker
+    cache_key = f"earnings-surprise{ticker}"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return orjson.loads(cached_result)
+    try:
+        with open(f"json/earnings/surprise/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
+    except:
+        res = {}
+
+    redis_client.set(cache_key, orjson.dumps(res))
+    redis_client.expire(cache_key,15*60)
 
     return res
 

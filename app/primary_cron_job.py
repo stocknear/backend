@@ -556,6 +556,15 @@ def run_dividends():
     ]
     run_command(command)
 
+def run_earnings():
+    run_command(["python3", "cron_earnings.py"])
+    command = [
+        "sudo", "rsync", "-avz", "-e", "ssh",
+        "/root/backend/app/json/earnings",
+        f"root@{useast_ip_address}:/root/backend/app/json"
+    ]
+    run_command(command)
+
 def run_economy_indicator():
     run_command(["python3", "cron_economic_indicator.py"])
     command = [
@@ -625,6 +634,7 @@ schedule.every(10).minutes.do(run_threaded, run_tracker).tag('tracker_job')
 schedule.every(1).minutes.do(run_threaded, run_cron_quote).tag('quote_job')
 schedule.every(1).minutes.do(run_threaded, run_cron_price_alert).tag('price_alert_job')
 schedule.every(15).minutes.do(run_threaded, run_market_moods).tag('market_moods_job')
+schedule.every(30).minutes.do(run_threaded, run_earnings).tag('earnings_job')
 #schedule.every(10).minutes.do(run_threaded, run_dark_pool_flow).tag('dark_pool_flow_job')
 
 schedule.every(2).hours.do(run_threaded, run_fda_calendar).tag('fda_calendar_job')
