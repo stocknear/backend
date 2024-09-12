@@ -50,7 +50,7 @@ def process_page(page):
 
                 asset_type = 'stock' if ticker in stock_symbols else ('etf' if ticker in etf_symbols else '')
 
-                item['assetType'] = asset_type
+                item['underlying_type'] = asset_type.lower()
                 item['put_call'] = put_call
                 item['ticker'] = ticker
                 item['price'] = round(float(item['price']), 2)
