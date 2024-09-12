@@ -57,9 +57,9 @@ def process_page(page):
                 item['strike_price'] = round(float(item['strike_price']), 2)
                 item['cost_basis'] = round(float(item['cost_basis']), 2)
                 item['underlying_price'] = round(float(item['underlying_price']), 2)
-                item['type'] = item['option_activity_type'].capitalize()
+                item['option_activity_type'] = item['option_activity_type'].capitalize()
                 item['sentiment'] = item['sentiment'].capitalize()
-                item['executionEstimate'] = item['execution_estimate'].replace('_', ' ').title()
+                item['execution_estimate'] = item['execution_estimate'].replace('_', ' ').title()
                 item['tradeCount'] = item['trade_count']
 
                 page_list.append(item)
