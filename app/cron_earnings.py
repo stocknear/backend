@@ -39,7 +39,7 @@ async def get_data(session, ticker):
                 data = ujson.loads(await response.text())['earnings']
 
                 # Filter for future earnings
-                future_dates = [item for item in data if datetime.strptime(item["date"], "%Y-%m-%d") > today]
+                future_dates = [item for item in data if datetime.strptime(item["date"], "%Y-%m-%d") >= today]
                 if future_dates:
                     nearest_future = min(future_dates, key=lambda x: datetime.strptime(x["date"], "%Y-%m-%d"))
                     try:
