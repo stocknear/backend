@@ -15,7 +15,6 @@ load_dotenv()
 # Create a dictionary to store the status of each job
 job_status = {
     'options_flow_job': {'running': False},
-    'options_zero_dte_job': {'running': False}
 }
 
 useast_ip_address = os.getenv('USEAST_IP_ADDRESS')
@@ -232,21 +231,6 @@ def run_cron_options_flow():
         run_command(command)
         
         
-def run_cron_options_zero_dte():
-    week = datetime.today().weekday()
-    current_time = datetime.now().time()
-    start_time = datetime_time(15, 30)
-    end_time = datetime_time(22, 30)
-    if week <= 4 and start_time <= current_time < end_time:
-        run_command(["python3", "cron_options_zero_dte.py"])
-        command = [
-            "sudo", "rsync", "-avz", "-e", "ssh",
-            "/root/backend/app/json/options-flow/zero-dte/",
-            f"root@{useast_ip_address}:/root/backend/app/json/options-flow/zero-dte/"
-        ]
-        run_command(command)
-                  
-
 def run_ta_rating():
     week = datetime.today().weekday()
     if week <= 5:
@@ -644,7 +628,6 @@ schedule.every(6).hours.do(run_threaded, run_json).tag('json_job')
 
 schedule.every(12).hours.do(run_threaded, run_analyst_rating).tag('analyst_job')
 
-schedule.every(60).seconds.do(run_threaded, run_if_not_running(run_cron_options_zero_dte, 'options_zero_dte_job')).tag('options_zero_dte_job')
 
 schedule.every(2).minutes.do(run_threaded, run_dashboard).tag('dashboard_job')
 
