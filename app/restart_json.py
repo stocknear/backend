@@ -364,6 +364,10 @@ def get_financial_statements(item, symbol):
     except:
         item['returnOnInvestedCapital'] = None
 
+    try:
+        item['researchDevelopmentRevenueRatio'] = round((item['researchAndDevelopmentExpenses'] / item['revenue']) * 100,2)
+    except:
+        item['researchDevelopmentRevenueRatio'] = None
 
     return item
 
@@ -384,7 +388,9 @@ async def get_stock_screener(con):
     #Stock Screener Data
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
-   
+    
+    next_year = datetime.now().year+1
+
     #Stock Screener Data
     
     cursor.execute("SELECT symbol, name, change_1W, change_1M, change_3M, change_6M, change_1Y, change_3Y, sma_20, sma_50, sma_100, sma_200, ema_20, ema_50, ema_100, ema_200, rsi, atr, stoch_rsi, mfi, cci, pe, marketCap, beta FROM stocks WHERE symbol NOT LIKE '%.%' AND eps IS NOT NULL AND marketCap IS NOT NULL AND beta IS NOT NULL")
@@ -449,11 +455,13 @@ async def get_stock_screener(con):
                 item['sharesOutStanding'] = int(res['sharesOutstanding'])
                 item['country'] = get_country_name(res['country'])
                 item['sector'] = res['sector']
+                item['industry'] = res['industry']
         except:
             item['employees'] = None
             item['sharesOutStanding'] = None
             item['country'] = None
             item['sector'] = None
+            item['industry'] = None
 
         #Financial Statements
         item.update(get_financial_statements(item, symbol))
@@ -580,6 +588,19 @@ async def get_stock_screener(con):
             item['shortRatio'] = None
             item['shortOutStandingPercent'] = None
             item['shortFloatPercent'] = None
+
+
+        try:
+            with open(f"json/analyst-estimate/{symbol}.json", 'r') as file:
+                res = orjson.loads(file.read())
+                item['forwardPS'] = None
+                for analyst_item in res:
+                    if analyst_item['date'] == next_year and item['marketCap'] > 0 and analyst_item['estimatedRevenueAvg'] > 0:
+                        # Calculate forwardPS: marketCap / estimatedRevenueAvg
+                        item['forwardPS'] = round(item['marketCap'] / analyst_item['estimatedRevenueAvg'], 1)
+                        break  # Exit the loop once the desired item is found
+        except:
+            item['forwardPS'] = None
 
     return stock_screener_data
 
