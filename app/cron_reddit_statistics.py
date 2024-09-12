@@ -29,6 +29,7 @@ etf_cursor.execute("PRAGMA journal_mode = wal")
 etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
 etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
+total_symbols = stock_symbols + etf_symbols
 con.close()
 etf_con.close()
 
@@ -142,7 +143,7 @@ def compute_trending_tickers(daily_stats):
             'call': counts['CALL'],
             'avgSentiment': round(sum(counts['sentiment']) / len(counts['sentiment']),2) if counts['sentiment'] else 0
         }
-        for symbol, counts in trending.items()
+        for symbol, counts in trending.items() if symbol in total_symbols
     ]
     trending_list.sort(key=lambda x: x['count'], reverse=True)
 
