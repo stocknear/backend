@@ -67,7 +67,7 @@ async def get_data(session, ticker):
                         pass
 
                 # Filter for past earnings within the last 20 days
-                recent_dates = [item for item in data if N_days_ago <= datetime.strptime(item["date"], "%Y-%m-%d") <= today]
+                recent_dates = [item for item in data if N_days_ago <= ny_tz.localize(datetime.strptime(item["date"], "%Y-%m-%d")) <= today]
                 if recent_dates:
                     nearest_recent = min(recent_dates, key=lambda x: datetime.strptime(x["date"], "%Y-%m-%d"))
                     try:
