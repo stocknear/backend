@@ -301,13 +301,13 @@ async def run():
 				options_flow = [item for item in options_flow if item['ticker'] in stock_symbols]
 				
 				highest_volume = sorted(options_flow, key=lambda x: int(x['volume']), reverse=True)
-				highest_volume = [{key: item[key] for key in ['cost_basis', 'ticker','assetType', 'date_expiration', 'put_call', 'volume', 'strike_price']} for item in highest_volume[0:4]]
+				highest_volume = [{key: item[key] for key in ['cost_basis', 'ticker','underlying_type', 'date_expiration', 'put_call', 'volume', 'strike_price']} for item in highest_volume[0:4]]
 
 				highest_premium = sorted(options_flow, key=lambda x: int(x['cost_basis']), reverse=True)
-				highest_premium = [{key: item[key] for key in ['cost_basis', 'ticker','assetType', 'date_expiration', 'put_call', 'volume', 'strike_price']} for item in highest_premium[0:4]]
+				highest_premium = [{key: item[key] for key in ['cost_basis', 'ticker','underlying_type', 'date_expiration', 'put_call', 'volume', 'strike_price']} for item in highest_premium[0:4]]
 
 				highest_open_interest = sorted(options_flow, key=lambda x: int(x['open_interest']), reverse=True)
-				highest_open_interest = [{key: item[key] for key in ['cost_basis', 'ticker','assetType', 'date_expiration', 'put_call', 'open_interest', 'strike_price']} for item in highest_open_interest[0:4]]
+				highest_open_interest = [{key: item[key] for key in ['cost_basis', 'ticker','underlying_type', 'date_expiration', 'put_call', 'open_interest', 'strike_price']} for item in highest_open_interest[0:4]]
 
 				options_flow = {'premium': highest_premium, 'volume': highest_volume, 'openInterest':highest_open_interest}
 		except Exception as e:
