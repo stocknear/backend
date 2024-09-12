@@ -7,13 +7,15 @@ import os
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
 from tqdm import tqdm
+import pytz
 
 headers = {"accept": "application/json"}
 url = "https://api.benzinga.com/api/v2.1/calendar/earnings"
 load_dotenv()
 api_key = os.getenv('BENZINGA_API_KEY_EXTRA')
 
-today = datetime.today()
+ny_tz = pytz.timezone('America/New_York')
+today = datetime.now(ny_tz).replace(hour=0, minute=0, second=0, microsecond=0)
 N_days_ago = today - timedelta(days=10)
 
 # Function to delete all files in a directory
@@ -39,7 +41,7 @@ async def get_data(session, ticker):
                 data = ujson.loads(await response.text())['earnings']
 
                 # Filter for future earnings
-                future_dates = [item for item in data if datetime.strptime(item["date"], "%Y-%m-%d") >= today]
+                future_dates = [item for item in data if ny_tz.localize(datetime.strptime(item["date"], "%Y-%m-%d")) >= today]
                 if future_dates:
                     nearest_future = min(future_dates, key=lambda x: datetime.strptime(x["date"], "%Y-%m-%d"))
                     try:
@@ -60,7 +62,8 @@ async def get_data(session, ticker):
                                 'revenueEst': revenue_est
                             }
                             await save_json(res_list, symbol, 'json/earnings/next')
-                    except KeyError:
+                    except Exception as e:
+                        #print(e)
                         pass
 
                 # Filter for past earnings within the last 20 days
@@ -89,6 +92,7 @@ async def get_data(session, ticker):
                     except:
                         pass
     except Exception as e:
+        #print(e)
         pass
 
 async def run(stock_symbols):
