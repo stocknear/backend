@@ -243,7 +243,7 @@ def get_options_chain(option_data_list):
     
     # Filter out rows where 'date_expiration' is in the past
     current_date = datetime.now()
-    df = df[df['date_expiration'] > current_date]
+    df = df[df['date_expiration'] >= current_date]
     
     # Calculate total premium during grouping
     df['total_premium'] = df['cost_basis']
