@@ -417,12 +417,10 @@ data = {
     'industry': {
         'text': 'The primary industry that the company operates in.',
     },
-
-
-
-
-
-
+    'freeCashFlowMargin': {
+        'text': 'FCF margin is the percentage of revenue left as free cash flow. FCF is calculated by subtracting capital expenditures (CapEx) from the operating cash flow (OCF). Both CapEx and OCF are shown on the cash flow statement.',
+        'equation': 'FCF Margin = (Free Cash Flow / Revenue) * 100%'
+    },
 
 
 
