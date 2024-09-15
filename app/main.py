@@ -295,6 +295,8 @@ class StockScreenerData(BaseModel):
 class TransactionId(BaseModel):
     transactionId: str
 
+class InfoText(BaseModel):
+    parameter: str
 
 # Replace NaN values with None in the resulting JSON object
 def replace_nan_inf_with_none(obj):
@@ -3619,6 +3621,24 @@ async def get_surprise_earnings(data:TickerData, api_key: str = Security(get_api
 
     redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key,15*60)
+
+    return res
+
+@app.post("/info-text")
+async def get_info_text(data:InfoText):
+    parameter = data.parameter
+    cache_key = f"info-text-{parameter}"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return orjson.loads(cached_result)
+    try:
+        with open(f"json/info-text/data.json", 'rb') as file:
+            res = orjson.loads(file.read())[parameter]
+    except:
+        res = {}
+
+    redis_client.set(cache_key, orjson.dumps(res))
+    redis_client.expire(cache_key,3600*3600)
 
     return res
 

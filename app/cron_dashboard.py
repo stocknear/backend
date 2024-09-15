@@ -16,7 +16,6 @@ headers = {"accept": "application/json"}
 
 load_dotenv()
 benzinga_api_key = os.getenv('BENZINGA_API_KEY')
-benzinga_api_key_extra = os.getenv('BENZINGA_API_KEY_EXTRA')
 fmp_api_key = os.getenv('FMP_API_KEY')
 
 
@@ -107,7 +106,7 @@ async def get_upcoming_earnings(session):
 	res_list = []
 	for importance in importance_list:
 
-		querystring = {"token": benzinga_api_key_extra,"parameters[importance]":importance,"parameters[date_from]":today,"parameters[date_to]":tomorrow,"parameters[date_sort]":"date"}
+		querystring = {"token": benzinga_api_key,"parameters[importance]":importance,"parameters[date_from]":today,"parameters[date_to]":tomorrow,"parameters[date_sort]":"date"}
 		try:
 			async with session.get(url, params=querystring, headers=headers) as response:
 				res = ujson.loads(await response.text())['earnings']
@@ -155,7 +154,7 @@ async def get_recent_earnings(session):
 	importance_list = ["3","4","5"]
 	res_list = []
 	for importance in importance_list:
-		querystring = {"token": benzinga_api_key_extra,"parameters[importance]":importance,"parameters[date_from]":yesterday,"parameters[date_to]":today,"parameters[date_sort]":"date"}
+		querystring = {"token": benzinga_api_key,"parameters[importance]":importance,"parameters[date_from]":yesterday,"parameters[date_to]":today,"parameters[date_sort]":"date"}
 		try:
 			async with session.get(url, params=querystring, headers=headers) as response:
 				res = ujson.loads(await response.text())['earnings']
@@ -201,7 +200,7 @@ async def get_recent_dividends(session):
 	importance_list = ["1","2","3","4","5"]
 	res_list = []
 	for importance in importance_list:
-		querystring = {"token": benzinga_api_key_extra,"parameters[importance]":importance,"parameters[date_from]":yesterday,"parameters[date_to]":today}
+		querystring = {"token": benzinga_api_key,"parameters[importance]":importance,"parameters[date_from]":yesterday,"parameters[date_to]":today}
 		try:
 			async with session.get(url, params=querystring, headers=headers) as response:
 				res = ujson.loads(await response.text())['dividends']
