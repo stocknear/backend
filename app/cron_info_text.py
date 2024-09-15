@@ -140,7 +140,7 @@ data = {
     },
     'dividendGrowth': {
         'text': 'Year-over-year (YoY) dividend growth is how much a company has increased compared to the same time period one year ago.',
-        'equation': 'Payout Ratio = (Dividends Per Share / Earnings Per Share) * 100%'
+        'equation': 'Value Growth = ((Current Value / Previous Value) - 1) * 100%'
     },
     'eps': {
         'text': 'Earnings per share is the portion of a company`s profit that is allocated to each individual stock. EPS is calculated by dividing net income by shares outstanding.',
@@ -282,6 +282,152 @@ data = {
     'var': {
         'text': 'Value at Risk (VaR) measures the maximum potential loss an investment portfolio could face over a specified time period, given a certain confidence level. It provides a statistical estimate of the worst-case scenario under normal market conditions.',
     },
+    'trendAnalysis': {
+        'text': 'Accuracy of the AI model’s predictions regarding the likelihood of a bullish trend over the next 3 months. This percentage reflects how well the model forecasts future market movements.'
+    },
+    'fundamentalAnalysis': {
+        'text': 'Accuracy of the AI model’s predictions regarding the likelihood of a bullish trend over the next 3 months. This percentage reflects how well the model forecasts future market movements.'
+    },
+    'currentRatio': {
+        'text': 'The current ratio is used to measure a company`s short-term liquidity. A low number can indicate that a company will have trouble paying its upcoming liabilities.',
+        'equation': 'Current Ratio = Current Assets / Current Liabilities'
+
+    },
+    'quickRatio': {
+        'text': 'The quick ratio measure a company`s short-term liquidity. A low number indicates that the company may have trouble paying its upcoming financial obligations.',
+        'equation': 'Quick Ratio = (Cash + Short-Term Investments + Accounts Receivable) / Current Liabilities'
+
+    },
+    'debtEquityRatio': {
+        'text': 'The debt-to-equity ratio measures a company`s debt levels relative to its shareholders equity or book value. A high ratio implies that a company has a lot of debt.',
+        'equation': 'Debt / Equity Ratio = Total Debt / Shareholders Equity'
+
+    },
+    'debtRatio': {
+        'text': 'The Debt Ratio measures the proportion of a company’s total debt to its total assets. It provides insight into the company’s financial leverage and risk by showing how much of the company’s assets are financed through debt.',
+        'equation': 'Debt Ratio = Total Debt / Total Assets'
+    },
+    'returnOnAssets': {
+        'text': 'TReturn on assets (ROA) is a metric that measures how much profit a company is able to generate using its assets. It is calculated by dividing net income by the average total assets for the past 12 months.',
+        'equation': 'ROA = (Net Income / Total Assets)'
+    },
+    'returnOnEquity': {
+        'text': 'Return on Equity (ROE) measures a company’s profitability by comparing net income to shareholders’ equity. It reflects how effectively the company is using its equity base to generate profits for shareholders.',
+        'equation': 'ROE = Net Income / Shareholders Equity'
+    },
+    'enterpriseValue': {
+        'text': 'Enterprise value measures the total value of a company`s outstanding shares, adjusted for debt and levels of cash and short-term investments.',
+        'equation': 'Enterprise Value = Market Cap + Total Debt - Cash & Equivalents - Short-Term Investments'
+    },
+    'freeCashFlowPerShare': {
+        'text': 'Free cash flow per share is the amount of free cash flow attributed to each outstanding stock.',
+    },
+    'cashPerShare': {
+        'text': 'Cash Per Share represents the amount of cash a company holds per share of its stock. It provides insight into the liquidity available to shareholders and the company’s ability to cover short-term obligations.',
+    },
+    'priceToFreeCashFlowsRatio': {
+        'text': 'The price to free cash flow (P/FCF) ratio is similar to the P/E ratio, except it uses free cash flow instead of accounting earnings.',
+        'equation': 'P/FCF Ratio = Market Capitalization / Free Cash Flow'
+    },
+    'sharesShort': {
+        'text': 'Short Interest represents the total number of shares that have been sold short but not yet covered or closed out. It indicates the level of bearish sentiment among investors and the potential for a short squeeze if the stock price rises.',
+    },
+    'shortRatio': {
+        'text': 'Short ratio is the ratio of shorted shares relative to the stock`s average daily trading volume. It estimates how many trading days it would take for all short sellers to cover their position.',
+    },
+    'shortFloatPercent': {
+        'text': 'The percentage of a stock’s public float that has been sold short. This metric indicates the proportion of shares available for trading that have been sold short, reflecting investor sentiment and potential market pressure.'
+    },
+    'shortOutstandingPercent': {
+        'text': 'The percentage of a stock’s publicly outstanding shares that have been sold short. It reflects the level of short-selling activity relative to the total number of shares available for trading.'
+    },
+    'failToDeliver': {
+        'text': 'Fail to Deliver (FTD) represents the number of shares that were sold but not delivered to the buyer within the standard settlement period. This metric indicates issues in the settlement process and can signal potential liquidity or operational problems in the market.'
+    },
+    'operatingCashFlowPerShare': {
+        'text': 'Operating Cash Flow Per Share measures the amount of cash generated from operations per share of stock. It reflects the company’s ability to generate cash from its core business activities relative to the number of shares outstanding.',
+    },
+    'cashFlowToDebtRatio': {
+        'text': 'The Cash Flow / Debt Ratio measures a company’s ability to cover its total debt with its operating cash flow. It provides insight into the company’s financial health and its capacity to manage debt obligations using cash generated from operations.',
+    },
+    'operatingCashFlowSalesRatio': {
+        'text': 'The Operating Cash Flow / Sales Ratio measures the proportion of operating cash flow relative to total sales. It indicates how efficiently a company is converting its sales into cash flow from operations, reflecting its operational efficiency.',
+    },
+    'priceCashFlowRatio': {
+        'text': 'The Price to Cash Flow Ratio measures the price of a company’s stock relative to its operating cash flow per share. It helps assess whether the stock is overvalued or undervalued based on the cash flow it generates.',
+    },
+    'priceEarningsRatio': {
+        'text': 'The Price to Earnings (PE) Ratio measures a company’s current share price relative to its earnings per share (EPS). It provides insight into how much investors are willing to pay for each dollar of earnings, helping to assess the stock’s valuation.',
+    },
+    'grossProfitMargin': {
+        'text': 'Gross margin is the percentage of revenue left as gross profits, after subtracting cost of goods sold from the revenue.',
+        'equation': 'Gross Margin = (Gross Profit / Revenue) * 100%'
+    },
+    'netProfitMargin': {
+        'text': 'Profit margin is the percentage of revenue left as net income, or profits, after subtracting all costs and expenses from the revenue.',
+        'equation': 'Profit Margin = (Net Income / Revenue) * 100%'
+    },
+    'pretaxProfitMargin': {
+        'text': 'Pretax margin is the percentage of revenue left as profits before subtracting taxes.',
+        'equation': 'Pretax Margin = (Pretax Income / Revenue) * 100%'
+    },
+    'ebitdaMargin': {
+        'text': 'EBITDA margin is the percentage of revenue left as EBITDA, after subtracting all expenses except interest, taxes, depreciation and amortization from revenue.',
+        'equation': 'EBITDA Margin = (EBITDA / Revenue) * 100%'
+    },
+    'assetTurnover': {
+        'text': 'The asset turnover ratio measures the amount of sales relative to a company`s assets. It indicates how efficiently the company uses its assets to generate revenue.',
+        'equation': 'Asset Turnover = Revenue / Average Assets'
+    },
+    'earningsYield': {
+        'text': 'The earnings yield is a valuation metric that measures a company`s profits relative to stock price, expressed as a percentage yield. It is the inverse of the PE ratio.',
+        'equation': 'Earnings Yield = (Earnings Per Share / Stock Price) * 100%'
+    },
+    'freeCashFlowYield': {
+        'text': 'The free cash flow (FCF) yield measures a company`s free cash flow relative to its price, shown as a percentage. It is the inverse of the P/FCF ratio.',
+        'equation': 'FCF Yield = (Free Cash Flow / Market Cap) * 100%'
+    },
+    'effectiveTaxRate': {
+        'text': 'The effective tax rate is the percentage of taxable income paid in corporate income tax.',
+        'equation': 'Effective Tax Rate = (Income Tax / Pretax Income) * 100%'
+    },
+    'fixedAssetTurnover': {
+        'text': 'The Fixed Asset Turnover Ratio measures how efficiently a company utilizes its fixed assets to generate sales. It indicates the amount of revenue produced per dollar of fixed assets, reflecting the effectiveness of asset use in generating revenue.',
+    },
+    'sharesOutStanding': {
+        'text': 'The total number of outstanding shares. If the company has many different types of shares, then this number assumes that all of the company`s stock is converted into the current share class. This number is used for calculating the company`s market cap.',
+    },
+    'employees': {
+        'text': 'The company`s last reported total number of employees.',
+    },
+    'revenuePerEmployee': {
+        'text': 'The amount of revenue that the company generates per each employee.',
+        'equation': 'Revenue Per Employee = Total Revenue / Employee Count'
+    },
+    'profitPerEmployee': {
+        'text': 'The amount of net income generated per each employee.',
+        'equation': 'Profits Per Employee = Total Net Income / Employee Count'
+    },
+    'analystRating': {
+        'text': 'The average rating of analysts for the stock.',
+    },
+    'sector': {
+        'text': 'The primary sector that the company operates in.',
+    },
+    'industry': {
+        'text': 'The primary industry that the company operates in.',
+    },
+
+
+
+
+
+
+
+
+
+
+
 
 }
 
