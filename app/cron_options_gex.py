@@ -24,7 +24,7 @@ def save_json(symbol, data, file_path,filename=None):
 
 
 # Define the keys to keep
-keys_to_keep = {'time', 'sentiment', 'option_activity_type', 'price', 'underlying_price', 'cost_basis', 'strike_price', 'date', 'date_expiration', 'open_interest', 'put_call', 'volume'}
+keys_to_keep = {'time', 'sentiment', 'execution_estimate','option_activity_type', 'price', 'underlying_price', 'cost_basis', 'strike_price', 'date', 'date_expiration', 'open_interest', 'put_call', 'volume'}
 
 def filter_data(item):
     # Filter the item to keep only the specified keys and format fields
@@ -33,6 +33,7 @@ def filter_data(item):
     filtered_item['sentiment'] = filtered_item['sentiment'].capitalize()
     filtered_item['underlying_price'] = round(float(filtered_item['underlying_price']), 2)
     filtered_item['put_call'] = 'Calls' if filtered_item['put_call'] == 'CALL' else 'Puts'
+    filtered_item['execution_estimate'] = filtered_item['execution_estimate'].replace('_',' ').title()
     return filtered_item
 
 
@@ -64,8 +65,10 @@ def gamma(S, K, T, r, sigma):
     except ZeroDivisionError:
         return 0
 
-def compute_gex(option_data, r=0.05, sigma=0.2):
-
+def compute_gex_and_dex(option_data, r=0.05, sigma=0.2):
+    """
+    Compute GEX (Gamma Exposure) and DEX (Delta Exposure) for the given option data.
+    """
     timestamp = datetime.strptime(option_data['date'], "%Y-%m-%d")
 
     try:
@@ -75,32 +78,39 @@ def compute_gex(option_data, r=0.05, sigma=0.2):
         expiration_date = datetime.strptime(option_data['date_expiration'], "%Y-%m-%d")
         T = (expiration_date - timestamp).days / 365.0
         if T < 0:
-            return 0, timestamp.date()
+            return 0, 0, timestamp.date()  # return 0 for both GEX and DEX if T is negative
         elif T == 0:
-            T = 1 #Consider 0DTE options
+            T = 1  # Consider 0DTE options
 
         option_type = option_data['put_call']
         delta_value = delta(S, K, T, r, sigma, option_type)
         gamma_value = gamma(S, K, T, r, sigma)
         notional = size * S
-        gex = gamma_value * size * int(option_data['volume']) * S #gamma_value * notional * delta_value
+        
+        # Calculate GEX (Gamma Exposure)
+        gex = gamma_value * size * int(option_data['volume']) * S  # gamma_value * notional
+        
+        # Calculate DEX (Delta Exposure)
+        dex = delta_value * size * S  # delta_value * notional
 
-        return gex, timestamp.date()
+        return gex, dex, timestamp.date()
     except:
-        return 0, timestamp.date()
+        return 0, 0, timestamp.date()
 
-def compute_daily_gex(option_data_list, volatility):
-    gex_data = []
+def compute_daily_gex_and_dex(option_data_list, volatility):
+    gex_dex_data = []
     for option_data in option_data_list:
-        gex, trade_date = compute_gex(option_data, sigma=volatility)
-        if gex != 0:
-            gex_data.append({'date': trade_date, 'gex': gex})
+        gex, dex, trade_date = compute_gex_and_dex(option_data, sigma=volatility)
+        if gex != 0 or dex != 0:
+            gex_dex_data.append({'date': trade_date, 'gex': gex, 'dex': dex})
     
-    gex_df = pd.DataFrame(gex_data)
-    daily_gex = gex_df.groupby('date')['gex'].sum().reset_index()
-    daily_gex['gex'] = round(daily_gex['gex'], 0)
-    daily_gex['date'] = daily_gex['date'].astype(str)
-    return daily_gex
+    gex_dex_df = pd.DataFrame(gex_dex_data)
+    daily_gex_dex = gex_dex_df.groupby('date').agg({'gex': 'sum', 'dex': 'sum'}).reset_index()
+    daily_gex_dex['gex'] = round(daily_gex_dex['gex'], 0)
+    daily_gex_dex['dex'] = round(daily_gex_dex['dex'], 0)
+    daily_gex_dex['date'] = daily_gex_dex['date'].astype(str)
+    
+    return daily_gex_dex
 
 def calculate_otm_percentage(option_data_list):
     otm_count = 0
@@ -134,6 +144,7 @@ def get_historical_option_data(option_data_list, df_price):
             strike_price = float(option_data.get('strike_price', 0))
             put_call = option_data.get('put_call', 'CALL')
             sentiment = option_data.get('sentiment', 'NEUTRAL')
+            execution_estimate = option_data.get('execution_estimate', 'UNKNOWN')
 
             # Safely convert premium to float, default to 0 if missing or invalid
             try:
@@ -166,6 +177,12 @@ def get_historical_option_data(option_data_list, df_price):
                 bear_premium = 0
                 neutral_premium = premium
 
+            # Categorize volume based on execution_estimate
+            bid_vol = volume if "bid" in execution_estimate.lower() else 0
+            ask_vol = volume if "ask" in execution_estimate.lower() else 0
+            midpoint_vol = volume if "midpoint" in execution_estimate.lower() else 0
+
+
             # Append option data for later summarization
             summary_data.append({
                 'date': date,
@@ -175,6 +192,9 @@ def get_historical_option_data(option_data_list, df_price):
                 'bull_premium': bull_premium,
                 'bear_premium': bear_premium,
                 'neutral_premium': neutral_premium,
+                'bid_vol': bid_vol,
+                'ask_vol': ask_vol,
+                'midpoint_vol': midpoint_vol,
                 'put_call': put_call,
                 'strike_price': strike_price,
                 'stock_price': stock_price
@@ -187,10 +207,6 @@ def get_historical_option_data(option_data_list, df_price):
     # Summarize by date
     df_summary = pd.DataFrame(summary_data)
 
-    # Calculate OTM percentage for each day
-    def calculate_daily_otm(df):
-        return calculate_otm_percentage(df.to_dict('records'))  # Pass the day's options for OTM calculation
-
     # Apply OTM percentage calculation for each day
     daily_summary = df_summary.groupby('date').agg(
         total_oi=('open_interest', 'sum'),
@@ -199,11 +215,26 @@ def get_historical_option_data(option_data_list, df_price):
         total_neutral_prem=('neutral_premium', 'sum'),
         c_vol=('c_vol', 'sum'),
         p_vol=('p_vol', 'sum'),
+        bid_vol=('bid_vol', 'sum'),
+        ask_vol=('ask_vol', 'sum'),
+        midpoint_vol=('midpoint_vol', 'sum')
     ).reset_index()
+
+    # Calculate total volume
+    daily_summary['total_volume'] = daily_summary['c_vol'] + daily_summary['p_vol']
+
+    # Calculate bid/ask/midpoint ratios
+    try:
+        daily_summary['bid_ratio'] = round(daily_summary['bid_vol'] / daily_summary['total_volume'] * 100, 2)
+        daily_summary['ask_ratio'] = round(daily_summary['ask_vol'] / daily_summary['total_volume'] * 100, 2)
+        daily_summary['midpoint_ratio'] = round(daily_summary['midpoint_vol'] / daily_summary['total_volume'] * 100, 2)
+    except ZeroDivisionError:
+        daily_summary['bid_ratio'] = None
+        daily_summary['ask_ratio'] = None
+        daily_summary['midpoint_ratio'] = None
 
     # Calculate OTM percentage for each date and assign it to the daily_summary
     daily_summary['otm_ratio'] = df_summary.groupby('date').apply(lambda df: round(calculate_otm_percentage(df.to_dict('records')), 1)).values
-
 
     # Calculate Bull/Bear/Neutral ratios
     try:
@@ -216,12 +247,10 @@ def get_historical_option_data(option_data_list, df_price):
         daily_summary['bear_ratio'] = None
         daily_summary['neutral_ratio'] = None
 
-    # Calculate total volume (call + put) and format other fields
-    daily_summary['total_volume'] = round(daily_summary['c_vol'] + daily_summary['p_vol'], 2)
+    # Format other fields
     daily_summary['total_neutral_prem'] = round(daily_summary['total_neutral_prem'], 2)
     daily_summary['date'] = daily_summary['date'].astype(str)
     daily_summary = daily_summary.sort_values(by='date', ascending=False)
-
     # Return the summarized dataframe
     return daily_summary
 
@@ -382,8 +411,7 @@ for ticker in total_symbols:
             save_json(ticker, option_chain_data.to_dict('records'), 'json/options-chain/companies')
 
 
-
-        daily_gex = compute_daily_gex(ticker_data, volatility)
+        daily_gex = compute_daily_gex_and_dex(ticker_data, volatility)
         daily_gex = daily_gex.merge(df_price[['date', 'close']], on='date', how='inner')
         if not daily_gex.empty:
             save_json(ticker, daily_gex.to_dict('records'), 'json/options-gex/companies')
