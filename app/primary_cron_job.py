@@ -521,6 +521,15 @@ def run_financial_statements():
     ]
     run_command(command)
 
+def run_financial_score():
+    run_command(["python3", "cron_financial_score.py"])
+    command = [
+        "sudo", "rsync", "-avz", "-e", "ssh",
+        "/root/backend/app/json/financial-score",
+        f"root@{useast_ip_address}:/root/backend/app/json"
+    ]
+    run_command(command)
+
 def run_market_cap():
     run_command(["python3", "cron_market_cap.py"])
     command = [
@@ -599,6 +608,7 @@ schedule.every().day.at("14:00").do(run_threaded, run_cron_sector).tag('sector_j
 schedule.every().day.at("15:45").do(run_threaded, run_restart_cache)
 
 schedule.every(2).days.at("01:00").do(run_threaded, run_market_maker).tag('markt_maker_job')
+schedule.every(2).days.at("08:30").do(run_threaded, run_financial_score).tag('financial_score_job')
 schedule.every().saturday.at("05:00").do(run_threaded, run_ownership_stats).tag('ownership_stats_job')
 
 

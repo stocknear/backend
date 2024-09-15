@@ -421,8 +421,19 @@ data = {
         'text': 'FCF margin is the percentage of revenue left as free cash flow. FCF is calculated by subtracting capital expenditures (CapEx) from the operating cash flow (OCF). Both CapEx and OCF are shown on the cash flow statement.',
         'equation': 'FCF Margin = (Free Cash Flow / Revenue) * 100%'
     },
-
-
+    'altmanZScore': {
+        'text': 'The Altman Z-Score is a number based on a formula that can be used to predict the likelihood that a company will go into bankruptcy within two years.',
+    },
+    'piotroskiScore': {
+        'text': 'The Piotroski F-Score is a score between 0 and 9 that determine the strength of a company`s financial position. The higher, the better.',
+    },
+    'totalAssets': {
+        'text': 'Total assets is the sum of all current and non-current assets on the balance sheet. Assets are everything that the company owns.',
+    },
+    'workingCapital': {
+        'text': 'Working capital is the amount of money available to a business to conduct its day-to-day operations. It is calculated by subtracting total current liabilities from total current assets.',
+        'equation': 'Working Capital = Current Assets - Current Liabilities'
+    },
 
 
 

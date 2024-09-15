@@ -562,6 +562,20 @@ async def get_stock_screener(con):
             item['forwardPE'] = None
 
         try:
+            with open(f"json/financial-score/{symbol}.json", 'r') as file:
+                res = orjson.loads(file.read())
+                item['altmanZScore'] = res['altmanZScore']
+                item['piotroskiScore'] = res['piotroskiScore']
+                item['workingCapital'] = res['workingCapital']
+                item['totalAssets'] = res['totalAssets']
+
+        except:
+            item['altmanZScore'] = None
+            item['piotroskiScore'] = None
+            item['workingCapital'] = None
+            item['totalAssets'] = None
+
+        try:
             with open(f"json/dividends/companies/{symbol}.json", 'r') as file:
                 res = orjson.loads(file.read())
                 item['annualDividend'] = round(res['annualDividend'],2)
