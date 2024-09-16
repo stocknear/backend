@@ -102,6 +102,7 @@ async def run():
     
     chunk_size = len(total_symbols) // 10  # Divide the list into 10 chunks
     chunks = [total_symbols[i:i + chunk_size] for i in range(0, len(total_symbols), chunk_size)]
+    delete_files_in_directory("json/pre-post-quote")
     for chunk in chunks:
         if is_market_closed == False:
             latest_quote = await get_quote_of_stocks(chunk)
@@ -111,7 +112,6 @@ async def run():
                 #print(f"Saved data for {symbol}.")
 
         if is_market_closed == True:
-            delete_files_in_directory("json/pre-post-quote")
             latest_quote = await get_pre_post_quote_of_stocks(chunk)
             for item in latest_quote:
                 symbol = item['symbol']
