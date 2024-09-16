@@ -12,7 +12,7 @@ import pytz
 headers = {"accept": "application/json"}
 url = "https://api.benzinga.com/api/v2.1/calendar/earnings"
 load_dotenv()
-api_key = os.getenv('BENZINGA_API')
+api_key = os.getenv('BENZINGA_API_KEY')
 
 ny_tz = pytz.timezone('America/New_York')
 today = datetime.now(ny_tz).replace(hour=0, minute=0, second=0, microsecond=0)
