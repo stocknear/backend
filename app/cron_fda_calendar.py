@@ -9,7 +9,7 @@ import requests
 
 # Load environment variables
 load_dotenv()
-benzinga_api_key = os.getenv('BENZINGA_API_KEY_EXTRA')
+benzinga_api_key = os.getenv('benzinga_api_key')
 fmp_api_key = os.getenv('FMP_API_KEY')
 
 

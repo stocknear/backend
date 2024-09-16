@@ -23,7 +23,7 @@ import os
 
 load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
-benzinga_api_key = os.getenv('BENZINGA_API_KEY_EXTRA')
+benzinga_api_key = os.getenv('benzinga_api_key')
 
 berlin_tz = pytz.timezone('Europe/Berlin')
 
