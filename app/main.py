@@ -114,7 +114,9 @@ with db_connection(INSTITUTE_DB) as cursor:
 #------Start Stock Screener--------#
 with open(f"json/stock-screener/data.json", 'rb') as file:
         stock_screener_data = orjson.loads(file.read())
-        
+
+# Convert stock_screener_data into a dictionary keyed by symbol
+stock_screener_data_dict = {item['symbol']: item for item in stock_screener_data}
 #------End Stock Screener--------#
 
 
@@ -1924,17 +1926,18 @@ async def filter_stock_list(data:FilterStockList, api_key: str = Security(get_ap
         'IL': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' or exchangeShortName = 'AMEX') AND country = 'IL'",
         'GB': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' or exchangeShortName = 'AMEX') AND country = 'GB'",
         'JP': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' or exchangeShortName = 'AMEX') AND country = 'JP'",
-        'financial': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ') AND (sector = 'Financials' OR sector = 'Financial Services')",
-        'healthcare': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ') AND (sector = 'Healthcare')",
-        'technology': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ') AND (sector = 'Technology')",
-        'industrials': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ') AND (sector = 'Industrials')",
-        'consumer-cyclical': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ') AND (sector = 'Consumer Cyclical')",
-        'real-estate': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ') AND (sector = 'Real Estate')",
-        'basic-materials': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ') AND (sector = 'Basic Materials')",
-        'communication-services': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ') AND (sector = 'Communication Services')",
-        'energy': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ') AND (sector = 'Energy')",
-        'consumer-defensive': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ') AND (sector = 'Consumer Defensive')",
-        'utilities': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ') AND (sector = 'Utilities')",
+        'financial': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' OR exchangeShortName = 'AMEX') AND (sector = 'Financials' OR sector = 'Financial Services')",
+        'healthcare': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' OR exchangeShortName = 'AMEX') AND (sector = 'Healthcare')",
+        'technology': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' OR exchangeShortName = 'AMEX') AND (sector = 'Technology')",
+        'industrials': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' OR exchangeShortName = 'AMEX') AND (sector = 'Industrials')",
+        'consumer-cyclical': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' OR exchangeShortName = 'AMEX') AND (sector = 'Consumer Cyclical')",
+        'real-estate': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' OR exchangeShortName = 'AMEX') AND (sector = 'Real Estate')",
+        'basic-materials': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' OR exchangeShortName = 'AMEX') AND (sector = 'Basic Materials')",
+        'communication-services': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' OR exchangeShortName = 'AMEX') AND (sector = 'Communication Services')",
+        'energy': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' OR exchangeShortName = 'AMEX') AND (sector = 'Energy')",
+        'consumer-defensive': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' OR exchangeShortName = 'AMEX') AND (sector = 'Consumer Defensive')",
+        'utilities': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' OR exchangeShortName = 'AMEX') AND (sector = 'Utilities')",
+        'reit': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' OR exchangeShortName = 'AMEX') AND industry LIKE '%REIT%' AND symbol NOT LIKE '%-%'",
     }
 
     # Execute the query with the relevant country
@@ -1954,6 +1957,22 @@ async def filter_stock_list(data:FilterStockList, api_key: str = Security(get_ap
             'revenue': revenue,
             'netIncome': netIncome
         } for (symbol, name, price, changesPercentage, marketCap, revenue, netIncome) in raw_data]
+
+    # Update res_list with dividendYield
+    if filter_list == 'reit':
+        # Create the dictionary keyed by symbol
+        stock_screener_data_dict = {item['symbol']: item for item in stock_screener_data}
+        
+        # Update dividendYield for each item in res_list
+        for item in res_list:
+            symbol = item['symbol']
+            if symbol in stock_screener_data_dict:
+                item['dividendYield'] = stock_screener_data_dict[symbol].get('dividendYield', None)
+        
+        # Remove elements where dividendYield is None
+        res_list = [item for item in res_list if item.get('dividendYield') is not None]
+
+
 
     sorted_res_list = sorted(res_list, key=lambda x: x['marketCap'], reverse=True)
 
