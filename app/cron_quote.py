@@ -11,6 +11,17 @@ load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
 
 
+# Function to delete all files in a directory
+def delete_files_in_directory(directory):
+    for filename in os.listdir(directory):
+        file_path = os.path.join(directory, filename)
+        try:
+            if os.path.isfile(file_path):
+                os.remove(file_path)
+        except Exception as e:
+            print(f"Failed to delete {file_path}. Reason: {e}")
+
+
 async def get_quote_of_stocks(ticker_list):
     ticker_str = ','.join(ticker_list)
     async with aiohttp.ClientSession() as session:
@@ -100,6 +111,7 @@ async def run():
                 #print(f"Saved data for {symbol}.")
 
         if is_market_closed == True:
+            delete_files_in_directory("json/pre-post-quote")
             latest_quote = await get_pre_post_quote_of_stocks(chunk)
             for item in latest_quote:
                 symbol = item['symbol']
