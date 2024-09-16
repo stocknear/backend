@@ -9,7 +9,7 @@
     "blob-util": "^2.0.2",
     "cheerio": "^1.0.0-rc.12",
     "dotenv": "^16.4.5",
-    "fastify": "^4.26.0",
+    "fastify": "^4.28.1",
     "got": "^11.8.3",
     "https": "^1.0.0",
     "mixpanel": "^0.18.0",

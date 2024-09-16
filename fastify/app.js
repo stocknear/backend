@@ -121,6 +121,7 @@ const WebSocket = require("ws");
 let isSend = false;
 let sendInterval;
 
+/*
 fastify.register(async function (fastify) {
   fastify.get("/realtime-data", { websocket: true }, (connection, req) => {
     // Send a welcome message to the client
@@ -392,6 +393,7 @@ fastify.register(async function (fastify) {
     }
   );
 });
+*/
 
 // Function to start the server
 function startServer() {
