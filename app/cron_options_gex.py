@@ -222,16 +222,22 @@ def get_historical_option_data(option_data_list, df_price):
 
     # Calculate total volume
     daily_summary['total_volume'] = daily_summary['c_vol'] + daily_summary['p_vol']
-
+    # Calculate bid/ask/midpoint ratios
     # Calculate bid/ask/midpoint ratios
     try:
-        daily_summary['bid_ratio'] = round(daily_summary['bid_vol'] / daily_summary['total_volume'] * 100, 2)
-        daily_summary['ask_ratio'] = round(daily_summary['ask_vol'] / daily_summary['total_volume'] * 100, 2)
-        daily_summary['midpoint_ratio'] = round(daily_summary['midpoint_vol'] / daily_summary['total_volume'] * 100, 2)
-    except ZeroDivisionError:
+        if daily_summary['total_volume'] > 0:
+            daily_summary['bid_ratio'] = round(daily_summary['bid_vol'] / daily_summary['total_volume'] * 100, 2)
+            daily_summary['ask_ratio'] = round(daily_summary['ask_vol'] / daily_summary['total_volume'] * 100, 2)
+            daily_summary['midpoint_ratio'] = round(daily_summary['midpoint_vol'] / daily_summary['total_volume'] * 100, 2)
+        else:
+            daily_summary['bid_ratio'] = None
+            daily_summary['ask_ratio'] = None
+            daily_summary['midpoint_ratio'] = None
+    except:
         daily_summary['bid_ratio'] = None
         daily_summary['ask_ratio'] = None
         daily_summary['midpoint_ratio'] = None
+
 
     # Calculate OTM percentage for each date and assign it to the daily_summary
     daily_summary['otm_ratio'] = df_summary.groupby('date').apply(lambda df: round(calculate_otm_percentage(df.to_dict('records')), 1)).values
@@ -242,7 +248,7 @@ def get_historical_option_data(option_data_list, df_price):
         daily_summary['bull_ratio'] = round(daily_summary['total_bull_prem'] / total_prem * 100, 2)
         daily_summary['bear_ratio'] = round(daily_summary['total_bear_prem'] / total_prem * 100, 2)
         daily_summary['neutral_ratio'] = round(daily_summary['total_neutral_prem'] / total_prem * 100, 2)
-    except ZeroDivisionError:
+    except:
         daily_summary['bull_ratio'] = None
         daily_summary['bear_ratio'] = None
         daily_summary['neutral_ratio'] = None
@@ -355,7 +361,7 @@ etf_cursor.execute("PRAGMA journal_mode = wal")
 etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
 etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
-total_symbols = stock_symbols + etf_symbols
+total_symbols = ['NUVL'] #stock_symbols + etf_symbols
 
 query_template = """
     SELECT date, close,change_percent
@@ -373,7 +379,6 @@ for ticker in total_symbols:
         volatility = calculate_volatility(df_price)
 
         ticker_data = get_data(ticker)
-        
         # Group ticker_data by 'date' and collect all items for each date
         grouped_history = defaultdict(list)
         for item in ticker_data:
@@ -394,10 +399,8 @@ for ticker in total_symbols:
             except:
                 pass
 
-
         daily_historical_option_data = get_historical_option_data(ticker_data, df_price)
         daily_historical_option_data = daily_historical_option_data.merge(df_price[['date', 'changesPercentage']], on='date', how='inner')
-
 
         # Add "history" column containing all filtered items with the same date
         #daily_historical_option_data['history'] = daily_historical_option_data['date'].apply(lambda x: grouped_history.get(x, []))
