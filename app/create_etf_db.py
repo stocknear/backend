@@ -255,12 +255,14 @@ class ETFDatabase:
                 for key in fundamental_data
             }
 
+            '''
             if len(json.loads(fundamental_data['holding'])) == 0:
                 self.cursor.execute("DELETE FROM etfs WHERE symbol = ?", (symbol,))
                 #self.cursor.execute("DELETE FROM symbol WHERE symbol = ?", (symbol,))
                 self.conn.commit()
                 print(f"Delete {symbol}")
                 return
+            '''
 
             for column, (column_type, value) in column_definitions.items():
                 if column not in columns and column_type:
@@ -392,5 +394,10 @@ async def fetch_tickers():
 db = ETFDatabase('backup_db/etf.db')
 loop = asyncio.get_event_loop()
 all_tickers = loop.run_until_complete(fetch_tickers())
+'''
+for item in all_tickers:
+    if item['symbol'] == 'GLD':
+        print(item)
+'''
 loop.run_until_complete(db.save_etfs(all_tickers))
 db.close_connection()

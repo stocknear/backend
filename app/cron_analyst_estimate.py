@@ -27,7 +27,6 @@ async def get_data(ticker, con):
         analyst_estimates = ujson.loads(data['analyst_estimates'].iloc[0])
         income = ujson.loads(data['income'].iloc[0])
         combined_data = defaultdict(dict)
-
         #Sum up quarter results
         eps_sums = {}
         revenue_sums = {}
