@@ -126,6 +126,17 @@ def run_cron_sector():
         ]
         run_command(command)
 
+def run_cron_industry():
+    week = datetime.today().weekday()
+    if week <= 5:
+        run_command(["python3", "cron_industry.py"])
+        command = [
+            "sudo", "rsync", "-avz", "-e", "ssh",
+            "/root/backend/app/json/industry",
+            f"root@{useast_ip_address}:/root/backend/app/json"
+        ]
+        run_command(command)
+
 def run_analyst_estimate():
     week = datetime.today().weekday()
     if week <= 5:
@@ -617,6 +628,8 @@ schedule.every(5).minutes.do(run_threaded, run_cron_market_movers).tag('market_m
 
 schedule.every(30).minutes.do(run_threaded, run_dividend_list).tag('dividend_list_job')
 schedule.every(15).minutes.do(run_threaded, run_cron_market_news).tag('market_news_job')
+schedule.every(15).minutes.do(run_threaded, run_cron_industry).tag('industry_job')
+
 schedule.every(10).minutes.do(run_threaded, run_one_day_price).tag('one_day_price_job')
 schedule.every(15).minutes.do(run_threaded, run_cron_heatmap).tag('heatmap_job')
 
