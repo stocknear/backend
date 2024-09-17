@@ -4,12 +4,34 @@ import sqlite3
 import asyncio
 import pandas as pd
 from tqdm import tqdm
+from datetime import datetime, timedelta
+import pytz
 import orjson
+import os
+from dotenv import load_dotenv
 
-async def save_as_json(symbol, data):
-    with open(f"json/dividends/companies/{symbol}.json", 'w') as file:
+headers = {"accept": "application/json"}
+url = "https://api.benzinga.com/api/v2.1/calendar/dividends"
+load_dotenv()
+api_key = os.getenv('BENZINGA_API_KEY')
+
+ny_tz = pytz.timezone('America/New_York')
+today = datetime.now(ny_tz).replace(hour=0, minute=0, second=0, microsecond=0)
+N_days_ago = today - timedelta(days=10)
+
+
+async def save_as_json(symbol, data,file_name):
+    with open(f"{file_name}/{symbol}.json", 'w') as file:
         ujson.dump(data, file)
 
+def delete_files_in_directory(directory):
+    for filename in os.listdir(directory):
+        file_path = os.path.join(directory, filename)
+        try:
+            if os.path.isfile(file_path):
+                os.remove(file_path)
+        except Exception as e:
+            print(f"Failed to delete {file_path}. Reason: {e}")
 
 async def get_data(ticker, con, etf_con, stock_symbols, etf_symbols):
     try:
@@ -71,6 +93,47 @@ async def get_data(ticker, con, etf_con, stock_symbols, etf_symbols):
     return res
 
 
+
+async def get_dividends_announcement(session, ticker, stock_symbols):
+    querystring = {"token": api_key, "parameters[tickers]": ticker}
+    ny_tz = pytz.timezone('America/New_York')
+    today = ny_tz.localize(datetime.now())
+    N_days_ago = today - timedelta(days=30)  # Example, adjust as needed
+
+    try:
+        async with session.get(url, params=querystring, headers=headers) as response:
+            if response.status == 200:
+                data = ujson.loads(await response.text())['dividends']
+                recent_dates = [item for item in data if N_days_ago <= ny_tz.localize(datetime.strptime(item["date"], "%Y-%m-%d")) <= today]
+                if recent_dates:
+                    nearest_recent = min(recent_dates, key=lambda x: datetime.strptime(x["date"], "%Y-%m-%d"))
+                    try:
+                        symbol = nearest_recent['ticker']
+                        dividend = float(nearest_recent['dividend']) if nearest_recent['dividend'] != '' else 0
+                        dividend_prior = float(nearest_recent['dividend_prior']) if nearest_recent['dividend_prior'] != '' else 0
+                        dividend_yield = round(float(nearest_recent['dividend_yield']) * 100, 2) if nearest_recent['dividend_yield'] != '' else 0
+                        ex_dividend_date = nearest_recent['ex_dividend_date'] if nearest_recent['ex_dividend_date'] != '' else 0
+                        payable_date = nearest_recent['payable_date'] if nearest_recent['payable_date'] != '' else 0
+                        record_date = nearest_recent['record_date'] if nearest_recent['record_date'] != '' else 0
+                        if symbol in stock_symbols and dividend != 0 and payable_date != 0 and dividend_prior != 0 and ex_dividend_date != 0 and record_date != 0 and dividend_yield != 0:
+                            res_dict = {
+                                'symbol': symbol,
+                                'date': nearest_recent['date'],
+                                'dividend': dividend,
+                                'dividendPrior': dividend_prior,
+                                'dividendYield': dividend_yield,
+                                'exDividendDate': ex_dividend_date,
+                                'payableDate': payable_date,
+                                'recordDate': record_date,
+                            }
+                            await save_as_json(symbol, res_dict,'json/dividends/announcement')
+                    except Exception as e:
+                        # Log or handle the exception
+                        print(e)
+    except:
+        pass
+
+
 async def run():
 
     con = sqlite3.connect('stocks.db')
@@ -85,18 +148,25 @@ async def run():
     etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
     total_symbols = stock_symbols + etf_symbols
-
+    
     for ticker in tqdm(total_symbols):
         res = await get_data(ticker, con, etf_con, stock_symbols, etf_symbols)
         try:
             if len(res.get('history')) > 0 and res.get('dividendGrowth') != None:
-                await save_as_json(ticker, res)
+                await save_as_json(ticker, res, 'json/dividends/companies')
         except:
             pass
-
+    
 
     con.close()
     etf_con.close()
+
+    delete_files_in_directory("json/dividends/announcement")
+
+    async with aiohttp.ClientSession() as session:
+        tasks = [get_dividends_announcement(session, symbol, stock_symbols) for symbol in stock_symbols]
+        for f in tqdm(asyncio.as_completed(tasks), total=len(stock_symbols)):
+            await f
 
 
 try:
