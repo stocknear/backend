@@ -361,7 +361,7 @@ etf_cursor.execute("PRAGMA journal_mode = wal")
 etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
 etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
-total_symbols = ['NUVL'] #stock_symbols + etf_symbols
+total_symbols = stock_symbols + etf_symbols
 
 query_template = """
     SELECT date, close,change_percent
