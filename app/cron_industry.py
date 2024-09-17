@@ -5,6 +5,7 @@ import asyncio
 import pandas as pd
 from tqdm import tqdm
 import orjson
+from datetime import datetime, timedelta
 from GetStartEndDate import GetStartEndDate
 from collections import defaultdict
 import re
@@ -15,17 +16,6 @@ api_key = os.getenv('FMP_API_KEY')
 
 with open(f"json/stock-screener/data.json", 'rb') as file:
         stock_screener_data = orjson.loads(file.read())
-
-# Convert stock_screener_data into a dictionary keyed by symbol
-stock_screener_data_dict = {item['symbol']: item for item in stock_screener_data}
-
-
-date, _ = GetStartEndDate().run()
-date = date.strftime('%Y-%m-%d')
-
-def save_as_json(data, filename):
-    with open(f"json/industry/{filename}.json", 'w') as file:
-        ujson.dump(data, file)
 
 def format_filename(industry_name):
     # Replace spaces with hyphens
@@ -38,8 +28,46 @@ def format_filename(industry_name):
     return formatted_name.lower()
 
 
+date, _ = GetStartEndDate().run()
+date = date.strftime('%Y-%m-%d')
+
+def save_as_json(data, filename):
+    with open(f"json/industry/{filename}.json", 'w') as file:
+        ujson.dump(data, file)
+
+def remove_duplicates(data, key):
+    seen = set()
+    new_data = []
+    for item in data:
+        if item[key] not in seen:
+            seen.add(item[key])
+            new_data.append(item)
+    return new_data
+
+async def historical_pe_ratio(session, class_type='sector'):
+    # List to store the data
+    historical_data = []
+    
+    # Starting point: today minus 180 days
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=180)
+
+    # Iterate through each day
+    current_date = start_date
+    while current_date <= end_date:
+        if current_date.weekday() < 5:  # Only fetch data for weekdays (Monday to Friday)
+            date_str = current_date.strftime('%Y-%m-%d')
+            data = await get_data(session, date_str, class_type)
+            if data:
+                historical_data+=data
+        
+        # Move to the next day
+        current_date += timedelta(days=1)
+
+    return historical_data
+
 # Function to fetch data from the API
-async def get_data(session, class_type='sector'):
+async def get_data(session, date, class_type='sector'):
     if class_type == 'sector':
         url = f"https://financialmodelingprep.com/api/v4/sector_price_earning_ratio?date={date}&exchange=NYSE&apikey={api_key}"
     else:
@@ -69,11 +97,30 @@ def get_each_industry_data():
 
 async def run():
 
-    full_industry_list = get_each_industry_data()
-    for industry, stocks in full_industry_list.items():
-        filename = 'industries/'+format_filename(industry)
-        stocks = sorted(stocks, key= lambda x: x['marketCap'], reverse=True)
-        save_as_json(stocks, filename)
+    async with aiohttp.ClientSession() as session:
+        historical_pe_list = await historical_pe_ratio(session, class_type = 'industry')
+
+
+        full_industry_list = get_each_industry_data()
+        for industry, stocks in full_industry_list.items():
+            filename = 'industries/'+format_filename(industry)
+            stocks = sorted(stocks, key= lambda x: x['marketCap'], reverse=True)
+            history_list = []
+            for item in historical_pe_list:
+                try:
+                    if item['industry'] == industry:
+                        history_list.append({'date': item['date'], 'pe': round(float(item['pe']),2)})
+                except:
+                    pass
+            history_list = sorted(history_list, key=lambda x: datetime.strptime(x['date'], '%Y-%m-%d'), reverse=False)
+            history_list = remove_duplicates(history_list, 'date')
+            res = {'name': industry, 'stocks': stocks, 'history': history_list}
+            save_as_json(res, filename)
+
+
+
+
+
 
 
     # Initialize a dictionary to store stock count, market cap, and other totals for each industry
@@ -150,7 +197,7 @@ async def run():
 
     # Assign the P/E values from pe_industry to the overview
     async with aiohttp.ClientSession() as session:
-        pe_industry = await get_data(session, class_type='industry')
+        pe_industry = await get_data(session, date, class_type='industry')
     for sector, industries in overview.items():
         for industry_data in industries:
             industry_name = industry_data['industry']
@@ -216,7 +263,7 @@ async def run():
 
     # Assign the P/E values from pe_industry to the overview
     async with aiohttp.ClientSession() as session:
-        pe_sector = await get_data(session, class_type='sector')
+        pe_sector = await get_data(session, date, class_type='sector')
     # Loop through sector_overview to update P/E ratios from pe_sector
     for sector_data in sector_overview:
         sector_name = sector_data['sector']

@@ -3679,7 +3679,7 @@ async def get_sector_overview(data: TickerData, api_key: str = Security(get_api_
         with open(f"json/industry/industries/{ticker}.json", 'rb') as file:
             res = orjson.loads(file.read())
     except:
-        res = []
+        res = {}
 
     data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
