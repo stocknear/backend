@@ -3663,6 +3663,37 @@ async def get_sector_overview(api_key: str = Security(get_api_key)):
         headers={"Content-Encoding": "gzip"}
     )
 
+
+@app.post("/industry-stocks")
+async def get_sector_overview(data: TickerData, api_key: str = Security(get_api_key)):
+    ticker = data.ticker
+    cache_key = f"industry-stocks-{ticker}"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
+    try:
+        with open(f"json/industry/industries/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
+    except:
+        res = []
+
+    data = orjson.dumps(res)
+    compressed_data = gzip.compress(data)
+
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key,3600*3600)
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
+
+
 @app.get("/industry-overview")
 async def get_industry_overview(api_key: str = Security(get_api_key)):
     cache_key = f"industry-overview"
