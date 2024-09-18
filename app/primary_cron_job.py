@@ -459,6 +459,8 @@ def run_options_gex():
     ]
     run_command(command)
 
+    run_command(["python3", "cron_options_historical_flow.py"])
+    
     command = [
         "sudo", "rsync", "-avz", "-e", "ssh",
         "/root/backend/app/json/options-historical-data",
@@ -472,6 +474,7 @@ def run_options_gex():
         f"root@{useast_ip_address}:/root/backend/app/json"
     ]
     run_command(command)
+
 
 def run_government_contract():
     run_command(["python3", "cron_government_contract.py"])

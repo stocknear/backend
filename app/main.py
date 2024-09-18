@@ -300,6 +300,11 @@ class TransactionId(BaseModel):
 class InfoText(BaseModel):
     parameter: str
 
+class HistoricalDate(BaseModel):
+    date: str
+
+
+
 # Replace NaN values with None in the resulting JSON object
 def replace_nan_inf_with_none(obj):
     if isinstance(obj, list):
@@ -2697,6 +2702,34 @@ async def get_options_chain(data:TransactionId, api_key: str = Security(get_api_
         print(e)
         res_list = []
 
+    data = orjson.dumps(res_list)
+    compressed_data = gzip.compress(data)
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 5 min
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
+
+
+@app.post("/options-historical-flow")
+async def get_options_chain(data:HistoricalDate, api_key: str = Security(get_api_key)):
+    selected_date = data.date
+    print(selected_date)
+    cache_key = f"options-historical-flow-{selected_date}"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+        io.BytesIO(cached_result),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"})
+    try:
+        with open(f"json/options-historical-data/flow-data/{selected_date}.json", 'rb') as file:
+            res_list = orjson.loads(file.read())
+    except:
+        res_list = []
     data = orjson.dumps(res_list)
     compressed_data = gzip.compress(data)
     redis_client.set(cache_key, compressed_data)
