@@ -139,7 +139,7 @@ app = FastAPI(docs_url=None, redoc_url=None, openapi_url = None)
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 
-origins = ["http://www.stocknear.com","https://www.stocknear.com","http://stocknear.com","https://stocknear.com","http://localhost:5173","http://localhost:4173"]
+origins = ["http://www.stocknear.com","https://www.stocknear.com","http://stocknear.com","https://stocknear.com","http://localhost:5173","http://localhost:4173","http://localhost:8000"]
 
 app.add_middleware(
     CORSMiddleware,
