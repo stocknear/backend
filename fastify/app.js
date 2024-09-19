@@ -188,7 +188,7 @@ fastify.register(async function (fastify) {
             isSend = true;
             setTimeout(() => {
               isSend = false;
-            }, 800);
+            }, 2000);
           }
         }
       } catch (error) {
@@ -278,7 +278,7 @@ fastify.register(async function (fastify) {
           isSend = true;
           setTimeout(() => {
             isSend = false;
-          }, 800);
+          }, 2000);
 
           //wait(2000);
         }
@@ -352,66 +352,6 @@ fastify.register(async function (fastify) {
         console.log("Server is closing. Cleaning up resources...");
         clearInterval(sendInterval);
         connection.socket.close();
-      };
-
-      // Add close handler to process event
-      process.on("exit", closeHandler);
-      process.on("SIGINT", closeHandler);
-      process.on("SIGTERM", closeHandler);
-      process.on("uncaughtException", closeHandler);
-      process.on("unhandledRejection", closeHandler);
-    }
-  );
-});
-
-fastify.register(async function (fastify) {
-  fastify.get(
-    "/options-zero-dte-reader",
-    { websocket: true },
-    (connection, req) => {
-      let jsonData;
-      let sendInterval;
-
-      // Function to send data to the client
-      const sendData = async () => {
-        const filePath = path.join(
-          __dirname,
-          "../app/json/options-flow/zero-dte/data.json"
-        );
-        try {
-          if (fs.existsSync(filePath)) {
-            const fileData = fs.readFileSync(filePath, "utf8");
-            jsonData = JSON.parse(fileData);
-            connection.socket.send(JSON.stringify(jsonData));
-          } else {
-            console.error("File not found:", filePath);
-            clearInterval(sendInterval);
-            console.error("Connection closed");
-            throw new Error("This is an intentional uncaught exception!");
-          }
-        } catch (err) {
-          console.error("Error sending data to client:", err);
-        }
-      };
-
-      // Send data to the client initially
-      sendData();
-
-      // Start sending data periodically
-      sendInterval = setInterval(sendData, 5000);
-
-      // Handle client disconnect
-      connection.socket.on("close", () => {
-        console.log("Client disconnected");
-        connection?.socket?.close();
-        clearInterval(sendInterval);
-      });
-
-      // Handle server crash cleanup
-      const closeHandler = () => {
-        console.log("Server is closing. Cleaning up resources...");
-        clearInterval(sendInterval);
-        connection?.socket?.close();
       };
 
       // Add close handler to process event
