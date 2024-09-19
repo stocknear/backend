@@ -56,15 +56,7 @@ def run_command(command):
     if stderr:
         logger.error("Error:\n" + stderr)
 
-def run_json():
-    # Run the asynchronous function inside an asyncio loop
-    run_command(["python3", "restart_json.py"])
-    run_command(["pm2", "restart","fastapi"])
-    run_command(["pm2", "restart","fastify"])
 
-def run_pocketbase():
-    # Run the asynchronous function inside an asyncio loop
-    run_command(["python3", "cron_pocketbase.py"])
 
 def run_cron_insider_trading():
     week = datetime.today().weekday()
@@ -593,7 +585,6 @@ schedule.every().day.at("02:00").do(run_threaded, run_db_schedule_job)
 schedule.every().day.at("03:00").do(run_threaded, run_dark_pool)
 schedule.every().day.at("05:00").do(run_threaded, run_options_gex).tag('options_gex_job')
 schedule.every().day.at("06:00").do(run_threaded, run_historical_price).tag('historical_job')
-schedule.every().day.at("06:30").do(run_threaded, run_pocketbase).tag('pocketbase_job')
 
 schedule.every().day.at("07:00").do(run_threaded, run_ta_rating).tag('ta_rating_job')
 schedule.every().day.at("09:00").do(run_threaded, run_hedge_fund).tag('hedge_fund_job')
@@ -619,7 +610,7 @@ schedule.every().day.at("13:45").do(run_threaded, run_similar_stocks).tag('simil
 schedule.every().day.at("14:00").do(run_threaded, run_cron_var).tag('var_job')
 schedule.every().day.at("14:00").do(run_threaded, run_cron_sector).tag('sector_job')
 
-schedule.every().day.at("15:45").do(run_threaded, run_restart_cache)
+#schedule.every().day.at("15:45").do(run_threaded, run_restart_cache)
 
 schedule.every(2).days.at("01:00").do(run_threaded, run_market_maker).tag('markt_maker_job')
 schedule.every(2).days.at("08:30").do(run_threaded, run_financial_score).tag('financial_score_job')
@@ -648,7 +639,6 @@ schedule.every(30).minutes.do(run_threaded, run_earnings).tag('earnings_job')
 
 schedule.every(2).hours.do(run_threaded, run_fda_calendar).tag('fda_calendar_job')
 schedule.every(3).hours.do(run_threaded, run_options_net_flow).tag('options_net_flow_job')
-schedule.every(6).hours.do(run_threaded, run_json).tag('json_job')
 #schedule.every(4).hours.do(run_threaded, run_share_statistics).tag('share_statistics_job')
 #schedule.every(2).days.at("01:00").do(run_borrowed_share).tag('borrowed_share_job')
 

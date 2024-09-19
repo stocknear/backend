@@ -21,6 +21,11 @@ berlin_tz = pytz.timezone('Europe/Berlin')
 # Set the system's timezone to Berlin at the beginning
 subprocess.run(["timedatectl", "set-timezone", "Europe/Berlin"])
 
+
+def run_pocketbase():
+    # Run the asynchronous function inside an asyncio loop
+    run_command(["python3", "cron_pocketbase.py"])
+    
 def run_restart_cache():
     #update db daily
     week = datetime.today().weekday()
@@ -36,12 +41,14 @@ def run_json_job():
     subprocess.run(["pm2", "restart","fastify"])
 
 
+
 # Create functions to run each schedule in a separate thread
 def run_threaded(job_func):
     job_thread = threading.Thread(target=job_func)
     job_thread.start()
 
 
+schedule.every().day.at("06:30").do(run_threaded, run_pocketbase).tag('pocketbase_job')
 schedule.every().day.at("15:45").do(run_threaded, run_restart_cache)
 schedule.every(2).hours.do(run_threaded, run_json_job).tag('json_job')
 
