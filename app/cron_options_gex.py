@@ -223,21 +223,15 @@ def get_historical_option_data(option_data_list, df_price):
     # Calculate total volume
     daily_summary['total_volume'] = daily_summary['c_vol'] + daily_summary['p_vol']
     # Calculate bid/ask/midpoint ratios
-    # Calculate bid/ask/midpoint ratios
     try:
-        if daily_summary['total_volume'] > 0:
-            daily_summary['bid_ratio'] = round(daily_summary['bid_vol'] / daily_summary['total_volume'] * 100, 2)
-            daily_summary['ask_ratio'] = round(daily_summary['ask_vol'] / daily_summary['total_volume'] * 100, 2)
-            daily_summary['midpoint_ratio'] = round(daily_summary['midpoint_vol'] / daily_summary['total_volume'] * 100, 2)
-        else:
-            daily_summary['bid_ratio'] = None
-            daily_summary['ask_ratio'] = None
-            daily_summary['midpoint_ratio'] = None
+        daily_summary['bid_ratio'] = round(daily_summary['bid_vol'] / daily_summary['total_volume'] * 100, 2)
+        daily_summary['ask_ratio'] = round(daily_summary['ask_vol'] / daily_summary['total_volume'] * 100, 2)
+        daily_summary['midpoint_ratio'] = round(daily_summary['midpoint_vol'] / daily_summary['total_volume'] * 100, 2)
+
     except:
         daily_summary['bid_ratio'] = None
         daily_summary['ask_ratio'] = None
         daily_summary['midpoint_ratio'] = None
-
 
     # Calculate OTM percentage for each date and assign it to the daily_summary
     daily_summary['otm_ratio'] = df_summary.groupby('date').apply(lambda df: round(calculate_otm_percentage(df.to_dict('records')), 1)).values
