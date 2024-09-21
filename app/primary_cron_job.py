@@ -207,10 +207,6 @@ def run_cron_quote():
         command = ["sudo", "rsync", "-avz", "-e", "ssh", "/root/backend/app/json/quote", f"root@{useast_ip_address}:/root/backend/app/json"]
         run_command(command)
 
-def run_cron_price_alert():
-    week = datetime.today().weekday()
-    if week <= 4:
-        run_command(["python3", "cron_price_alert.py"])
 
 def run_cron_portfolio():
     week = datetime.today().weekday()
@@ -339,13 +335,6 @@ def run_db_schedule_job():
     if week <= 5:
         run_command(["bash", "run_universe.sh"])
 
-def run_restart_cache():
-    #update db daily
-    week = datetime.today().weekday()
-    if week <= 5:
-        run_command(["pm2", "restart","fastapi"])
-        run_command(["pm2", "restart","fastify"])
-        #run_command(["python3", "cache_endpoints.py"])
 
 def run_dark_pool():
     week = datetime.today().weekday()
@@ -610,7 +599,6 @@ schedule.every().day.at("13:45").do(run_threaded, run_similar_stocks).tag('simil
 schedule.every().day.at("14:00").do(run_threaded, run_cron_var).tag('var_job')
 schedule.every().day.at("14:00").do(run_threaded, run_cron_sector).tag('sector_job')
 
-#schedule.every().day.at("15:45").do(run_threaded, run_restart_cache)
 
 schedule.every(2).days.at("01:00").do(run_threaded, run_market_maker).tag('markt_maker_job')
 schedule.every(2).days.at("08:30").do(run_threaded, run_financial_score).tag('financial_score_job')
@@ -632,7 +620,6 @@ schedule.every(10).minutes.do(run_threaded, run_tracker).tag('tracker_job')
 
 
 schedule.every(1).minutes.do(run_threaded, run_cron_quote).tag('quote_job')
-schedule.every(1).minutes.do(run_threaded, run_cron_price_alert).tag('price_alert_job')
 schedule.every(15).minutes.do(run_threaded, run_market_moods).tag('market_moods_job')
 schedule.every(30).minutes.do(run_threaded, run_earnings).tag('earnings_job')
 #schedule.every(10).minutes.do(run_threaded, run_dark_pool_flow).tag('dark_pool_flow_job')
