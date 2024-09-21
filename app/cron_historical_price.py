@@ -41,7 +41,10 @@ async def get_historical_data(ticker, query_con, session):
             for response in [response_1w, response_1m]:
                 json_data = await response.json()
                 df = pd.DataFrame(json_data).iloc[::-1].reset_index(drop=True)
-                df = df.drop(['volume'], axis=1)
+                try:
+                    df = df.drop(['volume'], axis=1)
+                except:
+                    pass
                 df = df.round(2).rename(columns={"date": "time"})
                 data.append(df.to_json(orient="records"))
 
@@ -55,7 +58,6 @@ async def get_historical_data(ticker, query_con, session):
             df_6m = pd.read_sql_query(query, query_con, params=(start_date_6m, end_date)).round(2).rename(columns={"date": "time"})
             df_1y = pd.read_sql_query(query, query_con, params=(start_date_1y, end_date)).round(2).rename(columns={"date": "time"})
             df_max = pd.read_sql_query(query, query_con, params=(start_date_max, end_date)).round(2).rename(columns={"date": "time"})
-
 
             async with aiofiles.open(f"json/historical-price/one-week/{ticker}.json", 'w') as file:
                 res = ujson.loads(data[0]) if data else []
@@ -128,7 +130,6 @@ try:
     start_date_max = datetime(1970, 1, 1).strftime("%Y-%m-%d")
     end_date = end_date.strftime("%Y-%m-%d")
 
-    print(start_date_max, end_date)
 
     chunk_size = 250
     asyncio.run(run())
