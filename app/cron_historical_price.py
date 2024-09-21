@@ -111,8 +111,8 @@ async def run():
             for i in range(0, len(total_symbols), chunk_size):
                 symbols_chunk = total_symbols[i:i + chunk_size]
                 await fetch_and_save_symbols_data(symbols_chunk, etf_symbols, crypto_symbols, session)
-                print('sleeping for 60 sec')
-                await asyncio.sleep(60)  # Wait for 60 seconds between chunks
+                print('sleeping for 30 sec')
+                await asyncio.sleep(30)  # Wait for 60 seconds between chunks
     except Exception as e:
         print(f"Failed to run fetch and save data: {e}")
 
@@ -131,7 +131,7 @@ try:
     end_date = end_date.strftime("%Y-%m-%d")
 
 
-    chunk_size = 250
+    chunk_size = 400
     asyncio.run(run())
     con.close()
     etf_con.close()
