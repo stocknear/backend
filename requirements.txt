@@ -22,9 +22,6 @@ asyncio
 aiohttp
 httpx
 prophet
-nbformat
-nbconvert
-nbclient
 schedule
 pocketbase
 quantstats
