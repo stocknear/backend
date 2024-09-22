@@ -344,6 +344,10 @@ data = {
     'failToDeliver': {
         'text': 'Fail to Deliver (FTD) represents the number of shares that were sold but not delivered to the buyer within the standard settlement period. This metric indicates issues in the settlement process and can signal potential liquidity or operational problems in the market.'
     },
+    'relativeFTD': {
+        'text': 'Relative FTD represents the proportion of Fail to Deliver (FTD) shares compared to the average trading volume. It indicates the percentage of undelivered shares in relation to typical volume.',
+        'equation': 'Relative FTD = (Fail to Deliver Shares / Avg. Volume) * 100%'
+    },
     'operatingCashFlowPerShare': {
         'text': 'Operating Cash Flow Per Share measures the amount of cash generated from operations per share of stock. It reflects the company’s ability to generate cash from its core business activities relative to the number of shares outstanding.',
     },

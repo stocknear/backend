@@ -519,8 +519,10 @@ async def get_stock_screener(con):
             with open(f"json/fail-to-deliver/companies/{symbol}.json", 'r') as file:
                 res = orjson.loads(file.read())[-1]
                 item['failToDeliver'] = res['failToDeliver']
+                item['relativeFTD'] = round((item['failToDeliver']/item['avgVolume'] )*100,2)
         except Exception as e:
             item['failToDeliver'] = None
+            item['relativeFTD'] = None
 
         try:
             with open(f"json/ownership-stats/{symbol}.json", 'r') as file:

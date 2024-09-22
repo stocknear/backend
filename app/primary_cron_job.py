@@ -208,11 +208,6 @@ def run_cron_quote():
         run_command(command)
 
 
-def run_cron_portfolio():
-    week = datetime.today().weekday()
-    if week <= 4:
-        run_command(["python3", "cron_portfolio.py"])
-
 def run_cron_options_flow():
     week = datetime.today().weekday()
     current_time = datetime.now().time()
@@ -605,7 +600,6 @@ schedule.every(2).days.at("08:30").do(run_threaded, run_financial_score).tag('fi
 schedule.every().saturday.at("05:00").do(run_threaded, run_ownership_stats).tag('ownership_stats_job')
 
 
-schedule.every(1).minutes.do(run_threaded, run_cron_portfolio).tag('portfolio_job')
 schedule.every(5).minutes.do(run_threaded, run_cron_market_movers).tag('market_movers_job')
 
 schedule.every(30).minutes.do(run_threaded, run_dividend_list).tag('dividend_list_job')
