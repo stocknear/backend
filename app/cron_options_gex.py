@@ -8,19 +8,28 @@ from collections import defaultdict
 import sqlite3
 import os
 from dotenv import load_dotenv
+import math
 
 # Load API key from environment
 load_dotenv()
 api_key = os.getenv('BENZINGA_API_KEY')
 fin = financial_data.Benzinga(api_key)
 
+# Function to replace NaN with None in a dictionary
+def replace_nan_with_none(obj):
+    for key, value in obj.items():
+        if isinstance(value, float) and math.isnan(value):
+            obj[key] = None
+    return obj
+
 def save_json(symbol, data, file_path,filename=None):
+    cleaned_data = [replace_nan_with_none(item) for item in data]
     if filename == None:
         with open(f'{file_path}/{symbol}.json', 'w') as file:
-            ujson.dump(data, file)
+            ujson.dump(cleaned_data, file)
     else:
         with open(f'{file_path}/{filename}.json', 'w') as file:
-            ujson.dump(data, file)
+            ujson.dump(cleaned_data, file)
 
 
 # Define the keys to keep
@@ -223,15 +232,19 @@ def get_historical_option_data(option_data_list, df_price):
     # Calculate total volume
     daily_summary['total_volume'] = daily_summary['c_vol'] + daily_summary['p_vol']
     # Calculate bid/ask/midpoint ratios
-    try:
-        daily_summary['bid_ratio'] = round(daily_summary['bid_vol'] / daily_summary['total_volume'] * 100, 2)
-        daily_summary['ask_ratio'] = round(daily_summary['ask_vol'] / daily_summary['total_volume'] * 100, 2)
-        daily_summary['midpoint_ratio'] = round(daily_summary['midpoint_vol'] / daily_summary['total_volume'] * 100, 2)
+    # Check if total_volume > 0 before performing the calculations
+    daily_summary['bid_ratio'] = daily_summary.apply(
+        lambda row: round(row['bid_vol'] / row['total_volume'] * 100, 2) if row['total_volume'] > 0 else None, axis=1
+    )
 
-    except:
-        daily_summary['bid_ratio'] = None
-        daily_summary['ask_ratio'] = None
-        daily_summary['midpoint_ratio'] = None
+    daily_summary['ask_ratio'] = daily_summary.apply(
+        lambda row: round(row['ask_vol'] / row['total_volume'] * 100, 2) if row['total_volume'] > 0 else None, axis=1
+    )
+
+    daily_summary['midpoint_ratio'] = daily_summary.apply(
+        lambda row: round(row['midpoint_vol'] / row['total_volume'] * 100, 2) if row['total_volume'] > 0 else None, axis=1
+    )
+
 
     # Calculate OTM percentage for each date and assign it to the daily_summary
     daily_summary['otm_ratio'] = df_summary.groupby('date').apply(lambda df: round(calculate_otm_percentage(df.to_dict('records')), 1)).values
@@ -246,6 +259,7 @@ def get_historical_option_data(option_data_list, df_price):
         daily_summary['bull_ratio'] = None
         daily_summary['bear_ratio'] = None
         daily_summary['neutral_ratio'] = None
+
 
     # Format other fields
     daily_summary['total_neutral_prem'] = round(daily_summary['total_neutral_prem'], 2)
@@ -395,7 +409,6 @@ for ticker in total_symbols:
 
         daily_historical_option_data = get_historical_option_data(ticker_data, df_price)
         daily_historical_option_data = daily_historical_option_data.merge(df_price[['date', 'changesPercentage']], on='date', how='inner')
-
         # Add "history" column containing all filtered items with the same date
         #daily_historical_option_data['history'] = daily_historical_option_data['date'].apply(lambda x: grouped_history.get(x, []))
 
