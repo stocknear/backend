@@ -81,11 +81,10 @@ def remove_duplicates(elements):
 
 def weekday():
     today = datetime.today()
-    one_day = timedelta(1)
-    yesterday = today - one_day
+    yesterday = today - timedelta(1)
     
     while yesterday.weekday() >= 5:  # 5 = Saturday, 6 = Sunday
-        yesterday -= one_day
+        yesterday -= timedelta(2)
     
     return yesterday.strftime('%Y-%m-%d')
 
@@ -93,6 +92,8 @@ def weekday():
 today = datetime.today().strftime('%Y-%m-%d')
 tomorrow = (datetime.today() + timedelta(1))
 yesterday = weekday()
+
+print(yesterday, today)
 
 if tomorrow.weekday() >= 5:  # 5 = Saturday, 6 = Sunday
     tomorrow = tomorrow + timedelta(days=(7 - tomorrow.weekday()))
