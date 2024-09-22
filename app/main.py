@@ -2158,12 +2158,11 @@ async def etf_provider(data: ETFProviderData, api_key: str = Security(get_api_ke
     cursor.execute(query, (etf_provider,))
     raw_data = cursor.fetchall()
     cursor.close()
-
     # Extract only relevant data and sort it
     # Extract only relevant data and filter only integer totalAssets
     res = [
         {'symbol': row[0], 'name': row[1], 'expenseRatio': row[2], 'totalAssets': row[3], 'numberOfHoldings': row[4]}
-        for row in raw_data if isinstance(row[3], int)
+        for row in raw_data if isinstance(row[3], float) or isinstance(row[3], int)
     ]
     sorted_res = sorted(res, key=lambda x: x['totalAssets'], reverse=True)
     redis_client.set(cache_key, orjson.dumps(sorted_res))
