@@ -14,7 +14,7 @@ import aiohttp
 import redis
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
-from benzinga import financial_data
+import requests
 
 # Database related imports
 import sqlite3
@@ -132,7 +132,6 @@ pb = PocketBase('http://127.0.0.1:8090')
 
 FMP_API_KEY = os.getenv('FMP_API_KEY')
 Benzinga_API_KEY = os.getenv('BENZINGA_API_KEY')
-fin = financial_data.Benzinga(Benzinga_API_KEY)
 
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url = None)
@@ -303,6 +302,8 @@ class InfoText(BaseModel):
 class HistoricalDate(BaseModel):
     date: str
 
+class OptionsWatchList(BaseModel):
+    optionsIdList: list
 
 
 # Replace NaN values with None in the resulting JSON object
@@ -1147,6 +1148,41 @@ async def get_watchlist(data: GetWatchList, api_key: str = Security(get_api_key)
                 pass
     res = [combined_results, combined_news]
     return res
+
+
+@app.post("/get-options-watchlist")
+async def get_watchlist(data: OptionsWatchList):
+    url = "https://api.benzinga.com/api/v1/signal/option_activity"
+    headers = {"accept": "application/json"}
+    options_id_list = data.optionsIdList
+    try:
+        querystring = {"token":Benzinga_API_KEY,"parameters[id]": ','.join(options_id_list)}
+        response = requests.request("GET", url, headers=headers, params=querystring)
+        result = orjson.loads(response.text)['option_activity']
+        for item in result:
+
+            put_call = 'Calls' if item['put_call'] == 'CALL' else 'Puts'
+            item['underlying_type'] = item['underlying_type'].lower()
+            item['put_call'] = put_call
+            item['price'] = round(float(item['price']), 2)
+            item['strike_price'] = round(float(item['strike_price']), 2)
+            item['cost_basis'] = round(float(item['cost_basis']), 2)
+            item['underlying_price'] = round(float(item['underlying_price']), 2)
+            item['option_activity_type'] = item['option_activity_type'].capitalize()
+            item['sentiment'] = item['sentiment'].capitalize()
+            item['execution_estimate'] = item['execution_estimate'].replace('_', ' ').title()
+            item['tradeCount'] = item['trade_count']
+    except:
+        result = []
+
+    res = orjson.dumps(result)
+    compressed_data = gzip.compress(res)
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
 
 
 @app.post("/price-prediction")
@@ -2685,7 +2721,6 @@ async def get_options_chain(data:TickerData, api_key: str = Security(get_api_key
 @app.post("/options-daily-transactions")
 async def get_options_chain(data:TransactionId, api_key: str = Security(get_api_key)):
     transactionId = data.transactionId
-    print(transactionId)
     cache_key = f"options-daily-transactions-{transactionId}"
 
     cached_result = redis_client.get(cache_key)
@@ -2698,7 +2733,6 @@ async def get_options_chain(data:TransactionId, api_key: str = Security(get_api_
         with open(f"json/options-historical-data/history/{transactionId}.json", 'rb') as file:
             res_list = orjson.loads(file.read())
     except Exception as e:
-        print(e)
         res_list = []
 
     data = orjson.dumps(res_list)
@@ -3809,7 +3843,7 @@ async def get_dividend_announcement(data:TickerData, api_key: str = Security(get
     return res
 
 @app.post("/info-text")
-async def get_info_text(data:InfoText):
+async def get_info_text(data:InfoText, api_key: str = Security(get_api_key)):
     parameter = data.parameter
     cache_key = f"info-text-{parameter}"
     cached_result = redis_client.get(cache_key)

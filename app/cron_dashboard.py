@@ -93,8 +93,6 @@ today = datetime.today().strftime('%Y-%m-%d')
 tomorrow = (datetime.today() + timedelta(1))
 yesterday = weekday()
 
-print(yesterday, today)
-
 if tomorrow.weekday() >= 5:  # 5 = Saturday, 6 = Sunday
     tomorrow = tomorrow + timedelta(days=(7 - tomorrow.weekday()))
 
