@@ -1187,9 +1187,19 @@ async def fetch_option_data(option_id: str):
 
 @app.post("/get-options-watchlist")
 async def get_options_watchlist(data: OptionsWatchList, api_key: str = Security(get_api_key)):
+    options_list_id = sorted(data.optionsIdList)
+    cache_key = f"options-watchlist-{options_list_id}"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
+
     result = []
 
-    for option_id in data.optionsIdList:
+    for option_id in options_list_id:
         file_path = OPTIONS_WATCHLIST_DIR / f"{option_id}.json"
         
         if file_path.exists():
@@ -1204,6 +1214,9 @@ async def get_options_watchlist(data: OptionsWatchList, api_key: str = Security(
                 result.extend(option_activity)
 
     compressed_data = gzip.compress(orjson.dumps(result))
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 60 * 30)  # Set cache expiration time to 1 day
+
     return StreamingResponse(
         io.BytesIO(compressed_data),
         media_type="application/json",
