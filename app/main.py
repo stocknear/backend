@@ -15,6 +15,7 @@ import redis
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 import requests
+from pathlib import Path
 
 # Database related imports
 import sqlite3
@@ -40,6 +41,8 @@ STOCK_DB = 'stocks'
 ETF_DB = 'etf'
 CRYPTO_DB = 'crypto'
 INSTITUTE_DB = 'institute'
+
+OPTIONS_WATCHLIST_DIR = Path("json/options-historical-data/watchlist")
 
 @contextmanager
 def db_connection(db_name):
@@ -1149,35 +1152,58 @@ async def get_watchlist(data: GetWatchList, api_key: str = Security(get_api_key)
     res = [combined_results, combined_news]
     return res
 
+def process_option_activity(item):
+    item['put_call'] = 'Calls' if item['put_call'] == 'CALL' else 'Puts'
+    item['underlying_type'] = item['underlying_type'].lower()
+    item['price'] = round(float(item['price']), 2)
+    item['strike_price'] = round(float(item['strike_price']), 2)
+    item['cost_basis'] = round(float(item['cost_basis']), 2)
+    item['underlying_price'] = round(float(item['underlying_price']), 2)
+    item['option_activity_type'] = item['option_activity_type'].capitalize()
+    item['sentiment'] = item['sentiment'].capitalize()
+    item['execution_estimate'] = item['execution_estimate'].replace('_', ' ').title()
+    item['tradeCount'] = item.get('trade_count', 0)
+    return item
 
-@app.post("/get-options-watchlist")
-async def get_watchlist(data: OptionsWatchList, api_key: str = Security(get_api_key)):
+async def fetch_option_data(option_id: str):
     url = "https://api.benzinga.com/api/v1/signal/option_activity"
     headers = {"accept": "application/json"}
-    options_id_list = data.optionsIdList
+    querystring = {"token": Benzinga_API_KEY, "parameters[id]": option_id}
+    
     try:
-        querystring = {"token":Benzinga_API_KEY,"parameters[id]": ','.join(options_id_list)}
-        response = requests.request("GET", url, headers=headers, params=querystring)
-        result = orjson.loads(response.text)['option_activity']
-        for item in result:
+        response = requests.get(url, headers=headers, params=querystring)
+        response.raise_for_status()
+        data = orjson.loads(response.text)
+        option_activity = data.get('option_activity', [])
+        
+        if isinstance(option_activity, list):
+            return [process_option_activity(item) for item in option_activity]
+        else:
+            print(f"Unexpected response format for {option_id}: {option_activity}")
+            return []
+    except Exception as e:
+        print(f"Error fetching data for {option_id}: {e}")
+        return []
 
-            put_call = 'Calls' if item['put_call'] == 'CALL' else 'Puts'
-            item['underlying_type'] = item['underlying_type'].lower()
-            item['put_call'] = put_call
-            item['price'] = round(float(item['price']), 2)
-            item['strike_price'] = round(float(item['strike_price']), 2)
-            item['cost_basis'] = round(float(item['cost_basis']), 2)
-            item['underlying_price'] = round(float(item['underlying_price']), 2)
-            item['option_activity_type'] = item['option_activity_type'].capitalize()
-            item['sentiment'] = item['sentiment'].capitalize()
-            item['execution_estimate'] = item['execution_estimate'].replace('_', ' ').title()
-            item['tradeCount'] = item['trade_count']
-    except:
-        result = []
+@app.post("/get-options-watchlist")
+async def get_options_watchlist(data: OptionsWatchList, api_key: str = Security(get_api_key)):
+    result = []
 
-    res = orjson.dumps(result)
-    compressed_data = gzip.compress(res)
+    for option_id in data.optionsIdList:
+        file_path = OPTIONS_WATCHLIST_DIR / f"{option_id}.json"
+        
+        if file_path.exists():
+            with open(file_path, 'rb') as json_file:
+                option_data = orjson.loads(json_file.read())
+                result.extend(option_data)
+        else:
+            option_activity = await fetch_option_data(option_id)
+            if option_activity:
+                with open(file_path, 'wb') as file:
+                    file.write(orjson.dumps(option_activity))
+                result.extend(option_activity)
 
+    compressed_data = gzip.compress(orjson.dumps(result))
     return StreamingResponse(
         io.BytesIO(compressed_data),
         media_type="application/json",
