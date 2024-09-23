@@ -1151,7 +1151,7 @@ async def get_watchlist(data: GetWatchList, api_key: str = Security(get_api_key)
 
 
 @app.post("/get-options-watchlist")
-async def get_watchlist(data: OptionsWatchList):
+async def get_watchlist(data: OptionsWatchList, api_key: str = Security(get_api_key)):
     url = "https://api.benzinga.com/api/v1/signal/option_activity"
     headers = {"accept": "application/json"}
     options_id_list = data.optionsIdList
