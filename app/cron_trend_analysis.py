@@ -9,7 +9,7 @@ import pandas as pd
 from tqdm import tqdm
 import concurrent.futures
 import re
-
+import subprocess
 
 async def save_json(symbol, data):
     with open(f"json/trend-analysis/{symbol}.json", 'w') as file:
@@ -89,6 +89,14 @@ async def process_symbol(ticker, start_date, end_date, crypto_symbols):
         print(e)
 
 async def run():
+
+    #Train first model
+    try:
+        print('training...')
+        subprocess.run(["python3", "ml_models/classification.py", "--train"], check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Error running classification.py: {e}")
+
     con = sqlite3.connect('stocks.db')
     etf_con = sqlite3.connect('etf.db')
     crypto_con = sqlite3.connect('crypto.db')

@@ -548,11 +548,47 @@ def run_earnings():
     ]
     run_command(command)
 
+def run_fomc_impact():
+    run_command(["python3", "cron_fomc_impact.py"])
+    command = [
+        "sudo", "rsync", "-avz", "-e", "ssh",
+        "/root/backend/app/json/fomc-impact",
+        f"root@{useast_ip_address}:/root/backend/app/json"
+    ]
+    run_command(command)
+
 def run_economy_indicator():
     run_command(["python3", "cron_economic_indicator.py"])
     command = [
         "sudo", "rsync", "-avz", "-e", "ssh",
         "/root/backend/app/json/economy-indicator",
+        f"root@{useast_ip_address}:/root/backend/app/json"
+    ]
+    run_command(command)
+
+def run_trend_analysis():
+    run_command(["python3", "cron_trend_analysis.py"])
+    command = [
+        "sudo", "rsync", "-avz", "-e", "ssh",
+        "/root/backend/app/json/trend-analysis",
+        f"root@{useast_ip_address}:/root/backend/app/json"
+    ]
+    run_command(command)
+
+def run_sentiment_analysis():
+    run_command(["python3", "cron_sentiment_analysis.py"])
+    command = [
+        "sudo", "rsync", "-avz", "-e", "ssh",
+        "/root/backend/app/json/sentiment-analysis",
+        f"root@{useast_ip_address}:/root/backend/app/json"
+    ]
+    run_command(command)
+
+def run_price_analysis():
+    run_command(["python3", "cron_price_analysis.py"])
+    command = [
+        "sudo", "rsync", "-avz", "-e", "ssh",
+        "/root/backend/app/json/price-analysis",
         f"root@{useast_ip_address}:/root/backend/app/json"
     ]
     run_command(command)
@@ -577,6 +613,7 @@ schedule.every().day.at("07:30").do(run_threaded, run_financial_statements).tag(
 schedule.every().day.at("08:00").do(run_threaded, run_economy_indicator).tag('economy_indicator_job')
 schedule.every().day.at("08:00").do(run_threaded, run_cron_insider_trading).tag('insider_trading_job')
 schedule.every().day.at("08:30").do(run_threaded, run_dividends).tag('dividends_job')
+schedule.every().day.at("08:30").do(run_threaded, run_fomc_impact).tag('fomc_impact_job')
 schedule.every().day.at("09:00").do(run_threaded, run_congress_trading).tag('congress_job')
 schedule.every().day.at("10:00").do(run_threaded, run_shareholders).tag('shareholders_job')
 schedule.every().day.at("10:30").do(run_threaded, run_sec_filings).tag('sec_filings_job')
@@ -598,6 +635,9 @@ schedule.every().day.at("14:00").do(run_threaded, run_cron_sector).tag('sector_j
 schedule.every(2).days.at("01:00").do(run_threaded, run_market_maker).tag('markt_maker_job')
 schedule.every(2).days.at("08:30").do(run_threaded, run_financial_score).tag('financial_score_job')
 schedule.every().saturday.at("05:00").do(run_threaded, run_ownership_stats).tag('ownership_stats_job')
+schedule.every().saturday.at("08:00").do(run_threaded, run_trend_analysis).tag('trend_analysis_job')
+schedule.every().saturday.at("08:00").do(run_threaded, run_sentiment_analysis).tag('sentiment_analysis_job')
+schedule.every().saturday.at("08:00").do(run_threaded, run_price_analysis).tag('price_analysis_job')
 
 
 schedule.every(5).minutes.do(run_threaded, run_cron_market_movers).tag('market_movers_job')

@@ -20,6 +20,15 @@ import aiohttp
 import pickle
 import time
 
+import argparse
+
+# Set up argument parser
+parser = argparse.ArgumentParser(description="Train and test process script.")
+parser.add_argument('--train', action='store_true', help="Set to True to run training")
+    
+# Parse the arguments
+args = parser.parse_args()
+
 
 async def download_data(ticker, start_date, end_date, nth_day):
     try:
@@ -189,11 +198,14 @@ async def test_process(nth_day):
 
 
 async def main():
-    
-    for nth_day in [5,20,60]:
+    for nth_day in [5, 20, 60]:
         await train_process(nth_day)
-    
     await test_process(nth_day=5)
 
-# Run the main function
-#asyncio.run(main())
+if __name__ == "__main__":
+    
+    # Run main if --train is set to True
+    if args.train:
+        asyncio.run(main())
+    else:
+        print("Training not initiated. Pass --train True to start training.")
