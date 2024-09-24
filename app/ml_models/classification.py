@@ -25,7 +25,7 @@ import argparse
 # Set up argument parser
 parser = argparse.ArgumentParser(description="Train and test process script.")
 parser.add_argument('--train', action='store_true', help="Set to True to run training")
-    
+
 # Parse the arguments
 args = parser.parse_args()
 
@@ -43,7 +43,7 @@ async def download_data(ticker, start_date, end_date, nth_day):
 
 
 class TrendPredictor:
-    def __init__(self, nth_day, path="weights"):
+    def __init__(self, nth_day, path="ml_models/weights"):
         self.model = RandomForestClassifier(n_estimators=500, max_depth = 10, min_samples_split=10, random_state=42, n_jobs=10)
         self.scaler = MinMaxScaler()
         self.nth_day = nth_day
@@ -148,7 +148,7 @@ class TrendPredictor:
 async def train_process(nth_day):
     tickers =['KO','WMT','BA','PLD','AZN','LLY','INFN','GRMN','VVX','EPD','PII','WY','BLMN','AAP','ON','TGT','SMG','EL','EOG','ULTA','DV','PLNT','GLOB','LKQ','CWH','PSX','SO','TGT','GD','MU','NKE','AMGN','BX','CAT','PEP','LIN','ABBV','COST','MRK','HD','JNJ','PG','SPCB','CVX','SHEL','MS','GS','MA','V','JPM','XLF','DPZ','CMG','MCD','ALTM','PDD','MNST','SBUX','AMAT','ZS','IBM','SMCI','ORCL','XLK','VUG','VTI','VOO','IWM','IEFA','PEP','WMT','XOM','V','AVGO','BIDU','GOOGL','SNAP','DASH','SPOT','NVO','META','MSFT','ADBE','DIA','PFE','BAC','RIVN','NIO','CISS','INTC','AAPL','BYND','MSFT','HOOD','MARA','SHOP','CRM','PYPL','UBER','SAVE','QQQ','IVV','SPY','EVOK','GME','F','NVDA','AMD','AMZN','TSM','TSLA']
     tickers = list(set(tickers))
-    print(len(tickers))
+    #print(len(tickers))
 
     df_train = pd.DataFrame()
     df_test = pd.DataFrame()

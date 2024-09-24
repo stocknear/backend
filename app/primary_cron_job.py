@@ -635,9 +635,9 @@ schedule.every().day.at("14:00").do(run_threaded, run_cron_sector).tag('sector_j
 schedule.every(2).days.at("01:00").do(run_threaded, run_market_maker).tag('markt_maker_job')
 schedule.every(2).days.at("08:30").do(run_threaded, run_financial_score).tag('financial_score_job')
 schedule.every().saturday.at("05:00").do(run_threaded, run_ownership_stats).tag('ownership_stats_job')
-schedule.every().saturday.at("08:00").do(run_threaded, run_trend_analysis).tag('trend_analysis_job')
+schedule.every().saturday.at("06:00").do(run_threaded, run_trend_analysis).tag('trend_analysis_job')
 schedule.every().saturday.at("08:00").do(run_threaded, run_sentiment_analysis).tag('sentiment_analysis_job')
-schedule.every().saturday.at("08:00").do(run_threaded, run_price_analysis).tag('price_analysis_job')
+schedule.every().saturday.at("10:00").do(run_threaded, run_price_analysis).tag('price_analysis_job')
 
 
 schedule.every(5).minutes.do(run_threaded, run_cron_market_movers).tag('market_movers_job')
