@@ -72,25 +72,22 @@ async def run():
     fomc_dates = await get_fomc_data()  # Assumed to return the list of dictionaries as provided
     start_date = datetime.now() - timedelta(days=365)
     end_date = datetime.now()
-
     # Extracting the dates for filtering
     fomc_dates_list = [datetime.strptime(fomc['date'], '%Y-%m-%d').date() for fomc in fomc_dates]
-
     # Connect to SQLite databases
     stock_con = sqlite3.connect('stocks.db')
     etf_con = sqlite3.connect('etf.db')
-
     stock_cursor = stock_con.cursor()
     stock_cursor.execute("PRAGMA journal_mode = wal")
     stock_cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%' AND marketCap >= 500E6")
     stock_symbols = [row[0] for row in stock_cursor.fetchall()]
-
     etf_cursor = etf_con.cursor()
     etf_cursor.execute("PRAGMA journal_mode = wal")
     etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
     etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
     total_symbols = stock_symbols + etf_symbols
+    
     for ticker in tqdm(total_symbols):
         try:
             query = query_template.format(ticker=ticker)
@@ -100,14 +97,11 @@ async def run():
             if len(df_price) > 150 and len(fomc_dates) > 0:
                 # Convert 'date' column in df_price to datetime.date for comparison
                 df_price['date'] = pd.to_datetime(df_price['date']).dt.date
-
                 # Filter out every fifth row, unless the date is in fomc_dates
                 filtered_df = df_price[
                     (df_price.index % 5 != 0) | (df_price['date'].isin(fomc_dates_list))
                 ]
-
                 filtered_df['date'] = filtered_df['date'].apply(lambda x: x.strftime('%Y-%m-%d'))
-
                 # Prepare the result with filtered data and original fomc_dates
                 fomc_data_unique = {}
                 for fomc in fomc_dates:
@@ -120,36 +114,32 @@ async def run():
                             'actual': fomc['actual'],
                             'estimate': fomc['estimate']
                         }
-
                 # Convert the unique FOMC data back to a list
                 res = {
                     'fomcData': list(fomc_data_unique.values()),  # Ensure unique dates
                     'history': filtered_df.to_dict('records')
                 }
-
                 # Compute percentage changes for FOMC dates
-                for i in range(len(res['fomcData']) - 1):
+                for i in range(len(res['fomcData'])):
                     current_fomc_date = res['fomcData'][i]['date']
-                    next_fomc_date = res['fomcData'][i + 1]['date']
-
-                    # Find closing prices for the current and next FOMC dates
                     current_price_row = filtered_df[filtered_df['date'] == current_fomc_date]
-                    next_price_row = filtered_df[filtered_df['date'] == next_fomc_date]
-
-                    if not current_price_row.empty and not next_price_row.empty:
+                    if i == len(res['fomcData']) - 1:
+                        # This is the last FOMC date, so compare it to the last price in the dataframe
+                        last_price_row = filtered_df.iloc[-1]
                         current_price = current_price_row['close'].values[0]
-                        next_price = next_price_row['close'].values[0]
-
-                        # Calculate the percentage change
-                        percentage_change = ((next_price - current_price) / current_price) * 100
-                        res['fomcData'][i]['changePercentage'] = round(percentage_change,2)  # Update with the new change percentage
-
+                        next_price = last_price_row['close']
+                    else:
+                        next_fomc_date = res['fomcData'][i + 1]['date']
+                        next_price_row = filtered_df[filtered_df['date'] == next_fomc_date]
+                        if not current_price_row.empty and not next_price_row.empty:
+                            current_price = current_price_row['close'].values[0]
+                            next_price = next_price_row['close'].values[0]
+                    # Calculate the percentage change
+                    percentage_change = ((next_price - current_price) / current_price) * 100
+                    res['fomcData'][i]['changePercentage'] = round(percentage_change, 2)  # Update with the new change percentage
                 await save_json(ticker, res)
         except Exception as e:
             print(f"Error processing {ticker}: {e}")
-
-    
-
 # Run the asyncio event loop
 loop = asyncio.get_event_loop()
 loop.run_until_complete(run())
