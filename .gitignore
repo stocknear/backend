@@ -14,3 +14,4 @@ fastify/node_modules
 pocketbase/*
 helper.txt
 env/*
+app/ml_models/weights
