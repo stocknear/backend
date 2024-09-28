@@ -18,7 +18,6 @@ load_dotenv()
 benzinga_api_key = os.getenv('BENZINGA_API_KEY')
 fmp_api_key = os.getenv('FMP_API_KEY')
 
-
 query_template = """
     SELECT 
         marketCap
@@ -81,11 +80,11 @@ def remove_duplicates(elements):
 
 def weekday():
     today = datetime.today()
-    yesterday = today - timedelta(1)
-    
-    while yesterday.weekday() >= 5:  # 5 = Saturday, 6 = Sunday
-        yesterday -= timedelta(2)
-    
+    if today.weekday() >= 5:  # 5 = Saturday, 6 = Sunday
+        yesterday = today - timedelta(2)
+    else:
+    	yesterday = today - timedelta(1)
+
     return yesterday.strftime('%Y-%m-%d')
 
 
