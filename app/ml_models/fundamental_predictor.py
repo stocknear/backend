@@ -8,7 +8,7 @@ from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_sco
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from keras.models import Sequential
-from keras.layers import LSTM, Dense, Conv1D, Bidirectional, Attention,Dropout, BatchNormalization
+from keras.layers import LSTM, Dense, Conv1D, Dropout, BatchNormalization
 from keras.optimizers import Adam
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 from keras.models import load_model
@@ -24,11 +24,11 @@ import aiofiles
 import pickle
 import time
 
-#Based on the paper: https://arxiv.org/pdf/1603.00751
+# Based on the paper: https://arxiv.org/pdf/1603.00751
 
 class FundamentalPredictor:
     def __init__(self):
-        self.model = self.build_model() #RandomForestClassifier(n_estimators=1000, max_depth = 20, min_samples_split=10, random_state=42, n_jobs=10)
+        self.model = self.build_model()
         self.scaler = MinMaxScaler()
 
     def build_model(self):
@@ -36,15 +36,13 @@ class FundamentalPredictor:
         model = Sequential()
         
         model.add(Conv1D(filters=64, kernel_size=3, padding='same', activation='relu', input_shape=(None, 1)))
-
-        model.add(Conv1D(filters=32, kernel_size=3, padding='same', activation='relu', input_shape=(None, 1)))
-
+        model.add(Conv1D(filters=32, kernel_size=3, padding='same', activation='relu'))
+        
         # First LSTM layer with dropout and batch normalization
         model.add(LSTM(256, return_sequences=True, kernel_regularizer=regularizers.l2(0.01)))
         model.add(Dropout(0.5))
         model.add(BatchNormalization())
 
-        
         # Second LSTM layer with dropout and batch normalization
         model.add(LSTM(256, return_sequences=True, kernel_regularizer=regularizers.l2(0.01)))
         model.add(Dropout(0.5))
@@ -62,8 +60,7 @@ class FundamentalPredictor:
         # Dense layer with sigmoid activation for binary classification
         model.add(Dense(1, activation='sigmoid'))
 
-
-        # Adam optimizer with a learning rate of 0.001
+        # Adam optimizer with a learning rate of 0.01
         optimizer = Adam(learning_rate=0.01)
         
         # Compile model with binary crossentropy loss and accuracy metric
@@ -72,7 +69,7 @@ class FundamentalPredictor:
         return model
 
     def preprocess_data(self, X):
-        #X = X.applymap(lambda x: 9999 if x == 0 else x) # Replace 0 with 9999 as suggested in the paper
+        # X = X.applymap(lambda x: 9999 if x == 0 else x)  # Replace 0 with 9999 as suggested in the paper
         X = np.where(np.isinf(X), np.nan, X)
         X = np.nan_to_num(X)
         X = self.scaler.fit_transform(X)
@@ -85,18 +82,19 @@ class FundamentalPredictor:
         X_train = self.preprocess_data(X_train)
         X_train = self.reshape_for_lstm(X_train)
         
-        checkpoint = ModelCheckpoint(f'ml_models/fundamental_weights/weights.keras', save_best_only=True, monitor='val_loss', mode='min')
+        checkpoint = ModelCheckpoint('ml_models/weights/fundamental_weights/weights.keras', 
+                                      save_best_only=True, monitor='val_loss', mode='min')
         early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
         
-        self.model.fit(X_train, y_train, epochs=250, batch_size=32, validation_split=0.2, callbacks=[checkpoint, early_stopping])
-        self.model.save(f'ml_models/fundamental_weights/weights.keras')
+        self.model.fit(X_train, y_train, epochs=250, batch_size=32, 
+                       validation_split=0.2, callbacks=[checkpoint, early_stopping])
+        self.model.save('ml_models/weights/fundamental_weights/weights.keras')
 
     def evaluate_model(self, X_test, y_test):
         X_test = self.preprocess_data(X_test)
         X_test = self.reshape_for_lstm(X_test)
         
-        self.model = self.build_model()
-        self.model = load_model(f'ml_models/fundamental_weights/weights.keras')
+        self.model = load_model('ml_models/weights/fundamental_weights/weights.keras')
         
         test_predictions = self.model.predict(X_test).flatten()
         
@@ -111,26 +109,15 @@ class FundamentalPredictor:
         print(f"Accuracy: {round(test_accuracy * 100)}%")
         
         next_value_prediction = 1 if test_predictions[-1] >= 0.5 else 0
-        return {'accuracy': round(test_accuracy*100), 'precision': round(test_precision*100), 'sentiment': 'Bullish' if next_value_prediction == 1 else 'Bearish'}, test_predictions
+        return {'accuracy': round(test_accuracy * 100), 
+                'precision': round(test_precision * 100), 
+                'sentiment': 'Bullish' if next_value_prediction == 1 else 'Bearish'}, test_predictions
 
-    def feature_selection(self, X_train, y_train,k=8):
-        
-        selector = SelectKBest(score_func=f_classif, k=8)
+    def feature_selection(self, X_train, y_train, k=8):
+        selector = SelectKBest(score_func=f_classif, k=k)
         selector.fit(X_train, y_train)
 
         selector.transform(X_train)
         selected_features = [col for i, col in enumerate(X_train.columns) if selector.get_support()[i]]
 
         return selected_features
-        
-        # Calculate the variance of each feature with respect to the target
-        '''
-        variances = {}
-        for col in X_train.columns:
-            grouped_variance = X_train.groupby(y_train)[col].var().mean()
-            variances[col] = grouped_variance
-
-        # Sort features by variance and select top k features
-        sorted_features = sorted(variances, key=variances.get, reverse=True)[:k]
-        return sorted_features
-        '''
