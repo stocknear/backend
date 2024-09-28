@@ -82,8 +82,6 @@ async def get_data(ticker, con):
 async def run():
 
     con = sqlite3.connect('stocks.db')
-    etf_con = sqlite3.connect('etf.db')
-    
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
     cursor.execute("SELECT DISTINCT symbol FROM stocks")

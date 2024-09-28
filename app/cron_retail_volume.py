@@ -131,10 +131,10 @@ async def run():
                 print(e)
 
         
-        most_retail_volume = [item for item in most_retail_volume if item['retailStrength'] <= 100]
-        most_retail_volume = sorted(most_retail_volume, key=lambda x: x['traded'], reverse=True)[:100] # top 100 retail volume stocks
-        with open(f"json/retail-volume/data.json", 'w') as file:
-            ujson.dump(most_retail_volume, file)
+    most_retail_volume = [item for item in most_retail_volume if item['retailStrength'] <= 100]
+    most_retail_volume = sorted(most_retail_volume, key=lambda x: x['traded'], reverse=True)[:100] # top 100 retail volume stocks
+    with open(f"json/retail-volume/data.json", 'w') as file:
+        ujson.dump(most_retail_volume, file)
 
     con.close()
     etf_con.close()
