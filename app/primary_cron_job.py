@@ -593,6 +593,16 @@ def run_price_analysis():
     ]
     run_command(command)
 
+
+def run_fundamental_predictor():
+    run_command(["python3", "cron_fundamental_predictor.py"])
+    command = [
+        "sudo", "rsync", "-avz", "-e", "ssh",
+        "/root/backend/app/json/fundamental-predictor-analysis",
+        f"root@{useast_ip_address}:/root/backend/app/json"
+    ]
+    run_command(command)
+
 # Create functions to run each schedule in a separate thread
 def run_threaded(job_func):
     job_thread = threading.Thread(target=job_func)
@@ -638,6 +648,7 @@ schedule.every().saturday.at("05:00").do(run_threaded, run_ownership_stats).tag(
 schedule.every().saturday.at("06:00").do(run_threaded, run_trend_analysis).tag('trend_analysis_job')
 schedule.every().saturday.at("08:00").do(run_threaded, run_sentiment_analysis).tag('sentiment_analysis_job')
 schedule.every().saturday.at("10:00").do(run_threaded, run_price_analysis).tag('price_analysis_job')
+schedule.every().saturday.at("12:00").do(run_threaded, run_fundamental_predictor).tag('fundamental_predictor_job')
 
 
 schedule.every(5).minutes.do(run_threaded, run_cron_market_movers).tag('market_movers_job')
