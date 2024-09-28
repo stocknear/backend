@@ -16,7 +16,7 @@ import subprocess
 
 async def save_json(symbol, data):
     with open(f"json/fundamental-predictor-analysis/{symbol}.json", 'w') as file:
-        orjson.dump(data, file)
+        file.write(orjson.dumps(data))
 
 
 async def download_data(ticker, con, start_date, end_date):
@@ -219,14 +219,13 @@ async def run():
     cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 1E9")
     stock_symbols = [row[0] for row in cursor.fetchall()]
 
-    
     total_symbols = stock_symbols
     
     print(f"Total tickers: {len(total_symbols)}")
     start_date = datetime(2000, 1, 1).strftime("%Y-%m-%d")
     end_date = datetime.today().strftime("%Y-%m-%d")
 
-    chunk_size = len(total_symbols) #// 70  # Divide the list into N chunks
+    chunk_size = len(total_symbols) // 100  # Divide the list into N chunks
     chunks = [total_symbols[i:i + chunk_size] for i in range(0, len(total_symbols), chunk_size)]
     for chunk in chunks:
         tasks = []
