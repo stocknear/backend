@@ -485,7 +485,8 @@ def run_tracker():
         "cron_reddit_tracker.py",
         "cron_reddit_statistics.py",
         "cron_cramer_tracker.py",
-        "cron_lobbying_tracker.py"
+        "cron_lobbying_tracker.py",
+        "cron_sentiment_tracker.py"
     ]
     for script in scripts:
         run_command(["python3", script])
@@ -494,7 +495,8 @@ def run_tracker():
     rsync_commands = [
         ("/root/backend/app/json/reddit-tracker", "/root/backend/app/json"),
         ("/root/backend/app/json/cramer-tracker", "/root/backend/app/json"),
-        ("/root/backend/app/json/corporate-lobbying/tracker", "/root/backend/app/json/corporate-lobbying")
+        ("/root/backend/app/json/corporate-lobbying/tracker", "/root/backend/app/json/corporate-lobbying"),
+        ("/root/backend/app/json/sentiment-tracker", "/root/backend/app/json")
     ]
 
     base_command = ["sudo", "rsync", "-avz", "-e", "ssh"]
