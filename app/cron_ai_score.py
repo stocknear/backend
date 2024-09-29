@@ -22,7 +22,7 @@ import gc
 gc.enable()
 
 async def save_json(symbol, data):
-    with open(f"json/fundamental-predictor-analysis/{symbol}.json", 'w') as file:
+    with open(f"json/fundamental-predictor-analysis/{symbol}.json", 'wb') as file:
         file.write(orjson.dumps(data))
 
 
