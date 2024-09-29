@@ -34,7 +34,7 @@ async def save_json(symbol, period, data_type, data):
 async def get_financial_statements(session, symbol, semaphore, request_counter):
     base_url = "https://financialmodelingprep.com/api/v3"
     periods = ['quarter', 'annual']
-    financial_data_types = ['income-statement', 'balance-sheet-statement', 'cash-flow-statement', 'ratios']
+    financial_data_types = ['key-metrics', 'income-statement', 'balance-sheet-statement', 'cash-flow-statement', 'ratios']
     growth_data_types = ['income-statement-growth', 'balance-sheet-statement-growth', 'cash-flow-statement-growth']
     
     async with semaphore:
@@ -62,6 +62,19 @@ async def get_financial_statements(session, symbol, semaphore, request_counter):
                 if request_counter[0] >= 500:
                     await asyncio.sleep(60)  # Pause for 60 seconds
                     request_counter[0] = 0  # Reset the request counter after the pause
+
+        # Fetch owner earnings data
+        owner_earnings_url = f"https://financialmodelingprep.com/api/v4/owner_earnings?symbol={symbol}&apikey={api_key}"
+        owner_earnings_data = await fetch_data(session, owner_earnings_url, symbol)
+        if owner_earnings_data:
+            await save_json(symbol, 'quarter', 'owner-earnings', owner_earnings_data)
+
+        request_counter[0] += 1  # Increment the request counter
+        if request_counter[0] >= 500:
+            await asyncio.sleep(60)  # Pause for 60 seconds
+            request_counter[0] = 0  # Reset the request counter after the pause
+    
+
 
 async def run():
     con = sqlite3.connect('stocks.db')
