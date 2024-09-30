@@ -41,12 +41,12 @@ class ScorePredictor:
         inputs = Input(shape=(2139,))
         
         # First dense layer
-        x = Dense(1024, activation='relu', kernel_regularizer=regularizers.l2(0.01))(inputs)
+        x = Dense(2048, activation='relu', kernel_regularizer=regularizers.l2(0.01))(inputs)
         x = Dropout(0.3)(x)
         x = BatchNormalization()(x)
         
         # Additional dense layers
-        for units in [512,256, 256]:
+        for units in [1024,512, 256, 256]:
             x = Dense(units, activation='relu', kernel_regularizer=regularizers.l2(0.01))(x)
             x = Dropout(0.2)(x)
             x = BatchNormalization()(x)
@@ -64,17 +64,17 @@ class ScorePredictor:
         # Global average pooling
         x = GlobalAveragePooling1D()(x)
         
-        # Output layer
-        outputs = Dense(1, activation='sigmoid')(x)
+        # Output layer (for class probabilities)
+        outputs = Dense(2, activation='softmax')(x)  # Two neurons for class probabilities with softmax
         
         # Create the model
         model = Model(inputs=inputs, outputs=outputs)
         
         # Optimizer with a lower learning rate
-        optimizer = Adam(learning_rate=0.1, clipnorm = 1.0)
+        optimizer = Adam(learning_rate=0.001, clipnorm=1.0)
         
         # Compile the model
-        model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
+        model.compile(optimizer=optimizer, loss='sparse_categorical_crossentropy', metrics=['accuracy'])
         
         return model
 
@@ -92,38 +92,63 @@ class ScorePredictor:
         X_train = self.preprocess_data(X_train)
         #X_train = self.reshape_for_lstm(X_train)
         
-        checkpoint = ModelCheckpoint('ml_models/weights/fundamental_weights/weights.keras', 
+        checkpoint = ModelCheckpoint('ml_models/weights/ai-score/weights.keras', 
                                       save_best_only=True, save_freq = 1,
                                       monitor='val_loss', mode='min')
-        early_stopping = EarlyStopping(monitor='val_loss', patience=70, restore_best_weights=True)
-        reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=60, min_lr=0.00001)
+        early_stopping = EarlyStopping(monitor='val_loss', patience=100, restore_best_weights=True)
+        reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=80, min_lr=0.00001)
 
         self.model.fit(X_train, y_train, epochs=100_000, batch_size=32, 
                        validation_split=0.1, callbacks=[checkpoint, early_stopping, reduce_lr])
-        self.model.save('ml_models/weights/fundamental_weights/weights.keras')
+        self.model.save('ml_models/weights/ai-score/weights.keras')
 
     def evaluate_model(self, X_test, y_test):
+        # Preprocess the test data
         X_test = self.preprocess_data(X_test)
-        X_test = self.reshape_for_lstm(X_test)
+        #X_test = self.reshape_for_lstm(X_test)
         
-        self.model = load_model('ml_models/weights/fundamental_weights/weights.keras')
+        # Load the trained model
+        self.model = load_model('ml_models/weights/ai-score/weights.keras')
         
-        test_predictions = self.model.predict(X_test).flatten()
+        # Get the model's predictions
+        test_predictions = self.model.predict(X_test)
+        #print(test_predictions)
+
+        # Extract the probabilities for class 1 (index 1 in the softmax output)
+        class_1_probabilities = test_predictions[:, 1]
+        # Convert probabilities to binary predictions using a threshold of 0.5
+        binary_predictions = (class_1_probabilities >= 0.5).astype(int)
         
-        test_predictions[test_predictions >= 0.5] = 1
-        test_predictions[test_predictions < 0.5] = 0
-        
-        test_precision = precision_score(y_test, test_predictions)
-        test_accuracy = accuracy_score(y_test, test_predictions)
+        # Calculate precision and accuracy using binary predictions
+        test_precision = precision_score(y_test, binary_predictions)
+        test_accuracy = accuracy_score(y_test, binary_predictions)
         
         print("Test Set Metrics:")
         print(f"Precision: {round(test_precision * 100)}%")
         print(f"Accuracy: {round(test_accuracy * 100)}%")
         
-        next_value_prediction = 1 if test_predictions[-1] >= 0.5 else 0
+        # Define thresholds and corresponding scores
+        thresholds = [0.8, 0.75, 0.7, 0.6, 0.5, 0.45, 0.4, 0.35, 0.3, 0.2]
+        scores = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
+
+        # Get the last prediction value (class 1 probability) for scoring
+        last_prediction_prob = class_1_probabilities[-1]
+
+        # Initialize score to 0 (or any default value)
+        score = 0
+        #print(last_prediction_prob)
+        # Determine the score based on the last prediction probability
+        for threshold, value in zip(thresholds, scores):
+            if last_prediction_prob >= threshold:
+                score = value
+                break  # Exit the loop once the score is determined
+
+        # Return the evaluation results
         return {'accuracy': round(test_accuracy * 100), 
                 'precision': round(test_precision * 100), 
-                'sentiment': 'Bullish' if next_value_prediction == 1 else 'Bearish'}, test_predictions
+                'score': score}
+
+
 
     def feature_selection(self, X_train, y_train, k=100):
         print('feature selection:')

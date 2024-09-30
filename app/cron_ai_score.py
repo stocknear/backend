@@ -22,7 +22,7 @@ import gc
 gc.enable()
 
 async def save_json(symbol, data):
-    with open(f"json/ai-score/{symbol}.json", 'wb') as file:
+    with open(f"json/ai-score/companies/{symbol}.json", 'wb') as file:
         file.write(orjson.dumps(data))
 
 
@@ -317,22 +317,34 @@ async def process_symbol(ticker, con, start_date, end_date):
         split_size = int(len(df) * (1-test_size))
         test_data = df.iloc[split_size:]
         best_features = [col for col in df.columns if col not in ['date','price','Target']]
-        data, prediction_list = predictor.evaluate_model(test_data[best_features], test_data['Target'])
-        
-        print(data)
-        '''
-        output_list = [{'date': date, 'price': price, 'prediction': prediction, 'target': target} 
-                                for (date, price,target), prediction in zip(test_data[['date', 'price','Target']].iloc[-6:].values, prediction_list[-6:])]
-        '''
-        #print(output_list)
+        data = predictor.evaluate_model(test_data[best_features], test_data['Target'])
 
         if len(data) != 0:
             if data['precision'] >= 50 and data['accuracy'] >= 50:
-                await save_json(ticker, data)
+                res = {'score': data['score']}
+                await save_json(ticker, res)
     
     except Exception as e:
         print(e)
 
+
+async def chunked_gather(tickers, con, start_date, end_date, chunk_size=10):
+    # Helper function to divide the tickers into chunks
+    def chunks(lst, size):
+        for i in range(0, len(lst), size):
+            yield lst[i:i+size]
+    
+    results = []
+    
+    for chunk in chunks(tickers, chunk_size):
+        # Create tasks for each chunk
+        tasks = [download_data(ticker, con, start_date, end_date) for ticker in chunk]
+        # Await the results for the current chunk
+        chunk_results = await asyncio.gather(*tasks)
+        # Accumulate the results
+        results.extend(chunk_results)
+    
+    return results
 
 #Train mode
 async def train_process(tickers, con):
@@ -345,8 +357,8 @@ async def train_process(tickers, con):
     df_train = pd.DataFrame()
     df_test = pd.DataFrame()
 
-    tasks = [download_data(ticker, con, start_date, end_date) for ticker in tickers]
-    dfs = await asyncio.gather(*tasks)
+    dfs = await chunked_gather(tickers, con, start_date, end_date, chunk_size=10)
+
     for df in dfs:
         try:
             split_size = int(len(df) * (1-test_size))
@@ -373,17 +385,6 @@ async def train_process(tickers, con):
     predictor.train_model(df_train[selected_features], df_train['Target'])
     predictor.evaluate_model(df_test[best_features], df_test['Target'])
 
-async def test_process(con):
-    test_size = 0.2
-    start_date = datetime(1995, 1, 1).strftime("%Y-%m-%d")
-    end_date = datetime.today().strftime("%Y-%m-%d")
-    predictor = ScorePredictor()
-    df = await download_data('GME', con, start_date, end_date)
-    split_size = int(len(df) * (1-test_size))
-    test_data = df.iloc[split_size:]
-    selected_features = [col for col in test_data if col not in ['price','date','Target']]
-    predictor.evaluate_model(test_data[selected_features], test_data['Target'])
-
 
 async def run():
 
@@ -393,21 +394,22 @@ async def run():
     
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
-    cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 10E9 AND symbol NOT LIKE '%.%'")
-    stock_symbols = ['DHR','ABT','TXN','LIN','RIO','FCX','ECL','NVO','GOOGL','NFLX','SAP','UNH','JNJ','ABBV','MRK','PLD','NEE','DUK','AMT','EQIX','META','DOV','NWN','PG','PH','MMM','AWR','YYAI','PPSI','VYX','XP','BWXT','OLED','ROIC','NKE','LMT','PAYX','GME','AMD','AAPL','NVDA','PLTR'] #[row[0] for row in cursor.fetchall()]
+    cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 1E9 AND symbol NOT LIKE '%.%'")
+    stock_symbols = [row[0] for row in cursor.fetchall()] #['DHR','ABT','TXN','LIN','RIO','FCX','ECL','NVO','GOOGL','NFLX','SAP','UNH','JNJ','ABBV','MRK','PLD','NEE','DUK','AMT','EQIX','META','DOV','NWN','PG','PH','MMM','AWR','YYAI','PPSI','VYX','XP','BWXT','OLED','ROIC','NKE','LMT','PAYX','GME','AMD','AAPL','NVDA','PLTR']
     stock_symbols = list(set(stock_symbols))
     print('Number of Stocks')
     print(len(stock_symbols))
-    #await train_process(stock_symbols, con)
+    await train_process(stock_symbols, con)
     
+
+
+
 
     #Prediction Steps for all stock symbols
-    
-    cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 1E9")
-    stock_symbols = [row[0] for row in cursor.fetchall()]
+    #cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 1E9")
+    #stock_symbols = [row[0] for row in cursor.fetchall()]
+    total_symbols = stock_symbols
 
-    total_symbols = ['GME'] #stock_symbols
-    
     print(f"Total tickers: {len(total_symbols)}")
     start_date = datetime(1995, 1, 1).strftime("%Y-%m-%d")
     end_date = datetime.today().strftime("%Y-%m-%d")
