@@ -288,6 +288,9 @@ data = {
     'fundamentalAnalysis': {
         'text': 'Accuracy of the AI model’s predictions regarding the likelihood of a bullish trend over the next 3 months. This percentage reflects how well the model forecasts future market movements.'
     },
+    'score': {
+        'text': 'Our AI model analyzes fundamental, technical, and statistical indicators to predict the probability of a bullish trend over the next 3 months. '
+    },
     'currentRatio': {
         'text': 'The current ratio is used to measure a company`s short-term liquidity. A low number can indicate that a company will have trouble paying its upcoming liabilities.',
         'equation': 'Current Ratio = Current Assets / Current Liabilities'

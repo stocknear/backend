@@ -15,7 +15,6 @@ import re
 import hashlib
 import glob
 from tqdm import tqdm
-from utils.country_list import country_list
 
 from dotenv import load_dotenv
 import os
@@ -554,6 +553,25 @@ async def get_stock_screener(con):
                     item['fundamentalAnalysis'] = {"accuracy": None}
         except:
             item['fundamentalAnalysis'] = {"accuracy": None}
+
+        try:
+            with open(f"json/ai-score/companies/{symbol}.json", 'r') as file:
+                score = orjson.loads(file.read())['score']
+                
+                if  score == 10:
+                    item['score'] = 'Strong Buy'
+                elif score in [7,8,9]:
+                    item['score'] = 'Buy'
+                elif score in [4,5,6]:
+                    item['score'] = 'Hold'
+                elif score in [2,3]:
+                    item['score'] = 'Sell'
+                elif score == 1:
+                    item['score'] = 'Strong Sell'
+                else:
+                    item['score'] = None
+        except:
+            item['score'] = None
 
         try:
             with open(f"json/forward-pe/{symbol}.json", 'r') as file:
