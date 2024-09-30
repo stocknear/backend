@@ -316,7 +316,9 @@ async def process_symbol(ticker, con, start_date, end_date):
         df = await download_data(ticker, con, start_date, end_date)
         split_size = int(len(df) * (1-test_size))
         test_data = df.iloc[split_size:]
-        best_features = [col for col in df.columns if col not in ['date','price','Target']]
+        #selected_features = [col for col in df.columns if col not in ['date','price','Target']]
+        best_features = ['freeCashFlowYield', 'cci', 'daily_return', 'cashAndCashEquivalents_to_cashAndShortTermInvestments', 'longTermDebt_to_totalLiabilitiesAndStockholdersEquity', 'longTermDebt_to_totalAssets', 'totalStockholdersEquity_to_totalLiabilitiesAndStockholdersEquity', 'totalStockholdersEquity_to_totalAssets']
+        print(f"For the Ticker: {ticker}")
         data = predictor.evaluate_model(test_data[best_features], test_data['Target'])
 
         if len(data) != 0:
@@ -359,15 +361,24 @@ async def train_process(tickers, con):
 
     dfs = await chunked_gather(tickers, con, start_date, end_date, chunk_size=10)
 
+    train_list = []
+    test_list = []
+
     for df in dfs:
         try:
-            split_size = int(len(df) * (1-test_size))
+            split_size = int(len(df) * (1 - test_size))
             train_data = df.iloc[:split_size]
             test_data = df.iloc[split_size:]
-            df_train = pd.concat([df_train, train_data], ignore_index=True)
-            df_test = pd.concat([df_test, test_data], ignore_index=True)
+            
+            # Append to the lists
+            train_list.append(train_data)
+            test_list.append(test_data)
         except:
             pass
+
+    # Concatenate all at once outside the loop
+    df_train = pd.concat(train_list, ignore_index=True)
+    df_test = pd.concat(test_list, ignore_index=True)
 
     
     best_features = [col for col in df_train.columns if col not in ['date','price','Target']]
@@ -380,49 +391,48 @@ async def train_process(tickers, con):
     predictor = ScorePredictor()
     #print(selected_features)
     selected_features = [col for col in df_train if col not in ['price','date','Target']]
-    #best_features = predictor.feature_selection(df_train[selected_features], df_train['Target'],k=5)
-    #print(best_features)
-    predictor.train_model(df_train[selected_features], df_train['Target'])
+    best_features = predictor.feature_selection(df_train[selected_features], df_train['Target'],k=8)
+    print(best_features)
+    predictor.train_model(df_train[best_features], df_train['Target'])
     predictor.evaluate_model(df_test[best_features], df_test['Target'])
 
 
 async def run():
 
-    #Train first model
-    
+    train_mode = False
     con = sqlite3.connect('stocks.db')
-    
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
-    cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 1E9 AND symbol NOT LIKE '%.%'")
-    stock_symbols = [row[0] for row in cursor.fetchall()] #['DHR','ABT','TXN','LIN','RIO','FCX','ECL','NVO','GOOGL','NFLX','SAP','UNH','JNJ','ABBV','MRK','PLD','NEE','DUK','AMT','EQIX','META','DOV','NWN','PG','PH','MMM','AWR','YYAI','PPSI','VYX','XP','BWXT','OLED','ROIC','NKE','LMT','PAYX','GME','AMD','AAPL','NVDA','PLTR']
-    stock_symbols = list(set(stock_symbols))
-    print('Number of Stocks')
-    print(len(stock_symbols))
-    await train_process(stock_symbols, con)
     
-
-
+    if train_mode:
+        #Train first model
+        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 50E9 AND symbol NOT LIKE '%.%'")
+        stock_symbols = [row[0] for row in cursor.fetchall()]
+        print('Number of Stocks')
+        print(len(stock_symbols))
+        await train_process(stock_symbols, con)
 
 
     #Prediction Steps for all stock symbols
-    #cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 1E9")
-    #stock_symbols = [row[0] for row in cursor.fetchall()]
-    total_symbols = stock_symbols
+    if not train_mode:
+        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 1E9 AND symbol NOT LIKE '%.%'")
+        stock_symbols = [row[0] for row in cursor.fetchall()]
+        total_symbols = stock_symbols
 
-    print(f"Total tickers: {len(total_symbols)}")
-    start_date = datetime(1995, 1, 1).strftime("%Y-%m-%d")
-    end_date = datetime.today().strftime("%Y-%m-%d")
+        print(f"Total tickers: {len(total_symbols)}")
+        start_date = datetime(1995, 1, 1).strftime("%Y-%m-%d")
+        end_date = datetime.today().strftime("%Y-%m-%d")
 
-    chunk_size = len(total_symbols)# // 100  # Divide the list into N chunks
-    chunks = [total_symbols[i:i + chunk_size] for i in range(0, len(total_symbols), chunk_size)]
-    for chunk in chunks:
-        tasks = []
-        for ticker in tqdm(chunk):
-            tasks.append(process_symbol(ticker, con, start_date, end_date))
+        chunk_size = len(total_symbols)// 100  # Divide the list into N chunks
+        chunks = [total_symbols[i:i + chunk_size] for i in range(0, len(total_symbols), chunk_size)]
+        for chunk in chunks:
+            tasks = []
+            for ticker in tqdm(chunk):
+                tasks.append(process_symbol(ticker, con, start_date, end_date))
 
-        await asyncio.gather(*tasks)
+            await asyncio.gather(*tasks)
     
+
     con.close()
     
 try:

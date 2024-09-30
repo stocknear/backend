@@ -38,24 +38,24 @@ class ScorePredictor:
         clear_session()
         
         # Input layer
-        inputs = Input(shape=(2139,))
+        inputs = Input(shape=(8,))
         
         # First dense layer
-        x = Dense(2048, activation='relu', kernel_regularizer=regularizers.l2(0.01))(inputs)
-        x = Dropout(0.3)(x)
+        x = Dense(512, activation='relu')(inputs)
+        x = Dropout(0.5)(x)
         x = BatchNormalization()(x)
         
         # Additional dense layers
-        for units in [1024,512, 256, 256]:
-            x = Dense(units, activation='relu', kernel_regularizer=regularizers.l2(0.01))(x)
-            x = Dropout(0.2)(x)
+        for units in [256,128]:
+            x = Dense(units, activation='relu')(x)
+            x = Dropout(0.5)(x)
             x = BatchNormalization()(x)
         
         # Reshape for attention mechanism
-        x = Reshape((256, 1))(x)
+        x = Reshape((128, 1))(x)
         
         # Attention mechanism
-        attention = Dense(256, activation='relu')(x)
+        attention = Dense(128, activation='relu')(x)
         attention = Dense(1, activation='softmax')(attention)
         
         # Apply attention
@@ -95,8 +95,8 @@ class ScorePredictor:
         checkpoint = ModelCheckpoint('ml_models/weights/ai-score/weights.keras', 
                                       save_best_only=True, save_freq = 1,
                                       monitor='val_loss', mode='min')
-        early_stopping = EarlyStopping(monitor='val_loss', patience=100, restore_best_weights=True)
-        reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=80, min_lr=0.00001)
+        early_stopping = EarlyStopping(monitor='val_loss', patience=50, restore_best_weights=True)
+        reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=30, min_lr=0.001)
 
         self.model.fit(X_train, y_train, epochs=100_000, batch_size=32, 
                        validation_split=0.1, callbacks=[checkpoint, early_stopping, reduce_lr])
@@ -136,7 +136,7 @@ class ScorePredictor:
 
         # Initialize score to 0 (or any default value)
         score = 0
-        #print(last_prediction_prob)
+        print(last_prediction_prob)
         # Determine the score based on the last prediction probability
         for threshold, value in zip(thresholds, scores):
             if last_prediction_prob >= threshold:
