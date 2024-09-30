@@ -26,7 +26,28 @@ async def save_json(symbol, data):
         file.write(orjson.dumps(data))
 
 
-    
+def trend_intensity(close, window=20):
+    ma = close.rolling(window=window).mean()
+    std = close.rolling(window=window).std()
+    return ((close - ma) / std).abs().rolling(window=window).mean()
+
+def fisher_transform(high, low, window=10):
+    value = (high + low) / 2
+    norm_value = (2 * ((value - value.rolling(window=window).min()) / 
+                       (value.rolling(window=window).max() - value.rolling(window=window).min())) - 1)
+    return 0.5 * np.log((1 + norm_value) / (1 - norm_value))
+
+def calculate_fdi(high, low, close, window=30):
+    n1 = (np.log(high.rolling(window=window).max() - low.rolling(window=window).min()) -
+          np.log(close.rolling(window=window).max() - close.rolling(window=window).min())) / np.log(2)
+    return (2 - n1) * 100
+
+
+def hurst_exponent(ts, max_lag=100):
+    lags = range(2, max_lag)
+    tau = [np.sqrt(np.std(np.subtract(ts[lag:], ts[:-lag]))) for lag in lags]
+    poly = np.polyfit(np.log(lags), np.log(tau), 1)
+    return poly[0] * 2.0
 
 async def download_data(ticker, con, start_date, end_date):
     try:
@@ -109,7 +130,18 @@ async def download_data(ticker, con, start_date, end_date):
 
         df['sma_50'] = df['close'].rolling(window=50).mean()
         df['sma_200'] = df['close'].rolling(window=200).mean()
-        df['golden_cross'] = ((df['sma_50'] > df['sma_200']) & (df['sma_50'].shift(1) <= df['sma_200'].shift(1))).astype(int)
+        df['sma_crossover'] = ((df['sma_50'] > df['sma_200']) & (df['sma_50'].shift(1) <= df['sma_200'].shift(1))).astype(int)
+
+        df['ema_50'] = EMAIndicator(close=df['close'], window=50).ema_indicator()
+        df['ema_200'] = EMAIndicator(close=df['close'], window=200).ema_indicator()
+        df['ema_crossover'] = ((df['ema_50'] > df['ema_200']) & (df['ema_50'].shift(1) <= df['ema_200'].shift(1))).astype(int)
+
+        ichimoku = IchimokuIndicator(high=df['high'], low=df['low'])
+        df['ichimoku_a'] = ichimoku.ichimoku_a()
+        df['ichimoku_b'] = ichimoku.ichimoku_b()
+        df['atr'] = AverageTrueRange(high=df['high'], low=df['low'], close=df['close']).average_true_range()
+        bb = BollingerBands(close=df['close'])
+        df['bb_width'] = (bb.bollinger_hband() - bb.bollinger_lband()) / df['close']
 
         df['volatility'] = df['close'].rolling(window=30).std()
         df['daily_return'] = df['close'].pct_change()
@@ -137,8 +169,6 @@ async def download_data(ticker, con, start_date, end_date):
         df['rolling_rsi'] = df['rsi'].rolling(window=10).mean()
         df['stoch_rsi'] = stochrsi_k(df['close'], window=30, smooth1=3, smooth2=3)
         df['rolling_stoch_rsi'] = df['stoch_rsi'].rolling(window=10).mean()
-        df['bb_hband'] = bollinger_hband(df['close'], window=30)/df['close']
-        df['bb_lband'] = bollinger_lband(df['close'], window=30)/df['close']
 
         df['adi'] = acc_dist_index(high=df['high'],low=df['low'],close=df['close'],volume=df['volume'])
         df['cmf'] = chaikin_money_flow(high=df['high'],low=df['low'],close=df['close'],volume=df['volume'], window=20)
@@ -146,16 +176,27 @@ async def download_data(ticker, con, start_date, end_date):
         df['fi'] = force_index(close=df['close'], volume=df['volume'], window= 13)
 
         df['williams'] = WilliamsRIndicator(high=df['high'], low=df['low'], close=df['close']).williams_r()
-
+        df['kama'] = KAMAIndicator(close=df['close']).kama()
 
         df['stoch'] = stoch(df['high'], df['low'], df['close'], window=30)
+        df['rocr'] = df['close'] / df['close'].shift(30) - 1 # Rate of Change Ratio (ROCR)
+        df['ppo'] = (df['ema_50'] - df['ema_200']) / df['ema_50'] * 100
+        df['vwap'] = (df['volume'] * (df['high'] + df['low'] + df['close']) / 3).cumsum() / df['volume'].cumsum()
+        df['volatility_ratio'] = df['close'].rolling(window=30).std() / df['close'].rolling(window=60).std()
+
+        df['fdi'] = calculate_fdi(df['high'], df['low'], df['close'])
+        #df['hurst'] = df['close'].rolling(window=100).apply(hurst_exponent)
+        df['fisher'] = fisher_transform(df['high'], df['low'])
+        df['tii'] = trend_intensity(df['close'])
+
 
         ta_indicators = [
             'rsi', 'macd', 'macd_signal', 'macd_hist', 'adx', 'adx_pos', 'adx_neg',
-            'cci', 'mfi', 'nvi', 'obv', 'vpt', 'stoch_rsi', 'bb_hband', 'bb_lband',
-            'adi', 'cmf', 'emv', 'fi', 'williams', 'stoch','sma_50','sma_200','golden_cross',
+            'cci', 'mfi', 'nvi', 'obv', 'vpt', 'stoch_rsi','bb_width',
+            'adi', 'cmf', 'emv', 'fi', 'williams', 'stoch','sma_crossover',
             'volatility','daily_return','cumulative_return', 'roc','avg_volume_30d',
-            'rolling_rsi','rolling_stoch_rsi'
+            'rolling_rsi','rolling_stoch_rsi', 'ema_crossover','ichimoku_a','ichimoku_b',
+            'atr','kama','rocr','ppo','volatility_ratio','vwap','tii','fdi','fisher'
         ]
 
         # Match each combined data entry with the closest available stock price in df
@@ -178,10 +219,11 @@ async def download_data(ticker, con, start_date, end_date):
             item['price'] = close_price
 
             # Dynamically add all indicator values to the combined_data entry
+            
             for indicator in ta_indicators:
                 indicator_value = df[df['date'] == target_date][indicator].values[0]
                 item[indicator] = indicator_value  # Add the indicator value to the combined_data entry
-
+            
 
         # Sort the combined data by date
         combined_data = sorted(combined_data, key=lambda x: x['date'])
@@ -232,29 +274,45 @@ async def download_data(ticker, con, start_date, end_date):
             'inventory',
             'propertyPlantEquipmentNet',
             'ownersEarnings',
-            'averagePPE'
-
         ]
 
         # Compute ratios for all combinations of key elements
+        
         for num, denom in combinations(key_elements, 2):
             # Compute ratio num/denom
             column_name = f'{num}_to_{denom}'
             try:
-                df_combined[column_name] = df_combined[num] / df_combined[denom]
-            except:
+                ratio = df_combined[num] / df_combined[denom]
+                # Check for valid ratio
+                df_combined[column_name] = np.where((ratio != 0) & 
+                                                     (ratio != np.inf) & 
+                                                     (ratio != -np.inf) & 
+                                                     (~np.isnan(ratio)), 
+                                                     ratio, 0)
+            except Exception as e:
+                print(f"Error calculating {column_name}: {e}")
                 df_combined[column_name] = 0
+            
             # Compute reverse ratio denom/num
             reverse_column_name = f'{denom}_to_{num}'
             try:
-                df_combined[reverse_column_name] = df_combined[denom] / df_combined[num]
-            except:
+                reverse_ratio = df_combined[denom] / df_combined[num]
+                # Check for valid reverse ratio
+                df_combined[reverse_column_name] = np.where((reverse_ratio != 0) & 
+                                                             (reverse_ratio != np.inf) & 
+                                                             (reverse_ratio != -np.inf) & 
+                                                             (~np.isnan(reverse_ratio)), 
+                                                             reverse_ratio, 0)
+            except Exception as e:
+                print(f"Error calculating {reverse_column_name}: {e}")
                 df_combined[reverse_column_name] = 0
-    
+        
         # Create 'Target' column based on price change
         df_combined['Target'] = ((df_combined['price'].shift(-1) - df_combined['price']) / df_combined['price'] > 0).astype(int)
 
         # Return a copy of the combined DataFrame
+        df_combined = df_combined.dropna()
+        df_combined = df_combined.where(~df_combined.isin([np.inf, -np.inf]), 0)
         df_copy = df_combined.copy()
         #print(df_copy[['date','revenue','ownersEarnings','revenuePerShare']])
         return df_copy
@@ -266,7 +324,7 @@ async def download_data(ticker, con, start_date, end_date):
 
 async def process_symbol(ticker, con, start_date, end_date):
     try:
-        test_size = 0.4
+        test_size = 0.2
         start_date = datetime(1995, 1, 1).strftime("%Y-%m-%d")
         end_date = datetime.today().strftime("%Y-%m-%d")
         predictor = FundamentalPredictor()
@@ -317,18 +375,18 @@ async def train_process(tickers, con):
     
     best_features = [col for col in df_train.columns if col not in ['date','price','Target']]
 
-    df_train = df_train.sample(frac=1).reset_index(drop=True)
+    df_train = df_train.sample(frac=1).reset_index(drop=True) #df_train.reset_index(drop=True)
+    print(df_train)
     print('======Train Set Datapoints======')
     print(len(df_train))
-    print(df_train)
-    print(df_test)
-    #selected_features = predictor.feature_selection(df_train[best_features], df_train['Target'],k=10)
-    #print(selected_features)
-    selected_features = [col for col in df_train if col not in ['price','date','Target']]
 
     predictor = FundamentalPredictor()
-    predictor.train_model(df_train[selected_features], df_train['Target'])
-    predictor.evaluate_model(df_test[selected_features], df_test['Target'])
+    #print(selected_features)
+    selected_features = [col for col in df_train if col not in ['price','date','Target']]
+    best_features = predictor.feature_selection(df_train[selected_features], df_train['Target'],k=100)
+    print(best_features)
+    predictor.train_model(df_train[best_features], df_train['Target'])
+    predictor.evaluate_model(df_test[best_features], df_test['Target'])
 
 async def test_process(con):
     test_size = 0.2
@@ -350,15 +408,15 @@ async def run():
 
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
-    cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 300E9")
-    stock_symbols = ['AAPL'] #[row[0] for row in cursor.fetchall()] 
+    cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 10E9 AND symbol NOT LIKE '%.%'")
+    stock_symbols = [row[0] for row in cursor.fetchall()] #['AAPL','GME','LLY','NVDA'] #
     print('Number of Stocks')
     print(len(stock_symbols))
     await train_process(stock_symbols, con)
 
 
     #Prediction Steps for all stock symbols
-    
+    '''
     cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 1E9")
     stock_symbols = [row[0] for row in cursor.fetchall()]
 
@@ -376,7 +434,7 @@ async def run():
             tasks.append(process_symbol(ticker, con, start_date, end_date))
 
         await asyncio.gather(*tasks)
-    
+    '''
     con.close()
     
 try:

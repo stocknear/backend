@@ -8,13 +8,15 @@ from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_sco
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from keras.models import Sequential
-from keras.layers import LSTM, Dense, Conv1D, Dropout, BatchNormalization
+from keras.layers import LSTM, Dense, Conv1D, Dropout, BatchNormalization, MaxPooling1D, Bidirectional
 from keras.optimizers import Adam
-from keras.callbacks import EarlyStopping, ModelCheckpoint
+from keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 from keras.models import load_model
 from sklearn.feature_selection import SelectKBest, f_classif
 from tensorflow.keras.backend import clear_session
 from keras import regularizers
+from keras.layers import Layer
+
 
 from tqdm import tqdm
 from collections import defaultdict
@@ -26,6 +28,7 @@ import time
 
 # Based on the paper: https://arxiv.org/pdf/1603.00751
 
+
 class FundamentalPredictor:
     def __init__(self):
         self.model = self.build_model()
@@ -35,35 +38,34 @@ class FundamentalPredictor:
         clear_session()
         model = Sequential()
         
-        model.add(Conv1D(filters=64, kernel_size=3, padding='same', activation='relu', input_shape=(None, 1)))
-        model.add(Conv1D(filters=32, kernel_size=3, padding='same', activation='relu'))
-        
-        # First LSTM layer with dropout and batch normalization
-        model.add(LSTM(256, return_sequences=True, kernel_regularizer=regularizers.l2(0.01)))
-        model.add(Dropout(0.5))
-        model.add(BatchNormalization())
-
-        # Second LSTM layer with dropout and batch normalization
-        model.add(LSTM(256, return_sequences=True, kernel_regularizer=regularizers.l2(0.01)))
-        model.add(Dropout(0.5))
-        model.add(BatchNormalization())
-        
-        # Third LSTM layer with dropout and batch normalization
-        model.add(LSTM(128, kernel_regularizer=regularizers.l2(0.01)))
-        model.add(Dropout(0.5))
-        model.add(BatchNormalization())
-
-        model.add(Dense(64, activation='relu', kernel_regularizer=regularizers.l2(0.01)))
+        model.add(Dense(1000, activation='relu', kernel_regularizer=regularizers.l2(0.01)))
         model.add(Dropout(0.2))
         model.add(BatchNormalization())
-        
-        # Dense layer with sigmoid activation for binary classification
+
+        model.add(Dense(2000, activation='relu', kernel_regularizer=regularizers.l2(0.01)))
+        model.add(Dropout(0.2))
+        model.add(BatchNormalization())
+
+        model.add(Dense(3000, activation='relu', kernel_regularizer=regularizers.l2(0.01)))
+        model.add(Dropout(0.2))
+        model.add(BatchNormalization())
+
+        model.add(Dense(2000, activation='relu', kernel_regularizer=regularizers.l2(0.01)))
+        model.add(Dropout(0.2))
+        model.add(BatchNormalization())
+
+        model.add(Dense(1000, activation='relu', kernel_regularizer=regularizers.l2(0.01)))
+        model.add(Dropout(0.2))
+        model.add(BatchNormalization())
+        model.add(Dense(500, activation='relu', kernel_regularizer=regularizers.l2(0.01)))
+
+        # Output layer for binary classification
         model.add(Dense(1, activation='sigmoid'))
 
-        # Adam optimizer with a learning rate of 0.01
-        optimizer = Adam(learning_rate=0.01)
+        # Optimizer with a lower learning rate and scheduler
+        optimizer = Adam(learning_rate=0.1)
         
-        # Compile model with binary crossentropy loss and accuracy metric
+        # Compile the model
         model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
         
         return model
@@ -80,14 +82,16 @@ class FundamentalPredictor:
 
     def train_model(self, X_train, y_train):
         X_train = self.preprocess_data(X_train)
-        X_train = self.reshape_for_lstm(X_train)
+        #X_train = self.reshape_for_lstm(X_train)
         
         checkpoint = ModelCheckpoint('ml_models/weights/fundamental_weights/weights.keras', 
-                                      save_best_only=True, monitor='val_loss', mode='min')
-        early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
-        
-        self.model.fit(X_train, y_train, epochs=250, batch_size=32, 
-                       validation_split=0.2, callbacks=[checkpoint, early_stopping])
+                                      save_best_only=True, save_freq = 1,
+                                      monitor='val_loss', mode='min')
+        early_stopping = EarlyStopping(monitor='val_loss', patience=20, restore_best_weights=True)
+        reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=10, min_lr=0.00001)
+
+        self.model.fit(X_train, y_train, epochs=100_000, batch_size=64, 
+                       validation_split=0.1, callbacks=[checkpoint, early_stopping, reduce_lr])
         self.model.save('ml_models/weights/fundamental_weights/weights.keras')
 
     def evaluate_model(self, X_test, y_test):
@@ -113,7 +117,9 @@ class FundamentalPredictor:
                 'precision': round(test_precision * 100), 
                 'sentiment': 'Bullish' if next_value_prediction == 1 else 'Bearish'}, test_predictions
 
-    def feature_selection(self, X_train, y_train, k=8):
+    def feature_selection(self, X_train, y_train, k=100):
+        print('feature selection:')
+        print(X_train.shape, y_train.shape)
         selector = SelectKBest(score_func=f_classif, k=k)
         selector.fit(X_train, y_train)
 

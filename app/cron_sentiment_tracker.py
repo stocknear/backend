@@ -33,8 +33,8 @@ async def get_data(session, total_symbols):
                         res_list = []
                         for item in data:
                             symbol = item['symbol']
-                            item['sentiment'] = round(item['sentiment']*100, 2)
-                            item['lastSentiment'] = round(item['lastSentiment']*100, 2)
+                            item['sentiment'] = round(item['sentiment']*100)
+                            item['lastSentiment'] = round(item['lastSentiment']*100)
                             if symbol in total_symbols:
                                 try:
                                     with open(f"json/quote/{symbol}.json", 'r') as file:
