@@ -4,7 +4,7 @@ import aiohttp
 import aiofiles
 import sqlite3
 from datetime import datetime
-from ml_models.fundamental_predictor import FundamentalPredictor
+from ml_models.score_model import ScorePredictor
 import yfinance as yf
 from collections import defaultdict
 import pandas as pd
@@ -22,7 +22,7 @@ import gc
 gc.enable()
 
 async def save_json(symbol, data):
-    with open(f"json/fundamental-predictor-analysis/{symbol}.json", 'wb') as file:
+    with open(f"json/ai-score/{symbol}.json", 'wb') as file:
         file.write(orjson.dumps(data))
 
 
@@ -31,11 +31,6 @@ def trend_intensity(close, window=20):
     std = close.rolling(window=window).std()
     return ((close - ma) / std).abs().rolling(window=window).mean()
 
-def fisher_transform(high, low, window=10):
-    value = (high + low) / 2
-    norm_value = (2 * ((value - value.rolling(window=window).min()) / 
-                       (value.rolling(window=window).max() - value.rolling(window=window).min())) - 1)
-    return 0.5 * np.log((1 + norm_value) / (1 - norm_value))
 
 def calculate_fdi(high, low, close, window=30):
     n1 = (np.log(high.rolling(window=window).max() - low.rolling(window=window).min()) -
@@ -185,8 +180,6 @@ async def download_data(ticker, con, start_date, end_date):
         df['volatility_ratio'] = df['close'].rolling(window=30).std() / df['close'].rolling(window=60).std()
 
         df['fdi'] = calculate_fdi(df['high'], df['low'], df['close'])
-        #df['hurst'] = df['close'].rolling(window=100).apply(hurst_exponent)
-        df['fisher'] = fisher_transform(df['high'], df['low'])
         df['tii'] = trend_intensity(df['close'])
 
 
@@ -196,7 +189,7 @@ async def download_data(ticker, con, start_date, end_date):
             'adi', 'cmf', 'emv', 'fi', 'williams', 'stoch','sma_crossover',
             'volatility','daily_return','cumulative_return', 'roc','avg_volume_30d',
             'rolling_rsi','rolling_stoch_rsi', 'ema_crossover','ichimoku_a','ichimoku_b',
-            'atr','kama','rocr','ppo','volatility_ratio','vwap','tii','fdi','fisher'
+            'atr','kama','rocr','ppo','volatility_ratio','vwap','tii','fdi'
         ]
 
         # Match each combined data entry with the closest available stock price in df
@@ -229,7 +222,6 @@ async def download_data(ticker, con, start_date, end_date):
         combined_data = sorted(combined_data, key=lambda x: x['date'])
         # Convert combined data into a DataFrame
         df_combined = pd.DataFrame(combined_data).dropna()
-
         key_elements = [
             'revenue',
             'costOfRevenue',
@@ -275,37 +267,30 @@ async def download_data(ticker, con, start_date, end_date):
             'propertyPlantEquipmentNet',
             'ownersEarnings',
         ]
-
         # Compute ratios for all combinations of key elements
-        
+
+        new_columns = {}
+
+        # Loop over combinations of column pairs
         for num, denom in combinations(key_elements, 2):
-            # Compute ratio num/denom
+            # Compute ratio and reverse ratio
+            ratio = df_combined[num] / df_combined[denom]
+            reverse_ratio = df_combined[denom] / df_combined[num]
+
+            # Define column names for both ratios
             column_name = f'{num}_to_{denom}'
-            try:
-                ratio = df_combined[num] / df_combined[denom]
-                # Check for valid ratio
-                df_combined[column_name] = np.where((ratio != 0) & 
-                                                     (ratio != np.inf) & 
-                                                     (ratio != -np.inf) & 
-                                                     (~np.isnan(ratio)), 
-                                                     ratio, 0)
-            except Exception as e:
-                print(f"Error calculating {column_name}: {e}")
-                df_combined[column_name] = 0
-            
-            # Compute reverse ratio denom/num
             reverse_column_name = f'{denom}_to_{num}'
-            try:
-                reverse_ratio = df_combined[denom] / df_combined[num]
-                # Check for valid reverse ratio
-                df_combined[reverse_column_name] = np.where((reverse_ratio != 0) & 
-                                                             (reverse_ratio != np.inf) & 
-                                                             (reverse_ratio != -np.inf) & 
-                                                             (~np.isnan(reverse_ratio)), 
-                                                             reverse_ratio, 0)
-            except Exception as e:
-                print(f"Error calculating {reverse_column_name}: {e}")
-                df_combined[reverse_column_name] = 0
+
+            # Store the new columns in the dictionary, replacing invalid values with 0
+            new_columns[column_name] = np.nan_to_num(ratio, nan=0, posinf=0, neginf=0)
+            new_columns[reverse_column_name] = np.nan_to_num(reverse_ratio, nan=0, posinf=0, neginf=0)
+
+        # Add all new columns to the original DataFrame at once
+        df_combined = pd.concat([df_combined, pd.DataFrame(new_columns)], axis=1)
+
+        # To defragment the DataFrame, make a copy
+        df_combined = df_combined.copy()
+
         
         # Create 'Target' column based on price change
         df_combined['Target'] = ((df_combined['price'].shift(-1) - df_combined['price']) / df_combined['price'] > 0).astype(int)
@@ -314,7 +299,7 @@ async def download_data(ticker, con, start_date, end_date):
         df_combined = df_combined.dropna()
         df_combined = df_combined.where(~df_combined.isin([np.inf, -np.inf]), 0)
         df_copy = df_combined.copy()
-        #print(df_copy[['date','revenue','ownersEarnings','revenuePerShare']])
+
         return df_copy
 
     except Exception as e:
@@ -327,14 +312,14 @@ async def process_symbol(ticker, con, start_date, end_date):
         test_size = 0.2
         start_date = datetime(1995, 1, 1).strftime("%Y-%m-%d")
         end_date = datetime.today().strftime("%Y-%m-%d")
-        predictor = FundamentalPredictor()
+        predictor = ScorePredictor()
         df = await download_data(ticker, con, start_date, end_date)
         split_size = int(len(df) * (1-test_size))
         test_data = df.iloc[split_size:]
         best_features = [col for col in df.columns if col not in ['date','price','Target']]
         data, prediction_list = predictor.evaluate_model(test_data[best_features], test_data['Target'])
         
-
+        print(data)
         '''
         output_list = [{'date': date, 'price': price, 'prediction': prediction, 'target': target} 
                                 for (date, price,target), prediction in zip(test_data[['date', 'price','Target']].iloc[-6:].values, prediction_list[-6:])]
@@ -380,19 +365,19 @@ async def train_process(tickers, con):
     print('======Train Set Datapoints======')
     print(len(df_train))
 
-    predictor = FundamentalPredictor()
+    predictor = ScorePredictor()
     #print(selected_features)
     selected_features = [col for col in df_train if col not in ['price','date','Target']]
-    best_features = predictor.feature_selection(df_train[selected_features], df_train['Target'],k=100)
-    print(best_features)
-    predictor.train_model(df_train[best_features], df_train['Target'])
+    #best_features = predictor.feature_selection(df_train[selected_features], df_train['Target'],k=5)
+    #print(best_features)
+    predictor.train_model(df_train[selected_features], df_train['Target'])
     predictor.evaluate_model(df_test[best_features], df_test['Target'])
 
 async def test_process(con):
     test_size = 0.2
     start_date = datetime(1995, 1, 1).strftime("%Y-%m-%d")
     end_date = datetime.today().strftime("%Y-%m-%d")
-    predictor = FundamentalPredictor()
+    predictor = ScorePredictor()
     df = await download_data('GME', con, start_date, end_date)
     split_size = int(len(df) * (1-test_size))
     test_data = df.iloc[split_size:]
@@ -405,25 +390,26 @@ async def run():
     #Train first model
     
     con = sqlite3.connect('stocks.db')
-
+    
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
     cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 10E9 AND symbol NOT LIKE '%.%'")
-    stock_symbols = [row[0] for row in cursor.fetchall()] #['AAPL','GME','LLY','NVDA'] #
+    stock_symbols = ['DHR','ABT','TXN','LIN','RIO','FCX','ECL','NVO','GOOGL','NFLX','SAP','UNH','JNJ','ABBV','MRK','PLD','NEE','DUK','AMT','EQIX','META','DOV','NWN','PG','PH','MMM','AWR','YYAI','PPSI','VYX','XP','BWXT','OLED','ROIC','NKE','LMT','PAYX','GME','AMD','AAPL','NVDA','PLTR'] #[row[0] for row in cursor.fetchall()]
+    stock_symbols = list(set(stock_symbols))
     print('Number of Stocks')
     print(len(stock_symbols))
-    await train_process(stock_symbols, con)
-
+    #await train_process(stock_symbols, con)
+    
 
     #Prediction Steps for all stock symbols
-    '''
+    
     cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 1E9")
     stock_symbols = [row[0] for row in cursor.fetchall()]
 
     total_symbols = ['GME'] #stock_symbols
     
     print(f"Total tickers: {len(total_symbols)}")
-    start_date = datetime(2000, 1, 1).strftime("%Y-%m-%d")
+    start_date = datetime(1995, 1, 1).strftime("%Y-%m-%d")
     end_date = datetime.today().strftime("%Y-%m-%d")
 
     chunk_size = len(total_symbols)# // 100  # Divide the list into N chunks
@@ -434,7 +420,7 @@ async def run():
             tasks.append(process_symbol(ticker, con, start_date, end_date))
 
         await asyncio.gather(*tasks)
-    '''
+    
     con.close()
     
 try:

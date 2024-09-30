@@ -3950,7 +3950,7 @@ async def get_fomc_impact(api_key: str = Security(get_api_key)):
     compressed_data = gzip.compress(data)
 
     redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key,3600*3600)
+    redis_client.expire(cache_key,5*60)
 
     return StreamingResponse(
         io.BytesIO(compressed_data),

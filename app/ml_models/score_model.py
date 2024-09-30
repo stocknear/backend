@@ -29,7 +29,7 @@ import time
 # Based on the paper: https://arxiv.org/pdf/1603.00751
 
 
-class FundamentalPredictor:
+class ScorePredictor:
     def __init__(self):
         self.scaler = MinMaxScaler()
         self.model = self.build_model()
