@@ -49,14 +49,15 @@ async def download_data(ticker, con, start_date, end_date):
         # Define paths to the statement files
         statements = [
             f"json/financial-statements/ratios/quarter/{ticker}.json",
-            f"json/financial-statements/cash-flow-statement/quarter/{ticker}.json",
-            f"json/financial-statements/income-statement/quarter/{ticker}.json",
-            f"json/financial-statements/balance-sheet-statement/quarter/{ticker}.json",
-            f"json/financial-statements/income-statement-growth/quarter/{ticker}.json",
-            f"json/financial-statements/balance-sheet-statement-growth/quarter/{ticker}.json",
-            f"json/financial-statements/cash-flow-statement-growth/quarter/{ticker}.json",
             f"json/financial-statements/key-metrics/quarter/{ticker}.json",
-            f"json/financial-statements/owner-earnings/quarter/{ticker}.json",
+            #f"json/financial-statements/cash-flow-statement/quarter/{ticker}.json",
+            #f"json/financial-statements/income-statement/quarter/{ticker}.json",
+            #f"json/financial-statements/balance-sheet-statement/quarter/{ticker}.json",
+            #f"json/financial-statements/income-statement-growth/quarter/{ticker}.json",
+            #f"json/financial-statements/balance-sheet-statement-growth/quarter/{ticker}.json",
+            #f"json/financial-statements/cash-flow-statement-growth/quarter/{ticker}.json",
+            #f"json/financial-statements/key-metrics/quarter/{ticker}.json",
+            #f"json/financial-statements/owner-earnings/quarter/{ticker}.json",
         ]
 
         # Helper function to load JSON data asynchronously
@@ -76,7 +77,11 @@ async def download_data(ticker, con, start_date, end_date):
 
         ratios = await load_json_from_file(statements[0])
         ratios = await filter_data(ratios, ignore_keys)
+
+        key_metrics = await load_json_from_file(statements[1])
+        key_metrics = await filter_data(key_metrics, ignore_keys)
         
+        '''
         cashflow = await load_json_from_file(statements[1])
         cashflow = await filter_data(cashflow, ignore_keys)
 
@@ -96,18 +101,15 @@ async def download_data(ticker, con, start_date, end_date):
         cashflow_growth = await load_json_from_file(statements[6])
         cashflow_growth = await filter_data(cashflow_growth, ignore_keys)
 
-        key_metrics = await load_json_from_file(statements[7])
-        key_metrics = await filter_data(key_metrics, ignore_keys)
-
-        owner_earnings = await load_json_from_file(statements[8])
+        owner_earnings = await load_json_from_file(statements[7])
         owner_earnings = await filter_data(owner_earnings, ignore_keys)
-
+        '''
 
         # Combine all the data
         combined_data = defaultdict(dict)
 
         # Merge the data based on 'date'
-        for entries in zip(income, income_growth, balance, balance_growth, cashflow, cashflow_growth, ratios, key_metrics, owner_earnings):
+        for entries in zip(ratios, key_metrics):
             for entry in entries:
                 date = entry['date']
                 for key, value in entry.items():
@@ -189,7 +191,8 @@ async def download_data(ticker, con, start_date, end_date):
             'adi', 'cmf', 'emv', 'fi', 'williams', 'stoch','sma_crossover',
             'volatility','daily_return','cumulative_return', 'roc','avg_volume_30d',
             'rolling_rsi','rolling_stoch_rsi', 'ema_crossover','ichimoku_a','ichimoku_b',
-            'atr','kama','rocr','ppo','volatility_ratio','vwap','tii','fdi'
+            'atr','kama','rocr','ppo','volatility_ratio','vwap','tii','fdi','drawdown',
+            'volume_change'
         ]
 
         # Match each combined data entry with the closest available stock price in df
@@ -222,6 +225,8 @@ async def download_data(ticker, con, start_date, end_date):
         combined_data = sorted(combined_data, key=lambda x: x['date'])
         # Convert combined data into a DataFrame
         df_combined = pd.DataFrame(combined_data).dropna()
+
+        '''
         key_elements = [
             'revenue',
             'costOfRevenue',
@@ -287,6 +292,7 @@ async def download_data(ticker, con, start_date, end_date):
 
         # Add all new columns to the original DataFrame at once
         df_combined = pd.concat([df_combined, pd.DataFrame(new_columns)], axis=1)
+        '''
 
         # To defragment the DataFrame, make a copy
         df_combined = df_combined.copy()
@@ -316,10 +322,10 @@ async def process_symbol(ticker, con, start_date, end_date):
         df = await download_data(ticker, con, start_date, end_date)
         split_size = int(len(df) * (1-test_size))
         test_data = df.iloc[split_size:]
-        #selected_features = [col for col in df.columns if col not in ['date','price','Target']]
-        best_features = ['williams', 'stoch', 'fdi', 'revenue_to_cashAndCashEquivalents', 'revenue_to_cashAndShortTermInvestments', 'costOfRevenue_to_cashAndCashEquivalents', 'costOfRevenue_to_cashAndShortTermInvestments', 'ebitda_to_cashAndShortTermInvestments', 'incomeTaxExpense_to_cashAndCashEquivalents', 'incomeTaxExpense_to_cashAndShortTermInvestments', 'capitalExpenditure_to_cashAndCashEquivalents', 'capitalExpenditure_to_cashAndShortTermInvestments', 'totalCurrentLiabilities_to_cashAndShortTermInvestments', 'netDebt_to_cashAndShortTermInvestments', 'inventory_to_cashAndShortTermInvestments']
+        selected_features = [col for col in df.columns if col not in ['date','price','Target']]
+
         print(f"For the Ticker: {ticker}")
-        data = predictor.evaluate_model(test_data[best_features], test_data['Target'])
+        data = predictor.evaluate_model(test_data[selected_features], test_data['Target'])
 
         if len(data) != 0:
             if data['precision'] >= 50 and data['accuracy'] >= 50:
@@ -391,10 +397,10 @@ async def train_process(tickers, con):
     predictor = ScorePredictor()
     #print(selected_features)
     selected_features = [col for col in df_train if col not in ['price','date','Target']]
-    best_features = predictor.feature_selection(df_train[selected_features], df_train['Target'],k=15)
-    print(best_features)
-    predictor.train_model(df_train[best_features], df_train['Target'])
-    predictor.evaluate_model(df_test[best_features], df_test['Target'])
+    #best_features = predictor.feature_selection(df_train[selected_features], df_train['Target'],k=15)
+    #print(best_features)
+    predictor.train_model(df_train[selected_features], df_train['Target'])
+    predictor.evaluate_model(df_test[selected_features], df_test['Target'])
 
 
 async def run():
@@ -406,7 +412,7 @@ async def run():
     
     if train_mode:
         #Train first model
-        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 500E9 AND symbol NOT LIKE '%.%'")
+        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 300E9 AND symbol NOT LIKE '%.%'")
         stock_symbols = [row[0] for row in cursor.fetchall()]
         print('Number of Stocks')
         print(len(stock_symbols))
@@ -423,7 +429,7 @@ async def run():
         start_date = datetime(1995, 1, 1).strftime("%Y-%m-%d")
         end_date = datetime.today().strftime("%Y-%m-%d")
 
-        chunk_size = len(total_symbols)// 100  # Divide the list into N chunks
+        chunk_size = len(total_symbols) // 100  # Divide the list into N chunks
         chunks = [total_symbols[i:i + chunk_size] for i in range(0, len(total_symbols), chunk_size)]
         for chunk in chunks:
             tasks = []

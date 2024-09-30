@@ -38,11 +38,11 @@ class ScorePredictor:
         clear_session()
         
         # Input layer
-        inputs = Input(shape=(15,))
+        inputs = Input(shape=(139,))
         
         # First dense layer
-        x = Dense(64, activation='leaky_relu')(inputs)
-        x = Dropout(0.3)(x)
+        x = Dense(128, activation='leaky_relu')(inputs)
+        x = Dropout(0.5)(x)
         x = BatchNormalization()(x)
         
         # Additional dense layers

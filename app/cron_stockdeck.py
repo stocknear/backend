@@ -51,6 +51,12 @@ async def get_data(ticker):
                 company_quote = {}
 
             try:
+                with open(f"json/ai-score/companies/{ticker}.json", 'r') as file:
+                    score = ujson.load(file)['score']
+            except:
+                score = None
+
+            try:
                 with open(f"json/forward-pe/{ticker}.json", 'r') as file:
                     forward_pe = ujson.load(file)['forwardPE']
                     if forward_pe == 0:
@@ -79,6 +85,7 @@ async def get_data(ticker):
                     'eps': company_quote['eps'],
                     'sharesOutstanding': company_quote['sharesOutstanding'],
                     'forwardPE': forward_pe,
+                    'score': score,
                     'previousClose': company_quote['price'], #This is true because I update my db before the market opens hence the price will be the previousClose price.
                     'website': company_profile[0]['website'],
                     'description': company_profile[0]['description'],
