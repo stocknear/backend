@@ -38,24 +38,24 @@ class ScorePredictor:
         clear_session()
         
         # Input layer
-        inputs = Input(shape=(8,))
+        inputs = Input(shape=(15,))
         
         # First dense layer
-        x = Dense(512, activation='relu')(inputs)
-        x = Dropout(0.5)(x)
+        x = Dense(64, activation='leaky_relu')(inputs)
+        x = Dropout(0.3)(x)
         x = BatchNormalization()(x)
         
         # Additional dense layers
-        for units in [256,128]:
-            x = Dense(units, activation='relu')(x)
-            x = Dropout(0.5)(x)
+        for units in [64,32]:
+            x = Dense(units, activation='leaky_relu')(x)
+            x = Dropout(0.3)(x)
             x = BatchNormalization()(x)
         
         # Reshape for attention mechanism
-        x = Reshape((128, 1))(x)
+        x = Reshape((32, 1))(x)
         
         # Attention mechanism
-        attention = Dense(128, activation='relu')(x)
+        attention = Dense(32, activation='leaky_relu')(x)
         attention = Dense(1, activation='softmax')(attention)
         
         # Apply attention
@@ -71,7 +71,7 @@ class ScorePredictor:
         model = Model(inputs=inputs, outputs=outputs)
         
         # Optimizer with a lower learning rate
-        optimizer = Adam(learning_rate=0.001, clipnorm=1.0)
+        optimizer = Adam(learning_rate=0.01, clipnorm=1.0)
         
         # Compile the model
         model.compile(optimizer=optimizer, loss='sparse_categorical_crossentropy', metrics=['accuracy'])
@@ -95,8 +95,8 @@ class ScorePredictor:
         checkpoint = ModelCheckpoint('ml_models/weights/ai-score/weights.keras', 
                                       save_best_only=True, save_freq = 1,
                                       monitor='val_loss', mode='min')
-        early_stopping = EarlyStopping(monitor='val_loss', patience=50, restore_best_weights=True)
-        reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=30, min_lr=0.001)
+        early_stopping = EarlyStopping(monitor='val_loss', patience=20, restore_best_weights=True)
+        reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=10, min_lr=0.001)
 
         self.model.fit(X_train, y_train, epochs=100_000, batch_size=32, 
                        validation_split=0.1, callbacks=[checkpoint, early_stopping, reduce_lr])
@@ -112,7 +112,7 @@ class ScorePredictor:
         
         # Get the model's predictions
         test_predictions = self.model.predict(X_test)
-        #print(test_predictions)
+        print(test_predictions)
 
         # Extract the probabilities for class 1 (index 1 in the softmax output)
         class_1_probabilities = test_predictions[:, 1]

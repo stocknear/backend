@@ -317,7 +317,7 @@ async def process_symbol(ticker, con, start_date, end_date):
         split_size = int(len(df) * (1-test_size))
         test_data = df.iloc[split_size:]
         #selected_features = [col for col in df.columns if col not in ['date','price','Target']]
-        best_features = ['freeCashFlowYield', 'cci', 'daily_return', 'cashAndCashEquivalents_to_cashAndShortTermInvestments', 'longTermDebt_to_totalLiabilitiesAndStockholdersEquity', 'longTermDebt_to_totalAssets', 'totalStockholdersEquity_to_totalLiabilitiesAndStockholdersEquity', 'totalStockholdersEquity_to_totalAssets']
+        best_features = ['williams', 'stoch', 'fdi', 'revenue_to_cashAndCashEquivalents', 'revenue_to_cashAndShortTermInvestments', 'costOfRevenue_to_cashAndCashEquivalents', 'costOfRevenue_to_cashAndShortTermInvestments', 'ebitda_to_cashAndShortTermInvestments', 'incomeTaxExpense_to_cashAndCashEquivalents', 'incomeTaxExpense_to_cashAndShortTermInvestments', 'capitalExpenditure_to_cashAndCashEquivalents', 'capitalExpenditure_to_cashAndShortTermInvestments', 'totalCurrentLiabilities_to_cashAndShortTermInvestments', 'netDebt_to_cashAndShortTermInvestments', 'inventory_to_cashAndShortTermInvestments']
         print(f"For the Ticker: {ticker}")
         data = predictor.evaluate_model(test_data[best_features], test_data['Target'])
 
@@ -391,7 +391,7 @@ async def train_process(tickers, con):
     predictor = ScorePredictor()
     #print(selected_features)
     selected_features = [col for col in df_train if col not in ['price','date','Target']]
-    best_features = predictor.feature_selection(df_train[selected_features], df_train['Target'],k=8)
+    best_features = predictor.feature_selection(df_train[selected_features], df_train['Target'],k=15)
     print(best_features)
     predictor.train_model(df_train[best_features], df_train['Target'])
     predictor.evaluate_model(df_test[best_features], df_test['Target'])
@@ -406,7 +406,7 @@ async def run():
     
     if train_mode:
         #Train first model
-        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 50E9 AND symbol NOT LIKE '%.%'")
+        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 500E9 AND symbol NOT LIKE '%.%'")
         stock_symbols = [row[0] for row in cursor.fetchall()]
         print('Number of Stocks')
         print(len(stock_symbols))
