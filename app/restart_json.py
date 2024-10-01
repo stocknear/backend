@@ -533,7 +533,28 @@ async def get_stock_screener(con):
                     item['institutionalOwnership'] = round(res['ownershipPercent'],2)
         except Exception as e:
             item['institutionalOwnership'] = None
-        
+
+        try:
+            with open(f"json/financial-statements/key-metrics/annual/{symbol}.json", 'r') as file:
+                res = orjson.loads(file.read())[0]
+                item['revenuePerShare'] = round(res['revenuePerShare'],2)
+                item['netIncomePerShare'] = round(res['netIncomePerShare'],2)
+                item['shareholdersEquityPerShare'] = round(res['shareholdersEquityPerShare'],2)
+                item['interestDebtPerShare'] = round(res['interestDebtPerShare'],2)
+                item['capexPerShare'] = round(res['capexPerShare'],2)
+                item['tangibleAssetValue'] = round(res['tangibleAssetValue'],2)
+                item['returnOnTangibleAssets'] = round(res['returnOnTangibleAssets'],2)
+                item['grahamNumber'] = round(res['grahamNumber'],2)
+
+        except:
+            item['revenuePerShare'] = None
+            item['netIncomePerShare'] = None
+            item['shareholdersEquityPerShare'] = None
+            item['interestDebtPerShare'] = None
+            item['capexPerShare'] = None
+            item['tangibleAssetValue'] = None
+            item['returnOnTangibleAssets'] = None
+            item['grahamNumber'] = None
 
         try:
             with open(f"json/trend-analysis/{symbol}.json", 'r') as file:
