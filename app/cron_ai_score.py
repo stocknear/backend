@@ -46,13 +46,13 @@ async def download_data(ticker, con, start_date, end_date):
         statements = [
             f"json/financial-statements/ratios/quarter/{ticker}.json",
             f"json/financial-statements/key-metrics/quarter/{ticker}.json",
-            f"json/financial-statements/cash-flow-statement/quarter/{ticker}.json",
-            f"json/financial-statements/income-statement/quarter/{ticker}.json",
-            f"json/financial-statements/balance-sheet-statement/quarter/{ticker}.json",
+            #f"json/financial-statements/cash-flow-statement/quarter/{ticker}.json",
+            #f"json/financial-statements/income-statement/quarter/{ticker}.json",
+            #f"json/financial-statements/balance-sheet-statement/quarter/{ticker}.json",
             f"json/financial-statements/income-statement-growth/quarter/{ticker}.json",
             f"json/financial-statements/balance-sheet-statement-growth/quarter/{ticker}.json",
             f"json/financial-statements/cash-flow-statement-growth/quarter/{ticker}.json",
-            f"json/financial-statements/owner-earnings/quarter/{ticker}.json",
+            #f"json/financial-statements/owner-earnings/quarter/{ticker}.json",
         ]
 
         # Helper function to load JSON data asynchronously
@@ -81,34 +81,34 @@ async def download_data(ticker, con, start_date, end_date):
         key_metrics = await filter_data(key_metrics, ignore_keys)
         
         
-        cashflow = await load_json_from_file(statements[2])
-        cashflow = await filter_data(cashflow, ignore_keys)
+        #cashflow = await load_json_from_file(statements[2])
+        #cashflow = await filter_data(cashflow, ignore_keys)
 
-        income = await load_json_from_file(statements[3])
-        income = await filter_data(income, ignore_keys)
+        #income = await load_json_from_file(statements[3])
+        #income = await filter_data(income, ignore_keys)
 
-        balance = await load_json_from_file(statements[4])
-        balance = await filter_data(balance, ignore_keys)
+        #balance = await load_json_from_file(statements[4])
+        #balance = await filter_data(balance, ignore_keys)
         
-        income_growth = await load_json_from_file(statements[5])
+        income_growth = await load_json_from_file(statements[2])
         income_growth = await filter_data(income_growth, ignore_keys)
 
-        balance_growth = await load_json_from_file(statements[6])
+        balance_growth = await load_json_from_file(statements[3])
         balance_growth = await filter_data(balance_growth, ignore_keys)
 
 
-        cashflow_growth = await load_json_from_file(statements[7])
+        cashflow_growth = await load_json_from_file(statements[4])
         cashflow_growth = await filter_data(cashflow_growth, ignore_keys)
 
-        owner_earnings = await load_json_from_file(statements[8])
-        owner_earnings = await filter_data(owner_earnings, ignore_keys)
+        #owner_earnings = await load_json_from_file(statements[8])
+        #owner_earnings = await filter_data(owner_earnings, ignore_keys)
 
 
         # Combine all the data
         combined_data = defaultdict(dict)
 
         # Merge the data based on 'date'
-        for entries in zip(ratios, key_metrics, cashflow, income, balance, income_growth, balance_growth, cashflow_growth, owner_earnings):
+        for entries in zip(ratios, key_metrics,income_growth, balance_growth, cashflow_growth):
             for entry in entries:
                 date = entry['date']
                 for key, value in entry.items():
@@ -141,8 +141,8 @@ async def download_data(ticker, con, start_date, end_date):
         df['daily_return'] = df['close'].pct_change()
         df['cumulative_return'] = (1 + df['daily_return']).cumprod() - 1
         df['volume_change'] = df['volume'].pct_change()
-        df['roc'] = df['close'].pct_change(periods=30) * 100  # 12-day ROC
-        df['avg_volume_30d'] = df['volume'].rolling(window=30).mean()
+        df['roc'] = df['close'].pct_change(periods=60)
+        df['avg_volume'] = df['volume'].rolling(window=60).mean()
         df['drawdown'] = df['close'] / df['close'].rolling(window=252).max() - 1
 
 
@@ -159,9 +159,9 @@ async def download_data(ticker, con, start_date, end_date):
         df['obv'] = OnBalanceVolumeIndicator(close=df['close'], volume=df['volume']).on_balance_volume()
         df['vpt'] = VolumePriceTrendIndicator(close=df['close'], volume=df['volume']).volume_price_trend()
         
-        df['rsi'] = rsi(df["close"], window=30)
+        df['rsi'] = rsi(df["close"], window=60)
         df['rolling_rsi'] = df['rsi'].rolling(window=10).mean()
-        df['stoch_rsi'] = stochrsi_k(df['close'], window=30, smooth1=3, smooth2=3)
+        df['stoch_rsi'] = stochrsi_k(df['close'], window=60, smooth1=3, smooth2=3)
         df['rolling_stoch_rsi'] = df['stoch_rsi'].rolling(window=10).mean()
 
         df['adi'] = acc_dist_index(high=df['high'],low=df['low'],close=df['close'],volume=df['volume'])
@@ -186,7 +186,7 @@ async def download_data(ticker, con, start_date, end_date):
             'rsi', 'macd', 'macd_signal', 'macd_hist', 'adx', 'adx_pos', 'adx_neg',
             'cci', 'mfi', 'nvi', 'obv', 'vpt', 'stoch_rsi','bb_width',
             'adi', 'cmf', 'emv', 'fi', 'williams', 'stoch','sma_crossover',
-            'volatility','daily_return','cumulative_return', 'roc','avg_volume_30d',
+            'volatility','daily_return','cumulative_return', 'roc','avg_volume',
             'rolling_rsi','rolling_stoch_rsi', 'ema_crossover','ichimoku_a','ichimoku_b',
             'atr','kama','rocr','ppo','volatility_ratio','vwap','tii','fdi','drawdown',
             'volume_change'
@@ -236,7 +236,6 @@ async def download_data(ticker, con, start_date, end_date):
             'freeCashFlow',
             'incomeBeforeTax',
             'incomeTaxExpense',
-            'epsdiluted',
             'debtRepayment',
             'dividendsPaid',
             'depreciationAndAmortization',
@@ -345,7 +344,8 @@ async def warm_start_training(tickers, con):
     predictor = ScorePredictor()
     selected_features = [col for col in df_train if col not in ['price', 'date', 'Target']]
     predictor.warm_start_training(df_train[selected_features], df_train['Target'])
-    
+    predictor.evaluate_model(df_train[selected_features], df_train['Target'])
+
     return predictor
 
 async def fine_tune_and_evaluate(ticker, con, start_date, end_date):
@@ -373,25 +373,30 @@ async def fine_tune_and_evaluate(ticker, con, start_date, end_date):
                 res = {'score': data['score']}
                 await save_json(ticker, res)
                 print(f"Saved results for {ticker}")
-    
+        gc.collect()
     except Exception as e:
         print(f"Error processing {ticker}: {e}")
+    finally:
+        # Ensure any remaining cleanup if necessary
+        if 'predictor' in locals():
+            del predictor  # Explicitly delete the predictor to aid garbage collection
 
 async def run():
-    train_mode = True  # Set this to False for fine-tuning and evaluation
+    train_mode = False  # Set this to False for fine-tuning and evaluation
     con = sqlite3.connect('stocks.db')
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
     
     if train_mode:
         # Warm start training
-        warm_start_symbols = ['META', 'NFLX','GOOG','TSLA','AWR','AMD','NVDA']
+        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 10E9 AND symbol NOT LIKE '%.%' AND symbol NOT LIKE '%-%'")
+        warm_start_symbols = [row[0] for row in cursor.fetchall()]
         print('Warm Start Training for:', warm_start_symbols)
         predictor = await warm_start_training(warm_start_symbols, con)
     else:
         # Fine-tuning and evaluation for all stocks
         cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 1E9 AND symbol NOT LIKE '%.%'")
-        stock_symbols = ['NVDA'] #[row[0] for row in cursor.fetchall()]
+        stock_symbols = [row[0] for row in cursor.fetchall()]
         
         print(f"Total tickers for fine-tuning: {len(stock_symbols)}")
         start_date = datetime(1995, 1, 1).strftime("%Y-%m-%d")

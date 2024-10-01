@@ -8,7 +8,7 @@ from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_sco
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from keras.models import Sequential, Model
-from keras.layers import Input, Multiply, Reshape, LSTM, Dense, Conv1D, Dropout, BatchNormalization, GlobalAveragePooling1D, MaxPooling1D, Bidirectional
+from keras.layers import Input, Multiply, Reshape, LSTM, Dense, Dropout, BatchNormalization, GlobalAveragePooling1D, MaxPooling1D, Bidirectional
 from keras.optimizers import Adam
 from keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 from keras.models import load_model
@@ -62,17 +62,18 @@ class ScorePredictor:
     def build_model(self):
         clear_session()
         
-        inputs = Input(shape=(335,))
-        x = Dense(512, activation='elu')(inputs)
-        x = Dropout(0.2)(x)
+        inputs = Input(shape=(231,))
+
+        x = Dense(128, activation='leaky_relu')(inputs)
         x = BatchNormalization()(x)
+        x = Dropout(0.2)(x)
         
-        for units in [64, 32]:
-            x = Dense(units, activation='elu')(x)
-            x = Dropout(0.2)(x)
+        for units in [64,32,16]:
+            x = Dense(units, activation='leaky_relu')(x)
             x = BatchNormalization()(x)
+            x = Dropout(0.2)(x)
         
-        x = Reshape((32, 1))(x)
+        x = Reshape((16, 1))(x)
         x, _ = SelfAttention()(x)
         outputs = Dense(2, activation='softmax')(x)
         
@@ -93,8 +94,8 @@ class ScorePredictor:
         self.model = self.build_model()
         
         checkpoint = ModelCheckpoint(self.warm_start_model_path, save_best_only=True, save_freq=1, monitor='val_loss', mode='min')
-        early_stopping = EarlyStopping(monitor='val_loss', patience=20, restore_best_weights=True)
-        reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=10, min_lr=0.001)
+        early_stopping = EarlyStopping(monitor='val_loss', patience=50, restore_best_weights=True)
+        reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=30, min_lr=0.001)
 
         self.model.fit(X_train, y_train, epochs=100_000, batch_size=32, validation_split=0.1, callbacks=[checkpoint, early_stopping, reduce_lr])
         self.model.save(self.warm_start_model_path)
@@ -102,15 +103,17 @@ class ScorePredictor:
 
     def fine_tune_model(self, X_train, y_train):
         X_train = self.preprocess_data(X_train)
-        
+        #batch_size = min(64, max(16, len(X_train) // 10))
+
         if self.model is None:
             self.model = load_model(self.warm_start_model_path, custom_objects={'SelfAttention': SelfAttention})
         
-        early_stopping = EarlyStopping(monitor='val_loss', patience=20, restore_best_weights=True)
-        reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=10, min_lr=0.0001)
+        #early_stopping = EarlyStopping(monitor='val_loss', patience=20, restore_best_weights=True)
+        #reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=10, min_lr=0.01)
 
-        self.model.fit(X_train, y_train, epochs=100, batch_size=32, validation_split=0.1, callbacks=[early_stopping, reduce_lr])
-        print("Model fine-tuned (not saved).")
+        self.model.fit(X_train, y_train, epochs=150, batch_size=16, validation_split=0.1)
+        print("Model fine-tuned")
+
 
     def evaluate_model(self, X_test, y_test):
         X_test = self.preprocess_data(X_test)
@@ -121,19 +124,19 @@ class ScorePredictor:
         test_predictions = self.model.predict(X_test)
         class_1_probabilities = test_predictions[:, 1]
         binary_predictions = (class_1_probabilities >= 0.5).astype(int)
-        print(test_predictions)
+        #print(test_predictions)
         test_precision = precision_score(y_test, binary_predictions)
         test_accuracy = accuracy_score(y_test, binary_predictions)
         
         print("Test Set Metrics:")
         print(f"Precision: {round(test_precision * 100)}%")
         print(f"Accuracy: {round(test_accuracy * 100)}%")
-        
-        thresholds = [0.8, 0.75, 0.7, 0.6, 0.5, 0.45, 0.4, 0.35, 0.3, 0.2]
+        print(pd.DataFrame({'y_test': y_test, 'y_pred': binary_predictions}))
+        thresholds = [0.8, 0.75, 0.7, 0.6, 0.5, 0.45, 0.4, 0.35, 0.3, 0]
         scores = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
 
         last_prediction_prob = class_1_probabilities[-1]
-        score = 0
+        score = None
         print(f"Last prediction probability: {last_prediction_prob}")
         
         for threshold, value in zip(thresholds, scores):
