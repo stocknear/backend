@@ -16,7 +16,7 @@ from sklearn.feature_selection import SelectKBest, f_classif
 from tensorflow.keras.backend import clear_session
 from keras import regularizers
 from keras.layers import Layer
-
+from tensorflow.keras import backend as K
 
 from tqdm import tqdm
 from collections import defaultdict
@@ -26,7 +26,31 @@ import aiofiles
 import pickle
 import time
 
-# Based on the paper: https://arxiv.org/pdf/1603.00751
+class SelfAttention(Layer):
+    def __init__(self, **kwargs):
+        super(SelfAttention, self).__init__(**kwargs)
+    
+    def build(self, input_shape):
+        self.W = self.add_weight(name='attention_weight', shape=(input_shape[-1], 1),
+                                 initializer='random_normal', trainable=True)
+        super(SelfAttention, self).build(input_shape)
+    
+    def call(self, x):
+        # Alignment scores. Pass them through tanh function
+        e = K.tanh(K.dot(x, self.W))
+        # Remove dimension of size 1
+        e = K.squeeze(e, axis=-1)   
+        # Compute the weights
+        alpha = K.softmax(e)
+        # Reshape to tensor of same shape as x for multiplication
+        alpha = K.expand_dims(alpha, axis=-1)
+        # Compute the context vector
+        context = x * alpha
+        context = K.sum(context, axis=1)
+        return context, alpha
+
+    def compute_output_shape(self, input_shape):
+        return (input_shape[0], input_shape[-1]), (input_shape[0], input_shape[1])
 
 
 class ScorePredictor:
@@ -41,28 +65,30 @@ class ScorePredictor:
         inputs = Input(shape=(139,))
         
         # First dense layer
-        x = Dense(128, activation='leaky_relu')(inputs)
-        x = Dropout(0.5)(x)
+        x = Dense(128, activation='elu')(inputs)
+        x = Dropout(0.2)(x)
         x = BatchNormalization()(x)
         
         # Additional dense layers
         for units in [64,32]:
-            x = Dense(units, activation='leaky_relu')(x)
-            x = Dropout(0.3)(x)
+            x = Dense(units, activation='elu')(x)
+            x = Dropout(0.2)(x)
             x = BatchNormalization()(x)
         
         # Reshape for attention mechanism
         x = Reshape((32, 1))(x)
         
         # Attention mechanism
-        attention = Dense(32, activation='leaky_relu')(x)
-        attention = Dense(1, activation='softmax')(attention)
+        #attention = Dense(32, activation='elu')(x)
+        #attention = Dense(1, activation='softmax')(attention)
         
         # Apply attention
-        x = Multiply()([x, attention])
+        #x = Multiply()([x, attention])
         
+        x, _ = SelfAttention()(x)
+
         # Global average pooling
-        x = GlobalAveragePooling1D()(x)
+        #x = GlobalAveragePooling1D()(x)
         
         # Output layer (for class probabilities)
         outputs = Dense(2, activation='softmax')(x)  # Two neurons for class probabilities with softmax

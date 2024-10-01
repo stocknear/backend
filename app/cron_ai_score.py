@@ -38,11 +38,24 @@ def calculate_fdi(high, low, close, window=30):
     return (2 - n1) * 100
 
 
-def hurst_exponent(ts, max_lag=100):
-    lags = range(2, max_lag)
-    tau = [np.sqrt(np.std(np.subtract(ts[lag:], ts[:-lag]))) for lag in lags]
-    poly = np.polyfit(np.log(lags), np.log(tau), 1)
-    return poly[0] * 2.0
+def find_top_correlated_features(df, target_column, exclude_columns, top_n=10):
+    # Ensure the target column is not in the exclude list
+    exclude_columns = [col for col in exclude_columns if col != target_column]
+    
+    # Select columns to consider for correlation
+    columns_to_consider = [col for col in df.columns if col not in exclude_columns + [target_column]]
+    
+    # Calculate the correlation matrix
+    correlation_matrix = df[columns_to_consider + [target_column]].corr()
+    
+    # Get correlations with the target column, excluding the target column itself
+    target_correlations = correlation_matrix[target_column].drop(target_column)
+    
+    # Sort by absolute correlation value and select top N
+    top_correlated = target_correlations.abs().sort_values(ascending=False).head(top_n)
+    
+    return top_correlated
+
 
 async def download_data(ticker, con, start_date, end_date):
     try:
@@ -53,9 +66,9 @@ async def download_data(ticker, con, start_date, end_date):
             #f"json/financial-statements/cash-flow-statement/quarter/{ticker}.json",
             #f"json/financial-statements/income-statement/quarter/{ticker}.json",
             #f"json/financial-statements/balance-sheet-statement/quarter/{ticker}.json",
-            #f"json/financial-statements/income-statement-growth/quarter/{ticker}.json",
-            #f"json/financial-statements/balance-sheet-statement-growth/quarter/{ticker}.json",
-            #f"json/financial-statements/cash-flow-statement-growth/quarter/{ticker}.json",
+            f"json/financial-statements/income-statement-growth/quarter/{ticker}.json",
+            f"json/financial-statements/balance-sheet-statement-growth/quarter/{ticker}.json",
+            f"json/financial-statements/cash-flow-statement-growth/quarter/{ticker}.json",
             #f"json/financial-statements/key-metrics/quarter/{ticker}.json",
             #f"json/financial-statements/owner-earnings/quarter/{ticker}.json",
         ]
@@ -90,26 +103,23 @@ async def download_data(ticker, con, start_date, end_date):
 
         balance = await load_json_from_file(statements[3])
         balance = await filter_data(balance, ignore_keys)
-
-        income_growth = await load_json_from_file(statements[4])
+        '''
+        income_growth = await load_json_from_file(statements[2])
         income_growth = await filter_data(income_growth, ignore_keys)
 
-        balance_growth = await load_json_from_file(statements[5])
+        balance_growth = await load_json_from_file(statements[3])
         balance_growth = await filter_data(balance_growth, ignore_keys)
 
 
-        cashflow_growth = await load_json_from_file(statements[6])
+        cashflow_growth = await load_json_from_file(statements[4])
         cashflow_growth = await filter_data(cashflow_growth, ignore_keys)
 
-        owner_earnings = await load_json_from_file(statements[7])
-        owner_earnings = await filter_data(owner_earnings, ignore_keys)
-        '''
 
         # Combine all the data
         combined_data = defaultdict(dict)
 
         # Merge the data based on 'date'
-        for entries in zip(ratios, key_metrics):
+        for entries in zip(ratios, key_metrics, income_growth, balance_growth, cashflow_growth):
             for entry in entries:
                 date = entry['date']
                 for key, value in entry.items():
@@ -117,8 +127,6 @@ async def download_data(ticker, con, start_date, end_date):
                         combined_data[date][key] = value
 
         combined_data = list(combined_data.values())
-        #Generate more features
-        #combined_data = calculate_combinations(combined_data)
 
         # Download historical stock data using yfinance
         df = yf.download(ticker, start=start_date, end=end_date, interval="1d").reset_index()
@@ -386,11 +394,13 @@ async def train_process(tickers, con):
     df_train = pd.concat(train_list, ignore_index=True)
     df_test = pd.concat(test_list, ignore_index=True)
 
-    
+
     best_features = [col for col in df_train.columns if col not in ['date','price','Target']]
 
     df_train = df_train.sample(frac=1).reset_index(drop=True) #df_train.reset_index(drop=True)
-    print(df_train)
+    top_correlated = find_top_correlated_features(df_train, 'Target', ['date', 'price'])
+    print(top_correlated)
+    #print(df_train)
     print('======Train Set Datapoints======')
     print(len(df_train))
 
@@ -405,7 +415,7 @@ async def train_process(tickers, con):
 
 async def run():
 
-    train_mode = False
+    train_mode = True
     con = sqlite3.connect('stocks.db')
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
@@ -413,7 +423,7 @@ async def run():
     if train_mode:
         #Train first model
         cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 300E9 AND symbol NOT LIKE '%.%'")
-        stock_symbols = [row[0] for row in cursor.fetchall()]
+        stock_symbols = ['AAPL','AWR','TSLA','MSFT'] #[row[0] for row in cursor.fetchall()]
         print('Number of Stocks')
         print(len(stock_symbols))
         await train_process(stock_symbols, con)

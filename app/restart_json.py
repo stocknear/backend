@@ -15,6 +15,7 @@ import re
 import hashlib
 import glob
 from tqdm import tqdm
+from utils.country_list import country_list
 
 from dotenv import load_dotenv
 import os
