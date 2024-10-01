@@ -429,7 +429,7 @@ data = {
         'equation': 'FCF Margin = (Free Cash Flow / Revenue) * 100%'
     },
     'altmanZScore': {
-        'text': 'The Altman Z-Score is a number based on a formula that can be used to predict the likelihood that a company will go into bankruptcy within two years.',
+        'text': 'The Altman Z-Score is a financial metric derived from a formula designed to predict the likelihood of a company facing bankruptcy within two years. A higher Z-Score indicates a lower probability of insolvency, while a lower Z-Score signals a higher risk of financial distress and potential bankruptcy.',
     },
     'piotroskiScore': {
         'text': 'The Piotroski F-Score is a score between 0 and 9 that determine the strength of a company`s financial position. The higher, the better.',
