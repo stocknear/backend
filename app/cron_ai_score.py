@@ -38,23 +38,6 @@ def calculate_fdi(high, low, close, window=30):
     return (2 - n1) * 100
 
 
-def find_top_correlated_features(df, target_column, exclude_columns, top_n=10):
-    # Ensure the target column is not in the exclude list
-    exclude_columns = [col for col in exclude_columns if col != target_column]
-    
-    # Select columns to consider for correlation
-    columns_to_consider = [col for col in df.columns if col not in exclude_columns + [target_column]]
-    
-    # Calculate the correlation matrix
-    correlation_matrix = df[columns_to_consider + [target_column]].corr()
-    
-    # Get correlations with the target column, excluding the target column itself
-    target_correlations = correlation_matrix[target_column].drop(target_column)
-    
-    # Sort by absolute correlation value and select top N
-    top_correlated = target_correlations.abs().sort_values(ascending=False).head(top_n)
-    
-    return top_correlated
 
 
 async def download_data(ticker, con, start_date, end_date):
@@ -63,14 +46,13 @@ async def download_data(ticker, con, start_date, end_date):
         statements = [
             f"json/financial-statements/ratios/quarter/{ticker}.json",
             f"json/financial-statements/key-metrics/quarter/{ticker}.json",
-            #f"json/financial-statements/cash-flow-statement/quarter/{ticker}.json",
-            #f"json/financial-statements/income-statement/quarter/{ticker}.json",
-            #f"json/financial-statements/balance-sheet-statement/quarter/{ticker}.json",
+            f"json/financial-statements/cash-flow-statement/quarter/{ticker}.json",
+            f"json/financial-statements/income-statement/quarter/{ticker}.json",
+            f"json/financial-statements/balance-sheet-statement/quarter/{ticker}.json",
             f"json/financial-statements/income-statement-growth/quarter/{ticker}.json",
             f"json/financial-statements/balance-sheet-statement-growth/quarter/{ticker}.json",
             f"json/financial-statements/cash-flow-statement-growth/quarter/{ticker}.json",
-            #f"json/financial-statements/key-metrics/quarter/{ticker}.json",
-            #f"json/financial-statements/owner-earnings/quarter/{ticker}.json",
+            f"json/financial-statements/owner-earnings/quarter/{ticker}.json",
         ]
 
         # Helper function to load JSON data asynchronously
@@ -91,35 +73,42 @@ async def download_data(ticker, con, start_date, end_date):
         ratios = await load_json_from_file(statements[0])
         ratios = await filter_data(ratios, ignore_keys)
 
+        #Threshold of enough datapoints needed!
+        if len(ratios) < 50:
+            return
+
         key_metrics = await load_json_from_file(statements[1])
         key_metrics = await filter_data(key_metrics, ignore_keys)
         
-        '''
-        cashflow = await load_json_from_file(statements[1])
+        
+        cashflow = await load_json_from_file(statements[2])
         cashflow = await filter_data(cashflow, ignore_keys)
 
-        income = await load_json_from_file(statements[2])
+        income = await load_json_from_file(statements[3])
         income = await filter_data(income, ignore_keys)
 
-        balance = await load_json_from_file(statements[3])
+        balance = await load_json_from_file(statements[4])
         balance = await filter_data(balance, ignore_keys)
-        '''
-        income_growth = await load_json_from_file(statements[2])
+        
+        income_growth = await load_json_from_file(statements[5])
         income_growth = await filter_data(income_growth, ignore_keys)
 
-        balance_growth = await load_json_from_file(statements[3])
+        balance_growth = await load_json_from_file(statements[6])
         balance_growth = await filter_data(balance_growth, ignore_keys)
 
 
-        cashflow_growth = await load_json_from_file(statements[4])
+        cashflow_growth = await load_json_from_file(statements[7])
         cashflow_growth = await filter_data(cashflow_growth, ignore_keys)
+
+        owner_earnings = await load_json_from_file(statements[8])
+        owner_earnings = await filter_data(owner_earnings, ignore_keys)
 
 
         # Combine all the data
         combined_data = defaultdict(dict)
 
         # Merge the data based on 'date'
-        for entries in zip(ratios, key_metrics, income_growth, balance_growth, cashflow_growth):
+        for entries in zip(ratios, key_metrics, cashflow, income, balance, income_growth, balance_growth, cashflow_growth, owner_earnings):
             for entry in entries:
                 date = entry['date']
                 for key, value in entry.items():
@@ -321,29 +310,6 @@ async def download_data(ticker, con, start_date, end_date):
         pass
 
 
-async def process_symbol(ticker, con, start_date, end_date):
-    try:
-        test_size = 0.2
-        start_date = datetime(1995, 1, 1).strftime("%Y-%m-%d")
-        end_date = datetime.today().strftime("%Y-%m-%d")
-        predictor = ScorePredictor()
-        df = await download_data(ticker, con, start_date, end_date)
-        split_size = int(len(df) * (1-test_size))
-        test_data = df.iloc[split_size:]
-        selected_features = [col for col in df.columns if col not in ['date','price','Target']]
-
-        print(f"For the Ticker: {ticker}")
-        data = predictor.evaluate_model(test_data[selected_features], test_data['Target'])
-
-        if len(data) != 0:
-            if data['precision'] >= 50 and data['accuracy'] >= 50:
-                res = {'score': data['score']}
-                await save_json(ticker, res)
-    
-    except Exception as e:
-        print(e)
-
-
 async def chunked_gather(tickers, con, start_date, end_date, chunk_size=10):
     # Helper function to divide the tickers into chunks
     def chunks(lst, size):
@@ -362,97 +328,84 @@ async def chunked_gather(tickers, con, start_date, end_date, chunk_size=10):
     
     return results
 
-#Train mode
-async def train_process(tickers, con):
-    tickers = list(set(tickers))
-    df_train = pd.DataFrame()
-    df_test = pd.DataFrame()
-    test_size = 0.2
+
+
+async def warm_start_training(tickers, con):
     start_date = datetime(1995, 1, 1).strftime("%Y-%m-%d")
     end_date = datetime.today().strftime("%Y-%m-%d")
-    df_train = pd.DataFrame()
-    df_test = pd.DataFrame()
-
+    
     dfs = await chunked_gather(tickers, con, start_date, end_date, chunk_size=10)
-
-    train_list = []
-    test_list = []
-
-    for df in dfs:
-        try:
-            split_size = int(len(df) * (1 - test_size))
-            train_data = df.iloc[:split_size]
-            test_data = df.iloc[split_size:]
-            
-            # Append to the lists
-            train_list.append(train_data)
-            test_list.append(test_data)
-        except:
-            pass
-
-    # Concatenate all at once outside the loop
-    df_train = pd.concat(train_list, ignore_index=True)
-    df_test = pd.concat(test_list, ignore_index=True)
-
-
-    best_features = [col for col in df_train.columns if col not in ['date','price','Target']]
-
-    df_train = df_train.sample(frac=1).reset_index(drop=True) #df_train.reset_index(drop=True)
-    top_correlated = find_top_correlated_features(df_train, 'Target', ['date', 'price'])
-    print(top_correlated)
-    #print(df_train)
-    print('======Train Set Datapoints======')
+    
+    df_train = pd.concat(dfs, ignore_index=True)
+    df_train = df_train.sample(frac=1).reset_index(drop=True)
+    
+    print('======Warm Start Train Set Datapoints======')
     print(len(df_train))
-
+    
     predictor = ScorePredictor()
-    #print(selected_features)
-    selected_features = [col for col in df_train if col not in ['price','date','Target']]
-    #best_features = predictor.feature_selection(df_train[selected_features], df_train['Target'],k=15)
-    #print(best_features)
-    predictor.train_model(df_train[selected_features], df_train['Target'])
-    predictor.evaluate_model(df_test[selected_features], df_test['Target'])
+    selected_features = [col for col in df_train if col not in ['price', 'date', 'Target']]
+    predictor.warm_start_training(df_train[selected_features], df_train['Target'])
+    
+    return predictor
 
+async def fine_tune_and_evaluate(ticker, con, start_date, end_date):
+    try:
+        df = await download_data(ticker, con, start_date, end_date)
+        if df is None or len(df) == 0:
+            print(f"No data available for {ticker}")
+            return
+        
+        test_size = 0.2
+        split_size = int(len(df) * (1-test_size))
+        train_data = df.iloc[:split_size]
+        test_data = df.iloc[split_size:]
+        
+        selected_features = [col for col in df.columns if col not in ['date','price','Target']]
+        # Fine-tune the model
+        predictor = ScorePredictor()
+        predictor.fine_tune_model(train_data[selected_features], train_data['Target'])
+        
+        print(f"Evaluating fine-tuned model for {ticker}")
+        data = predictor.evaluate_model(test_data[selected_features], test_data['Target'])
+        
+        if len(data) != 0:
+            if data['precision'] >= 50 and data['accuracy'] >= 50:
+                res = {'score': data['score']}
+                await save_json(ticker, res)
+                print(f"Saved results for {ticker}")
+    
+    except Exception as e:
+        print(f"Error processing {ticker}: {e}")
 
 async def run():
-
-    train_mode = True
+    train_mode = True  # Set this to False for fine-tuning and evaluation
     con = sqlite3.connect('stocks.db')
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
     
     if train_mode:
-        #Train first model
-        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 300E9 AND symbol NOT LIKE '%.%'")
-        stock_symbols = ['AAPL','AWR','TSLA','MSFT'] #[row[0] for row in cursor.fetchall()]
-        print('Number of Stocks')
-        print(len(stock_symbols))
-        await train_process(stock_symbols, con)
-
-
-    #Prediction Steps for all stock symbols
-    if not train_mode:
+        # Warm start training
+        warm_start_symbols = ['META', 'NFLX','GOOG','TSLA','AWR','AMD','NVDA']
+        print('Warm Start Training for:', warm_start_symbols)
+        predictor = await warm_start_training(warm_start_symbols, con)
+    else:
+        # Fine-tuning and evaluation for all stocks
         cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 1E9 AND symbol NOT LIKE '%.%'")
-        stock_symbols = [row[0] for row in cursor.fetchall()]
-        total_symbols = stock_symbols
-
-        print(f"Total tickers: {len(total_symbols)}")
+        stock_symbols = ['NVDA'] #[row[0] for row in cursor.fetchall()]
+        
+        print(f"Total tickers for fine-tuning: {len(stock_symbols)}")
         start_date = datetime(1995, 1, 1).strftime("%Y-%m-%d")
         end_date = datetime.today().strftime("%Y-%m-%d")
-
-        chunk_size = len(total_symbols) // 100  # Divide the list into N chunks
-        chunks = [total_symbols[i:i + chunk_size] for i in range(0, len(total_symbols), chunk_size)]
-        for chunk in chunks:
-            tasks = []
-            for ticker in tqdm(chunk):
-                tasks.append(process_symbol(ticker, con, start_date, end_date))
-
-            await asyncio.gather(*tasks)
+        tasks = []
+        for ticker in tqdm(stock_symbols):
+            tasks.append(fine_tune_and_evaluate(ticker, con, start_date, end_date))
+        
+        await asyncio.gather(*tasks)
     
-
     con.close()
-    
-try:
-    asyncio.run(run())
-except Exception as e:
-    print(e)
 
+if __name__ == "__main__":
+    try:
+        asyncio.run(run())
+    except Exception as e:
+        print(f"Main execution error: {e}")
