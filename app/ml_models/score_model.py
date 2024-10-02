@@ -19,7 +19,17 @@ class ScorePredictor:
     def __init__(self):
         self.scaler = MinMaxScaler()
         self.warm_start_model_path = 'ml_models/weights/ai-score/warm_start_weights.pkl'
-        self.model = XGBClassifier(n_estimators=100, max_depth = 10, min_samples_split=5, random_state=42, n_jobs=10)
+        self.model = XGBClassifier(
+            n_estimators=200,          # Increased from 100 due to problem complexity
+            max_depth=6,               # Reduced to prevent overfitting with many features
+            learning_rate=0.1,         # Added to control the learning process
+            colsample_bytree=0.8,      # Added to randomly sample columns for each tree
+            subsample=0.8,             # Added to randomly sample training data
+            reg_alpha=1,               # L1 regularization to handle many features
+            reg_lambda=1,              # L2 regularization to handle many features
+            random_state=42,
+            n_jobs=10
+        )
 
     def preprocess_data(self, X):
         X = np.where(np.isinf(X), np.nan, X)

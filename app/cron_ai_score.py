@@ -46,13 +46,13 @@ async def download_data(ticker, con, start_date, end_date):
         statements = [
             f"json/financial-statements/ratios/quarter/{ticker}.json",
             f"json/financial-statements/key-metrics/quarter/{ticker}.json",
-            #f"json/financial-statements/cash-flow-statement/quarter/{ticker}.json",
-            #f"json/financial-statements/income-statement/quarter/{ticker}.json",
-            #f"json/financial-statements/balance-sheet-statement/quarter/{ticker}.json",
+            f"json/financial-statements/cash-flow-statement/quarter/{ticker}.json",
+            f"json/financial-statements/income-statement/quarter/{ticker}.json",
+            f"json/financial-statements/balance-sheet-statement/quarter/{ticker}.json",
             f"json/financial-statements/income-statement-growth/quarter/{ticker}.json",
             f"json/financial-statements/balance-sheet-statement-growth/quarter/{ticker}.json",
             f"json/financial-statements/cash-flow-statement-growth/quarter/{ticker}.json",
-            #f"json/financial-statements/owner-earnings/quarter/{ticker}.json",
+            f"json/financial-statements/owner-earnings/quarter/{ticker}.json",
         ]
 
         # Helper function to load JSON data asynchronously
@@ -81,34 +81,34 @@ async def download_data(ticker, con, start_date, end_date):
         key_metrics = await filter_data(key_metrics, ignore_keys)
         
         
-        #cashflow = await load_json_from_file(statements[2])
-        #cashflow = await filter_data(cashflow, ignore_keys)
+        cashflow = await load_json_from_file(statements[2])
+        cashflow = await filter_data(cashflow, ignore_keys)
 
-        #income = await load_json_from_file(statements[3])
-        #income = await filter_data(income, ignore_keys)
+        income = await load_json_from_file(statements[3])
+        income = await filter_data(income, ignore_keys)
 
-        #balance = await load_json_from_file(statements[4])
-        #balance = await filter_data(balance, ignore_keys)
+        balance = await load_json_from_file(statements[4])
+        balance = await filter_data(balance, ignore_keys)
         
-        income_growth = await load_json_from_file(statements[2])
+        income_growth = await load_json_from_file(statements[5])
         income_growth = await filter_data(income_growth, ignore_keys)
 
-        balance_growth = await load_json_from_file(statements[3])
+        balance_growth = await load_json_from_file(statements[6])
         balance_growth = await filter_data(balance_growth, ignore_keys)
 
 
-        cashflow_growth = await load_json_from_file(statements[4])
+        cashflow_growth = await load_json_from_file(statements[7])
         cashflow_growth = await filter_data(cashflow_growth, ignore_keys)
 
-        #owner_earnings = await load_json_from_file(statements[8])
-        #owner_earnings = await filter_data(owner_earnings, ignore_keys)
+        owner_earnings = await load_json_from_file(statements[8])
+        owner_earnings = await filter_data(owner_earnings, ignore_keys)
 
 
         # Combine all the data
         combined_data = defaultdict(dict)
 
         # Merge the data based on 'date'
-        for entries in zip(ratios, key_metrics,income_growth, balance_growth, cashflow_growth):
+        for entries in zip(ratios,key_metrics,income, balance, cashflow, owner_earnings, income_growth, balance_growth, cashflow_growth):
             for entry in entries:
                 date = entry['date']
                 for key, value in entry.items():
@@ -223,7 +223,7 @@ async def download_data(ticker, con, start_date, end_date):
         # Convert combined data into a DataFrame
         df_combined = pd.DataFrame(combined_data).dropna()
 
-        '''
+        
         key_elements = [
             'revenue',
             'costOfRevenue',
@@ -288,7 +288,7 @@ async def download_data(ticker, con, start_date, end_date):
 
         # Add all new columns to the original DataFrame at once
         df_combined = pd.concat([df_combined, pd.DataFrame(new_columns)], axis=1)
-        '''
+        
 
         # To defragment the DataFrame, make a copy
         df_combined = df_combined.copy()
@@ -389,7 +389,7 @@ async def fine_tune_and_evaluate(ticker, con, start_date, end_date):
         data = predictor.evaluate_model(test_data[selected_features], test_data['Target'])
         
         if len(data) != 0:
-            if data['precision'] >= 60 and data['accuracy'] >= 60 and data['accuracy'] < 100 and data['precision'] < 100:
+            if data['precision'] >= 50 and data['accuracy'] >= 50 and data['accuracy'] < 100 and data['precision'] < 100:
                 res = {'score': data['score']}
                 await save_json(ticker, res)
                 print(f"Saved results for {ticker}")
@@ -409,14 +409,14 @@ async def run():
     
     if train_mode:
         # Warm start training
-        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 300E9 AND symbol NOT LIKE '%.%' AND symbol NOT LIKE '%-%'")
+        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 10E9 AND symbol NOT LIKE '%.%' AND symbol NOT LIKE '%-%'")
         warm_start_symbols = [row[0] for row in cursor.fetchall()]
         print('Warm Start Training for:', warm_start_symbols)
         predictor = await warm_start_training(warm_start_symbols, con)
     else:
         # Fine-tuning and evaluation for all stocks
         cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 1E9 AND symbol NOT LIKE '%.%'")
-        stock_symbols = ['GME'] #[row[0] for row in cursor.fetchall()]
+        stock_symbols = [row[0] for row in cursor.fetchall()]
         
         print(f"Total tickers for fine-tuning: {len(stock_symbols)}")
         start_date = datetime(1995, 1, 1).strftime("%Y-%m-%d")
@@ -424,9 +424,7 @@ async def run():
         tasks = []
         for ticker in tqdm(stock_symbols):
             await fine_tune_and_evaluate(ticker, con, start_date, end_date)
-        
-        #await asyncio.gather(*tasks)
-    
+            
     con.close()
 
 if __name__ == "__main__":
