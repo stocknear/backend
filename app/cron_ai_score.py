@@ -332,19 +332,39 @@ async def chunked_gather(tickers, con, start_date, end_date, chunk_size=10):
 async def warm_start_training(tickers, con):
     start_date = datetime(1995, 1, 1).strftime("%Y-%m-%d")
     end_date = datetime.today().strftime("%Y-%m-%d")
-    
+    df_train = pd.DataFrame()
+    df_test = pd.DataFrame()
+    test_size = 0.2
+
     dfs = await chunked_gather(tickers, con, start_date, end_date, chunk_size=10)
-    
-    df_train = pd.concat(dfs, ignore_index=True)
-    df_train = df_train.sample(frac=1).reset_index(drop=True)
+
+    train_list = []
+    test_list = []
+
+    for df in dfs:
+        try:
+            split_size = int(len(df) * (1 - test_size))
+            train_data = df.iloc[:split_size]
+            test_data = df.iloc[split_size:]
+            
+            # Append to the lists
+            train_list.append(train_data)
+            test_list.append(test_data)
+        except:
+            pass
+
+    # Concatenate all at once outside the loop
+    df_train = pd.concat(train_list, ignore_index=True)
+    df_test = pd.concat(test_list, ignore_index=True)
     
     print('======Warm Start Train Set Datapoints======')
+    df_train = df_train.sample(frac=1).reset_index(drop=True) #df_train.reset_index(drop=True)
     print(len(df_train))
     
     predictor = ScorePredictor()
     selected_features = [col for col in df_train if col not in ['price', 'date', 'Target']]
     predictor.warm_start_training(df_train[selected_features], df_train['Target'])
-    predictor.evaluate_model(df_train[selected_features], df_train['Target'])
+    predictor.evaluate_model(df_test[selected_features], df_test['Target'])
 
     return predictor
 
@@ -369,7 +389,7 @@ async def fine_tune_and_evaluate(ticker, con, start_date, end_date):
         data = predictor.evaluate_model(test_data[selected_features], test_data['Target'])
         
         if len(data) != 0:
-            if data['precision'] >= 50 and data['accuracy'] >= 50:
+            if data['precision'] >= 60 and data['accuracy'] >= 60 and data['accuracy'] < 100 and data['precision'] < 100:
                 res = {'score': data['score']}
                 await save_json(ticker, res)
                 print(f"Saved results for {ticker}")
@@ -389,23 +409,23 @@ async def run():
     
     if train_mode:
         # Warm start training
-        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 10E9 AND symbol NOT LIKE '%.%' AND symbol NOT LIKE '%-%'")
+        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 300E9 AND symbol NOT LIKE '%.%' AND symbol NOT LIKE '%-%'")
         warm_start_symbols = [row[0] for row in cursor.fetchall()]
         print('Warm Start Training for:', warm_start_symbols)
         predictor = await warm_start_training(warm_start_symbols, con)
     else:
         # Fine-tuning and evaluation for all stocks
         cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 1E9 AND symbol NOT LIKE '%.%'")
-        stock_symbols = [row[0] for row in cursor.fetchall()]
+        stock_symbols = ['GME'] #[row[0] for row in cursor.fetchall()]
         
         print(f"Total tickers for fine-tuning: {len(stock_symbols)}")
         start_date = datetime(1995, 1, 1).strftime("%Y-%m-%d")
         end_date = datetime.today().strftime("%Y-%m-%d")
         tasks = []
         for ticker in tqdm(stock_symbols):
-            tasks.append(fine_tune_and_evaluate(ticker, con, start_date, end_date))
+            await fine_tune_and_evaluate(ticker, con, start_date, end_date)
         
-        await asyncio.gather(*tasks)
+        #await asyncio.gather(*tasks)
     
     con.close()
 
