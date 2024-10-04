@@ -24,7 +24,7 @@ subprocess.run(["timedatectl", "set-timezone", "Europe/Berlin"])
 
 def run_pocketbase():
     # Run the asynchronous function inside an asyncio loop
-    subprocess(["python3", "cron_pocketbase.py"])
+    subprocess.run(["python3", "cron_pocketbase.py"])
     
 def run_restart_cache():
     #update db daily
@@ -36,7 +36,7 @@ def run_restart_cache():
 def run_stockdeck():
     week = datetime.today().weekday()
     if week <= 5:
-        subprocess(["python3", "cron_stockdeck.py"])
+        subprocess.run(["python3", "cron_stockdeck.py"])
         
 def run_json_job():
     # Run the asynchronous function inside an asyncio loop
@@ -47,7 +47,7 @@ def run_json_job():
 def run_cron_price_alert():
     week = datetime.today().weekday()
     if week <= 4:
-        subprocess(["python3", "cron_price_alert.py"])
+        subprocess.run(["python3", "cron_price_alert.py"])
 
 # Create functions to run each schedule in a separate thread
 def run_threaded(job_func):
