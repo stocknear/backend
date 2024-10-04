@@ -12,15 +12,39 @@ from tqdm import tqdm
 import concurrent.futures
 import re
 from itertools import combinations
+
+from dotenv import load_dotenv
 import os
 import gc
 from utils.feature_engineering import *
 #Enable automatic garbage collection
 gc.enable()
 
+
+
+load_dotenv()
+api_key = os.getenv('FMP_API_KEY')
+
+
 async def save_json(symbol, data):
     with open(f"json/ai-score/companies/{symbol}.json", 'wb') as file:
         file.write(orjson.dumps(data))
+
+async def fetch_historical_price(ticker):
+    url = f"https://financialmodelingprep.com/api/v3/historical-price-full/{ticker}?from=1995-10-10&apikey={api_key}"
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            # Check if the request was successful
+            if response.status == 200:
+                data = await response.json()
+                # Extract historical price data
+                historical_data = data.get('historical', [])
+                # Convert to DataFrame
+                df = pd.DataFrame(historical_data).reset_index(drop=True)
+                return df
+            else:
+                raise Exception(f"Error fetching data: {response.status} {response.reason}")
+
 
 def top_uncorrelated_features(df, target_col='Target', top_n=10, threshold=0.75):
     # Drop the columns to exclude from the DataFrame
@@ -139,10 +163,7 @@ async def download_data(ticker, con, start_date, end_date):
             combined_data = list(combined_data.values())
 
             # Download historical stock data using yfinance
-            df = yf.download(ticker, start=start_date, end=end_date, interval="1d").reset_index()
-            df = df.rename(columns={'Adj Close': 'close', 'Date': 'date', 'Open': 'open', 'High': 'high', 'Low': 'low', 'Volume': 'volume'})
-            df['date'] = df['date'].dt.strftime('%Y-%m-%d')
-
+            df = await fetch_historical_price(ticker)
 
             # Get the list of columns in df
             df_columns = df.columns
@@ -305,7 +326,7 @@ async def warm_start_training(tickers, con):
     df_test = pd.DataFrame()
     test_size = 0.2
 
-    dfs = await chunked_gather(tickers, con, start_date, end_date, chunk_size=1)
+    dfs = await chunked_gather(tickers, con, start_date, end_date, chunk_size=10)
 
     train_list = []
     test_list = []
@@ -386,7 +407,7 @@ async def run():
     else:
         # Fine-tuning and evaluation for all stocks
         cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 1E9 AND symbol NOT LIKE '%.%'")
-        stock_symbols = ['AWR'] #[row[0] for row in cursor.fetchall()]
+        stock_symbols = [row[0] for row in cursor.fetchall()]
         
         print(f"Total tickers for fine-tuning: {len(stock_symbols)}")
         start_date = datetime(1995, 1, 1).strftime("%Y-%m-%d")
