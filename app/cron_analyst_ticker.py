@@ -41,9 +41,22 @@ def get_summary(res_list):
 	latest_pt_current = defaultdict(int)
 	# Iterate through the data to update the latest pt_current for each analyst
 	for item in filtered_data:
-		if 'adjusted_pt_current' in item and item['adjusted_pt_current']:
-			analyst_name = item['analyst_name']
-			latest_pt_current[analyst_name] = max(latest_pt_current[analyst_name], float(item['pt_current']))
+	    if 'adjusted_pt_current' in item and item['adjusted_pt_current']:
+	        analyst_name = item['analyst_name']
+	        # Convert pt_current to float and check if it's a valid number
+	        try:
+	            pt_current_value = float(item['pt_current'])
+	            # Check if the value is float or int
+	            if isinstance(pt_current_value, (float, int)):
+	                # Initialize the analyst entry if it doesn't exist
+	                if analyst_name not in latest_pt_current:
+	                    latest_pt_current[analyst_name] = pt_current_value
+	                else:
+	                    # Update with the maximum value
+	                    latest_pt_current[analyst_name] = max(latest_pt_current[analyst_name], pt_current_value)
+	        except (ValueError, TypeError):
+	            print(f"Invalid pt_current value for analyst '{analyst_name}': {item['pt_current']}")
+
 
 	# Compute the average pt_current based on the latest values
 	pt_current_values = list(latest_pt_current.values())
@@ -124,6 +137,7 @@ def run(chunk,analyst_list):
 
 	res_list = [item for item in res_list if item.get('analyst_name')]
 	#print(res_list[-15])
+
 	for ticker in chunk:
 		try:
 			ticker_filtered_data = [item for item in res_list if item['ticker'] == ticker]
@@ -212,7 +226,7 @@ def run(chunk,analyst_list):
 				#time.sleep(10000)
 				with open(f"json/analyst/history/{ticker}.json", 'w') as file:
 					ujson.dump(ticker_filtered_data, file)
-
+					print(ticker_filtered_data)
 		except Exception as e:
 			print(e)
 
@@ -223,7 +237,7 @@ try:
     con = sqlite3.connect('stocks.db')
     stock_cursor = con.cursor()
     stock_cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
-    stock_symbols = [row[0] for row in stock_cursor.fetchall()]
+    stock_symbols =[row[0] for row in stock_cursor.fetchall()]
 
     con.close()
     	
@@ -232,8 +246,9 @@ try:
     	analyst_stats_list = ujson.load(file)
 
     chunk_size = len(stock_symbols) // 40  # Divide the list into N chunks
+
     chunks = [stock_symbols[i:i + chunk_size] for i in range(0, len(stock_symbols), chunk_size)]
-    #chunks = [['AMD','NVDA','MSFT']]
+    #chunks = [['NVDA']]
     for chunk in chunks:
         run(chunk, analyst_stats_list)
 

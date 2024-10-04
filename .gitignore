@@ -8,6 +8,7 @@ app/crypto.*
 app/*.sh
 app/.env*
 app/ml_models/weights
+app/ml_models/training_data
 app/json/*
 app/logs/*
 fastify/node_modules
