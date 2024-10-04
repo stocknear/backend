@@ -226,7 +226,6 @@ def run(chunk,analyst_list):
 				#time.sleep(10000)
 				with open(f"json/analyst/history/{ticker}.json", 'w') as file:
 					ujson.dump(ticker_filtered_data, file)
-					print(ticker_filtered_data)
 		except Exception as e:
 			print(e)
 
