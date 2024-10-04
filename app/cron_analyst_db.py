@@ -1,4 +1,3 @@
-from benzinga import financial_data
 import requests
 from datetime import datetime
 import numpy as np
@@ -11,11 +10,11 @@ from dotenv import load_dotenv
 from tqdm import tqdm 
 import pandas as pd
 from collections import Counter
+import aiohttp
+import asyncio
 
 load_dotenv()
 api_key = os.getenv('BENZINGA_API_KEY')
-
-fin = financial_data.Benzinga(api_key)
 
 headers = {"accept": "application/json"}
 
@@ -58,7 +57,7 @@ def calculate_rating(data):
         last_rating_date = datetime.strptime(last_rating, "%Y-%m-%d")
         difference = (datetime.now() - last_rating_date).days
     except:
-        difference = 1000  # In case of None
+        difference = 1000  # In case of None or invalid date
 
     if total_ratings == 0 or difference >= 600:
         return 0
@@ -80,6 +79,7 @@ def calculate_rating(data):
         max_rating = 5
         normalized_rating = min(max(weighted_sum / (weight_return + weight_success_rate + weight_total_ratings + weight_difference), min_rating), max_rating)
 
+        # Apply additional conditions based on total ratings and average return
         if normalized_rating >= 4:
             if total_ratings < 10:
                 normalized_rating -= 2.4
@@ -89,77 +89,17 @@ def calculate_rating(data):
                 normalized_rating -= 0.75
             elif total_ratings < 30:
                 normalized_rating -= 1
-            elif overall_average_return <=10:
-            	normalized_rating -=1.1
-        '''
-        if overall_average_return <= 0 and overall_average_return >= -5:
-            normalized_rating = min(normalized_rating - 2, 0)
-        elif overall_average_return < -5 and overall_average_return >= -10:
-            normalized_rating = min(normalized_rating - 3, 0)
-        else:
-        	normalized_rating = min(normalized_rating - 4, 0)
-       	'''
-       	if overall_average_return <= 0:
-            normalized_rating = min(normalized_rating - 2, 0)
+            elif overall_average_return <= 10:
+                normalized_rating -= 1.1
 
-        normalized_rating = max(normalized_rating, 0)
+        if overall_average_return <= 0:
+            normalized_rating = max(normalized_rating - 2, 0)
+
+        # Cap the rating if the last rating is older than 30 days
+        if difference > 30:
+            normalized_rating = min(normalized_rating, 4.5)
 
         return round(normalized_rating, 2)
-
-def get_analyst_ratings(analyst_id):
-	
-	url = "https://api.benzinga.com/api/v2.1/calendar/ratings"
-	res_list = []
-	
-	for page in range(0,5):
-		try:
-			querystring = {"token":api_key,"parameters[analyst_id]": analyst_id, "page": str(page), "pagesize":"1000"}
-			response = requests.request("GET", url, headers=headers, params=querystring)
-			data = ujson.loads(response.text)['ratings']
-			res_list +=data
-			time.sleep(2)
-		except:
-			break
-
-	return res_list
-
-def get_all_analyst_stats():
-	url = "https://api.benzinga.com/api/v2.1/calendar/ratings/analysts"
-	res_list = []
-	for _ in range(0,20): #Run the api N times because not all analyst are counted Bug from benzinga
-		for page in range(0,100):
-			try:
-				querystring = {"token":api_key,"page": f"{page}", 'pagesize': "1000"}
-				response = requests.request("GET", url, headers=headers, params=querystring)
-
-				data = ujson.loads(response.text)['analyst_ratings_analyst']
-				res_list+=data
-			except:
-				break
-		time.sleep(5)
-	
-	res_list = remove_duplicates(res_list, 'id') # remove duplicates of analyst
-	res_list = [item for item in res_list if item.get('ratings_accuracy', {}).get('total_ratings', 0) != 0]
-
-	final_list = []
-	for item in res_list:
-		analyst_dict = {
-			'analystName': item['name_full'],
-		    'companyName': item['firm_name'],
-		    'analystId': item['id'],
-		    'firmId': item['firm_id']
-		}
-
-		stats_dict = {
-			'avgReturn': item['ratings_accuracy'].get('overall_average_return', 0),
-		    'successRate': item['ratings_accuracy'].get('overall_success_rate', 0),
-		    'totalRatings': item['ratings_accuracy'].get('total_ratings', 0),
-		}
-
-		final_list.append({**analyst_dict,**stats_dict})
-
-
-	return final_list
 
 def get_top_stocks():
 	with open(f"json/analyst/all-analyst-data.json", 'r') as file:
@@ -217,24 +157,97 @@ def get_top_stocks():
 	    ujson.dump(result_sorted, file)
 
 
-if __name__ == "__main__":
+async def get_analyst_ratings(analyst_id, session):
+    url = "https://api.benzinga.com/api/v2.1/calendar/ratings"
+    res_list = []
+    
+    for page in range(5):
+        try:
+            querystring = {
+                "token": api_key,
+                "parameters[analyst_id]": analyst_id,
+                "page": str(page),
+                "pagesize": "1000"
+            }
+            async with session.get(url, headers=headers, params=querystring) as response:
+                data = await response.json()
+                ratings = data.get('ratings', [])
+                if not ratings:
+                    break  # Stop fetching if no more ratings
+                res_list += ratings
+        except Exception as e:
+            #print(f"Error fetching page {page} for analyst {analyst_id}: {e}")
+            break
+
+    return res_list
+
+async def get_all_analyst_stats():
+    url = "https://api.benzinga.com/api/v2.1/calendar/ratings/analysts"
+    res_list = []
+
+    async with aiohttp.ClientSession() as session:
+        tasks = [
+            session.get(url, headers=headers, params={"token": api_key, "page": str(page), 'pagesize': "1000"})
+            for page in range(100)
+        ]
+
+        # Gather responses concurrently
+        responses = await asyncio.gather(*tasks)
+        
+        # Process each response
+        for response in responses:
+            if response.status == 200:  # Check for successful response
+                try:
+                    data = ujson.loads(await response.text())['analyst_ratings_analyst']
+                    res_list += data
+                except Exception as e:
+                    pass
+    print(len(res_list))
+    # Remove duplicates of analysts and filter based on ratings accuracy
+    res_list = remove_duplicates(res_list, 'id')
+    res_list = [item for item in res_list if item.get('ratings_accuracy', {}).get('total_ratings', 0) != 0]
+
+    # Construct the final result list
+    final_list = [{
+        'analystName': item['name_full'],
+        'companyName': item['firm_name'],
+        'analystId': item['id'],
+        'firmId': item['firm_id'],
+        'avgReturn': item['ratings_accuracy'].get('overall_average_return', 0),
+        'successRate': item['ratings_accuracy'].get('overall_success_rate', 0),
+        'totalRatings': item['ratings_accuracy'].get('total_ratings', 0),
+    } for item in res_list]
+
+    return final_list
+
+async def process_analyst(item, session):
+    data = await get_analyst_ratings(item['analystId'], session)
+    item['ratingsList'] = data
+    item['totalRatings'] = len(data)  # True total ratings
+    item['lastRating'] = data[0]['date'] if data else None
+    item['numOfStocks'] = len({d['ticker'] for d in data})
+
+    # Stats dictionary for calculating score
+    stats_dict = {
+        'avgReturn': item.get('avgReturn', 0),
+        'successRate': item.get('successRate', 0),
+        'totalRatings': item['totalRatings'],
+        'lastRating': item['lastRating'],
+    }
+    item['analystScore'] = calculate_rating(stats_dict)
+
+async def get_single_analyst_data(analyst_list):
+    async with aiohttp.ClientSession() as session:
+        tasks = [process_analyst(item, session) for item in analyst_list]
+        for task in tqdm(asyncio.as_completed(tasks), total=len(analyst_list)):
+            await task
+
+async def run():
 	#Step1 get all analyst id's and stats
-	analyst_list = get_all_analyst_stats()
+	analyst_list = await get_all_analyst_stats()
 	print('Number of analyst:', len(analyst_list))
 	#Step2 get rating history for each individual analyst and score the analyst
-	for item in tqdm(analyst_list):
-		data = get_analyst_ratings(item['analystId'])
-		item['ratingsList'] = data
-		item['totalRatings'] = len(data) #true total ratings, which is important for the score
-		item['lastRating'] = data[0]['date'] if len(data) > 0 else None
-		item['numOfStocks'] = len({item['ticker'] for item in data})
-		stats_dict = {
-			'avgReturn': item.get('avgReturn', 0),
-		    'successRate': item.get('successRate', 0),
-		    'totalRatings': item.get('totalRatings', 0),
-		    'lastRating': item.get('lastRating', None),
-		}
-		item['analystScore'] = calculate_rating(stats_dict)
+	await get_single_analyst_data(analyst_list)
 
 	try:
 		con = sqlite3.connect('stocks.db')
@@ -279,9 +292,8 @@ if __name__ == "__main__":
 	    	'successRate': item['successRate'],
 	    	'avgReturn': item['avgReturn'],
 	    	'totalRatings': item['totalRatings'],
-	    	'lastRating': item['lastRating'],
-	    	'mainSectors': item['mainSectors']
-	    })
+	    	'lastRating': item['lastRating']
+	    	})
 
 	with open(f"json/analyst/top-analysts.json", 'w') as file:
 		ujson.dump(top_analysts_list, file)
@@ -292,3 +304,7 @@ if __name__ == "__main__":
 
 	#Save top stocks with strong buys from 5 star analysts
 	get_top_stocks()
+
+
+if __name__ == "__main__":
+    asyncio.run(run())

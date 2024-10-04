@@ -220,12 +220,12 @@ def run(chunk,analyst_list):
 
 
 try:
-    stock_con = sqlite3.connect('stocks.db')
-    stock_cursor = stock_con.cursor()
-    stock_cursor.execute("SELECT DISTINCT symbol FROM stocks")
+    con = sqlite3.connect('stocks.db')
+    stock_cursor = con.cursor()
+    stock_cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
     stock_symbols = [row[0] for row in stock_cursor.fetchall()]
 
-    stock_con.close()
+    con.close()
     	
     #Save all analyst data in raw form for the next step
     with open(f"json/analyst/all-analyst-data.json", 'r') as file:
