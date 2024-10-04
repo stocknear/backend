@@ -236,16 +236,6 @@ def run_ta_rating():
         ]
         run_command(command)
 
-def run_stockdeck():
-    week = datetime.today().weekday()
-    if week <= 5:
-        run_command(["python3", "cron_stockdeck.py"])
-        command = [
-            "sudo", "rsync", "-avz", "-e", "ssh",
-            "/root/backend/app/json/stockdeck",
-            f"root@{useast_ip_address}:/root/backend/app/json"
-        ]
-        run_command(command)
 
 def run_similar_stocks():
     week = datetime.today().weekday()
@@ -637,7 +627,6 @@ schedule.every().day.at("12:00").do(run_threaded, run_market_cap).tag('market_ca
 #schedule.every().day.at("05:00").do(run_threaded, run_implied_volatility).tag('implied_volatility_job')
 
 
-schedule.every().day.at("13:30").do(run_threaded, run_stockdeck).tag('stockdeck_job')
 schedule.every().day.at("13:40").do(run_threaded, run_analyst_estimate).tag('analyst_estimate_job')
 schedule.every().day.at("13:45").do(run_threaded, run_similar_stocks).tag('similar_stocks_job')
 schedule.every().day.at("14:00").do(run_threaded, run_cron_var).tag('var_job')
