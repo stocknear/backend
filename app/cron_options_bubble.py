@@ -42,7 +42,7 @@ def options_bubble_data(chunk):
         start_date_str = start_date.strftime('%Y-%m-%d')
 
         res_list = []
-        for page in range(0, 500):
+        for page in range(0, 5000):
             try:
                 data = fin.options_activity(company_tickers=company_tickers, page=page, pagesize=1000, date_from=start_date_str, date_to=end_date_str)
                 data = ujson.loads(fin.output(data))['option_activity']
@@ -129,11 +129,11 @@ async def main():
 
         print(len(total_symbols))
 
-        chunk_size = len(total_symbols) // 1000  # Divide the list into N chunks
+        chunk_size = len(total_symbols) // 2000  # Divide the list into N chunks
         chunks = [total_symbols[i:i + chunk_size] for i in range(0, len(total_symbols), chunk_size)]
-
+        print(chunks)
         loop = asyncio.get_running_loop()
-        with ThreadPoolExecutor(max_workers=2) as executor:
+        with ThreadPoolExecutor(max_workers=4) as executor:
             tasks = [loop.run_in_executor(executor, options_bubble_data, chunk) for chunk in chunks]
             for f in tqdm(asyncio.as_completed(tasks), total=len(tasks)):
                 await f

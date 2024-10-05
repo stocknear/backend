@@ -77,14 +77,14 @@ def top_uncorrelated_features(df, target_col='Target', top_n=10, threshold=0.75)
             selected_features.append(feature)
     return selected_features
 
-async def download_data(ticker, con, start_date, end_date):
+async def download_data(ticker, con, start_date, end_date, skip_downloading):
 
     file_path = f"ml_models/training_data/ai-score/{ticker}.json"
 
     if os.path.exists(file_path):
         with open(file_path, 'rb') as file:
             return pd.DataFrame(orjson.loads(file.read()))
-    else:
+    elif skip_downloading == False:
 
         try:
             # Define paths to the statement files
@@ -213,7 +213,7 @@ async def download_data(ticker, con, start_date, end_date):
             combined_data = sorted(combined_data, key=lambda x: x['date'])
             # Convert combined data into a DataFrame
             df_combined = pd.DataFrame(combined_data).dropna()
-            '''
+            
             fundamental_columns = [
                 'revenue',
                 'costOfRevenue',
@@ -262,7 +262,7 @@ async def download_data(ticker, con, start_date, end_date):
             # Compute ratios for all combinations of key elements
             new_columns = {}
             # Loop over combinations of column pairs
-            for columns in [fundamental_columns]:
+            for columns in [fundamental_columns, stats_columns, ta_columns]:
                 for num, denom in combinations(columns, 2):
                     # Compute ratio and reverse ratio
                     ratio = df_combined[num] / df_combined[denom]
@@ -278,7 +278,7 @@ async def download_data(ticker, con, start_date, end_date):
 
                 # Add all new columns to the original DataFrame at once
             df_combined = pd.concat([df_combined, pd.DataFrame(new_columns)], axis=1)
-            '''
+            
             # To defragment the DataFrame, make a copy
             df_combined = df_combined.copy()
             df_combined = df_combined.dropna()
@@ -301,7 +301,7 @@ async def download_data(ticker, con, start_date, end_date):
             pass
 
 
-async def chunked_gather(tickers, con, start_date, end_date, chunk_size=10):
+async def chunked_gather(tickers, con, start_date, end_date, skip_downloading, chunk_size=10):
     # Helper function to divide the tickers into chunks
     def chunks(lst, size):
         for i in range(0, len(lst), size):
@@ -309,9 +309,9 @@ async def chunked_gather(tickers, con, start_date, end_date, chunk_size=10):
     
     results = []
     
-    for chunk in chunks(tickers, chunk_size):
+    for chunk in tqdm(chunks(tickers, chunk_size)):
         # Create tasks for each chunk
-        tasks = [download_data(ticker, con, start_date, end_date) for ticker in chunk]
+        tasks = [download_data(ticker, con, start_date, end_date, skip_downloading) for ticker in chunk]
         # Await the results for the current chunk
         chunk_results = await asyncio.gather(*tasks)
         # Accumulate the results
@@ -319,14 +319,14 @@ async def chunked_gather(tickers, con, start_date, end_date, chunk_size=10):
     
     return results
 
-async def warm_start_training(tickers, con):
+async def warm_start_training(tickers, con, skip_downloading):
     start_date = datetime(1995, 1, 1).strftime("%Y-%m-%d")
     end_date = datetime.today().strftime("%Y-%m-%d")
     df_train = pd.DataFrame()
     df_test = pd.DataFrame()
     test_size = 0.2
 
-    dfs = await chunked_gather(tickers, con, start_date, end_date, chunk_size=10)
+    dfs = await chunked_gather(tickers, con, start_date, end_date, skip_downloading, chunk_size=10)
 
     train_list = []
     test_list = []
@@ -359,9 +359,9 @@ async def warm_start_training(tickers, con):
 
     return predictor
 
-async def fine_tune_and_evaluate(ticker, con, start_date, end_date):
+async def fine_tune_and_evaluate(ticker, con, start_date, end_date, skip_downloading):
     try:
-        df = await download_data(ticker,con, start_date, end_date)
+        df = await download_data(ticker,con, start_date, end_date, skip_downloading)
         if df is None or len(df) == 0:
             print(f"No data available for {ticker}")
             return
@@ -371,7 +371,7 @@ async def fine_tune_and_evaluate(ticker, con, start_date, end_date):
         train_data = df.iloc[:split_size]
         test_data = df.iloc[split_size:]
         
-        selected_features = top_uncorrelated_features(train_data,top_n=50) #[col for col in train_data if col not in ['price', 'date', 'Target']] #top_uncorrelated_features(train_data,top_n=20)
+        selected_features = [col for col in train_data if col not in ['price', 'date', 'Target']] #top_uncorrelated_features(train_data,top_n=20)
         # Fine-tune the model
         predictor = ScorePredictor()
         predictor.fine_tune_model(train_data[selected_features], train_data['Target'])
@@ -380,9 +380,8 @@ async def fine_tune_and_evaluate(ticker, con, start_date, end_date):
         data = predictor.evaluate_model(test_data[selected_features], test_data['Target'])
         
         if len(data) != 0:
-            if data['precision'] >= 50 and data['accuracy'] >= 50 and data['accuracy'] < 100 and data['precision'] < 100:
-                res = {'score': data['score']}
-                await save_json(ticker, res)
+            if data['precision'] >= 50 and data['accuracy'] >= 50 and data['accuracy'] < 100 and data['precision'] < 100 and data['f1_score'] > 50 and data['recall_score'] > 50 and data['roc_auc_score'] > 50:
+                await save_json(ticker, data)
                 print(f"Saved results for {ticker}")
         gc.collect()
     except Exception as e:
@@ -394,16 +393,17 @@ async def fine_tune_and_evaluate(ticker, con, start_date, end_date):
 
 async def run():
     train_mode = True  # Set this to False for fine-tuning and evaluation
+    skip_downloading = False
     con = sqlite3.connect('stocks.db')
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
     
     if train_mode:
         # Warm start training
-        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 1E9 AND symbol NOT LIKE '%.%' AND symbol NOT LIKE '%-%'")
+        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 500E6 AND symbol NOT LIKE '%.%' AND symbol NOT LIKE '%-%'")
         warm_start_symbols = [row[0] for row in cursor.fetchall()]
-        print('Warm Start Training for:', warm_start_symbols)
-        predictor = await warm_start_training(warm_start_symbols, con)
+        print('Warm Start Training')
+        predictor = await warm_start_training(warm_start_symbols, con, skip_downloading)
     else:
         # Fine-tuning and evaluation for all stocks
         cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 1E9 AND symbol NOT LIKE '%.%'")
@@ -416,7 +416,7 @@ async def run():
 
         tasks = []
         for ticker in tqdm(stock_symbols):
-            await fine_tune_and_evaluate(ticker, con, start_date, end_date)
+            await fine_tune_and_evaluate(ticker, con, start_date, end_date, skip_downloading)
             
     con.close()
 

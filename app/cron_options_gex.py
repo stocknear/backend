@@ -335,16 +335,14 @@ def get_options_chain(option_data_list):
 
 def get_data(ticker):
     res_list = []
-    page = 0
-    while True:
+
+    for page in range(0,5000):
         try:
             data = fin.options_activity(date_from=start_date_str, date_to=end_date_str, company_tickers=ticker, page=page, pagesize=1000)
             data = ujson.loads(fin.output(data))['option_activity']
             filtered_data = [{key: value for key, value in item.items() if key not in ['description_extended', 'updated']} for item in data]
             res_list += filtered_data
-            page += 1
-        except Exception as e:
-            print(f"Error retrieving data for {ticker}: {e}")
+        except:
             break
     return res_list
 
@@ -369,7 +367,7 @@ etf_cursor.execute("PRAGMA journal_mode = wal")
 etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
 etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
-total_symbols = stock_symbols + etf_symbols
+total_symbols = ['SPY'] #stock_symbols + etf_symbols
 
 query_template = """
     SELECT date, close,change_percent
@@ -385,7 +383,8 @@ for ticker in total_symbols:
         df_price = df_price.rename(columns={"change_percent": "changesPercentage"})
 
         volatility = calculate_volatility(df_price)
-
+        print(df_price)
+        print(volatility)
         ticker_data = get_data(ticker)
         # Group ticker_data by 'date' and collect all items for each date
         grouped_history = defaultdict(list)

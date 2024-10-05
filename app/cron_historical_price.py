@@ -84,6 +84,7 @@ async def get_historical_data(ticker, query_con, session):
 
 async def run():
     total_symbols = []
+    chunk_size = 400
     try:
         cursor = con.cursor()
         cursor.execute("PRAGMA journal_mode = wal")
@@ -130,8 +131,6 @@ try:
     start_date_max = datetime(1970, 1, 1).strftime("%Y-%m-%d")
     end_date = end_date.strftime("%Y-%m-%d")
 
-
-    chunk_size = 400
     asyncio.run(run())
     con.close()
     etf_con.close()
