@@ -5,6 +5,7 @@ import gzip
 import re
 import os
 import secrets
+from benzinga import financial_data
 from typing import List, Dict, Set
 # Third-party library imports
 import numpy as np
@@ -135,7 +136,7 @@ pb = PocketBase('http://127.0.0.1:8090')
 
 FMP_API_KEY = os.getenv('FMP_API_KEY')
 Benzinga_API_KEY = os.getenv('BENZINGA_API_KEY')
-
+fin = financial_data.Benzinga(Benzinga_API_KEY)
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url = None)
 limiter = Limiter(key_func=get_remote_address)
@@ -172,6 +173,8 @@ def get_current_username(credentials: HTTPBasicCredentials = Depends(security)):
 
 
 STOCKNEAR_API_KEY = os.getenv('STOCKNEAR_API_KEY')
+USER_API_KEY = os.getenv('USER_API_KEY')
+VALID_API_KEYS = [STOCKNEAR_API_KEY, USER_API_KEY]
 api_key_header = APIKeyHeader(name="X-API-KEY")
 
 
@@ -183,7 +186,7 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
     )
 
 async def get_api_key(api_key: str = Security(api_key_header)):
-    if api_key != STOCKNEAR_API_KEY:
+    if api_key not in VALID_API_KEYS:
         raise HTTPException(status_code=403, detail="Could not validate credentials")
 
 
@@ -2609,7 +2612,7 @@ async def get_raw_options_flow_ticker(data:OptionsFlowData, request: Request, ap
     pagesize = data.pagesize
     page = data.page
     cache_key = f"raw-options-flow-{ticker}-{start_date}-{end_date}-{pagesize}-{page}"
-
+    print(ticker, start_date, end_date, pagesize, page)
     cached_result = redis_client.get(cache_key)
     if cached_result:
         return StreamingResponse(
@@ -2619,7 +2622,8 @@ async def get_raw_options_flow_ticker(data:OptionsFlowData, request: Request, ap
     try:
         data = fin.options_activity(company_tickers=ticker, date_from=start_date, date_to = end_date, page=page, pagesize=pagesize)
         data = orjson.loads(fin.output(data))['option_activity']
-    except:
+    except Exception as e:
+        print(e)
         data = []
 
     data = orjson.dumps(data)
