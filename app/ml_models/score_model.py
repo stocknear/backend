@@ -1,11 +1,10 @@
-import yfinance as yf
 import pandas as pd
 from datetime import datetime, timedelta
 import numpy as np
 from xgboost import XGBClassifier
 from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score, accuracy_score
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.decomposition import PCA  # Import PCA
+from sklearn.decomposition import PCA
 import lightgbm as lgb
 
 from tqdm import tqdm
@@ -16,17 +15,27 @@ import aiofiles
 import pickle
 import time
 
+
 class ScorePredictor:
     def __init__(self):
         self.scaler = MinMaxScaler()
-        self.pca = PCA(n_components=5)
+        self.pca = PCA(n_components=0.95)  # Retain components explaining 95% variance
         self.warm_start_model_path = 'ml_models/weights/ai-score/warm_start_weights.pkl'
         self.model = lgb.LGBMClassifier(
-            n_estimators=20_000,  # If you want to use a larger model we've found 20_000 trees to be better
-            learning_rate=0.01, # and a learning rate of 0.001
-            max_depth=20, # and max_depth=6
-            num_leaves=2**6-1, # and num_leaves of 2**6-1
-            colsample_bytree=0.1
+            n_estimators=1000,           # Number of boosting iterations - good balance between performance and training time
+            learning_rate=0.005,         # Smaller learning rate for better generalization
+            max_depth=8,                 # Controlled depth to prevent overfitting
+            num_leaves=31,              # 2^5-1, prevents overfitting while maintaining model complexity
+            colsample_bytree=0.8,       # Use 80% of features per tree to reduce overfitting
+            subsample=0.8,              # Use 80% of data per tree to reduce overfitting
+            min_child_samples=20,       # Minimum samples per leaf to ensure reliable splits
+            random_state=42,            # For reproducibility
+            class_weight='balanced',    # Important for potentially imbalanced stock data
+            reg_alpha=0.1,             # L1 regularization
+            reg_lambda=0.1,            # L2 regularization
+            n_jobs=-1,                 # Use all CPU cores
+            verbose=-1,                # Reduce output noise
+            warm_start= True,
         )
         '''
         XGBClassifier(
@@ -43,20 +52,40 @@ class ScorePredictor:
         X = np.where(np.isinf(X), np.nan, X)
         X = np.nan_to_num(X)
         X = self.scaler.fit_transform(X)  # Transform using the fitted scaler
-        return X#self.pca.fit_transform(X)  # Fit PCA and transform
+        return self.pca.fit_transform(X)  # Fit PCA and transform
 
     def preprocess_test_data(self, X):
         """Preprocess test data by scaling and applying PCA."""
         X = np.where(np.isinf(X), np.nan, X)
         X = np.nan_to_num(X)
         X = self.scaler.transform(X)  # Transform using the fitted scaler
-        return X#self.pca.transform(X)  # Transform using the fitted PCA
+        return self.pca.transform(X)  # Transform using the fitted PCA
 
     def warm_start_training(self, X_train, y_train):
         X_train = self.preprocess_train_data(X_train)
         self.model.fit(X_train, y_train)
         pickle.dump(self.model, open(f'{self.warm_start_model_path}', 'wb'))
         print("Warm start model saved.")
+
+    def batch_train_model(self, X_train, y_train, batch_size=1000):
+        """Train the model in batches to handle large datasets."""
+        num_samples = len(X_train)
+        for start_idx in range(0, num_samples, batch_size):
+            end_idx = min(start_idx + batch_size, num_samples)
+            X_batch = X_train[start_idx:end_idx]
+            y_batch = y_train[start_idx:end_idx]
+
+            # Preprocess each batch
+            X_batch = self.preprocess_train_data(X_batch)
+
+            # Fit model on each batch (incremental training with warm_start=True)
+            self.model.fit(X_batch, y_batch, eval_set=[(X_batch, y_batch)])
+
+            print(f"Trained on batch {start_idx} to {end_idx}")
+        
+        # After batch training, save the model
+        pickle.dump(self.model, open(f'{self.warm_start_model_path}', 'wb'))
+        print("Batch learning completed and model saved.")
 
     def fine_tune_model(self, X_train, y_train):
         X_train = self.preprocess_train_data(X_train)
