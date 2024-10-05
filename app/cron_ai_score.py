@@ -248,64 +248,62 @@ async def download_data(ticker, con, start_date, end_date, skip_downloading):
             pass
 
 
-async def chunked_gather(tickers, con, start_date, end_date, skip_downloading, chunk_size=10):
+async def chunked_gather(tickers, con, skip_downloading, chunk_size=10):
+    test_size = 0.2
+    start_date = datetime(1995, 1, 1).strftime("%Y-%m-%d")
+    end_date = datetime.today().strftime("%Y-%m-%d")
+    df_train = pd.DataFrame()
+    df_test = pd.DataFrame()
+
     # Helper function to divide the tickers into chunks
     def chunks(lst, size):
         for i in range(0, len(lst), size):
             yield lst[i:i+size]
     
-    results = []
+    dfs = []
     
-    for chunk in tqdm(chunks(tickers, chunk_size)):
+    for num, chunk in enumerate(tqdm(chunks(tickers, chunk_size))):
         # Create tasks for each chunk
         tasks = [download_data(ticker, con, start_date, end_date, skip_downloading) for ticker in chunk]
         # Await the results for the current chunk
         chunk_results = await asyncio.gather(*tasks)
         # Accumulate the results
-        results.extend(chunk_results)
+        dfs.extend(chunk_results)
+
+        train_list = []
+        test_list = []
+
+        for df in dfs:
+            try:
+                split_size = int(len(df) * (1 - test_size))
+                train_data = df.iloc[:split_size]
+                test_data = df.iloc[split_size:]
+                
+                # Append to the lists
+                train_list.append(train_data)
+                test_list.append(test_data)
+            except:
+                pass
+
+        # Concatenate all at once outside the loop
+        df_train = pd.concat(train_list, ignore_index=True)
+        df_test = pd.concat(test_list, ignore_index=True)
+        df_train = df_train.sample(frac=1).reset_index(drop=True)
+        df_test = df_test.sample(frac=1).reset_index(drop=True)
+
+        print('======Warm Start Train Set Datapoints======')
+        print(f'Batch Training: {num}')
+        print(len(df_train))
+
+        predictor = ScorePredictor()
+        selected_features = [col for col in df_train if col not in ['price', 'date', 'Target']] #top_uncorrelated_features(df_train, top_n=200)
+        predictor.warm_start_training(df_train[selected_features], df_train['Target'])
+        predictor.evaluate_model(df_test[selected_features], df_test['Target'])
+
     
-    return results
-
 async def warm_start_training(tickers, con, skip_downloading):
-    start_date = datetime(1995, 1, 1).strftime("%Y-%m-%d")
-    end_date = datetime.today().strftime("%Y-%m-%d")
-    df_train = pd.DataFrame()
-    df_test = pd.DataFrame()
-    test_size = 0.2
-
-    dfs = await chunked_gather(tickers, con, start_date, end_date, skip_downloading, chunk_size=10)
-
-    train_list = []
-    test_list = []
-
-    for df in dfs:
-        try:
-            split_size = int(len(df) * (1 - test_size))
-            train_data = df.iloc[:split_size]
-            test_data = df.iloc[split_size:]
-            
-            # Append to the lists
-            train_list.append(train_data)
-            test_list.append(test_data)
-        except:
-            pass
-
-    # Concatenate all at once outside the loop
-    df_train = pd.concat(train_list, ignore_index=True)
-    df_test = pd.concat(test_list, ignore_index=True)
-    df_train = df_train.sample(frac=1).reset_index(drop=True)
-    df_test = df_test.sample(frac=1).reset_index(drop=True)
-
-    print('======Warm Start Train Set Datapoints======')
-    print(len(df_train))
-
-    predictor = ScorePredictor()
-    selected_features = [col for col in df_train if col not in ['price', 'date', 'Target']] #top_uncorrelated_features(df_train, top_n=200)
-    #predictor.warm_start_training(df_train[selected_features], df_train['Target'])
-    predictor.batch_train_model(df_train[selected_features], df_train['Target'], batch_size=1000)
-    predictor.evaluate_model(df_test[selected_features], df_test['Target'])
-
-    return predictor
+    
+    dfs = await chunked_gather(tickers, con, skip_downloading, chunk_size=50)
 
 async def fine_tune_and_evaluate(ticker, con, start_date, end_date, skip_downloading):
     try:
@@ -328,7 +326,7 @@ async def fine_tune_and_evaluate(ticker, con, start_date, end_date, skip_downloa
         data = predictor.evaluate_model(test_data[selected_features], test_data['Target'])
         
         if len(data) != 0:
-            if data['precision'] >= 50 and data['accuracy'] >= 50 and data['accuracy'] < 100 and data['precision'] < 100 and data['f1_score'] > 50 and data['recall_score'] > 50 and data['roc_auc_score'] > 50:
+            if data['precision'] >= 50 and data['accuracy'] >= 50 and data['accuracy'] < 100 and data['precision'] < 100 and data['f1_score'] >= 50 and data['recall_score'] >= 50 and data['roc_auc_score'] >= 50:
                 await save_json(ticker, data)
                 print(f"Saved results for {ticker}")
         gc.collect()
@@ -348,10 +346,10 @@ async def run():
     
     if train_mode:
         # Warm start training
-        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 1E9 AND symbol NOT LIKE '%.%' AND symbol NOT LIKE '%-%'")
+        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 500E6 AND symbol NOT LIKE '%.%' AND symbol NOT LIKE '%-%'")
         warm_start_symbols = [row[0] for row in cursor.fetchall()]
-        print(f'Warm Start Training: {len(warm_start_symbols)}')
-        predictor = await warm_start_training(warm_start_symbols, con, skip_downloading)
+        print(f'Warm Start Training: Total Tickers {len(warm_start_symbols)}')
+        await warm_start_training(warm_start_symbols, con, skip_downloading)
     else:
         # Fine-tuning and evaluation for all stocks
         cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 500E6 AND symbol NOT LIKE '%.%'")
