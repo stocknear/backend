@@ -383,8 +383,7 @@ for ticker in total_symbols:
         df_price = df_price.rename(columns={"change_percent": "changesPercentage"})
 
         volatility = calculate_volatility(df_price)
-        print(df_price)
-        print(volatility)
+
         ticker_data = get_data(ticker)
         # Group ticker_data by 'date' and collect all items for each date
         grouped_history = defaultdict(list)
