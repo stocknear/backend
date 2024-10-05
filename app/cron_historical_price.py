@@ -84,7 +84,7 @@ async def get_historical_data(ticker, query_con, session):
 
 async def run():
     total_symbols = []
-    chunk_size = 400
+    chunk_size = 100
     try:
         cursor = con.cursor()
         cursor.execute("PRAGMA journal_mode = wal")
