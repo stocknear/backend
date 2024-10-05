@@ -119,6 +119,7 @@ async def download_data(ticker, con, start_date, end_date, skip_downloading):
 
             #Threshold of enough datapoints needed!
             if len(ratios) < 50:
+                print('Not enough data points')
                 return
 
 
@@ -128,10 +129,13 @@ async def download_data(ticker, con, start_date, end_date, skip_downloading):
             # Merge the data based on 'date'
             for entries in zip(ratios,key_metrics,income, balance, cashflow, owner_earnings, income_growth, balance_growth, cashflow_growth):
                 for entry in entries:
-                    date = entry['date']
-                    for key, value in entry.items():
-                        if key not in combined_data[date]:
-                            combined_data[date][key] = value
+                    try:
+                        date = entry['date']
+                        for key, value in entry.items():
+                            if key not in combined_data[date]:
+                                combined_data[date][key] = value
+                    except:
+                        pass
 
             combined_data = list(combined_data.values())
 
@@ -193,13 +197,8 @@ async def download_data(ticker, con, start_date, end_date, skip_downloading):
             fundamental_columns = [
                 'revenue', 'costOfRevenue', 'grossProfit', 'netIncome', 'operatingIncome', 'operatingExpenses',
                 'researchAndDevelopmentExpenses', 'ebitda', 'freeCashFlow', 'incomeBeforeTax', 'incomeTaxExpense',
-                'debtRepayment', 'dividendsPaid', 'depreciationAndAmortization', 'netCashUsedProvidedByFinancingActivities',
-                'changeInWorkingCapital', 'stockBasedCompensation', 'deferredIncomeTax', 'commonStockRepurchased',
-                'operatingCashFlow', 'capitalExpenditure', 'accountsReceivables', 'purchasesOfInvestments',
-                'cashAndCashEquivalents', 'shortTermInvestments', 'cashAndShortTermInvestments', 'longTermInvestments',
-                'otherCurrentLiabilities', 'totalCurrentLiabilities', 'longTermDebt', 'totalDebt', 'netDebt', 'commonStock',
-                'totalEquity', 'totalLiabilitiesAndStockholdersEquity', 'totalStockholdersEquity', 'totalInvestments',
-                'taxAssets', 'totalAssets', 'inventory', 'propertyPlantEquipmentNet', 'ownersEarnings',
+                'operatingCashFlow','cashAndCashEquivalents', 'totalEquity','otherCurrentLiabilities', 'totalCurrentLiabilities', 'totalDebt',
+                'totalLiabilitiesAndStockholdersEquity', 'totalStockholdersEquity', 'totalInvestments','totalAssets',
             ]
 
             # Function to compute combinations within a group
@@ -226,7 +225,7 @@ async def download_data(ticker, con, start_date, end_date, skip_downloading):
             # Compute combinations for each group of columns
             compute_column_ratios(fundamental_columns, df_combined, new_columns)
             compute_column_ratios(stats_columns, df_combined, new_columns)
-            compute_column_ratios(ta_columns, df_combined, new_columns)
+            #compute_column_ratios(ta_columns, df_combined, new_columns)
 
             # Concatenate the new ratio columns with the original DataFrame
             df_combined = pd.concat([df_combined, pd.DataFrame(new_columns, index=df_combined.index)], axis=1)
@@ -244,7 +243,7 @@ async def download_data(ticker, con, start_date, end_date, skip_downloading):
             if not df_copy.empty:
                 with open(file_path, 'wb') as file:
                     file.write(orjson.dumps(df_copy.to_dict(orient='records')))
-
+            print(df_copy)
             return df_copy
 
         except Exception as e:
@@ -270,7 +269,7 @@ async def chunked_gather(tickers, con, skip_downloading, chunk_size):
         tasks = [download_data(ticker, con, start_date, end_date, skip_downloading) for ticker in chunk]
         # Await the results for the current chunk
         chunk_results = await asyncio.gather(*tasks)
-
+        
         train_list = []
 
         for ticker, df in zip(chunk, chunk_results):
@@ -324,23 +323,22 @@ async def chunked_gather(tickers, con, skip_downloading, chunk_size):
                 data = predictor.evaluate_model(test_data[selected_features], test_data['Target'])
 
                 # Check if the evaluation data meets the criteria
-                '''
+                
                 if (data['precision'] >= 50 and data['accuracy'] >= 50 and
                         data['accuracy'] < 100 and data['precision'] < 100 and
                         data['f1_score'] >= 50 and data['recall_score'] >= 50 and
                         data['roc_auc_score'] >= 50):
-                '''
-                # Save the evaluation data to a JSON file
-                await save_json(ticker, data)
-                print(f"Saved results for {ticker}")
+                    # Save the evaluation data to a JSON file
+                    await save_json(ticker, data)
+                    print(f"Saved results for {ticker}")
             except Exception as e:
                 print(e)
                 pass
 
-    
+
 async def warm_start_training(tickers, con, skip_downloading):
     
-    dfs = await chunked_gather(tickers, con, skip_downloading, chunk_size=220)
+    dfs = await chunked_gather(tickers, con, skip_downloading, chunk_size=100)
 
 
 async def run():
@@ -358,9 +356,8 @@ async def run():
             WHERE marketCap >= 500E6 
               AND symbol NOT LIKE '%.%' 
               AND symbol NOT LIKE '%-%' 
-            ORDER BY marketCap DESC;
         """)
-        warm_start_symbols = ['A'] #[row[0] for row in cursor.fetchall()]
+        warm_start_symbols = ['AAPL'] #[row[0] for row in cursor.fetchall()]
 
         print(f'Warm Start Training: Total Tickers {len(warm_start_symbols)}')
         await warm_start_training(warm_start_symbols, con, skip_downloading)

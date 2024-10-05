@@ -103,7 +103,7 @@ def generate_ta_features(df):
     df_features = df_features.dropna()
     return df_features
 
-def generate_statistical_features(df, windows=[20, 50], price_col='close', 
+def generate_statistical_features(df, windows=[50,200], price_col='close', 
                                 high_col='high', low_col='low', volume_col='volume'):
     """
     Generate comprehensive statistical features for financial time series data.
@@ -160,23 +160,7 @@ def generate_statistical_features(df, windows=[20, 50], price_col='close',
         df_features[f'zscore_{window}'] = (
             (df[price_col] - df[price_col].rolling(window=window).mean()) / 
             df[price_col].rolling(window=window).std())
-        df_features[f'norm_price_{window}'] = (
-            df[price_col] / df[price_col].rolling(window=window).mean() - 1)
-        
 
-        # Correlation features
-        if volume_col in df.columns:
-            df_features[f'volume_price_corr_{window}'] = (
-                df[price_col].rolling(window=window).corr(df[volume_col]))
-        df_features[f'high_low_corr_{window}'] = (
-            df[high_col].rolling(window=window).corr(df[low_col]))
-        
-
-
-        # Quantile features
-        for q in [0.25, 0.75]:
-            df_features[f'price_q{int(q*100)}_{window}'] = (
-                df[price_col].rolling(window=window).quantile(q))
     
     # Price dynamics
     df_features['price_acceleration'] = df[price_col].diff().diff()
