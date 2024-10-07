@@ -98,7 +98,7 @@ async def main():
     con = sqlite3.connect('stocks.db')
     cursor = con.cursor()
     cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
-    stock_symbols = ['CXT'] #[row[0] for row in cursor.fetchall()]
+    stock_symbols = [row[0] for row in cursor.fetchall()]
     con.close()
 
     async with aiohttp.ClientSession(headers=headers) as session:
