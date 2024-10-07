@@ -49,19 +49,22 @@ async def get_analyst_insight(session, ticker):
 
 # Summarize insights using OpenAI
 async def get_summary(data):
-    data_string = f"Insights: {data['insight']}"
-    response = await client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": "Summarize analyst insights clearly and concisely in under 400 characters. Ensure the summary is professional and easy to understand. Conclude with whether the report is bullish or bearish."},
-            {"role": "user", "content": data_string}
-        ],
-        max_tokens=150,
-        temperature=0.7
-    )
-    summary = response.choices[0].message.content
-    data['insight'] = summary
-    return data
+    try:
+        data_string = f"Insights: {data['insight']}"
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "Summarize analyst insights clearly and concisely in under 400 characters. Ensure the summary is professional and easy to understand. Conclude with whether the report is bullish or bearish."},
+                {"role": "user", "content": data_string}
+            ],
+            max_tokens=150,
+            temperature=0.7
+        )
+        summary = response.choices[0].message.content
+        data['insight'] = summary
+        return data
+    except Exception as e:
+        print(e)
 
 # Process individual symbol
 async def process_symbol(session, symbol):
@@ -74,9 +77,11 @@ async def process_symbol(session, symbol):
                     old_report_id = ujson.loads(await file.read()).get('id', '')
             except:
                 old_report_id = ''
+
             if new_report_id != old_report_id and data['insight']:
                 res = await get_summary(data)
-                await save_json(symbol, res)
+                if res:
+                    await save_json(symbol, res)
             else:
                 print(f'Skipped: {symbol}')
     except:
@@ -93,7 +98,7 @@ async def main():
     con = sqlite3.connect('stocks.db')
     cursor = con.cursor()
     cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
-    stock_symbols = [row[0] for row in cursor.fetchall()]
+    stock_symbols = ['CXT'] #[row[0] for row in cursor.fetchall()]
     con.close()
 
     async with aiohttp.ClientSession(headers=headers) as session:
