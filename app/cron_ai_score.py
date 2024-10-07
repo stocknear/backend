@@ -243,7 +243,7 @@ async def download_data(ticker, con, start_date, end_date, skip_downloading):
             if not df_copy.empty:
                 with open(file_path, 'wb') as file:
                     file.write(orjson.dumps(df_copy.to_dict(orient='records')))
-            print(df_copy)
+
             return df_copy
 
         except Exception as e:
@@ -266,6 +266,7 @@ async def chunked_gather(tickers, con, skip_downloading, chunk_size):
 
     for chunk in tqdm(chunks(tickers, chunk_size)):
         # Create tasks for each chunk
+        print(f"chunk size: {len(chunk)}")
         tasks = [download_data(ticker, con, start_date, end_date, skip_downloading) for ticker in chunk]
         # Await the results for the current chunk
         chunk_results = await asyncio.gather(*tasks)
@@ -357,7 +358,7 @@ async def run():
               AND symbol NOT LIKE '%.%' 
               AND symbol NOT LIKE '%-%' 
         """)
-        warm_start_symbols = ['AAPL'] #[row[0] for row in cursor.fetchall()]
+        warm_start_symbols = ['PEP'] #[row[0] for row in cursor.fetchall()]
 
         print(f'Warm Start Training: Total Tickers {len(warm_start_symbols)}')
         await warm_start_training(warm_start_symbols, con, skip_downloading)

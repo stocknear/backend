@@ -23,16 +23,11 @@ class ScorePredictor:
         self.pca = PCA(n_components=0.95)  # Retain components explaining 95% variance
         self.warm_start_model_path = 'ml_models/weights/ai-score/warm_start_weights.pkl'
         self.model = lgb.LGBMClassifier(
-            n_estimators=200,           # Number of boosting iterations - good balance between performance and training time
-            learning_rate=0.005,         # Smaller learning rate for better generalization
-            max_depth=5,                 # Controlled depth to prevent overfitting
-            num_leaves=2**5-1,            # 2^max_depth, prevents overfitting while maintaining model complexity
-            colsample_bytree=0.8,       # Use 80% of features per tree to reduce overfitting
-            subsample=0.8,              # Use 80% of data per tree to reduce overfitting
-            min_child_samples=5,       # Minimum samples per leaf to ensure reliable splits
-            random_state=42,            # For reproducibility
-            reg_alpha=0.1,             # L1 regularization
-            reg_lambda=0.1,            # L2 regularization
+            n_estimators=20_000,           # Number of boosting iterations - good balance between performance and training time
+            learning_rate=0.001,         # Smaller learning rate for better generalization
+            max_depth=6,                 # Controlled depth to prevent overfitting
+            num_leaves=2**6-1,            # 2^max_depth, prevents overfitting while maintaining model complexity
+            colsample_bytree=0.1,
             n_jobs=10,                 # Use N CPU cores
             verbose=0,               # Reduce output noise
         )

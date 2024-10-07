@@ -61,10 +61,6 @@ const corsMiddleware = (request, reply, done) => {
 fastify.addHook("onRequest", corsMiddleware);
 
 //fastify.register(require('./mixpanel/server'), { mixpanel, UAParser });
-fastify.register(require("./get-user-stats/server"), { pb });
-fastify.register(require("./get-community-stats/server"), { pb });
-fastify.register(require("./get-moderators/server"), { pb });
-fastify.register(require("./get-user-data/server"), { pb });
 fastify.register(require("./get-all-comments/server"), { pb });
 fastify.register(require("./get-post/server"), { pb });
 fastify.register(require("./get-one-post/server"), { pb });
