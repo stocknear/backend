@@ -283,10 +283,7 @@ def run_executive():
 
 def run_options_bubble_ticker():
     week = datetime.today().weekday()
-    current_time = datetime.now().time()
-    start_time = datetime_time(15, 30)
-    end_time = datetime_time(22, 30)
-    if week <= 4 and start_time <= current_time < end_time:
+    if week <= 4:
         run_command(["python3", "cron_options_bubble.py"])
 
         command = ["sudo", "rsync", "-avz", "-e", "ssh", "/root/backend/app/json/options-bubble", f"root@{useast_ip_address}:/root/backend/app/json"]

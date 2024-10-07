@@ -23,7 +23,7 @@ class StockPredictor:
         self.ticker = ticker
         self.start_date = start_date
         self.end_date = end_date
-        self.nth_day = 60
+        self.nth_day = 10
         self.model = None #RandomForestClassifier(n_estimators=3500, min_samples_split=100, random_state=42, n_jobs=-1) #XGBClassifier(n_estimators=200, max_depth=2, learning_rate=1, objective='binary:logistic')
         self.horizons = [3,5,10, 15, 20]
         self.test_size = 0.2
@@ -134,19 +134,19 @@ class StockPredictor:
         model.add(Dropout(0.2))
         model.add(Dense(units=1, activation='sigmoid'))
 
-        # Learning rate scheduler
-        reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=0.001)
-        # Early stopping
-        early_stop = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
         
-        model.compile(optimizer=Adam(lr=0.001), loss='binary_crossentropy', metrics=['accuracy'])
+        model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 
-        return model, [reduce_lr, early_stop]
+        return model
     
 
     def train_model(self, X_train, y_train):
-        self.model, callbacks = self.build_lstm_model((X_train.shape[1], X_train.shape[2]))
-        history = self.model.fit(X_train, y_train, epochs=500, batch_size=32, validation_split=0.1, callbacks=callbacks)
+        # Learning rate scheduler
+        #reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=0.001)
+        # Early stopping
+        early_stop = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
+        self.model = self.build_lstm_model((X_train.shape[1], X_train.shape[2]))
+        history = self.model.fit(X_train, y_train, epochs=500, batch_size=1024, validation_split=0.1, callbacks=[early_stop])
 
     def evaluate_model(self, X_test, y_test):
         # Reshape X_test to remove the extra dimension
@@ -202,7 +202,7 @@ if __name__ == "__main__":
 
     X = df[predictors].values
     y = df['Target'].values
-
+    print(df)
     # Normalize features
     scaler = MinMaxScaler(feature_range=(0, 1))
     X = scaler.fit_transform(X)

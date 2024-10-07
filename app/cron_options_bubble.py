@@ -42,11 +42,13 @@ def options_bubble_data(chunk):
         start_date_str = start_date.strftime('%Y-%m-%d')
 
         res_list = []
-        for page in range(0, 5000):
+        page = 0
+        while True:
             try:
                 data = fin.options_activity(company_tickers=company_tickers, page=page, pagesize=1000, date_from=start_date_str, date_to=end_date_str)
                 data = ujson.loads(fin.output(data))['option_activity']
                 res_list += data
+                page +=1
             except:
                 break
 
@@ -54,33 +56,39 @@ def options_bubble_data(chunk):
 
         for option_type in ['CALL', 'PUT']:
             for item in res_filtered:
-                if item['put_call'].upper() == option_type:
-                    item['dte'] = calculate_dte(item['date_expiration'])
-                    if item['ticker'] in ['BRK.A', 'BRK.B']:
-                        item['ticker'] = f"BRK-{item['ticker'][-1]}"
+                try:
+                    if item['put_call'].upper() == option_type:
+                        item['dte'] = calculate_dte(item['date_expiration'])
+                        if item['ticker'] in ['BRK.A', 'BRK.B']:
+                            item['ticker'] = f"BRK-{item['ticker'][-1]}"
+                except:
+                    pass
 
         #Save raw data for each ticker for options page stack bar chart
         for ticker in chunk:
-            ticker_filtered_data = [entry for entry in res_filtered if entry['ticker'] == ticker]
-            if len(ticker_filtered_data) != 0:
-                #sum up calls and puts for each day for the plot
-                summed_data = {}
-                for entry in ticker_filtered_data:
-                    volume = int(entry['volume'])
-                    open_interest = int(entry['open_interest'])
-                    put_call = entry['put_call']
-                    
-                    if entry['date'] not in summed_data:
-                        summed_data[entry['date']] = {'CALL': {'volume': 0, 'open_interest': 0}, 'PUT': {'volume': 0, 'open_interest': 0}}
-                    
-                    summed_data[entry['date']][put_call]['volume'] += volume
-                    summed_data[entry['date']][put_call]['open_interest'] += open_interest
+            try:
+                ticker_filtered_data = [entry for entry in res_filtered if entry['ticker'] == ticker]
+                if len(ticker_filtered_data) != 0:
+                    #sum up calls and puts for each day for the plot
+                    summed_data = {}
+                    for entry in ticker_filtered_data:
+                        volume = int(entry['volume'])
+                        open_interest = int(entry['open_interest'])
+                        put_call = entry['put_call']
+                        
+                        if entry['date'] not in summed_data:
+                            summed_data[entry['date']] = {'CALL': {'volume': 0, 'open_interest': 0}, 'PUT': {'volume': 0, 'open_interest': 0}}
+                        
+                        summed_data[entry['date']][put_call]['volume'] += volume
+                        summed_data[entry['date']][put_call]['open_interest'] += open_interest
 
-                result_list = [{'date': date, 'CALL': summed_data[date]['CALL'], 'PUT': summed_data[date]['PUT']} for date in summed_data]
-                #reverse the list
-                result_list = result_list[::-1]
-                with open(f"json/options-flow/company/{ticker}.json", 'w') as file:
-                    ujson.dump(result_list, file)
+                    result_list = [{'date': date, 'CALL': summed_data[date]['CALL'], 'PUT': summed_data[date]['PUT']} for date in summed_data]
+                    #reverse the list
+                    result_list = result_list[::-1]
+                    with open(f"json/options-flow/company/{ticker}.json", 'w') as file:
+                        ujson.dump(result_list, file)
+            except:
+                pass
 
         #Save bubble data for each ticker for overview page
         for ticker in chunk:
@@ -131,7 +139,7 @@ async def main():
 
         chunk_size = len(total_symbols) // 2000  # Divide the list into N chunks
         chunks = [total_symbols[i:i + chunk_size] for i in range(0, len(total_symbols), chunk_size)]
-        print(chunks)
+
         loop = asyncio.get_running_loop()
         with ThreadPoolExecutor(max_workers=4) as executor:
             tasks = [loop.run_in_executor(executor, options_bubble_data, chunk) for chunk in chunks]

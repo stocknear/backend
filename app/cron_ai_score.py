@@ -119,7 +119,7 @@ async def download_data(ticker, con, start_date, end_date, skip_downloading):
 
             #Threshold of enough datapoints needed!
             if len(ratios) < 50:
-                print('Not enough data points')
+                print(f'Not enough data points for {ticker}')
                 return
 
 
@@ -225,7 +225,7 @@ async def download_data(ticker, con, start_date, end_date, skip_downloading):
             # Compute combinations for each group of columns
             compute_column_ratios(fundamental_columns, df_combined, new_columns)
             compute_column_ratios(stats_columns, df_combined, new_columns)
-            #compute_column_ratios(ta_columns, df_combined, new_columns)
+            compute_column_ratios(ta_columns, df_combined, new_columns)
 
             # Concatenate the new ratio columns with the original DataFrame
             df_combined = pd.concat([df_combined, pd.DataFrame(new_columns, index=df_combined.index)], axis=1)
@@ -272,6 +272,7 @@ async def chunked_gather(tickers, con, skip_downloading, chunk_size):
         chunk_results = await asyncio.gather(*tasks)
         
         train_list = []
+        test_list = []
 
         for ticker, df in zip(chunk, chunk_results):
             try:
@@ -280,24 +281,19 @@ async def chunked_gather(tickers, con, skip_downloading, chunk_size):
                 train_data = df.iloc[:split_size]
                 test_data = df.iloc[split_size:]
 
-                # Store test data for this ticker in a dictionary
-                df_test_dict[ticker] = test_data
-                
                 # Append train data for combined training
                 train_list.append(train_data)
-
-                # Collect all test data for overall evaluation
-                all_test_data.append(test_data)
-
+                test_list.append(test_data)
             except:
                 pass
 
         # Concatenate all train data together
-        if train_list:
-            df_train = pd.concat(train_list, ignore_index=True)
+        df_train = pd.concat(train_list, ignore_index=True)
+        df_test = pd.concat(test_list, ignore_index=True)
 
         # Shuffle the combined training data
         df_train = df_train.sample(frac=1, random_state=42).reset_index(drop=True)
+        df_test = df_test.sample(frac=1, random_state=42).reset_index(drop=True)
 
         print('====== Start Training Model on Combined Data ======')
         predictor = ScorePredictor()
@@ -308,39 +304,49 @@ async def chunked_gather(tickers, con, skip_downloading, chunk_size):
         print(f'Training complete on {len(df_train)} samples.')
 
         # Evaluate the model on the overall test dataset
-        if all_test_data:
-            overall_test_data = pd.concat(all_test_data, ignore_index=True)
-            print('====== Evaluating on Overall Test Dataset ======')
-            overall_evaluation_data = predictor.evaluate_model(overall_test_data[selected_features], overall_test_data['Target'])
-            print(f'Overall Evaluation Metrics: {overall_evaluation_data}')
+        print('====== Evaluating on Overall Test Dataset ======')
+        data = predictor.evaluate_model(df_test[selected_features], df_test['Target'])
+        print(f'Overall Evaluation Metrics: {data}')
 
-        # Evaluate the model for each ticker separately
-        for ticker, test_data in df_test_dict.items():
-            try:
-                print(f"Fine-tuning the model for {ticker}")
-                predictor.fine_tune_model(df_train[selected_features], df_train['Target'])
-
-                print(f"Evaluating model for {ticker}")
-                data = predictor.evaluate_model(test_data[selected_features], test_data['Target'])
-
-                # Check if the evaluation data meets the criteria
-                
-                if (data['precision'] >= 50 and data['accuracy'] >= 50 and
-                        data['accuracy'] < 100 and data['precision'] < 100 and
-                        data['f1_score'] >= 50 and data['recall_score'] >= 50 and
-                        data['roc_auc_score'] >= 50):
-                    # Save the evaluation data to a JSON file
-                    await save_json(ticker, data)
-                    print(f"Saved results for {ticker}")
-            except Exception as e:
-                print(e)
-                pass
-
-
+        
 async def warm_start_training(tickers, con, skip_downloading):
     
     dfs = await chunked_gather(tickers, con, skip_downloading, chunk_size=100)
 
+
+async def fine_tune_and_evaluate(ticker, con, start_date, end_date, test_size, skip_downloading):
+    try:
+        df_train = pd.DataFrame()
+        df_test_dict = {}  # Store test data for each ticker
+        all_test_data = []  # Store all test data for overall evaluation
+
+        df = await download_data(ticker, con, start_date, end_date, skip_downloading)
+        split_size = int(len(df) * (1 - test_size))
+        df_train = df.iloc[:split_size]
+        df_test = df.iloc[split_size:]
+
+        # Shuffle the combined training data
+        df_train = df_train.sample(frac=1, random_state=42).reset_index(drop=True)
+
+        print('====== Start Fine-tuning Model ======')
+        predictor = ScorePredictor()
+        selected_features = [col for col in df_train if col not in ['price', 'date', 'Target']]
+        
+        # Train the model on the combined training data
+        predictor.fine_tune_model(df_train[selected_features], df_train['Target'])
+        print(f'Training complete on {len(df_train)} samples.')
+        print(f"Evaluating model for {ticker}")
+        data = predictor.evaluate_model(df_test[selected_features], df_test['Target'])
+        print(f'Overall Evaluation Metrics: {data}')
+        if (data['precision'] >= 50 and data['accuracy'] >= 50 and
+            data['accuracy'] < 100 and data['precision'] < 100 and
+            data['f1_score'] >= 50 and data['recall_score'] >= 50 and
+            data['roc_auc_score'] >= 50):
+        # Save the evaluation data to a JSON file
+            await save_json(ticker, data)
+            print(f"Saved results for {ticker}")
+    except:
+        pass
 
 async def run():
     train_mode = True  # Set this to False for fine-tuning and evaluation
@@ -351,6 +357,14 @@ async def run():
     
     if train_mode:
         # Warm start training
+        warm_start_symbols = list(set(['APO','UNM','CVS','SAVE','SIRI','EA','TTWO','NTDOY','GRC','ODP','IMAX','YUM','UPS','FI','DE','MDT','INFY','ICE','SNY','HON','BSX','C','ADP','CB','LOW','PFE','RTX','DIS','MS','BHP','BAC','PG','BABA','ACN','TMO','LLY','XOM','JPM','UNH','COST','HD','ASML','BRK-A','BRK-B','CAT','TT','SAP','APH','CVS','NOG','DVN','COP','OXY','MRO','MU','AVGO','INTC','LRCX','PLD','AMT','JNJ','ACN','TSM','V','ORCL','MA','BAC','BA','NFLX','ADBE','IBM','GME','NKE','ANGO','PNW','SHEL','XOM','WMT','BUD','AMZN','PEP','AMD','NVDA','AWR','TM','AAPL','GOOGL','META','MSFT','LMT','TSLA','DOV','PG','KO']))
+
+        print(f'Warm Start Training: Total Tickers {len(warm_start_symbols)}')
+        await warm_start_training(warm_start_symbols, con, skip_downloading)
+    else:
+        start_date = datetime(1995, 1, 1).strftime("%Y-%m-%d")
+        end_date = datetime.today().strftime("%Y-%m-%d")
+        test_size = 0.2
         cursor.execute("""
             SELECT DISTINCT symbol 
             FROM stocks 
@@ -358,11 +372,11 @@ async def run():
               AND symbol NOT LIKE '%.%' 
               AND symbol NOT LIKE '%-%' 
         """)
-        warm_start_symbols = ['PEP'] #[row[0] for row in cursor.fetchall()]
+        stock_symbols = [row[0] for row in cursor.fetchall()]
+        for ticker in tqdm(stock_symbols):
+            await fine_tune_and_evaluate(ticker, con, start_date, end_date, test_size, skip_downloading)
+    
 
-        print(f'Warm Start Training: Total Tickers {len(warm_start_symbols)}')
-        await warm_start_training(warm_start_symbols, con, skip_downloading)
-            
     con.close()
 
 if __name__ == "__main__":

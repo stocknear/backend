@@ -94,19 +94,20 @@ def generate_ta_features(df):
     df_features['aroon_indicator'] = aroon.aroon_indicator()
     df_features['aroon_up'] = aroon.aroon_up()
 
-    df_features['ultimate_oscillator'] = UltimateOscillator(high=df['high'], low=df['low'], close=df['close']).ultimate_oscillator()
-    df_features['choppiness'] = 100 * np.log10((df['high'].rolling(window=60).max() - df['low'].rolling(window=30).min()) / df_features['atr']) / np.log10(14)
+    #df_features['ultimate_oscillator'] = UltimateOscillator(high=df['high'], low=df['low'], close=df['close']).ultimate_oscillator()
+    #df_features['choppiness'] = 100 * np.log10((df['high'].rolling(window=60).max() - df['low'].rolling(window=30).min()) / df_features['atr']) / np.log10(14)
     df_features['ulcer'] = UlcerIndex(df['close'],window=60).ulcer_index()
-    df_features['keltner_hband'] = keltner_channel_hband_indicator(high=df['high'],low=df['low'],close=df['close'],window=60)
-    df_features['keltner_lband'] = keltner_channel_lband_indicator(high=df['high'],low=df['low'],close=df['close'],window=60)
+    #df_features['keltner_hband'] = keltner_channel_hband_indicator(high=df['high'],low=df['low'],close=df['close'],window=60)
+    #df_features['keltner_lband'] = keltner_channel_lband_indicator(high=df['high'],low=df['low'],close=df['close'],window=60)
 
     df_features = df_features.dropna()
     return df_features
 
-def generate_statistical_features(df, windows=[50,200], price_col='close', 
+def generate_statistical_features(df, windows=[20,50,200], price_col='close', 
                                 high_col='high', low_col='low', volume_col='volume'):
     """
     Generate comprehensive statistical features for financial time series data.
+    Focuses purely on statistical measures without technical indicators.
     
     Parameters:
     -----------
@@ -132,7 +133,6 @@ def generate_statistical_features(df, windows=[50,200], price_col='close',
     # Create a copy of the dataframe to avoid modifying the original
     df_features = df.copy()
     
-   
     # Calculate features for each window size
     for window in windows:
         # Returns
@@ -144,10 +144,17 @@ def generate_statistical_features(df, windows=[50,200], price_col='close',
         df_features[f'log_returns_std_{window}'] = log_returns.rolling(window=window).std()
         
         # Statistical moments
+        df_features[f'mean_{window}'] = df[price_col].rolling(window=window).mean()
         df_features[f'std_{window}'] = df[price_col].rolling(window=window).std()
         df_features[f'var_{window}'] = df[price_col].rolling(window=window).var()
         df_features[f'skew_{window}'] = df[price_col].rolling(window=window).skew()
         df_features[f'kurt_{window}'] = df[price_col].rolling(window=window).kurt()
+        
+        # Quantile measures
+        df_features[f'quantile_25_{window}'] = df[price_col].rolling(window=window).quantile(0.25)
+        df_features[f'quantile_75_{window}'] = df[price_col].rolling(window=window).quantile(0.75)
+        df_features[f'iqr_{window}'] = (
+            df_features[f'quantile_75_{window}'] - df_features[f'quantile_25_{window}'])
         
         # Volatility measures
         df_features[f'realized_vol_{window}'] = (
@@ -156,33 +163,48 @@ def generate_statistical_features(df, windows=[50,200], price_col='close',
             (df[high_col].rolling(window=window).max() - 
              df[low_col].rolling(window=window).min()) / df[price_col])
         
-        # Z-scores and normalized prices
+        # Z-scores and normalized values
         df_features[f'zscore_{window}'] = (
             (df[price_col] - df[price_col].rolling(window=window).mean()) / 
             df[price_col].rolling(window=window).std())
-
-    
-    # Price dynamics
+        
+        # Volume statistics
+        df_features[f'volume_mean_{window}'] = df[volume_col].rolling(window=window).mean()
+        df_features[f'volume_std_{window}'] = df[volume_col].rolling(window=window).std()
+        df_features[f'volume_zscore_{window}'] = (
+            (df[volume_col] - df[volume_col].rolling(window=window).mean()) / 
+            df[volume_col].rolling(window=window).std())
+        df_features[f'volume_skew_{window}'] = df[volume_col].rolling(window=window).skew()
+        df_features[f'volume_kurt_{window}'] = df[volume_col].rolling(window=window).kurt()
+        
+        # Price-volume correlations
+        df_features[f'price_volume_corr_{window}'] = (
+            df[price_col].rolling(window=window)
+            .corr(df[volume_col]))
+        
+        # Higher-order moments of returns
+        returns = df[price_col].pct_change()
+        df_features[f'returns_skew_{window}'] = returns.rolling(window=window).skew()
+        df_features[f'returns_kurt_{window}'] = returns.rolling(window=window).kurt()
+        
+    # Cross-sectional statistics
     df_features['price_acceleration'] = df[price_col].diff().diff()
-    df_features['momentum_change'] = df[price_col].pct_change().diff()
+    df_features['returns_acceleration'] = df[price_col].pct_change().diff()
     
-    # Advanced volatility
+    # Advanced volatility estimators
     df_features['parkinson_vol'] = np.sqrt(
         1/(4*np.log(2)) * (np.log(df[high_col]/df[low_col])**2))
     
-    # Efficiency ratio
-    df_features['price_efficiency'] = (
-        abs(df[price_col] - df[price_col].shift(20)) / 
-        (df[high_col].rolling(20).max() - df[low_col].rolling(20).min())
+    df_features['garman_klass_vol'] = np.sqrt(
+        0.5 * np.log(df[high_col]/df[low_col])**2 -
+        (2*np.log(2)-1) * np.log(df[price_col]/df['open'])**2
     )
     
-    # Deviation metrics
-    df_features['deviation_from_vwap'] = (
-        (df[price_col] - df[price_col].rolling(window=20).mean()) / 
-        df[price_col].rolling(window=20).mean()
-    )
-
-    df_features['stock_return'] = df['close'].pct_change() 
+    # Dispersion measures
+    df_features['price_range'] = df[high_col] - df[low_col]
+    df_features['price_range_pct'] = df_features['price_range'] / df[price_col]
     
+    # Clean up any NaN values
     df_features = df_features.dropna()
+    
     return df_features
