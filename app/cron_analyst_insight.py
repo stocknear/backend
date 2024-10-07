@@ -1,66 +1,56 @@
-from openai import OpenAI
-import time
+import os
 import ujson
 import sqlite3
-import requests
-import os
+import aiohttp
+import asyncio
 from dotenv import load_dotenv
 from tqdm import tqdm
 from datetime import datetime
+from openai import OpenAI
+import aiofiles
 
 # Load environment variables
 load_dotenv()
 
 # Initialize OpenAI client
-
 benzinga_api_key = os.getenv('BENZINGA_API_KEY')
-
 openai_api_key = os.getenv('OPENAI_API_KEY')
 org_id = os.getenv('OPENAI_ORG')
 client = OpenAI(
-  api_key=openai_api_key,
-  organization=org_id,
+    api_key=openai_api_key,
+    organization=org_id,
 )
-
 
 headers = {"accept": "application/json"}
 url = "https://api.benzinga.com/api/v1/analyst/insights"
 
+# Save JSON asynchronously
+async def save_json(symbol, data):
+    async with aiofiles.open(f"json/analyst/insight/{symbol}.json", 'w') as file:
+        await file.write(ujson.dumps(data))
 
-def save_json(symbol, data):
-    with open(f"json/analyst/insight/{symbol}.json", 'w') as file:
-        ujson.dump(data, file)
-
-def get_analyst_insight(ticker):
-    
+# Fetch analyst insights for a specific ticker
+async def get_analyst_insight(session, ticker):
     res_dict = {}
-    
     try:
-        querystring = {"token": benzinga_api_key,"symbols": ticker}
-        response = requests.request("GET", url, params=querystring)
-        output = ujson.loads(response.text)['analyst-insights'][0] #get the latest insight only
-        # Extracting required fields
-        res_dict = {
-            'insight': output['analyst_insights'],
-            'id': output['id'],
-            'date': datetime.strptime(output['date'], "%Y-%m-%d").strftime("%b %d, %Y")
-        }
+        querystring = {"token": benzinga_api_key, "symbols": ticker}
+        async with session.get(url, params=querystring) as response:
+            output = await response.json()
+            if 'analyst-insights' in output and output['analyst-insights']:
+                output = output['analyst-insights'][0]
+                res_dict = {
+                    'insight': output['analyst_insights'],
+                    'id': output['id'],
+                    'date': datetime.strptime(output['date'], "%Y-%m-%d").strftime("%b %d, %Y")
+                }
     except:
         pass
-
     return res_dict
 
-
-# Function to summarize the text using GPT-3.5-turbo
-def get_summary(data):
-    # Define the data to be summarized
-    
-    # Format the data as a string
-    data_string = (
-        f"Insights: {data['insight']}"
-    )
-
-    response = client.chat.completions.create(
+# Summarize insights using OpenAI
+async def get_summary(data):
+    data_string = f"Insights: {data['insight']}"
+    response = await client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": "Summarize analyst insights clearly and concisely in under 400 characters. Ensure the summary is professional and easy to understand. Conclude with whether the report is bullish or bearish."},
@@ -69,44 +59,48 @@ def get_summary(data):
         max_tokens=150,
         temperature=0.7
     )
-
-
     summary = response.choices[0].message.content
-    data = {
-            'insight': summary,
-            'id': data['id'],
-            'date': data['date']
-    }
-
+    data['insight'] = summary
     return data
 
-
-try:
-    stock_con = sqlite3.connect('stocks.db')
-    stock_cursor = stock_con.cursor()
-    stock_cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
-    stock_symbols = [row[0] for row in stock_cursor.fetchall()]
-
-    stock_con.close()
-    
-    for symbol in tqdm(stock_symbols):
-        try:
-            data = get_analyst_insight(symbol)
+# Process individual symbol
+async def process_symbol(session, symbol):
+    try:
+        data = await get_analyst_insight(session, symbol)
+        if data:
             new_report_id = data.get('id', '')
             try:
-                with open(f"json/analyst/insight/{symbol}.json", 'r') as file:
-                    old_report_id = ujson.load(file).get('id', '')
+                async with aiofiles.open(f"json/analyst/insight/{symbol}.json", 'r') as file:
+                    old_report_id = ujson.loads(await file.read()).get('id', '')
             except:
                 old_report_id = ''
-            #check first if new report id exist already to save money before sending it to closedai company
-            if new_report_id != old_report_id and len(data['insight']) > 0:
-                res = get_summary(data)
-                save_json(symbol, res)
+            if new_report_id != old_report_id and data['insight']:
+                res = await get_summary(data)
+                await save_json(symbol, res)
             else:
-                print('skipped')
-        except:
-            pass
+                print(f'Skipped: {symbol}')
+    except:
+        pass
 
+# Function to split list into batches
+def chunk_list(lst, n):
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
 
-except Exception as e:
-    print(e)
+# Main function with batch processing
+async def main():
+    # Fetch stock symbols from SQLite database
+    con = sqlite3.connect('stocks.db')
+    cursor = con.cursor()
+    cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
+    stock_symbols = [row[0] for row in cursor.fetchall()]
+    con.close()
+
+    async with aiohttp.ClientSession(headers=headers) as session:
+        # Process in batches of 100
+        for batch in chunk_list(stock_symbols, 100):
+            print(f"Processing batch of {len(batch)} tickers")
+            await asyncio.gather(*[process_symbol(session, symbol) for symbol in tqdm(batch)])
+
+if __name__ == "__main__":
+    asyncio.run(main())

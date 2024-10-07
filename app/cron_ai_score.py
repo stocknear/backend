@@ -349,7 +349,7 @@ async def fine_tune_and_evaluate(ticker, con, start_date, end_date, test_size, s
         pass
 
 async def run():
-    train_mode = True  # Set this to False for fine-tuning and evaluation
+    train_mode = False  # Set this to False for fine-tuning and evaluation
     skip_downloading = False
     con = sqlite3.connect('stocks.db')
     cursor = con.cursor()
