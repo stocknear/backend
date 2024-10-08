@@ -172,17 +172,25 @@ fastify.register(async function (fastify) {
 
       try {
         const jsonData = JSON.parse(stringData);
-        const bpData = jsonData.bp;
-
-        // Check if bpData is a number and not equal to zero
-        if (typeof bpData === "number" && bpData !== 0) {
-          if (connection.socket.readyState === WebSocket.OPEN && !isSend) {
-            connection.socket.send(JSON.stringify({ bp: bpData }));
-            isSend = true;
-            setTimeout(() => {
-              isSend = false;
-            }, 2000);
-          }
+        // Check if bpData is a number, not equal to zero, and jsonData properties are not null/undefined
+        if (
+          jsonData?.bp != null &&
+          jsonData?.ap != null &&
+          jsonData?.lp != null &&
+          connection.socket.readyState === WebSocket.OPEN &&
+          !isSend
+        ) {
+          connection.socket.send(
+            JSON.stringify({
+              bp: jsonData.bp?.toFixed(2),
+              ap: jsonData.ap?.toFixed(2),
+              lp: jsonData.lp?.toFixed(2),
+            })
+          );
+          isSend = true;
+          setTimeout(() => {
+            isSend = false;
+          }, 2000);
         }
       } catch (error) {
         console.error("Error parsing JSON:", error);
