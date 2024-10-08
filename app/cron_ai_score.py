@@ -80,7 +80,7 @@ def top_uncorrelated_features(df, target_col='Target', top_n=10, threshold=0.75)
             selected_features.append(feature)
     return selected_features
 
-async def download_data(ticker, con, start_date, end_date, skip_downloading):
+async def download_data(ticker, con, start_date, end_date, skip_downloading, save_data):
 
     file_path = f"ml_models/training_data/ai-score/{ticker}.json"
 
@@ -200,6 +200,7 @@ async def download_data(ticker, con, start_date, end_date, skip_downloading):
                 'operatingCashFlow','cashAndCashEquivalents', 'totalEquity','otherCurrentLiabilities', 'totalCurrentLiabilities', 'totalDebt',
                 'totalLiabilitiesAndStockholdersEquity', 'totalStockholdersEquity', 'totalInvestments','totalAssets',
             ]
+            
 
             # Function to compute combinations within a group
             def compute_column_ratios(columns, df, new_columns):
@@ -240,7 +241,7 @@ async def download_data(ticker, con, start_date, end_date, skip_downloading):
             df_copy = df_combined.copy().map(lambda x: round(x, 2) if isinstance(x, float) else x)
 
             # Save to a file if there are rows in the DataFrame
-            if not df_copy.empty:
+            if not df_copy.empty and save_data == True:
                 with open(file_path, 'wb') as file:
                     file.write(orjson.dumps(df_copy.to_dict(orient='records')))
 
@@ -251,7 +252,7 @@ async def download_data(ticker, con, start_date, end_date, skip_downloading):
             pass
 
 
-async def chunked_gather(tickers, con, skip_downloading, chunk_size):
+async def chunked_gather(tickers, con, skip_downloading, save_data, chunk_size):
     test_size = 0.2
     start_date = datetime(1995, 1, 1).strftime("%Y-%m-%d")
     end_date = datetime.today().strftime("%Y-%m-%d")
@@ -267,7 +268,7 @@ async def chunked_gather(tickers, con, skip_downloading, chunk_size):
     for chunk in tqdm(chunks(tickers, chunk_size)):
         # Create tasks for each chunk
         print(f"chunk size: {len(chunk)}")
-        tasks = [download_data(ticker, con, start_date, end_date, skip_downloading) for ticker in chunk]
+        tasks = [download_data(ticker, con, start_date, end_date, skip_downloading, save_data) for ticker in chunk]
         # Await the results for the current chunk
         chunk_results = await asyncio.gather(*tasks)
         
@@ -309,18 +310,18 @@ async def chunked_gather(tickers, con, skip_downloading, chunk_size):
         print(f'Overall Evaluation Metrics: {data}')
 
         
-async def warm_start_training(tickers, con, skip_downloading):
+async def warm_start_training(tickers, con, skip_downloading, save_data):
     
-    dfs = await chunked_gather(tickers, con, skip_downloading, chunk_size=100)
+    dfs = await chunked_gather(tickers, con, skip_downloading, save_data, chunk_size=100)
 
 
-async def fine_tune_and_evaluate(ticker, con, start_date, end_date, test_size, skip_downloading):
+async def fine_tune_and_evaluate(ticker, con, start_date, end_date, test_size, skip_downloading, save_data):
     try:
         df_train = pd.DataFrame()
         df_test_dict = {}  # Store test data for each ticker
         all_test_data = []  # Store all test data for overall evaluation
 
-        df = await download_data(ticker, con, start_date, end_date, skip_downloading)
+        df = await download_data(ticker, con, start_date, end_date, skip_downloading, save_data)
         split_size = int(len(df) * (1 - test_size))
         df_train = df.iloc[:split_size]
         df_test = df.iloc[split_size:]
@@ -345,22 +346,24 @@ async def fine_tune_and_evaluate(ticker, con, start_date, end_date, test_size, s
         # Save the evaluation data to a JSON file
             await save_json(ticker, data)
             print(f"Saved results for {ticker}")
-    except:
+    except Exception as e:
+        print(e)
         pass
 
 async def run():
     train_mode = False  # Set this to False for fine-tuning and evaluation
     skip_downloading = False
+    save_data = train_mode
     con = sqlite3.connect('stocks.db')
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
     
     if train_mode:
         # Warm start training
-        warm_start_symbols = list(set(['APO','UNM','CVS','SAVE','SIRI','EA','TTWO','NTDOY','GRC','ODP','IMAX','YUM','UPS','FI','DE','MDT','INFY','ICE','SNY','HON','BSX','C','ADP','CB','LOW','PFE','RTX','DIS','MS','BHP','BAC','PG','BABA','ACN','TMO','LLY','XOM','JPM','UNH','COST','HD','ASML','BRK-A','BRK-B','CAT','TT','SAP','APH','CVS','NOG','DVN','COP','OXY','MRO','MU','AVGO','INTC','LRCX','PLD','AMT','JNJ','ACN','TSM','V','ORCL','MA','BAC','BA','NFLX','ADBE','IBM','GME','NKE','ANGO','PNW','SHEL','XOM','WMT','BUD','AMZN','PEP','AMD','NVDA','AWR','TM','AAPL','GOOGL','META','MSFT','LMT','TSLA','DOV','PG','KO']))
+        warm_start_symbols = list(set(['CB','LOW','PFE','RTX','DIS','MS','BHP','BAC','PG','BABA','ACN','TMO','LLY','XOM','JPM','UNH','COST','HD','ASML','BRK-A','BRK-B','CAT','TT','SAP','APH','CVS','NOG','DVN','COP','OXY','MRO','MU','AVGO','INTC','LRCX','PLD','AMT','JNJ','ACN','TSM','V','ORCL','MA','BAC','BA','NFLX','ADBE','IBM','GME','NKE','ANGO','PNW','SHEL','XOM','WMT','BUD','AMZN','PEP','AMD','NVDA','AWR','TM','AAPL','GOOGL','META','MSFT','LMT','TSLA','DOV','PG','KO']))
 
         print(f'Warm Start Training: Total Tickers {len(warm_start_symbols)}')
-        await warm_start_training(warm_start_symbols, con, skip_downloading)
+        await warm_start_training(warm_start_symbols, con, skip_downloading, save_data)
     else:
         start_date = datetime(1995, 1, 1).strftime("%Y-%m-%d")
         end_date = datetime.today().strftime("%Y-%m-%d")
@@ -374,7 +377,7 @@ async def run():
         """)
         stock_symbols = [row[0] for row in cursor.fetchall()]
         for ticker in tqdm(stock_symbols):
-            await fine_tune_and_evaluate(ticker, con, start_date, end_date, test_size, skip_downloading)
+            await fine_tune_and_evaluate(ticker, con, start_date, end_date, test_size, skip_downloading, save_data)
     
 
     con.close()

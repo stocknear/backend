@@ -177,33 +177,6 @@ def generate_statistical_features(df, windows=[20,50,200], price_col='close',
         df_features[f'volume_skew_{window}'] = df[volume_col].rolling(window=window).skew()
         df_features[f'volume_kurt_{window}'] = df[volume_col].rolling(window=window).kurt()
         
-        # Price-volume correlations
-        df_features[f'price_volume_corr_{window}'] = (
-            df[price_col].rolling(window=window)
-            .corr(df[volume_col]))
-        
-        # Higher-order moments of returns
-        returns = df[price_col].pct_change()
-        df_features[f'returns_skew_{window}'] = returns.rolling(window=window).skew()
-        df_features[f'returns_kurt_{window}'] = returns.rolling(window=window).kurt()
-        
-    # Cross-sectional statistics
-    df_features['price_acceleration'] = df[price_col].diff().diff()
-    df_features['returns_acceleration'] = df[price_col].pct_change().diff()
-    
-    # Advanced volatility estimators
-    df_features['parkinson_vol'] = np.sqrt(
-        1/(4*np.log(2)) * (np.log(df[high_col]/df[low_col])**2))
-    
-    df_features['garman_klass_vol'] = np.sqrt(
-        0.5 * np.log(df[high_col]/df[low_col])**2 -
-        (2*np.log(2)-1) * np.log(df[price_col]/df['open'])**2
-    )
-    
-    # Dispersion measures
-    df_features['price_range'] = df[high_col] - df[low_col]
-    df_features['price_range_pct'] = df_features['price_range'] / df[price_col]
-    
     # Clean up any NaN values
     df_features = df_features.dropna()
     
