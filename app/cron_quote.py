@@ -43,6 +43,16 @@ async def get_pre_post_quote_of_stocks(ticker_list):
             else:
                 return {}
 
+async def get_bid_ask_quote_of_stocks(ticker_list):
+    ticker_str = ','.join(ticker_list)
+    async with aiohttp.ClientSession() as session:
+        url = f"https://financialmodelingprep.com/api/v4/batch-pre-post-market/{ticker_str}?apikey={api_key}" 
+        async with session.get(url) as response:
+            if response.status == 200:
+                return await response.json()
+            else:
+                return {}
+
 async def save_quote_as_json(symbol, data):
     with open(f"json/quote/{symbol}.json", 'w') as file:
         ujson.dump(data, file)
@@ -58,6 +68,25 @@ async def save_pre_post_quote_as_json(symbol, data):
     except Exception as e:
         pass
 
+async def save_bid_ask_as_json(symbol, data):
+    try:
+        # Read previous close price and load existing quote data
+        with open(f"json/quote/{symbol}.json", 'r') as file:
+            quote_data = ujson.load(file)
+
+        # Update quote data with new price, ask, bid, changesPercentage, and timestamp
+        quote_data.update({
+            'ask': round(data['ask'], 2),  # Add ask price
+            'bid': round(data['bid'], 2),   # Add bid price
+        })
+
+        # Save the updated quote data back to the same JSON file
+        with open(f"json/quote/{symbol}.json", 'w') as file:
+            ujson.dump(quote_data, file)
+    except Exception as e:
+        print(f"An error occurred: {e}")  # Print the error for debugging
+
+
 async def run():
     con = sqlite3.connect('stocks.db')
     etf_con = sqlite3.connect('etf.db')
@@ -65,7 +94,7 @@ async def run():
 
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
-    cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol != ?", ('%5EGSPC',))
+    cursor.execute("SELECT DISTINCT symbol FROM stocks")
     stocks_symbols = [row[0] for row in cursor.fetchall()]
 
     etf_cursor = etf_con.cursor()
@@ -100,7 +129,7 @@ async def run():
     
     total_symbols = stocks_symbols+etf_symbols
     
-    chunk_size = len(total_symbols) // 10  # Divide the list into 10 chunks
+    chunk_size = len(total_symbols) // 20  # Divide the list into N chunks
     chunks = [total_symbols[i:i + chunk_size] for i in range(0, len(total_symbols), chunk_size)]
     delete_files_in_directory("json/pre-post-quote")
     for chunk in chunks:
@@ -117,7 +146,11 @@ async def run():
                 symbol = item['symbol']
                 await save_pre_post_quote_as_json(symbol, item)
                 #print(f"Saved data for {symbol}.")
-
+        #Always true
+        bid_ask_quote = await get_bid_ask_quote_of_stocks(chunk)
+        for item in bid_ask_quote:
+            symbol = item['symbol']
+            await save_bid_ask_as_json(symbol, item)
 
 try:
     asyncio.run(run())
