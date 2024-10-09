@@ -42,7 +42,8 @@ def get_yahoo_data(ticker, outstanding_shares, float_shares):
         short_outstanding_percent = round((data_dict['sharesShort']/outstanding_shares)*100,2)
         short_float_percent = round((data_dict['sharesShort']/float_shares)*100,2)
         return {'forwardPE': forward_pe}, {'sharesShort': data_dict['sharesShort'], 'shortRatio': data_dict['shortRatio'], 'sharesShortPriorMonth': data_dict['sharesShortPriorMonth'], 'shortOutStandingPercent': short_outstanding_percent, 'shortFloatPercent': short_float_percent}
-    except:
+    except Exception as e:
+        print(e)
         return {'forwardPE': 0}, {'sharesShort': 0, 'shortRatio': 0, 'sharesShortPriorMonth': 0, 'shortOutStandingPercent': 0, 'shortFloatPercent': 0}
 
 
@@ -84,7 +85,7 @@ async def run():
     con = sqlite3.connect('stocks.db')
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
-    cursor.execute("SELECT DISTINCT symbol FROM stocks")
+    cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
     stock_symbols = [row[0] for row in cursor.fetchall()]
 
     
@@ -96,9 +97,9 @@ async def run():
             await save_as_json(ticker, forward_pe_dict, short_dict)
 
         counter += 1
-        if counter % 100 == 0:
-            print(f"Processed {counter} tickers, waiting for 10 seconds...")
-            await asyncio.sleep(30)
+        if counter % 50 == 0:
+            print(f"Processed {counter} tickers, waiting for 30 seconds...")
+            await asyncio.sleep(60)
 
     con.close()
 
