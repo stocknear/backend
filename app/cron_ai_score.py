@@ -28,6 +28,16 @@ async def save_json(symbol, data):
     with open(f"json/ai-score/companies/{symbol}.json", 'wb') as file:
         file.write(orjson.dumps(data))
 
+# Function to delete all files in a directory
+def delete_files_in_directory(directory):
+    for filename in os.listdir(directory):
+        file_path = os.path.join(directory, filename)
+        try:
+            if os.path.isfile(file_path):
+                os.remove(file_path)
+        except Exception as e:
+            print(f"Failed to delete {file_path}. Reason: {e}")
+
 async def fetch_historical_price(ticker):
     url = f"https://financialmodelingprep.com/api/v3/historical-price-full/{ticker}?from=1995-10-10&apikey={api_key}"
     async with aiohttp.ClientSession() as session:
@@ -311,9 +321,12 @@ async def fine_tune_and_evaluate(ticker, con, start_date, end_date, skip_downloa
         gc.collect()  # Force the garbage collector to release unreferenced memory
 
 async def run():
-    train_mode = False  # Set this to False for fine-tuning and evaluation
+    train_mode = True  # Set this to False for fine-tuning and evaluation
     skip_downloading = False
     save_data = True
+    delete_data = True
+    if delete_data:
+        delete_files_in_directory("ml_models/training_data/ai-score")
 
     con = sqlite3.connect('stocks.db')
     cursor = con.cursor()
@@ -325,10 +338,11 @@ async def run():
         stock_symbols = [row[0] for row in cursor.fetchall()]
         print('Training for:', stock_symbols)
         predictor = await warm_start_training(stock_symbols, con, skip_downloading, save_data)
-    else:
-        # Fine-tuning and evaluation for all stocks
-        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 500E6 AND symbol NOT LIKE '%.%'")
-        stock_symbols = [row[0] for row in cursor.fetchall()]
+    
+    #else:
+        # Evaluation for all stocks
+        #cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 500E6 AND symbol NOT LIKE '%.%'")
+        #stock_symbols = [row[0] for row in cursor.fetchall()]
         
         print(f"Total tickers for fine-tuning: {len(stock_symbols)}")
         start_date = datetime(1995, 1, 1).strftime("%Y-%m-%d")
