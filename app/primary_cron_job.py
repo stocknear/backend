@@ -206,6 +206,8 @@ def run_cron_quote():
         run_command(["python3", "cron_quote.py"])
         command = ["sudo", "rsync", "-avz", "-e", "ssh", "/root/backend/app/json/quote", f"root@{useast_ip_address}:/root/backend/app/json"]
         run_command(command)
+        command = ["sudo", "rsync", "-avz", "-e", "ssh", "/root/backend/app/json/pre-post-quote", f"root@{useast_ip_address}:/root/backend/app/json"]
+        run_command(command)
 
 
 def run_cron_options_flow():
