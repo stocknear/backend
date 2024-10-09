@@ -41,7 +41,7 @@ async def fetch_options_activity(page):
         return []
 
 # Asynchronous function to fetch multiple pages
-async def fetch_all_pages(max_pages=130):
+async def fetch_all_pages(max_pages=15):
     tasks = [fetch_options_activity(page) for page in range(max_pages)]
     results = await asyncio.gather(*tasks)
     return [item for sublist in results for item in sublist]

@@ -64,7 +64,7 @@ def process_day(date_str):
 
     # Fetch pages concurrently for the given day
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        future_to_page = {executor.submit(process_page, page, date_str): page for page in range(130)}
+        future_to_page = {executor.submit(process_page, page, date_str): page for page in range(15)}
         for future in concurrent.futures.as_completed(future_to_page):
             page = future_to_page[future]
             try:
