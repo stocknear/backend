@@ -576,6 +576,24 @@ def run_price_analysis():
     ]
     run_command(command)
 
+def run_ai_score():
+    run_command(["python3", "cron_ai_score.py"])
+    run_command(["python3", "cron_stockdeck.py"])
+    run_command(["python3", "restart_json.py"])
+    
+    # Define the directories for rsync
+    directories = ["stockdeck", "stock-screener", "ai-score"]
+    base_dir = "/root/backend/app/json"
+    remote_dir = f"root@{useast_ip_address}:{base_dir}"
+
+    # Rsync commands in a loop
+    for directory in directories:
+        command = [
+            "sudo", "rsync", "-avz", "-e", "ssh",
+            f"{base_dir}/{directory}",
+            f"{remote_dir}"
+        ]
+        run_command(command)
 
 # Create functions to run each schedule in a separate thread
 def run_threaded(job_func):
@@ -589,6 +607,8 @@ schedule.every().day.at("02:00").do(run_threaded, run_db_schedule_job)
 schedule.every().day.at("03:00").do(run_threaded, run_dark_pool)
 schedule.every().day.at("05:00").do(run_threaded, run_options_gex).tag('options_gex_job')
 schedule.every().day.at("06:00").do(run_threaded, run_historical_price).tag('historical_job')
+
+schedule.every().day.at("06:30").do(run_threaded, run_ai_score).tag('ai_score_job')
 
 schedule.every().day.at("07:00").do(run_threaded, run_ta_rating).tag('ta_rating_job')
 schedule.every().day.at("09:00").do(run_threaded, run_hedge_fund).tag('hedge_fund_job')

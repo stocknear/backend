@@ -33,10 +33,6 @@ def run_restart_cache():
         subprocess.run(["pm2", "restart","fastapi"])
         subprocess.run(["pm2", "restart","fastify"])
 
-def run_stockdeck():
-    week = datetime.today().weekday()
-    if week <= 5:
-        subprocess.run(["python3", "cron_stockdeck.py"])
         
 def run_json_job():
     # Run the asynchronous function inside an asyncio loop
@@ -56,7 +52,6 @@ def run_threaded(job_func):
 
 
 schedule.every().day.at("06:30").do(run_threaded, run_pocketbase).tag('pocketbase_job')
-schedule.every().day.at("13:30").do(run_threaded, run_stockdeck).tag('stockdeck_job')
 schedule.every().day.at("15:45").do(run_threaded, run_restart_cache)
 schedule.every(2).hours.do(run_threaded, run_json_job).tag('json_job')
 schedule.every(1).minutes.do(run_threaded, run_cron_price_alert).tag('price_alert_job')
