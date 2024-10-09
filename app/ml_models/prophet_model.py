@@ -1,8 +1,9 @@
 import pandas as pd
+import numpy as np
+np.float_ = np.float64
 from prophet import Prophet
 from datetime import datetime
 import yfinance as yf
-import numpy as np
 import asyncio
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 #import matplotlib.pyplot as plt
