@@ -6,7 +6,8 @@ from tqdm import tqdm
 from datetime import datetime
 import yfinance as yf
 import time
-
+import requests
+from requests.exceptions import RequestException
 
 async def save_as_json(symbol, forward_pe_dict, short_dict):
     with open(f"json/share-statistics/{symbol}.json", 'w') as file:
@@ -35,17 +36,74 @@ def filter_data_quarterly(data):
     
     return filtered_data
 
-def get_yahoo_data(ticker, outstanding_shares, float_shares):
-    try:
-        data_dict = yf.Ticker(ticker).info
-        forward_pe = round(data_dict['forwardPE'],2)
-        short_outstanding_percent = round((data_dict['sharesShort']/outstanding_shares)*100,2)
-        short_float_percent = round((data_dict['sharesShort']/float_shares)*100,2)
-        return {'forwardPE': forward_pe}, {'sharesShort': data_dict['sharesShort'], 'shortRatio': data_dict['shortRatio'], 'sharesShortPriorMonth': data_dict['sharesShortPriorMonth'], 'shortOutStandingPercent': short_outstanding_percent, 'shortFloatPercent': short_float_percent}
-    except Exception as e:
-        print(e)
-        return {'forwardPE': 0}, {'sharesShort': 0, 'shortRatio': 0, 'sharesShortPriorMonth': 0, 'shortOutStandingPercent': 0, 'shortFloatPercent': 0}
+def get_yahoo_data(ticker, outstanding_shares, float_shares, max_retries=3):
+    # Configure yfinance with custom headers
+    session = requests.Session()
+    session.headers.update({
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Connection': 'keep-alive',
+    })
 
+    for attempt in range(max_retries):
+        try:
+            ticker_obj = yf.Ticker(ticker)
+            ticker_obj.session = session
+            data_dict = ticker_obj.info
+            
+            # Check if we got the necessary data
+            if 'forwardPE' not in data_dict or 'sharesShort' not in data_dict:
+                raise ValueError("Missing required data fields")
+
+            forward_pe = round(data_dict.get('forwardPE', 0), 2)
+            shares_short = data_dict.get('sharesShort', 0)
+            short_ratio = data_dict.get('shortRatio', 0)
+            shares_short_prior_month = data_dict.get('sharesShortPriorMonth', 0)
+
+            # Calculate percentages only if we have valid numbers
+            if outstanding_shares and outstanding_shares > 0:
+                short_outstanding_percent = round((shares_short/outstanding_shares)*100, 2)
+            else:
+                short_outstanding_percent = 0
+
+            if float_shares and float_shares > 0:
+                short_float_percent = round((shares_short/float_shares)*100, 2)
+            else:
+                short_float_percent = 0
+
+            return {
+                'forwardPE': forward_pe
+            }, {
+                'sharesShort': shares_short,
+                'shortRatio': short_ratio,
+                'sharesShortPriorMonth': shares_short_prior_month,
+                'shortOutStandingPercent': short_outstanding_percent,
+                'shortFloatPercent': short_float_percent
+            }
+
+        except (RequestException, ValueError) as e:
+            if attempt == max_retries - 1:  # Last attempt
+                print(f"Failed to fetch data for {ticker} after {max_retries} attempts: {str(e)}")
+                return {'forwardPE': 0}, {
+                    'sharesShort': 0,
+                    'shortRatio': 0,
+                    'sharesShortPriorMonth': 0,
+                    'shortOutStandingPercent': 0,
+                    'shortFloatPercent': 0
+                }
+            else:
+                print(f"Attempt {attempt + 1} failed for {ticker}, retrying after delay...")
+                time.sleep(2 ** attempt)  # Exponential backoff
+        except Exception as e:
+            print(f"Unexpected error for {ticker}: {str(e)}")
+            return {'forwardPE': 0}, {
+                'sharesShort': 0,
+                'shortRatio': 0,
+                'sharesShortPriorMonth': 0,
+                'shortOutStandingPercent': 0,
+                'shortFloatPercent': 0
+            }
 
 async def get_data(ticker, con):
 
