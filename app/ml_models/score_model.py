@@ -1,25 +1,10 @@
-import yfinance as yf
 import pandas as pd
 from datetime import datetime, timedelta
-from sklearn.ensemble import RandomForestClassifier
 import numpy as np
-from xgboost import XGBClassifier
 from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score, accuracy_score
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
-from keras.models import Sequential, Model
-from keras.layers import Input, Multiply, Reshape, LSTM, Dense, Conv1D, Dropout, BatchNormalization, GlobalAveragePooling1D, MaxPooling1D, Bidirectional
-from keras.optimizers import AdamW
-from keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
-from tensorflow.keras.activations import gelu
-from keras.models import load_model
-from sklearn.feature_selection import SelectKBest, f_classif
-from tensorflow.keras.backend import clear_session
-from keras import regularizers
-from keras.layers import Layer
-from tensorflow.keras import backend as K
-import tensorflow as tf
+from sklearn.preprocessing import MinMaxScaler
 from sklearn.decomposition import PCA
+import lightgbm as lgb
 
 from tqdm import tqdm
 from collections import defaultdict
@@ -28,85 +13,39 @@ import aiohttp
 import aiofiles
 import pickle
 import time
-
-class SelfAttention(Layer):
-    def __init__(self, **kwargs):
-        super(SelfAttention, self).__init__(**kwargs)
-    
-    def build(self, input_shape):
-        self.W = self.add_weight(name='attention_weight', shape=(input_shape[-1], 1),
-                                 initializer='random_normal', trainable=True)
-        super(SelfAttention, self).build(input_shape)
-    
-    def call(self, x):
-        # Alignment scores. Pass them through tanh function
-        e = K.tanh(K.dot(x, self.W))
-        # Remove dimension of size 1
-        e = K.squeeze(e, axis=-1)   
-        # Compute the weights
-        alpha = K.softmax(e)
-        # Reshape to tensor of same shape as x for multiplication
-        alpha = K.expand_dims(alpha, axis=-1)
-        # Compute the context vector
-        context = x * alpha
-        context = K.sum(context, axis=1)
-        return context, alpha
-
-    def compute_output_shape(self, input_shape):
-        return (input_shape[0], input_shape[-1]), (input_shape[0], input_shape[1])
+import os
 
 
 class ScorePredictor:
     def __init__(self):
         self.scaler = MinMaxScaler()
-        self.model = None
-        self.warm_start_model_path = 'ml_models/weights/ai-score/warm_start_weights.keras'
-        self.pca = PCA(n_components=3)
-    def build_model(self):
-        clear_session()
-
-        inputs = Input(shape=(3,))
-        x = Dense(512, activation=gelu)(inputs)  # Using GELU activation
-        x = Dropout(0.5)(x)
-        x = BatchNormalization()(x)
-
-        for units in [64, 32]:
-            x = Dense(units, activation=gelu)(x)  # Using GELU activation
-            x = Dropout(0.2)(x)
-            x = BatchNormalization()(x)
-
-        x = Reshape((32, 1))(x)
-        x, _ = SelfAttention()(x)
-        outputs = Dense(2, activation='softmax')(x)
-
-        model = Model(inputs=inputs, outputs=outputs)
-        optimizer = AdamW(learning_rate=0.001, weight_decay=0.01, clipnorm=1.0)
-        model.compile(optimizer=optimizer, loss='sparse_categorical_crossentropy', metrics=['accuracy'])
-
-        return model
-
+        self.model = lgb.LGBMClassifier(
+            n_estimators=1_000,
+            learning_rate=0.001,
+            max_depth=10,
+            num_leaves=2**10-1,
+            n_jobs=10
+        )
+        self.warm_start_model_path = 'ml_models/weights/ai-score/stacking_weights.pkl'
+        #self.pca = PCA(n_components=3)
+    
     def preprocess_train_data(self, X):
         X = np.where(np.isinf(X), np.nan, X)
         X = np.nan_to_num(X)
         X = self.scaler.fit_transform(X)
-        return self.pca.fit_transform(X)
+        return X #self.pca.fit_transform(X)
 
     def preprocess_test_data(self, X):
         X = np.where(np.isinf(X), np.nan, X)
         X = np.nan_to_num(X)
         X = self.scaler.fit_transform(X)
-        return self.pca.fit_transform(X)
+        return X #self.pca.fit_transform(X)
 
     def warm_start_training(self, X_train, y_train):
         X_train = self.preprocess_train_data(X_train)
-        self.model = self.build_model()
         
-        checkpoint = ModelCheckpoint(self.warm_start_model_path, save_best_only=True, save_freq=1, monitor='val_loss', mode='min')
-        early_stopping = EarlyStopping(monitor='val_loss', patience=20, restore_best_weights=True)
-        reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=10, min_lr=0.001)
-
-        self.model.fit(X_train, y_train, epochs=100_000, batch_size=256, validation_split=0.1, callbacks=[checkpoint, early_stopping, reduce_lr])
-        self.model.save(self.warm_start_model_path)
+        self.model.fit(X_train, y_train)
+        pickle.dump(self.model, open(self.warm_start_model_path, 'wb'))
         print("Warm start model saved.")
 
     def fine_tune_model(self, X_train, y_train):
@@ -124,12 +63,12 @@ class ScorePredictor:
     def evaluate_model(self, X_test, y_test):
         X_test = self.preprocess_test_data(X_test)
         
-        with tf.device('/CPU:0'):
-            # Load model and make predictions
-            self.model = load_model(self.warm_start_model_path, custom_objects={'SelfAttention': SelfAttention})
-            test_predictions = self.model.predict(X_test)
-            class_1_probabilities = test_predictions[:, 1]
-            binary_predictions = (class_1_probabilities >= 0.5).astype(int)
+        with open(self.warm_start_model_path, 'rb') as f:
+            self.model = pickle.load(f)
+
+        test_predictions = self.model.predict_proba(X_test)
+        class_1_probabilities = test_predictions[:, 1]
+        binary_predictions = (class_1_probabilities >= 0.5).astype(int)
 
         # Calculate and print metrics
         test_precision = precision_score(y_test, binary_predictions)

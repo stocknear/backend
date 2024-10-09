@@ -190,8 +190,8 @@ async def download_data(ticker, con, start_date, end_date, skip_downloading, sav
 
             # Compute combinations for each group of columns
             #compute_column_ratios(fundamental_columns, df_combined, new_columns)
-            compute_column_ratios(stats_columns, df_combined, new_columns)
-            compute_column_ratios(ta_columns, df_combined, new_columns)
+            #compute_column_ratios(stats_columns, df_combined, new_columns)
+            #compute_column_ratios(ta_columns, df_combined, new_columns)
 
             # Concatenate the new ratio columns with the original DataFrame
             df_combined = pd.concat([df_combined, pd.DataFrame(new_columns, index=df_combined.index)], axis=1)
@@ -242,7 +242,7 @@ async def warm_start_training(tickers, con, skip_downloading, save_data):
     end_date = datetime.today().strftime("%Y-%m-%d")
     test_size = 0.2
 
-    dfs = await chunked_gather(tickers, con, start_date, end_date, skip_downloading, save_data, chunk_size=300)
+    dfs = await chunked_gather(tickers, con, start_date, end_date, skip_downloading, save_data, chunk_size=100)
     
     train_list = []
     test_list = []
@@ -307,6 +307,9 @@ async def fine_tune_and_evaluate(ticker, con, start_date, end_date, skip_downloa
     except Exception as e:
         print(f"Error processing {ticker}: {e}")
 
+    finally:
+        gc.collect()  # Force the garbage collector to release unreferenced memory
+
 async def run():
     train_mode = False  # Set this to False for fine-tuning and evaluation
     skip_downloading = False
@@ -318,9 +321,10 @@ async def run():
     
     if train_mode:
         # Warm start training
-        warm_start_symbols = list(set(['CB','LOW','PFE','RTX','DIS','MS','BHP','BAC','PG','BABA','ACN','TMO','LLY','XOM','JPM','UNH','COST','HD','ASML','BRK-A','BRK-B','CAT','TT','SAP','APH','CVS','NOG','DVN','COP','OXY','MRO','MU','AVGO','INTC','LRCX','PLD','AMT','JNJ','ACN','TSM','V','ORCL','MA','BAC','BA','NFLX','ADBE','IBM','GME','NKE','ANGO','PNW','SHEL','XOM','WMT','BUD','AMZN','PEP','AMD','NVDA','AWR','TM','AAPL','GOOGL','META','MSFT','LMT','TSLA','DOV','PG','KO']))
-        print('Warm Start Training for:', warm_start_symbols)
-        predictor = await warm_start_training(warm_start_symbols, con, skip_downloading, save_data)
+        stock_symbols = cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 500E6 AND symbol NOT LIKE '%.%'") #list(set(['CB','LOW','PFE','RTX','DIS','MS','BHP','BAC','PG','BABA','ACN','TMO','LLY','XOM','JPM','UNH','COST','HD','ASML','BRK-A','BRK-B','CAT','TT','SAP','APH','CVS','NOG','DVN','COP','OXY','MRO','MU','AVGO','INTC','LRCX','PLD','AMT','JNJ','ACN','TSM','V','ORCL','MA','BAC','BA','NFLX','ADBE','IBM','GME','NKE','ANGO','PNW','SHEL','XOM','WMT','BUD','AMZN','PEP','AMD','NVDA','AWR','TM','AAPL','GOOGL','META','MSFT','LMT','TSLA','DOV','PG','KO']))
+        stock_symbols = [row[0] for row in cursor.fetchall()]
+        print('Training for:', stock_symbols)
+        predictor = await warm_start_training(stock_symbols, con, skip_downloading, save_data)
     else:
         # Fine-tuning and evaluation for all stocks
         cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 500E6 AND symbol NOT LIKE '%.%'")
