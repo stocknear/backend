@@ -149,44 +149,42 @@ async def get_upcoming_earnings(session):
 
 async def get_recent_earnings(session):
 	url = "https://api.benzinga.com/api/v2.1/calendar/earnings"
-	importance_list = ["3","4","5"]
 	res_list = []
-	for importance in importance_list:
-		querystring = {"token": benzinga_api_key,"parameters[importance]":importance,"parameters[date_from]":yesterday,"parameters[date_to]":today,"parameters[date_sort]":"date"}
-		try:
-			async with session.get(url, params=querystring, headers=headers) as response:
-				res = ujson.loads(await response.text())['earnings']
-				for item in res:
-					try:
-						symbol = item['ticker']
-						name = item['name']
-						time = item['time']
-						eps_prior = float(item['eps_prior']) if item['eps_prior'] != '' else 0
-						eps_surprise = float(item['eps_surprise']) if item['eps_surprise'] != '' else 0
-						eps = float(item['eps']) if item['eps'] != '' else 0
-						revenue_prior = float(item['revenue_prior']) if item['revenue_prior'] != '' else 0
-						revenue_surprise = float(item['revenue_surprise']) if item['revenue_surprise'] != '' else 0
-						revenue = float(item['revenue']) if item['revenue'] != '' else 0
-						if symbol in stock_symbols and revenue != 0 and revenue_prior != 0 and eps_prior != 0 and eps != 0 and revenue_surprise != 0 and eps_surprise != 0:
-							df = pd.read_sql_query(query_template, con, params=(symbol,))
-							market_cap = float(df['marketCap'].iloc[0]) if df['marketCap'].iloc[0] != '' else 0
-							res_list.append({
-								'symbol': symbol,
-								'name': name,
-								'time': time,
-								'marketCap': market_cap,
-								'epsPrior':eps_prior,
-								'epsSurprise': eps_surprise,
-								'eps': eps,
-								'revenuePrior': revenue_prior,
-								'revenueSurprise': revenue_surprise,
-								'revenue': revenue
-								})
-					except Exception as e:
-						print('Recent Earnings:', e)
-						pass
-		except Exception as e:
-			pass
+	querystring = {"token": benzinga_api_key,"parameters[date_from]":yesterday,"parameters[date_to]":today,"parameters[date_sort]":"date"}
+	try:
+		async with session.get(url, params=querystring, headers=headers) as response:
+			res = ujson.loads(await response.text())['earnings']
+			for item in res:
+				try:
+					symbol = item['ticker']
+					name = item['name']
+					time = item['time']
+					eps_prior = float(item['eps_prior']) if item['eps_prior'] != '' else 0
+					eps_surprise = float(item['eps_surprise']) if item['eps_surprise'] != '' else 0
+					eps = float(item['eps']) if item['eps'] != '' else 0
+					revenue_prior = float(item['revenue_prior']) if item['revenue_prior'] != '' else 0
+					revenue_surprise = float(item['revenue_surprise']) if item['revenue_surprise'] != '' else 0
+					revenue = float(item['revenue']) if item['revenue'] != '' else 0
+					if symbol in stock_symbols and revenue != 0 and revenue_prior != 0 and eps_prior != 0 and eps != 0 and revenue_surprise != 0 and eps_surprise != 0:
+						df = pd.read_sql_query(query_template, con, params=(symbol,))
+						market_cap = float(df['marketCap'].iloc[0]) if df['marketCap'].iloc[0] != '' else 0
+						res_list.append({
+							'symbol': symbol,
+							'name': name,
+							'time': time,
+							'marketCap': market_cap,
+							'epsPrior':eps_prior,
+							'epsSurprise': eps_surprise,
+							'eps': eps,
+							'revenuePrior': revenue_prior,
+							'revenueSurprise': revenue_surprise,
+							'revenue': revenue
+							})
+				except Exception as e:
+					print('Recent Earnings:', e)
+					pass
+	except Exception as e:
+		pass
 	res_list = remove_duplicates(res_list)
 	#res_list.sort(key=lambda x: x['marketCap'], reverse=True)
 	res_list.sort(key=lambda x: (-parse_time(x['time']).timestamp(), -x['marketCap']))
