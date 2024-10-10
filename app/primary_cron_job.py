@@ -371,7 +371,7 @@ schedule.every(10).minutes.do(run_threaded, run_tracker).tag('tracker_job')
 
 schedule.every(1).minutes.do(run_threaded, run_cron_quote).tag('quote_job')
 schedule.every(15).minutes.do(run_threaded, run_market_moods).tag('market_moods_job')
-schedule.every(30).minutes.do(run_threaded, run_earnings).tag('earnings_job')
+schedule.every(10).minutes.do(run_threaded, run_earnings).tag('earnings_job')
 #schedule.every(10).minutes.do(run_threaded, run_dark_pool_flow).tag('dark_pool_flow_job')
 
 schedule.every(2).hours.do(run_threaded, run_fda_calendar).tag('fda_calendar_job')

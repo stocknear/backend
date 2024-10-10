@@ -1103,57 +1103,58 @@ async def get_watchlist(data: GetWatchList, api_key: str = Security(get_api_key)
     watchlist_id = data['watchListId']
     result = pb.collection("watchlist").get_one(watchlist_id)
     ticker_list = result.ticker
-
-
+    rule_of_list = result.rule_of_list or []
+    print(rule_of_list)
     combined_results = []  # List to store the combined results
     combined_news = []
-    
-    for ticker in ticker_list:
-        ticker = ticker.upper()
+
+    def load_json(file_path):
+        try:
+            with open(file_path, 'rb') as file:
+                return orjson.loads(file.read())
+        except FileNotFoundError:
+            return None
+
+    # Categorize tickers and fetch data
+    for ticker in map(str.upper, ticker_list):
+        ticker_type = 'stock'
         if ticker in etf_symbols:
-            try:
-                with open(f"json/quote/{ticker}.json", 'rb') as file:
-                    quote_dict = orjson.loads(file.read())
-                    quote_dict['type'] = 'etf'
-                    combined_results.append(quote_dict)
-            except:
-                pass
-            try:
-                with open(f"json/market-news/companies/{ticker}.json", 'rb') as file:
-                    news_dict = orjson.loads(file.read())[0]
-                    combined_news.append(news_dict)
-            except:
-                pass
+            ticker_type = 'etf'
         elif ticker in crypto_symbols:
-            try:
-                with open(f"json/quote/{ticker}.json", 'rb') as file:
-                    quote_dict = orjson.loads(file.read())
-                    quote_dict['type'] = 'crypto'
-                    combined_results.append(quote_dict)
-            except:
-                pass
-            try:
-                with open(f"json/market-news/companies/{ticker}.json", 'rb') as file:
-                    news_dict = orjson.loads(file.read())[0]
-                    combined_news.append(news_dict)
-            except:
-                pass
-        else:
-            try:
-                with open(f"json/quote/{ticker}.json", 'rb') as file:
-                    quote_dict = orjson.loads(file.read())
-                    quote_dict['type'] = 'stock'
-                    combined_results.append(quote_dict)
-            except:
-                pass
-            try:
-                with open(f"json/market-news/companies/{ticker}.json", 'rb') as file:
-                    news_dict = orjson.loads(file.read())[0]
-                    combined_news.append(news_dict)
-            except:
-                pass
-    res = [combined_results, combined_news]
-    return res
+            ticker_type = 'crypto'
+
+        # Load quote data
+        quote_dict = load_json(f"json/quote/{ticker}.json")
+        if quote_dict:
+            quote_dict['type'] = ticker_type
+            combined_results.append(quote_dict)
+
+        # Load news data
+        news_dict = load_json(f"json/market-news/companies/{ticker}.json")
+        if news_dict:
+            combined_news.append(news_dict[0])
+
+    # Keys to always include in the combined results
+    always_include = ['symbol', 'name', 'price', 'changesPercentage']
+
+    try:
+        # Create a mapping of stock_screener_data based on symbol for fast lookup
+        screener_dict = {
+            item['symbol']: {key: item.get(key) for key in set(always_include + rule_of_list) if key in item}
+            for item in stock_screener_data
+        }
+
+        # Merge the filtered stock_screener_data into combined_results
+        for result in combined_results:
+            symbol = result.get('symbol')
+            if symbol in screener_dict:
+                result.update(screener_dict[symbol])
+
+    except Exception as e:
+        print(f"An error occurred while merging data: {e}")
+    print(combined_results)
+    return [combined_results, combined_news]
+
 
 def process_option_activity(item):
     item['put_call'] = 'Calls' if item['put_call'] == 'CALL' else 'Puts'
@@ -3206,7 +3207,6 @@ async def get_all_politician(api_key: str = Security(get_api_key)):
             media_type="application/json",
             headers={"Content-Encoding": "gzip"}
         )
-    
     
     try:
         with open(f"json/congress-trading/search_list.json", 'rb') as file:
