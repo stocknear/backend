@@ -1166,7 +1166,7 @@ async def get_watchlist(data: GetWatchList, api_key: str = Security(get_api_key)
             combined_news.append(news_dict[0])
 
     # Keys to always include in the combined results
-    always_include = ['symbol', 'name', 'price', 'changesPercentage', 'marketCap','eps','pe','score','revenue','netIncome','freeCashFlow']
+    always_include = ['eps','pe','score','revenue','netIncome','freeCashFlow']
 
     try:
         # Create a mapping of stock_screener_data based on symbol for fast lookup
