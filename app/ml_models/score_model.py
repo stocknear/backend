@@ -24,7 +24,8 @@ class ScorePredictor:
             learning_rate=0.001,
             max_depth=10,
             num_leaves=2**10-1,
-            n_jobs=10
+            n_jobs=10,
+            random_state=42
         )
         self.warm_start_model_path = 'ml_models/weights/ai-score/stacking_weights.pkl'
         #self.pca = PCA(n_components=3)
