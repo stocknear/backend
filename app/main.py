@@ -328,19 +328,6 @@ def replace_nan_inf_with_none(obj):
         return obj
 
 
-def clean_financial_data(list1, list2):
-    #combine income_statement with income_growth_statement
-    combined_list = []
-    for item1 in list1:
-        for item2 in list2:
-            if item1["date"] == item2["date"]:
-                combined_item = {**item1, **item2}  # Combine the dictionaries
-                combined_list.append(combined_item)
-                break
-    return combined_list
-
-
-
 @app.get("/")
 async def hello_world(api_key: str = Security(get_api_key)):
     return {"stocknear api"}

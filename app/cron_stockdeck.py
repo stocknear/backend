@@ -1,26 +1,12 @@
 import ujson
 import asyncio
-import aiohttp
 import sqlite3
-from datetime import datetime
-from rating import rating_model
 import pandas as pd
 from tqdm import tqdm
 
 async def save_stockdeck(symbol, data):
     with open(f"json/stockdeck/{symbol}.json", 'w') as file:
         ujson.dump(data, file)
-
-def clean_financial_data(self, list1, list2):
-    #combine income_statement with income_growth_statement
-    combined_list = []
-    for item1 in list1:
-        for item2 in list2:
-            if item1["date"] == item2["date"]:
-                combined_item = {**item1, **item2}  # Combine the dictionaries
-                combined_list.append(combined_item)
-                break
-    return combined_list
 
 query_template = """
     SELECT 

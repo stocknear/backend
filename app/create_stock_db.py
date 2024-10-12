@@ -100,17 +100,8 @@ class StockDatabase:
             urls = [
                 f"https://financialmodelingprep.com/api/v3/profile/{symbol}?apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v3/quote/{symbol}?apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v3/income-statement/{symbol}?period=annual&apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v3/income-statement-growth/{symbol}?period=annual&apikey={api_key}",
-                #f"https://financialmodelingprep.com/api/v4/esg-environmental-social-governance-data-ratings?symbol={symbol}&apikey={api_key}",
-                #f"https://financialmodelingprep.com/api/v4/esg-environmental-social-governance-data?symbol={symbol}&apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v3/historical-price-full/stock_dividend/{symbol}?limit=400&apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v4/historical/employee_count?symbol={symbol}&apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v3/balance-sheet-statement/{symbol}?period=annual&apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v3/balance-sheet-statement-growth/{symbol}?period=annual&apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v3/cash-flow-statement/{symbol}?period=annual&apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v3/cash-flow-statement-growth/{symbol}?period=annual&apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v3/ratios/{symbol}?period=annual&apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v3/historical-price-full/stock_split/{symbol}?apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v4/stock_peers?symbol={symbol}&apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v4/institutional-ownership/institutional-holders/symbol-ownership-percent?date={quarter_date}&symbol={symbol}&page=0&apikey={api_key}",
@@ -156,75 +147,11 @@ class StockDatabase:
                                         }
                             fundamental_data.update(data_dict)
 
-                        elif isinstance(parsed_data, list) and "income-statement/" in url:
-                            # Handle list response, save as JSON object
-                            fundamental_data['income'] = ujson.dumps(parsed_data)
-                            data_dict = {'revenue': parsed_data[0]['revenue'],
-                                        'netIncome': parsed_data[0]['netIncome'],
-                                        'grossProfit': parsed_data[0]['grossProfit'],
-                                        'costOfRevenue':parsed_data[0]['costOfRevenue'],
-                                        'costAndExpenses':parsed_data[0]['costAndExpenses'],
-                                        'interestIncome':parsed_data[0]['interestIncome'],
-                                        'interestExpense':parsed_data[0]['interestExpense'],
-                                        'researchAndDevelopmentExpenses':parsed_data[0]['researchAndDevelopmentExpenses'],
-                                        'ebitda':parsed_data[0]['ebitda'],
-                                        'ebitdaratio':parsed_data[0]['ebitdaratio'],
-                                        'depreciationAndAmortization':parsed_data[0]['depreciationAndAmortization'],
-                                        'operatingIncome':parsed_data[0]['operatingIncome'],
-                                        'operatingExpenses':parsed_data[0]['operatingExpenses']
-                                        }
-                            fundamental_data.update(data_dict)
-                        elif isinstance(parsed_data, list) and "/v3/ratios/" in url:
-                            fundamental_data['ratios'] = ujson.dumps(parsed_data)
-                            data_dict = {'payoutRatio': parsed_data[0]['payoutRatio'],
-                                        'priceToBookRatio': parsed_data[0]['priceToBookRatio'],
-                                        'dividendPayoutRatio': parsed_data[0]['dividendPayoutRatio'],
-                                        'priceToSalesRatio':parsed_data[0]['priceToSalesRatio'],
-                                        'priceEarningsRatio':parsed_data[0]['priceEarningsRatio'],
-                                        'priceCashFlowRatio':parsed_data[0]['priceCashFlowRatio'],
-                                        'priceSalesRatio':parsed_data[0]['priceSalesRatio'],
-                                        'dividendYield':parsed_data[0]['dividendYield'],
-                                        'cashFlowToDebtRatio':parsed_data[0]['cashFlowToDebtRatio'],
-                                        'freeCashFlowPerShare':parsed_data[0]['freeCashFlowPerShare'],
-                                        'cashPerShare':parsed_data[0]['cashPerShare'],
-                                        }
-                            fundamental_data.update(data_dict)
-
-                        elif isinstance(parsed_data, list) and "balance-sheet-statement/" in url:
-                            # Handle list response, save as JSON object
-                            fundamental_data['balance'] = ujson.dumps(parsed_data)
-                        elif isinstance(parsed_data, list) and "cash-flow-statement/" in url:
-                            # Handle list response, save as JSON object
-                            fundamental_data['cashflow'] = ujson.dumps(parsed_data)
-
                         elif isinstance(parsed_data, list) and "sector-benchmark" in url:
                             # Handle list response, save as JSON object
                             fundamental_data['esg_sector_benchmark'] = ujson.dumps(parsed_data)
-                        elif isinstance(parsed_data, list) and "income-statement-growth/" in url:
-                            # Handle list response, save as JSON object
-                            fundamental_data['income_growth'] = ujson.dumps(parsed_data)
-                            data_dict = {'growthRevenue': parsed_data[0]['growthRevenue']*100,
-                                        'growthNetIncome': parsed_data[0]['growthNetIncome']*100,
-                                        'growthGrossProfit': parsed_data[0]['growthGrossProfit']*100,
-                                        'growthCostOfRevenue':parsed_data[0]['growthCostOfRevenue']*100,
-                                        'growthCostAndExpenses':parsed_data[0]['growthCostAndExpenses']*100,
-                                        'growthInterestExpense':parsed_data[0]['growthInterestExpense']*100,
-                                        'growthResearchAndDevelopmentExpenses':parsed_data[0]['growthResearchAndDevelopmentExpenses']*100,
-                                        'growthEBITDA':parsed_data[0]['growthEBITDA']*100,
-                                        'growthEBITDARatio':parsed_data[0]['growthEBITDARatio']*100,
-                                        'growthDepreciationAndAmortization':parsed_data[0]['growthDepreciationAndAmortization']*100,
-                                        'growthEPS':parsed_data[0]['growthEPS']*100,
-                                        'growthOperatingIncome':parsed_data[0]['growthOperatingIncome']*100,
-                                        'growthOperatingExpenses':parsed_data[0]['growthOperatingExpenses']*100
-                                        }
 
                             fundamental_data.update(data_dict)
-                        elif isinstance(parsed_data, list) and "balance-sheet-statement-growth/" in url:
-                            # Handle list response, save as JSON object
-                            fundamental_data['balance_growth'] = ujson.dumps(parsed_data)
-                        elif isinstance(parsed_data, list) and "cash-flow-statement-growth/" in url:
-                            # Handle list response, save as JSON object
-                            fundamental_data['cashflow_growth'] = ujson.dumps(parsed_data)
                        
                         elif "stock_dividend" in url:
                             # Handle list response, save as JSON object
@@ -291,9 +218,9 @@ class StockDatabase:
             ticker_type = stock.get('type', '')
             if exchange_short_name in ['XETRA','NYSE', 'NASDAQ','AMEX', 'PNK','EURONEXT'] and ticker_type in ['stock']:
                 symbol = stock.get('symbol', '')
-                if exchange_short_name == 'PNK' and symbol not in ['DRSHF','NTDOY','OTGLF','TCEHY', 'KRKNF','BYDDY','XIACY','NSRGY']:
+                if exchange_short_name == 'PNK' and symbol not in ['DRSHF','NTDOY','OTGLF','TCEHY', 'KRKNF','BYDDY','XIACY','NSRGY','TLPFY','TLPFF']:
                     pass
-                elif exchange_short_name == 'EURONEXT' and symbol not in ['ALEUP.PA','ALNEV.PA','ALGAU.PA','ALDRV.PA','ALHYG.PA','ALVMG.PA']:
+                elif exchange_short_name == 'EURONEXT' and symbol not in ['ALEUP.PA','ALNEV.PA','ALGAU.PA','ALDRV.PA','ALHYG.PA','ALVMG.PA','TEP.PA']:
                     pass
                 else:
                     name = stock.get('name', '')
@@ -343,7 +270,7 @@ class StockDatabase:
                 tasks.append(self.save_fundamental_data(session, symbol))
 
                 i += 1
-                if i % 60 == 0:
+                if i % 30 == 0:
                     await asyncio.gather(*tasks)
                     tasks = []
                     print('sleeping mode: ', i)
@@ -374,7 +301,7 @@ class StockDatabase:
             self._create_ticker_table(symbol)  # Ensure the table exists
 
             # Fetch OHLC data from the API
-            url = f"https://financialmodelingprep.com/api/v3/historical-price-full/{symbol}?serietype=bar&from={start_date}&to={end_date}&apikey={api_key}"
+            url = f"https://financialmodelingprep.com/api/v3/historical-price-full/{symbol}?serietype=bar&from={start_date}&apikey={api_key}"
             async with session.get(url) as response:
                 data = await response.text()
             
