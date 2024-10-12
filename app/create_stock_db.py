@@ -273,7 +273,7 @@ class StockDatabase:
                 if i % 60 == 0:
                     await asyncio.gather(*tasks)
                     tasks = []
-                    print('sleeping mode: ', i)
+                    print('sleeping mode 30 seconds')
                     await asyncio.sleep(30)  # Pause for 60 seconds
 
             

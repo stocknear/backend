@@ -1999,7 +1999,7 @@ async def historical_sector_price(data:FilterStockList, api_key: str = Security(
 
 
 @app.post("/filter-stock-list")
-async def filter_stock_list(data:FilterStockList, api_key: str = Security(get_api_key)):
+async def filter_stock_list(data: FilterStockList, api_key: str = Security(get_api_key)):
     data = data.dict()
     filter_list = data['filterList']
     cache_key = f"filter-list-{filter_list}"
@@ -2012,7 +2012,7 @@ async def filter_stock_list(data:FilterStockList, api_key: str = Security(get_ap
     cursor.execute("PRAGMA journal_mode = wal")
 
     base_query = """
-        SELECT symbol, name, price, changesPercentage, marketCap, revenue, netIncome
+        SELECT symbol, name, price, changesPercentage, marketCap
         FROM stocks 
         WHERE (price IS NOT NULL OR changesPercentage IS NOT NULL) 
         AND {}
@@ -2064,16 +2064,25 @@ async def filter_stock_list(data:FilterStockList, api_key: str = Security(get_ap
             'price': price,
             'changesPercentage': changesPercentage,
             'marketCap': marketCap,
-            'revenue': revenue,
-            'netIncome': netIncome
-        } for (symbol, name, price, changesPercentage, marketCap, revenue, netIncome) in raw_data]
+            'revenue': None,    # Placeholder for revenue
+            'netIncome': None   # Placeholder for netIncome
+        } for (symbol, name, price, changesPercentage, marketCap) in raw_data]
 
-    # Update res_list with dividendYield
+    # Create the dictionary keyed by symbol for revenue and netIncome
+    stock_screener_data_dict = {item['symbol']: item for item in stock_screener_data}
+    
+    # Update revenue and netIncome for each item in res_list
+    for item in res_list:
+        symbol = item['symbol']
+        if symbol in stock_screener_data_dict:
+            item['revenue'] = stock_screener_data_dict[symbol].get('revenue', None)
+            item['netIncome'] = stock_screener_data_dict[symbol].get('netIncome', None)
+    
+    # Optional: Filter or process the list further, e.g., for REITs as in your original code.
     if filter_list == 'reit':
-        # Create the dictionary keyed by symbol
-        stock_screener_data_dict = {item['symbol']: item for item in stock_screener_data}
-        
-        # Update dividendYield for each item in res_list
+        # No filtering based on dividendYield
+        # This includes all REITs in the list regardless of their dividendYield
+        # Simply check if the item is in the REIT condition
         for item in res_list:
             symbol = item['symbol']
             if symbol in stock_screener_data_dict:
@@ -2081,9 +2090,7 @@ async def filter_stock_list(data:FilterStockList, api_key: str = Security(get_ap
         
         # Remove elements where dividendYield is None
         res_list = [item for item in res_list if item.get('dividendYield') is not None]
-
-
-
+        
     sorted_res_list = sorted(res_list, key=lambda x: x['marketCap'], reverse=True)
 
     # Cache the result
@@ -2091,6 +2098,7 @@ async def filter_stock_list(data:FilterStockList, api_key: str = Security(get_ap
     redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
 
     return sorted_res_list
+
 
 
 def remove_text_before_operator(text):

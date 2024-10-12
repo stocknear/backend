@@ -683,7 +683,7 @@ async def get_dividends_calendar(con,symbols):
         #Database read 1y and 3y data
         query_template = """
             SELECT 
-                name, marketCap, revenue
+                name, marketCap
             FROM 
                 stocks 
             WHERE
@@ -699,10 +699,15 @@ async def get_dividends_calendar(con,symbols):
             for entry in filtered_data:
                 try:
                     symbol = entry['symbol']
+                    try:
+                        with open(f"json/financial-statements/income-statement/annual/{symbol}.json", 'rb') as file:
+                            entry['revenue'] = orjson.loads(file.read())[0]['revenue']
+                    except:
+                        entry['revenue'] = None
+
                     data = pd.read_sql_query(query_template, con, params=(symbol,))
                     entry['name'] = data['name'].iloc[0]
                     entry['marketCap'] = int(data['marketCap'].iloc[0])
-                    entry['revenue'] = int(data['revenue'].iloc[0])
                 except:
                     entry['name'] = 'n/a'
                     entry['marketCap'] = None
@@ -734,7 +739,7 @@ async def get_earnings_calendar(con, symbols):
 
         query_template = """
             SELECT 
-                name,marketCap,revenue,eps
+                name,marketCap,eps
             FROM 
                 stocks 
             WHERE
@@ -749,10 +754,15 @@ async def get_earnings_calendar(con, symbols):
             for entry in filtered_data:
                 try:
                     symbol = entry['symbol']
+                    try:
+                        with open(f"json/financial-statements/income-statement/annual/{symbol}.json", 'rb') as file:
+                            entry['revenue'] = orjson.loads(file.read())[0]['revenue']
+                    except:
+                        entry['revenue'] = None
+
                     fundamental_data = pd.read_sql_query(query_template, con, params=(symbol,))
                     entry['name'] = fundamental_data['name'].iloc[0]
                     entry['marketCap'] = int(fundamental_data['marketCap'].iloc[0])
-                    entry['revenue'] = int(fundamental_data['revenue'].iloc[0])
                     entry['eps'] = float(fundamental_data['eps'].iloc[0])
                 except:
                     entry['marketCap'] = 'n/a'
@@ -810,7 +820,7 @@ async def get_stock_splits_calendar(con,symbols):
         #Database read 1y and 3y data
         query_template = """
             SELECT 
-                name, marketCap,eps, revenue, netIncome
+                name, marketCap,eps
             FROM 
                 stocks 
             WHERE
@@ -826,17 +836,14 @@ async def get_stock_splits_calendar(con,symbols):
             for entry in filtered_data:
                 try:
                     symbol = entry['symbol']
+
                     data = pd.read_sql_query(query_template, con, params=(symbol,))
                     entry['name'] = data['name'].iloc[0]
                     entry['marketCap'] = int(data['marketCap'].iloc[0])
-                    entry['revenue'] = int(data['revenue'].iloc[0])
-                    entry['netIncome'] = int(data['netIncome'].iloc[0])
                     entry['eps'] = float(data['eps'].iloc[0])
                 except:
                     entry['name'] = 'n/a'
                     entry['marketCap'] = None
-                    entry['revenue'] = None
-                    entry['netIncome'] = None
                     entry['eps'] = None
 
     filtered_data = [d for d in filtered_data if d['symbol'] in symbols]
@@ -1157,7 +1164,7 @@ async def get_index_list(con,symbols, index_list):
 
         query_template = """
             SELECT 
-                price, changesPercentage, marketCap, revenue, netIncome
+                price, changesPercentage, marketCap
             FROM 
                 stocks 
             WHERE
@@ -1172,12 +1179,12 @@ async def get_index_list(con,symbols, index_list):
 
             res_list = []
             for entry in filtered_data:
+                symbol = entry['symbol']
+
                 query_data = pd.read_sql_query(query_template, con, params=(entry['symbol'],))
 
-                if query_data['marketCap'].iloc[0] != None and query_data['revenue'].iloc[0] !=None and query_data['price'].iloc[0] != None and query_data['changesPercentage'].iloc[0] != None:
+                if query_data['marketCap'].iloc[0] != None and query_data['price'].iloc[0] != None and query_data['changesPercentage'].iloc[0] != None:
                     entry['marketCap'] = int(query_data['marketCap'].iloc[0])
-                    entry['revenue'] = int(query_data['revenue'].iloc[0])
-                    entry['netIncome'] = int(query_data['netIncome'].iloc[0])
                     entry['price'] = round(float(query_data['price'].iloc[0]),2)
                     entry['changesPercentage'] = round(float(query_data['changesPercentage'].iloc[0]),2)
                     res_list.append(entry)
@@ -1539,15 +1546,25 @@ async def get_magnificent_seven(con):
     
     query_template = """
         SELECT 
-            symbol, name, price, changesPercentage, revenue, netIncome, marketCap,pe
+            symbol, name, price, changesPercentage, marketCap,pe
         FROM 
             stocks 
         WHERE
             symbol = ?
     """
+    
     res_list = []
     for symbol in symbol_list:
         try:
+            try:
+                with open(f"json/financial-statements/income-statement/annual/{symbol}.json", 'rb') as file:
+                    json_data = orjson.loads(file.read())[0]
+                    revenue = json_data['revenue']
+                    netIncome = json_data['netIncome']
+            except:
+                revenue = None
+                netIncome = None
+
             data = pd.read_sql_query(query_template, con, params=(symbol,))
             
             name = data['name'].iloc[0]
@@ -1555,8 +1572,6 @@ async def get_magnificent_seven(con):
             price = round(float(data['price'].iloc[0]),2)
             changesPercentage = round(float(data['changesPercentage'].iloc[0]),2)
             marketCap = int(data['marketCap'].iloc[0])
-            revenue = int(data['revenue'].iloc[0])
-            netIncome = int(data['netIncome'].iloc[0])
             pe = round(float(data['pe'].iloc[0]),2)
 
             res_list.append({'symbol': symbol, 'name': name, 'price': price, \
@@ -1849,7 +1864,8 @@ async def save_json_files():
     crypto_cursor.execute("SELECT DISTINCT symbol FROM cryptos")
     crypto_symbols = [row[0] for row in crypto_cursor.fetchall()]
 
-    
+
+
     
     stock_screener_data = await get_stock_screener(con)
     with open(f"json/stock-screener/data.json", 'w') as file:
@@ -1859,6 +1875,10 @@ async def save_json_files():
     if len(economic_list) > 0:
         with open(f"json/economic-calendar/calendar.json", 'w') as file:
             ujson.dump(economic_list, file)
+
+    dividends_list = await get_dividends_calendar(con,symbols)
+    with open(f"json/dividends-calendar/calendar.json", 'w') as file:
+        ujson.dump(dividends_list, file)
 
 
     earnings_list = await get_earnings_calendar(con,symbols)
@@ -1873,11 +1893,6 @@ async def save_json_files():
     
     data = await get_congress_rss_feed(symbols, etf_symbols, crypto_symbols)
     with open(f"json/congress-trading/rss-feed/data.json", 'w') as file:
-        ujson.dump(data, file)
-
-    
-    data = await get_magnificent_seven(con)
-    with open(f"json/magnificent-seven/data.json", 'w') as file:
         ujson.dump(data, file)
     
     data = await get_ipo_calendar(con, symbols)
@@ -1910,9 +1925,6 @@ async def save_json_files():
     with open(f"json/delisted-companies/data.json", 'w') as file:
         ujson.dump(delisted_data, file)
 
-    dividends_list = await get_dividends_calendar(con,symbols)
-    with open(f"json/dividends-calendar/calendar.json", 'w') as file:
-        ujson.dump(dividends_list, file)
             
     stock_splits_data = await get_stock_splits_calendar(con,symbols)
     with open(f"json/stock-splits-calendar/calendar.json", 'w') as file:
@@ -1930,8 +1942,10 @@ async def save_json_files():
     data = await get_index_list(con,symbols,'sp500_constituent')
     with open(f"json/stocks-list/sp500_constituent.json", 'w') as file:
         ujson.dump(data, file)
-
     
+    data = await get_magnificent_seven(con)
+    with open(f"json/magnificent-seven/data.json", 'w') as file:
+        ujson.dump(data, file)
 
     con.close()
     etf_con.close()
