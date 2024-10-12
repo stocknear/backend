@@ -270,11 +270,11 @@ class StockDatabase:
                 tasks.append(self.save_fundamental_data(session, symbol))
 
                 i += 1
-                if i % 30 == 0:
+                if i % 60 == 0:
                     await asyncio.gather(*tasks)
                     tasks = []
                     print('sleeping mode: ', i)
-                    await asyncio.sleep(60)  # Pause for 60 seconds
+                    await asyncio.sleep(30)  # Pause for 60 seconds
 
             
             if tasks:
