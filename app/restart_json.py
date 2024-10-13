@@ -130,7 +130,7 @@ def process_financial_data(file_path, key_list):
                 if key in res:
                     try:
                         value = float(res[key])
-                        if 'growth' in file_path or key in ['grossProfitMargin','netProfitMargin','pretaxProfitMargin','operatingProfitMargin']:
+                        if 'growth' in file_path or key in ['grossProfitMargin','netProfitMargin','pretaxProfitMargin','operatingProfitMargin','longTermDebtToCapitalization','totalDebtToCapitalization']:
                             value *= 100  # Multiply by 100 for percentage
                         data[key] = round(value, 2)
                     except (ValueError, TypeError):
@@ -363,11 +363,19 @@ def get_financial_statements(item, symbol):
         item['returnOnInvestedCapital'] = round((nopat / invested_capital)*100,2) if invested_capital != 0 else None
     except:
         item['returnOnInvestedCapital'] = None
-
     try:
         item['researchDevelopmentRevenueRatio'] = round((item['researchAndDevelopmentExpenses'] / item['revenue']) * 100,2)
     except:
         item['researchDevelopmentRevenueRatio'] = None
+    try:
+        item['shortTermDebtToCapitalization'] = round((item['shortTermDebt'] / item['marketCap']) * 100,1)
+    except:
+        item['shortTermDebtToCapitalization'] = None
+    try:
+        item['interestIncomeToCapitalization'] = round((item['interestIncome'] / item['marketCap']) * 100,1)
+    except:
+        item['interestIncomeToCapitalization'] = None
+    
 
     return item
 
