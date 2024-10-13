@@ -460,7 +460,18 @@ data = {
         'text': 'Working capital is the amount of money available to a business to conduct its day-to-day operations. It is calculated by subtracting total current liabilities from total current assets.',
         'equation': 'Working Capital = Current Assets - Current Liabilities'
     },
-
+    'shortTermDebtToCapitalization': {
+        'text': 'Short-term debt to capitalization is a financial ratio that measures the proportion of a company’s short-term debt relative to its total capitalization. It indicates how much of the company’s capital structure is made up of short-term debt, which needs to be repaid within a year.',
+    },
+    'longTermDebtToCapitalization': {
+        'text': 'Long-term debt to capitalization is a financial ratio that measures the proportion of a company’s long-term debt relative to its total capitalization. This ratio reflects the extent to which a company’s capital structure is funded by long-term debt, typically due after one year.',
+    },
+    'interestIncomeToCapitalization': {
+        'text': 'Interest income to capitalization is a financial ratio that measures the proportion of a company’s interest income relative to its total capitalization. It helps assess how much of a company’s capital is being generated through interest-bearing assets, indicating reliance on interest income for funding its capital structure.',
+    },
+    'interestDebtPerShare': {
+        'text': 'Interest debt per share is a financial metric that calculates the amount of interest-bearing debt attributed to each outstanding share of a company’s stock. It provides insight into the level of debt burden carried by each share, indicating potential financial risk to shareholders.',
+    },
 
 
 
