@@ -379,6 +379,44 @@ def get_financial_statements(item, symbol):
 
     return item
 
+def get_halal_compliant(item, debt_threshold=30, interest_threshold=30, revenue_threshold=5, liquidity_threshold=30, forbidden_industries=None):
+    # Set default forbidden industries if not provided
+    if forbidden_industries is None:
+        forbidden_industries = {'Alcohol', 'Equity', 'Palantir','Holding', 'Acquisition','Tobacco', 'Gambling', 'Weapons', 'Pork', 'Aerospace', 'Defense', 'Asset', 'Banks'}
+
+    # Ensure all required fields are present
+    required_fields = [
+        'longTermDebtToCapitalization', 
+        'shortTermDebtToCapitalization', 
+        'interestIncomeToCapitalization', 
+        'cashAndCashEquivalents',  # Field for liquidity
+        'totalAssets',  # Field for liquidity
+        'name', 
+        'industry',
+        'country',
+    ]
+    for field in required_fields:
+        if field not in item:
+            halal_compliant = None  # In case of missing data
+            return halal_compliant
+
+    # Calculate liquidity ratio
+    liquidity_ratio = (item['cashAndCashEquivalents'] / item['totalAssets']) * 100
+
+    # Apply halal-compliance checks
+    if (item['country'] == 'United States'
+        and item['longTermDebtToCapitalization'] < debt_threshold
+        and item['shortTermDebtToCapitalization'] < debt_threshold
+        and item['interestIncomeToCapitalization'] < interest_threshold
+        and liquidity_ratio < liquidity_threshold  # Liquidity ratio check
+        and not any(sector in item['name'] for sector in forbidden_industries)
+        and not any(industry in item['industry'] for industry in forbidden_industries)):
+
+        halal_compliant = 'Compliant'
+    else:
+        halal_compliant = 'Non-Compliant'
+    return halal_compliant
+
 def get_country_name(country_code):
     for country in country_list:
         if country['short'] == country_code:
@@ -667,6 +705,12 @@ async def get_stock_screener(con):
                         break  # Exit the loop once the desired item is found
         except:
             item['forwardPS'] = None
+
+        try:
+            item['halalStocks'] = get_halal_compliant(item)
+            print(item['halalStocks'])
+        except:
+            item['halalStocks'] = None
 
     return stock_screener_data
 
