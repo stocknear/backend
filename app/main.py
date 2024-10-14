@@ -230,6 +230,7 @@ class TranscriptData(BaseModel):
 
 class GetWatchList(BaseModel):
     watchListId: str
+    ruleOfList: list
 
 class EditWatchList(BaseModel):
     watchListId: str
@@ -300,8 +301,8 @@ class StockScreenerData(BaseModel):
     ruleOfList: List[str]
 
 class IndicatorListData(BaseModel):
-    ruleOfList: List[str]
-    tickerList: List[str]
+    ruleOfList: list
+    tickerList: list
 
 class TransactionId(BaseModel):
     transactionId: str
@@ -1092,21 +1093,66 @@ async def get_analyst_ticke_history(data: TickerData, api_key: str = Security(ge
 async def get_indicator_data(data: IndicatorListData, api_key: str = Security(get_api_key)):
     rule_of_list = data.ruleOfList
     ticker_list = data.tickerList
-    always_include = ['symbol','name','price','changesPercentage']
+    combined_results = []  # List to store the combined results
+    print(rule_of_list)
+    # Keys that should be read from the quote files if they are in rule_of_list
+    quote_keys_to_include = ['volume', 'marketCap', 'changesPercentage', 'price', 'symbol', 'name']
+
+    def load_json(file_path):
+        try:
+            with open(file_path, 'rb') as file:
+                return orjson.loads(file.read())
+        except FileNotFoundError:
+            return None
+
+    # Ensure rule_of_list contains valid keys (fall back to defaults if necessary)
+    if not rule_of_list or not isinstance(rule_of_list, list):
+        rule_of_list = quote_keys_to_include  # Default keys
+
+    # Make sure 'symbol' and 'name' are always included in the rule_of_list
+    if 'symbol' not in rule_of_list:
+        rule_of_list.append('symbol')
+    if 'name' not in rule_of_list:
+        rule_of_list.append('name')
+
+    # Categorize tickers and fetch data
+    for ticker in map(str.upper, ticker_list):
+        ticker_type = 'stock'
+        if ticker in etf_symbols:
+            ticker_type = 'etf'
+        elif ticker in crypto_symbols:
+            ticker_type = 'crypto'
+
+        # Load quote data and filter to include only selected keys from rule_of_list
+        quote_dict = load_json(f"json/quote/{ticker}.json")
+        if quote_dict:
+            filtered_quote = {key: quote_dict.get(key) for key in rule_of_list if key in quote_dict}
+            filtered_quote['type'] = ticker_type  # Include ticker type
+            combined_results.append(filtered_quote)
+
+
     try:
-        filtered_data = [
-            {key: item.get(key) for key in set(always_include+rule_of_list) if key in item}
+        # Filter out the keys that need to be fetched from the screener
+        screener_keys = [key for key in rule_of_list if key not in quote_keys_to_include]
+
+        # Create a mapping of stock_screener_data based on symbol for fast lookup
+        screener_dict = {
+            item['symbol']: {key: item.get(key) for key in screener_keys if key in item}
             for item in stock_screener_data
-            if item.get('symbol') in ticker_list  # Filter for specific tickers
-        ]
+        }
+
+        # Merge the filtered stock_screener_data into combined_results for non-quote keys
+        for result in combined_results:
+            symbol = result.get('symbol')
+            if symbol in screener_dict:
+                result.update(screener_dict[symbol])
+
     except Exception as e:
-        print(e)
-        filtered_data = []
-
-    # Compress the JSON data
-    res = orjson.dumps(filtered_data)
+        print(f"An error occurred while merging data: {e}")
+    print(combined_results)
+    res = orjson.dumps(combined_results)
     compressed_data = gzip.compress(res)
-
+    
     return StreamingResponse(
         io.BytesIO(compressed_data),
         media_type="application/json",
@@ -1118,10 +1164,14 @@ async def get_indicator_data(data: IndicatorListData, api_key: str = Security(ge
 async def get_watchlist(data: GetWatchList, api_key: str = Security(get_api_key)):
     data = data.dict()
     watchlist_id = data['watchListId']
+    rule_of_list = data['ruleOfList']  # Ensure this is passed as part of the request
     result = pb.collection("watchlist").get_one(watchlist_id)
     ticker_list = result.ticker
     combined_results = []  # List to store the combined results
     combined_news = []
+
+    # Keys that should be read from the quote files if they are in rule_of_list
+    quote_keys_to_include = ['volume', 'marketCap', 'changesPercentage', 'price', 'symbol', 'name']
 
     def load_json(file_path):
         try:
@@ -1130,7 +1180,15 @@ async def get_watchlist(data: GetWatchList, api_key: str = Security(get_api_key)
         except FileNotFoundError:
             return None
 
-    quote_keys_to_include = ['volume', 'marketCap', 'changesPercentage', 'price', 'symbol', 'name']
+    # Ensure rule_of_list contains valid keys (fall back to defaults if necessary)
+    if not rule_of_list or not isinstance(rule_of_list, list):
+        rule_of_list = quote_keys_to_include  # Default keys
+
+    # Make sure 'symbol' and 'name' are always included in the rule_of_list
+    if 'symbol' not in rule_of_list:
+        rule_of_list.append('symbol')
+    if 'name' not in rule_of_list:
+        rule_of_list.append('name')
 
     # Categorize tickers and fetch data
     for ticker in map(str.upper, ticker_list):
@@ -1140,10 +1198,10 @@ async def get_watchlist(data: GetWatchList, api_key: str = Security(get_api_key)
         elif ticker in crypto_symbols:
             ticker_type = 'crypto'
 
-        # Load quote data and filter to include only selected keys
+        # Load quote data and filter to include only selected keys from rule_of_list
         quote_dict = load_json(f"json/quote/{ticker}.json")
         if quote_dict:
-            filtered_quote = {key: quote_dict.get(key) for key in quote_keys_to_include}
+            filtered_quote = {key: quote_dict.get(key) for key in rule_of_list if key in quote_dict}
             filtered_quote['type'] = ticker_type  # Include ticker type
             combined_results.append(filtered_quote)
 
@@ -1152,17 +1210,17 @@ async def get_watchlist(data: GetWatchList, api_key: str = Security(get_api_key)
         if news_dict:
             combined_news.append(news_dict[0])
 
-    # Keys to always include in the combined results
-    always_include = ['eps','pe','score','revenue','netIncome','freeCashFlow']
-
     try:
+        # Filter out the keys that need to be fetched from the screener
+        screener_keys = [key for key in rule_of_list if key not in quote_keys_to_include]
+
         # Create a mapping of stock_screener_data based on symbol for fast lookup
         screener_dict = {
-            item['symbol']: {key: item.get(key) for key in set(always_include) if key in item}
+            item['symbol']: {key: item.get(key) for key in screener_keys if key in item}
             for item in stock_screener_data
         }
 
-        # Merge the filtered stock_screener_data into combined_results
+        # Merge the filtered stock_screener_data into combined_results for non-quote keys
         for result in combined_results:
             symbol = result.get('symbol')
             if symbol in screener_dict:
@@ -1174,7 +1232,7 @@ async def get_watchlist(data: GetWatchList, api_key: str = Security(get_api_key)
     res = {'data': combined_results, 'news': combined_news}
     res = orjson.dumps(res)
     compressed_data = gzip.compress(res)
-    print(combined_results)
+    
     return StreamingResponse(
         io.BytesIO(compressed_data),
         media_type="application/json",

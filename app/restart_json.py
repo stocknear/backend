@@ -708,7 +708,6 @@ async def get_stock_screener(con):
 
         try:
             item['halalStocks'] = get_halal_compliant(item)
-            print(item['halalStocks'])
         except:
             item['halalStocks'] = None
 
