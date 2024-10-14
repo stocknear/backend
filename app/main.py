@@ -1174,7 +1174,7 @@ async def get_watchlist(data: GetWatchList, api_key: str = Security(get_api_key)
     res = {'data': combined_results, 'news': combined_news}
     res = orjson.dumps(res)
     compressed_data = gzip.compress(res)
-
+    print(combined_results)
     return StreamingResponse(
         io.BytesIO(compressed_data),
         media_type="application/json",

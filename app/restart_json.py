@@ -401,7 +401,7 @@ async def get_stock_screener(con):
 
     #Stock Screener Data
     
-    cursor.execute("SELECT symbol, name, change_1W, change_1M, change_3M, change_6M, change_1Y, change_3Y, sma_20, sma_50, sma_100, sma_200, ema_20, ema_50, ema_100, ema_200, rsi, atr, stoch_rsi, mfi, cci, pe, marketCap, beta FROM stocks WHERE symbol NOT LIKE '%.%' AND eps IS NOT NULL AND marketCap IS NOT NULL AND beta IS NOT NULL")
+    cursor.execute("SELECT symbol, name, change_1W, change_1M, change_3M, change_6M, change_1Y, change_3Y, sma_20, sma_50, sma_100, sma_200, ema_20, ema_50, ema_100, ema_200, rsi, atr, stoch_rsi, mfi, cci, beta FROM stocks WHERE symbol NOT LIKE '%.%' AND eps IS NOT NULL AND marketCap IS NOT NULL AND beta IS NOT NULL")
     raw_data = cursor.fetchall()
     stock_screener_data = [{
             'symbol': symbol,
@@ -425,15 +425,13 @@ async def get_stock_screener(con):
             'stochRSI': stoch_rsi,
             'mfi': mfi,
             'cci': cci,
-            'pe': pe,
-            'marketCap': marketCap,
             'beta': beta,
-        } for (symbol, name, change_1W, change_1M, change_3M, change_6M, change_1Y, change_3Y, sma_20, sma_50, sma_100, sma_200, ema_20, ema_50, ema_100, ema_200, rsi, atr, stoch_rsi, mfi, cci, pe, marketCap, beta) in raw_data]
+        } for (symbol, name, change_1W, change_1M, change_3M, change_6M, change_1Y, change_3Y, sma_20, sma_50, sma_100, sma_200, ema_20, ema_50, ema_100, ema_200, rsi, atr, stoch_rsi, mfi, cci, beta) in raw_data]
 
     stock_screener_data = [{k: round(v, 2) if isinstance(v, (int, float)) else v for k, v in entry.items()} for entry in stock_screener_data]
 
    
-    cursor.execute("SELECT symbol, name, change_1W, change_1M, change_3M, change_6M, change_1Y, change_3Y, sma_50, sma_200, ema_50, ema_200, rsi, atr, stoch_rsi, mfi, cci, pe, marketCap, beta FROM stocks WHERE symbol NOT LIKE '%.%' AND eps IS NOT NULL AND marketCap IS NOT NULL AND beta IS NOT NULL")
+    cursor.execute("SELECT symbol, name, change_1W, change_1M, change_3M, change_6M, change_1Y, change_3Y, sma_50, sma_200, ema_50, ema_200, rsi, atr, stoch_rsi, mfi, cci, beta FROM stocks WHERE symbol NOT LIKE '%.%' AND eps IS NOT NULL AND marketCap IS NOT NULL AND beta IS NOT NULL")
     raw_data = cursor.fetchall()
 
     # Iterate through stock_screener_data and update 'price' and 'changesPercentage' if symbols match
@@ -449,12 +447,16 @@ async def get_stock_screener(con):
                 item['avgVolume'] = int(res['avgVolume'])
                 item['volume'] = int(res['volume'])
                 item['relativeVolume'] = round(( item['volume'] / item['avgVolume'] )*100,2)
+                item['pe'] = round(float(res['pe']),2)
+                item['marketCap'] = int(res['marketCap'])
         except:
             item['price'] = None
             item['changesPercentage'] = None
             item['avgVolume'] = None
             item['volume'] = None
             item['relativeVolume'] = None
+            item['pe'] = None
+            item['marketCap'] = None
 
         try:
             with open(f"json/stockdeck/{symbol}.json", 'r') as file:
