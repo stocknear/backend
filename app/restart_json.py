@@ -771,84 +771,97 @@ async def get_dividends_calendar(con,symbols):
     return filtered_data
 
 
-async def get_earnings_calendar(con, symbols):
 
+async def get_earnings_calendar(con, stock_symbols):
+    def remove_duplicates(elements):
+        seen = set()
+        unique_elements = []
+        for element in elements:
+            if element['symbol'] not in seen:
+                seen.add(element['symbol'])
+                unique_elements.append(element)
+        return unique_elements
+
+    BENZINGA_API_KEY = os.getenv('BENZINGA_API_KEY')
+    headers = {"accept": "application/json"}
+    url = "https://api.benzinga.com/api/v2.1/calendar/earnings"
+    importance_list = ["0", "1", "2", "3", "4", "5"]
     berlin_tz = pytz.timezone('Europe/Berlin')
+
     today = datetime.now(berlin_tz)
+    # Start date: 2 weeks ago, rounded to the previous Monday
+    start_date = today - timedelta(weeks=2)
+    start_date -= timedelta(days=start_date.weekday())  # Reset to Monday
 
-    # Calculate the start date (Monday) 4 weeks before
-    start_date = today - timedelta(weeks=4)
-    start_date = start_date - timedelta(days=(start_date.weekday() - 0) % 7)
+    # End date: 2 weeks ahead, rounded to the following Friday
+    end_date = today + timedelta(weeks=2)
+    end_date += timedelta(days=(4 - end_date.weekday()))  # Set to Friday
 
-    # Calculate the end date (Friday) 4 weeks after
-    end_date = today + timedelta(weeks=4)
-    end_date = end_date + timedelta(days=(4 - end_date.weekday()) % 7)
-
-    # Format dates as strings in 'YYYY-MM-DD' format
-    start_date = start_date.strftime('%Y-%m-%d')
-    end_date = end_date.strftime('%Y-%m-%d')
-    
+    res_list = []
     async with aiohttp.ClientSession() as session:
-
         query_template = """
-            SELECT 
-                name,marketCap,eps
-            FROM 
-                stocks 
-            WHERE
-                symbol = ?
+            SELECT name, marketCap FROM stocks WHERE symbol = ?
         """
-        
-        url = f"https://financialmodelingprep.com/api/v3/earning_calendar?from={start_date}&to={end_date}&apikey={api_key}"
-        async with session.get(url) as response:
-            data = await response.json()
-            filtered_data = [{k: v for k, v in stock.items() if stock['symbol'] in symbols and '.' not in stock['symbol'] and '-' not in stock['symbol']} for stock in data]
-            #filtered_data = [entry for entry in filtered_data if entry]
-            for entry in filtered_data:
+        while start_date <= end_date:
+            date_str = start_date.strftime('%Y-%m-%d')  # Same date for start and end in API call
+            for importance in importance_list:
+                querystring = {
+                    "token": BENZINGA_API_KEY,
+                    "parameters[importance]": importance,
+                    "parameters[date_from]": date_str,
+                    "parameters[date_to]": date_str
+                }
                 try:
-                    symbol = entry['symbol']
-                    try:
-                        with open(f"json/financial-statements/income-statement/annual/{symbol}.json", 'rb') as file:
-                            entry['revenue'] = orjson.loads(file.read())[0]['revenue']
-                    except:
-                        entry['revenue'] = None
+                    async with session.get(url, params=querystring, headers=headers) as response:
+                        data = ujson.loads(await response.text())['earnings']
+                        res = [item for item in data if item['ticker'] in stock_symbols and '.' not in item['ticker'] and '-' not in item['ticker']]
+                        
+                        for item in res:
+                            try:
+                                symbol = item['ticker']
+                                eps_prior = float(item['eps_prior']) if item['eps_prior'] else None
+                                eps_est = float(item['eps_est']) if item['eps_est'] else None
+                                revenue_est = float(item['revenue_est']) if item['revenue_est'] else None
+                                revenue_prior = float(item['revenue_prior']) if item['revenue_prior'] else None
+                                
+                                # Time-based release type
+                                time = datetime.strptime(item['time'], "%H:%M:%S").time()
+                                if time < datetime.strptime("09:30:00", "%H:%M:%S").time():
+                                    release = "bmo"
+                                elif time > datetime.strptime("16:30:00", "%H:%M:%S").time():
+                                    release = "amc"
+                                else:
+                                    release = "during"
+                                
+                                # Only include valid data
+                                df = pd.read_sql_query(query_template, con, params=(symbol,))
+                                market_cap = float(df['marketCap'].iloc[0]) if df['marketCap'].iloc[0] else 0
+                                res_list.append({
+                                    'symbol': symbol,
+                                    'name': item['name'],
+                                    'date': item['date'],
+                                    'marketCap': market_cap,
+                                    'epsPrior': eps_prior,
+                                    'epsEst': eps_est,
+                                    'revenuePrior': revenue_prior,
+                                    'revenueEst': revenue_est,
+                                    'release': release
+                                })
+                            except Exception as e:
+                                print(f"Error processing item for symbol {symbol}: {e}")
+                                continue
 
-                    fundamental_data = pd.read_sql_query(query_template, con, params=(symbol,))
-                    entry['name'] = fundamental_data['name'].iloc[0]
-                    entry['marketCap'] = int(fundamental_data['marketCap'].iloc[0])
-                    entry['eps'] = float(fundamental_data['eps'].iloc[0])
+                    res_list = remove_duplicates(res_list)
+                    res_list.sort(key=lambda x: x['marketCap'], reverse=True)
+
                 except:
-                    entry['marketCap'] = 'n/a'
-                    entry['marketCap'] = None
-                    entry['revenue'] = None
-                    entry['eps'] = None
+                    #print(f"Error fetching data from API: {e}")
+                    continue
 
-            filtered_data = [item for item in filtered_data if 'date' in item]
+            start_date += timedelta(days=1)  # Increment date by one day
 
-    seen_symbols = set()
-    unique_data = []
 
-    for item in filtered_data:
-        symbol = item.get('symbol')
-        try:
-            with open(f"json/quote/{symbol}.json", 'r') as file:
-                quote = ujson.load(file)
-                try:
-                    earnings_date = datetime.strptime(quote['earningsAnnouncement'].split('T')[0], '%Y-%m-%d').strftime('%Y-%m-%d')
-                except:
-                    earnings_date = '-'
-        except Exception as e:
-            earnings_date = '-'
-            print(e)
-
-        if symbol is None or symbol not in seen_symbols:
-            #bug in fmp endpoint. Double check that earnings date is the same as in quote endpoint
-            if item['date'] == earnings_date:
-                #print(symbol, item['date'], earnings_date)
-                unique_data.append(item)
-            seen_symbols.add(symbol)
-
-    return unique_data
+    return res_list
 
 
 async def get_stock_splits_calendar(con,symbols):
@@ -1918,11 +1931,14 @@ async def save_json_files():
     crypto_symbols = [row[0] for row in crypto_cursor.fetchall()]
 
 
-
     
     stock_screener_data = await get_stock_screener(con)
     with open(f"json/stock-screener/data.json", 'w') as file:
         ujson.dump(stock_screener_data, file)
+
+    earnings_list = await get_earnings_calendar(con,symbols)
+    with open(f"json/earnings-calendar/calendar.json", 'w') as file:
+        ujson.dump(earnings_list, file)
 
     economic_list = await get_economic_calendar()
     if len(economic_list) > 0:
@@ -1932,11 +1948,6 @@ async def save_json_files():
     dividends_list = await get_dividends_calendar(con,symbols)
     with open(f"json/dividends-calendar/calendar.json", 'w') as file:
         ujson.dump(dividends_list, file)
-
-
-    earnings_list = await get_earnings_calendar(con,symbols)
-    with open(f"json/earnings-calendar/calendar.json", 'w') as file:
-        ujson.dump(earnings_list, file)
 
     
     data = await get_most_shorted_stocks(con)
@@ -1999,6 +2010,7 @@ async def save_json_files():
     data = await get_magnificent_seven(con)
     with open(f"json/magnificent-seven/data.json", 'w') as file:
         ujson.dump(data, file)
+
 
     con.close()
     etf_con.close()

@@ -1094,7 +1094,7 @@ async def get_indicator_data(data: IndicatorListData, api_key: str = Security(ge
     rule_of_list = data.ruleOfList
     ticker_list = data.tickerList
     combined_results = []  # List to store the combined results
-    print(rule_of_list)
+
     # Keys that should be read from the quote files if they are in rule_of_list
     quote_keys_to_include = ['volume', 'marketCap', 'changesPercentage', 'price', 'symbol', 'name']
 
@@ -1149,7 +1149,7 @@ async def get_indicator_data(data: IndicatorListData, api_key: str = Security(ge
 
     except Exception as e:
         print(f"An error occurred while merging data: {e}")
-    print(combined_results)
+
     res = orjson.dumps(combined_results)
     compressed_data = gzip.compress(res)
     
