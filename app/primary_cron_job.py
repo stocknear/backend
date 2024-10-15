@@ -108,8 +108,6 @@ def run_share_statistics():
     if week <= 5:
         run_command(["python3", "cron_share_statistics.py"])
 
-def run_retail_volume():
-    run_command(["python3", "cron_retail_volume.py"])
 
 def run_cron_market_movers():
     run_command(["python3", "cron_market_movers.py"])
@@ -336,7 +334,6 @@ schedule.every().day.at("09:00").do(run_threaded, run_congress_trading).tag('con
 schedule.every().day.at("10:00").do(run_threaded, run_shareholders).tag('shareholders_job')
 schedule.every().day.at("10:30").do(run_threaded, run_sec_filings).tag('sec_filings_job')
 schedule.every().day.at("11:00").do(run_threaded, run_executive).tag('executive_job')
-schedule.every().day.at("03:00").do(run_threaded, run_retail_volume).tag('retail_volume_job')
 schedule.every().day.at("11:45").do(run_threaded, run_clinical_trial).tag('clinical_trial_job')
 schedule.every().day.at("12:00").do(run_threaded, run_market_cap).tag('market_cap_josb')
 
