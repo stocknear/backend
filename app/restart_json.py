@@ -560,8 +560,14 @@ async def get_stock_screener(con):
             with open(f"json/analyst/summary/{symbol}.json", 'r') as file:
                 res = orjson.loads(file.read())
                 item['analystRating'] = res['consensusRating']
+                item['analystCounter'] = res['numOfAnalyst']
+                item['priceTarget'] = res['priceTarget']
+                item['upside'] = round((item['priceTarget']/item['price']-1)*100, 1) if item['price'] else None
         except Exception as e:
             item['analystRating'] = None
+            item['analystCounter'] = None
+            item['priceTarget'] = None
+            item['upside'] = None
 
         try:
             with open(f"json/fail-to-deliver/companies/{symbol}.json", 'r') as file:
