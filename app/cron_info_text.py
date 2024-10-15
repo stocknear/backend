@@ -472,6 +472,15 @@ data = {
     'interestDebtPerShare': {
         'text': 'Interest debt per share is a financial metric that calculates the amount of interest-bearing debt attributed to each outstanding share of a company’s stock. It provides insight into the level of debt burden carried by each share, indicating potential financial risk to shareholders.',
     },
+    "analystCounter": { 
+        "text": "The number of analysts that have provided price targets and ratings for this stock."
+    },
+    "priceTarget": { 
+        "text": "The average 12-month price target forecast predicted by stock analysts."
+    },
+    "upside": { 
+        "text": "The difference between the price target forecast and the current price, expressed as a percentage."
+    },
     "halalStocks": { 
         "text": "Halal-compliant stocks are identified by ensuring that a company's debt, interest income, and liquidity each remain below 30%. Additionally, companies involved in industries like alcohol, tobacco, gambling, and weapons are excluded to ensure adherence to Islamic principles."
     }
