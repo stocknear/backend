@@ -275,7 +275,7 @@ async def get_pre_post_market_movers(symbols):
                             one_day_price = ujson.load(file)
                             # Filter out entries where 'close' is None
                             filtered_prices = [price for price in one_day_price if price['close'] is not None]
-      
+
                         if price and changes_percentage and len(filtered_prices) > 300:
                             res_list.append({
                                 "symbol": symbol,

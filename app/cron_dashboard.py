@@ -341,14 +341,7 @@ async def run():
 			print(e)
 			options_flow = {}
 
-		'''
-		try:
-			with open(f"json/market-movers/data.json", 'r') as file:
-				data = ujson.load(file)
-				market_movers = {'winner': data['gainers']['1D'][0], 'loser': data['losers']['1D'][0], 'active': data['active']['1D'][0]}
-		except:
-			market_movers = {}
-		'''
+
 		market_status = check_market_hours()
 
 		if market_status == 0:
