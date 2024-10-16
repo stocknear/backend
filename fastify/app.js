@@ -114,6 +114,22 @@ const WebSocket = require("ws");
 let isSend = false;
 let sendInterval;
 
+function formatTimestampNewYork(timestamp) {
+  const d = new Date(timestamp / 1e6);
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  })
+    .format(d)
+    .replace(/(\d+)\/(\d+)\/(\d+),/, "$3-$1-$2")
+    .replace(",", "");
+}
+
 fastify.register(async function (fastify) {
   fastify.get("/realtime-data", { websocket: true }, (connection, req) => {
     // Send a welcome message to the client
@@ -172,11 +188,15 @@ fastify.register(async function (fastify) {
 
       try {
         const jsonData = JSON.parse(stringData);
+        console.log(jsonData);
+
         // Check if bpData is a number, not equal to zero, and jsonData properties are not null/undefined
         if (
           jsonData?.bp != null &&
           jsonData?.ap != null &&
           jsonData?.lp != null &&
+          jsonData?.t != null &&
+          ["Q", "T"]?.includes(jsonData?.type) &&
           connection.socket.readyState === WebSocket.OPEN &&
           !isSend
         ) {
@@ -185,12 +205,14 @@ fastify.register(async function (fastify) {
               bp: jsonData.bp?.toFixed(2),
               ap: jsonData.ap?.toFixed(2),
               lp: jsonData.lp?.toFixed(2),
+              type: jsonData.type,
+              time: formatTimestampNewYork(jsonData?.t),
             })
           );
           isSend = true;
           setTimeout(() => {
             isSend = false;
-          }, 2000);
+          }, 4000);
         }
       } catch (error) {
         console.error("Error parsing JSON:", error);
