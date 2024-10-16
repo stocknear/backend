@@ -298,6 +298,8 @@ try:
     cursor.execute("PRAGMA journal_mode = wal")
     cursor.execute("SELECT DISTINCT symbol FROM stocks")
     symbols = [row[0] for row in cursor.fetchall()]
+    #Filter out tickers
+    symbols = [symbol for symbol in symbols if symbol != "STEC"]
 
     data = asyncio.run(get_historical_data())
     with open(f"json/mini-plots-index/data.json", 'w') as file:
