@@ -273,7 +273,10 @@ async def get_pre_post_market_movers(symbols):
                         changes_percentage = pre_post_data.get("changesPercentage", None)
                         with open(f"json/one-day-price/{symbol}.json", 'rb') as file:
                             one_day_price = ujson.load(file)
-                        if price and changes_percentage and len(one_day_price) > 300:
+                            # Filter out entries where 'close' is None
+                            filtered_prices = [price for price in one_day_price if price['close'] is not None]
+      
+                        if price and changes_percentage and len(filtered_prices) > 300:
                             res_list.append({
                                 "symbol": symbol,
                                 "name": name,
