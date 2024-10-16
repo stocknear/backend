@@ -253,6 +253,44 @@ async def get_historical_data():
 
     return res_list
 
+async def get_pre_post_market_movers(symbols):
+    res_list = []
+
+    # Loop through the symbols and load the corresponding JSON files
+    for symbol in symbols:
+        try:
+            # Load the main quote JSON file
+            with open(f"json/quote/{symbol}.json", "r") as file:
+                data = ujson.load(file)
+                market_cap = int(data.get('marketCap', 0))
+                name = data.get('name',None)
+            # If market cap is >= 10 million, proceed to load pre-post quote data
+            if market_cap >= 10**7:
+                try:
+                    with open(f"json/pre-post-quote/{symbol}.json", "r") as file:
+                        pre_post_data = ujson.load(file)
+                        price = pre_post_data.get("price", None)
+                        changes_percentage = pre_post_data.get("changesPercentage", None)
+                        if price and changes_percentage:
+                            res_list.append({
+                                "symbol": symbol,
+                                "name": name,
+                                "price": price,
+                                "changesPercentage": changes_percentage
+                            })
+                except:
+                    pass
+
+        except:
+            pass
+
+
+    # Sort the list by changesPercentage in descending order and slice the top 10
+    top_5_gainers = sorted(res_list, key=lambda x: x['changesPercentage'], reverse=True)[:5]
+    top_5_losers = sorted(res_list, key=lambda x: x['changesPercentage'], reverse=False)[:5]
+
+    return {'gainers': top_5_gainers, 'losers': top_5_losers}
+
 
 try:
     con = sqlite3.connect('stocks.db')
@@ -268,6 +306,12 @@ try:
     data = asyncio.run(get_gainer_loser_active_stocks())
     with open(f"json/market-movers/data.json", 'w') as file:
         ujson.dump(data, file)
+
+    data = asyncio.run(get_pre_post_market_movers(symbols))
+    with open(f"json/market-movers/pre-post-data.json", 'w') as file:
+        ujson.dump(data, file)
+
+
     con.close()
 except Exception as e:
     print(e)

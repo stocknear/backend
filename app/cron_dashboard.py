@@ -13,6 +13,38 @@ import sqlite3
 
 headers = {"accept": "application/json"}
 
+def check_market_hours():
+
+    holidays = [
+        "2024-01-01", "2024-01-15", "2024-02-19", "2024-03-29",
+        "2024-05-27", "2024-06-19", "2024-07-04", "2024-09-02",
+        "2024-11-28", "2024-12-25"
+    ]
+    
+    # Get the current date and time in ET (Eastern Time)
+    et_timezone = pytz.timezone('America/New_York')
+    current_time = datetime.now(et_timezone)
+    current_date_str = current_time.strftime('%Y-%m-%d')
+    current_hour = current_time.hour
+    current_minute = current_time.minute
+    current_day = current_time.weekday()  # Monday is 0, Sunday is 6
+
+    # Check if the current date is a holiday or weekend
+    is_weekend = current_day >= 5  # Saturday (5) or Sunday (6)
+    is_holiday = current_date_str in holidays
+
+    # Determine the market status
+    if is_weekend or is_holiday:
+        return 0 #Closed
+    elif current_hour < 9 or (current_hour == 9 and current_minute < 30):
+        return 1 # Pre-Market
+    elif 9 <= current_hour < 16 or (current_hour == 16 and current_minute == 0):
+        return 0 #"Market hours."
+    elif 16 <= current_hour < 24:
+        return 2 #"After-market hours."
+    else:
+        return 0 #"Market is closed."
+
 
 load_dotenv()
 benzinga_api_key = os.getenv('BENZINGA_API_KEY')
@@ -308,37 +340,35 @@ async def run():
 		except Exception as e:
 			print(e)
 			options_flow = {}
-		try:
-			with open(f"json/wiim/rss-feed/data.json", 'r') as file:
-				wiim_feed = ujson.load(file)[0:5]
 
-		except:
-			wiim_feed = []
-
+		'''
 		try:
 			with open(f"json/market-movers/data.json", 'r') as file:
 				data = ujson.load(file)
-				market_mover = {'winner': data['gainers']['1D'][0], 'loser': data['losers']['1D'][0], 'active': data['active']['1D'][0]}
+				market_movers = {'winner': data['gainers']['1D'][0], 'loser': data['losers']['1D'][0], 'active': data['active']['1D'][0]}
 		except:
-			market_mover = {}
-
+			market_movers = {}
 		'''
-		try:
-			with open(f"json/most-shorted-stocks/data.json", 'r') as file:
-				data = ujson.load(file)[0]
-				shorted_stock = {key: data[key] for key in ['symbol', 'shortOutStandingPercent']}
-				
-		except:
-			shorted_stock = {}
-		'''
+		market_status = check_market_hours()
 
-		quick_info = {**market_mover, 'topSector': top_sector}
+		if market_status == 0:
+			try:
+				with open(f"json/market-movers/data.json", 'r') as file:
+					data = ujson.load(file)
+					market_movers = {'gainers': data['gainers']['1D'][:5], 'losers': data['losers']['1D'][:5]}
+			except:
+				market_movers = {}
+		else:
+			try:
+				with open(f"json/market-movers/pre-post-data.json", 'r') as file:
+					market_movers = ujson.load(file)
+			except:
+				market_movers = {}
 
 		data = {
-		    'quickInfo': quick_info,
+		    'marketMovers': market_movers,
+		    'marketStatus': market_status,
 		    'optionsFlow': options_flow,
-		    #'retailTracker': retail_tracker,
-		    'wiimFeed': wiim_feed,
 		    'marketNews': benzinga_news,
 		    'recentEarnings': recent_earnings,
 		    'upcomingEarnings': upcoming_earnings,
