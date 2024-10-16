@@ -109,10 +109,6 @@ def run_share_statistics():
         run_command(["python3", "cron_share_statistics.py"])
 
 
-def run_cron_market_movers():
-    run_command(["python3", "cron_market_movers.py"])
-
-
 def run_cron_market_news():
     run_command(["python3", "cron_market_news.py"])
     run_command(["python3", "cron_company_news.py"])
@@ -251,6 +247,7 @@ def run_hedge_fund():
     run_command(["python3", "cron_hedge_funds.py"])
 
 def run_dashboard():
+    run_command(["python3", "cron_market_movers.py"])
     run_command(["python3", "cron_dashboard.py"])
 
 def run_tracker():
