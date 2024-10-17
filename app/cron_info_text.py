@@ -486,6 +486,15 @@ data = {
     },
     "revenueGrowthYears": {
         "text": "For how many consecutive fiscal years the company's revenue has been growing.",
+    },
+    "epsGrowthYears": {
+        "text": "For how many consecutive fiscal years the company's EPS has been growing.",
+    },
+    "netIncomeGrowthYears": {
+        "text": "For how many consecutive fiscal years the company's net income has been growing.",
+    },
+    "grossProfitGrowthYears": {
+        "text": "For how many consecutive fiscal years the company's gross profit has been growing.",
     }
 
 }
