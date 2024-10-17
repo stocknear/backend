@@ -191,8 +191,8 @@ fastify.register(async function (fastify) {
 
         // Check if bpData is a number, not equal to zero, and jsonData properties are not null/undefined
         if (
-          jsonData?.bp != null &&
-          jsonData?.ap != null &&
+          //jsonData?.bp != null &&
+          //jsonData?.ap != null &&
           jsonData?.lp != null &&
           jsonData?.t != null &&
           ["Q", "T"]?.includes(jsonData?.type) &&
@@ -211,7 +211,7 @@ fastify.register(async function (fastify) {
           isSend = true;
           setTimeout(() => {
             isSend = false;
-          }, 1000);
+          }, 500);
         }
       } catch (error) {
         console.error("Error parsing JSON:", error);
