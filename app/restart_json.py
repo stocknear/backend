@@ -51,71 +51,30 @@ def generate_id(name):
     hashed = hashlib.sha256(name.encode()).hexdigest()
     return hashed[:10]
 
-def compute_5_year_growth(start_value, end_value):
-    """
-    Compute the 5-year compound annual growth rate (CAGR).
-    """
-    try:
-        if start_value is None or end_value is None or start_value == 0:
-            return None
-        return round(((end_value / start_value) ** (1 / 5)) - 1, 4) * 100  # Return as percentage
-    except (ZeroDivisionError, TypeError):
-        return None
 
-def process_financial_data(file_path, key_list):
-    """
-    Read JSON data from file and extract specified keys with rounding.
-    """
-    data = defaultdict(lambda: None)  # Initialize with default value of None
-    try:
-        with open(file_path, 'r') as file:
-            res = orjson.loads(file.read())[0]
-            for key in key_list:
-                if key in res:
-                    try:
-                        value = float(res[key])
-                        if key in ['grossProfitMargin','netProfitMargin','pretaxProfitMargin','operatingProfitMargin']:
-                            value *= 100  # Multiply by 100 for percentage
-                        data[key] = round(value, 2)
-                    except (ValueError, TypeError):
-                        data[key] = None
-    except (FileNotFoundError, KeyError, IndexError):
-        pass
 
-    return data
+def count_consecutive_growth_years(financial_data):
+    # Sort the financial data by date
+    financial_data = sorted(financial_data, key=lambda x: datetime.strptime(x['date'], '%Y-%m-%d'))
+    
+    consecutive_years = 0
+    prev_revenue = None
 
-def process_financial_growth(file_path, key_list):
-    """
-    Process the financial growth data and calculate 5-year growth rates and latest growth rates.
-    """
-    data = defaultdict(lambda: None)
-    try:
-        with open(file_path, 'r') as file:
-            res = orjson.loads(file.read())
-            if len(res) < 6:  # Ensure we have at least 6 years of data
-                return {key: None for key in key_list}
-            # Get the values for the start (5 years ago) and end (most recent) year
-            start_year_data = res[-6]  # 5 years ago
-            end_year_data = res[-1]    # Most recent year
-            latest_year_data = res[-2] # Year before the most recent
-
-            for key in key_list:
-                start_value = float(start_year_data.get(key, None)) if key in start_year_data else None
-                end_value = float(end_year_data.get(key, None)) if key in end_year_data else None
-                latest_value = float(latest_year_data.get(key, None)) if key in latest_year_data else None
-                
-                # Calculate the 5-year growth rate
-                data[f'5YearGrowth_{key}'] = compute_5_year_growth(start_value, end_value)
-                
-                # Add the latest growth rate (if available)
-                if start_value and latest_value:
-                    data[f'latestGrowth_{key}'] = round(((latest_value / start_value) - 1) * 100, 2)
+    for data in financial_data:
+        current_revenue = data['revenue']
+        
+        if current_revenue is not None:
+            if prev_revenue is not None:
+                if current_revenue > prev_revenue:
+                    consecutive_years += 1
                 else:
-                    data[f'latestGrowth_{key}'] = None
-    except:
-        data = {f'5YearGrowth_{key}': None for key in key_list}
-        data.update({f'latestGrowth_{key}': None for key in key_list})
-    return data
+                    consecutive_years = 0
+            prev_revenue = current_revenue
+
+    # Check one last time in case the streak continues to the end
+    
+    return consecutive_years
+
 
 
 def process_financial_data(file_path, key_list):
@@ -716,6 +675,13 @@ async def get_stock_screener(con):
             item['halalStocks'] = get_halal_compliant(item)
         except:
             item['halalStocks'] = None
+
+        try:
+            with open(f"json/financial-statements/income-statement/annual/{symbol}.json", "r") as file:
+                financial_data = orjson.loads(file.read())
+                item['revenueGrowthYears'] = count_consecutive_growth_years(financial_data)
+        except:
+            item['revenueGrowthYears'] = None
 
     return stock_screener_data
 

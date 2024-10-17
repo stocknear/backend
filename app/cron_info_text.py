@@ -483,8 +483,10 @@ data = {
     },
     "halalStocks": { 
         "text": "Halal-compliant stocks are identified by ensuring that a company's debt, interest income, and liquidity each remain below 30%. Additionally, companies involved in industries like alcohol, tobacco, gambling, and weapons are excluded to ensure adherence to Islamic principles."
+    },
+    "revenueGrowthYears": {
+        "text": "For how many consecutive fiscal years the company's revenue has been growing.",
     }
-
 
 }
 
