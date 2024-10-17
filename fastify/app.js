@@ -211,7 +211,7 @@ fastify.register(async function (fastify) {
           isSend = true;
           setTimeout(() => {
             isSend = false;
-          }, 4000);
+          }, 1000);
         }
       } catch (error) {
         console.error("Error parsing JSON:", error);
