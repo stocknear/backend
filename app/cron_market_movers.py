@@ -301,7 +301,7 @@ try:
     con = sqlite3.connect('stocks.db')
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
-    cursor.execute("SELECT DISTINCT symbol FROM stocks")
+    cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE (exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' or exchangeShortName = 'AMEX')")
     symbols = [row[0] for row in cursor.fetchall()]
     #Filter out tickers
     symbols = [symbol for symbol in symbols if symbol != "STEC"]
@@ -317,7 +317,6 @@ try:
     data = asyncio.run(get_pre_post_market_movers(symbols))
     with open(f"json/market-movers/pre-post-data.json", 'w') as file:
         ujson.dump(data, file)
-
 
     con.close()
 except Exception as e:
