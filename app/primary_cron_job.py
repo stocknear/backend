@@ -117,11 +117,6 @@ def run_cron_heatmap():
     run_command(["python3", "cron_heatmap.py"])
 
 
-def run_cron_quote():
-    week = datetime.today().weekday()
-    if week <= 4:
-        run_command(["python3", "cron_quote.py"])
-
 def run_cron_options_flow():
     week = datetime.today().weekday()
     current_time = datetime.now().time()
@@ -247,8 +242,11 @@ def run_hedge_fund():
     run_command(["python3", "cron_hedge_funds.py"])
 
 def run_dashboard():
-    run_command(["python3", "cron_market_movers.py"])
-    run_command(["python3", "cron_dashboard.py"])
+    week = datetime.today().weekday()
+    if week <= 5:
+        run_command(["python3", "cron_quote.py"])
+        run_command(["python3", "cron_market_movers.py"])
+        run_command(["python3", "cron_dashboard.py"])
 
 def run_tracker():
     # Run Python scripts
@@ -361,12 +359,11 @@ schedule.every(15).minutes.do(run_threaded, run_cron_heatmap).tag('heatmap_job')
 schedule.every(10).minutes.do(run_threaded, run_tracker).tag('tracker_job')
 
 
-schedule.every(1).minutes.do(run_threaded, run_cron_quote).tag('quote_job')
 schedule.every(15).minutes.do(run_threaded, run_market_moods).tag('market_moods_job')
 schedule.every(10).minutes.do(run_threaded, run_earnings).tag('earnings_job')
 #schedule.every(10).minutes.do(run_threaded, run_dark_pool_flow).tag('dark_pool_flow_job')
 
-schedule.every(2).hours.do(run_threaded, run_fda_calendar).tag('fda_calendar_job')
+#schedule.every(2).hours.do(run_threaded, run_fda_calendar).tag('fda_calendar_job')
 schedule.every(3).hours.do(run_threaded, run_options_net_flow).tag('options_net_flow_job')
 #schedule.every(4).hours.do(run_threaded, run_share_statistics).tag('share_statistics_job')
 #schedule.every(2).days.at("01:00").do(run_borrowed_share).tag('borrowed_share_job')
