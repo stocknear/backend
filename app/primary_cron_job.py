@@ -350,8 +350,6 @@ schedule.every().saturday.at("06:00").do(run_threaded, run_sentiment_analysis).t
 schedule.every().saturday.at("10:00").do(run_threaded, run_price_analysis).tag('price_analysis_job')
 
 
-schedule.every(5).minutes.do(run_threaded, run_cron_market_movers).tag('market_movers_job')
-
 schedule.every(30).minutes.do(run_threaded, run_dividend_list).tag('dividend_list_job')
 schedule.every(15).minutes.do(run_threaded, run_cron_market_news).tag('market_news_job')
 schedule.every(30).minutes.do(run_threaded, run_cron_industry).tag('industry_job')
