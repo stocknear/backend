@@ -188,7 +188,6 @@ fastify.register(async function (fastify) {
 
       try {
         const jsonData = JSON.parse(stringData);
-        console.log(jsonData);
 
         // Check if bpData is a number, not equal to zero, and jsonData properties are not null/undefined
         if (
