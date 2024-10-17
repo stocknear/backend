@@ -53,23 +53,23 @@ def generate_id(name):
 
 
 
-def count_consecutive_growth_years(financial_data):
+def count_consecutive_growth_years(financial_data, key_element):
     # Sort the financial data by date
     financial_data = sorted(financial_data, key=lambda x: datetime.strptime(x['date'], '%Y-%m-%d'))
     
     consecutive_years = 0
-    prev_revenue = None
+    prev_val = None
 
     for data in financial_data:
-        current_revenue = data['revenue']
+        current_val = data[key_element] #e.g. revenue
         
-        if current_revenue is not None:
-            if prev_revenue is not None:
-                if current_revenue > prev_revenue:
+        if current_val is not None:
+            if prev_val is not None:
+                if current_val > prev_val:
                     consecutive_years += 1
                 else:
                     consecutive_years = 0
-            prev_revenue = current_revenue
+            prev_val = current_val
 
     # Check one last time in case the streak continues to the end
     
@@ -569,25 +569,6 @@ async def get_stock_screener(con):
             item['returnOnTangibleAssets'] = None
             item['grahamNumber'] = None
 
-        try:
-            with open(f"json/trend-analysis/{symbol}.json", 'r') as file:
-                res = orjson.loads(file.read())[-1]
-                if abs(res['accuracy'] - res['precision']) <=15 and res['sentiment'] == 'Bullish':
-                    item['trendAnalysis'] = {"accuracy": res['accuracy']}
-                else:
-                    item['trendAnalysis'] = {"accuracy": None}
-        except:
-            item['trendAnalysis'] = {"accuracy": None}
-
-        try:
-            with open(f"json/fundamental-predictor-analysis/{symbol}.json", 'r') as file:
-                res = orjson.loads(file.read())
-                if abs(res['accuracy'] - res['precision']) <=15 and res['sentiment'] == 'Bullish':
-                    item['fundamentalAnalysis'] = {"accuracy": res['accuracy']}
-                else:
-                    item['fundamentalAnalysis'] = {"accuracy": None}
-        except:
-            item['fundamentalAnalysis'] = {"accuracy": None}
 
         try:
             with open(f"json/ai-score/companies/{symbol}.json", 'r') as file:
@@ -679,9 +660,15 @@ async def get_stock_screener(con):
         try:
             with open(f"json/financial-statements/income-statement/annual/{symbol}.json", "r") as file:
                 financial_data = orjson.loads(file.read())
-                item['revenueGrowthYears'] = count_consecutive_growth_years(financial_data)
+                item['revenueGrowthYears'] = count_consecutive_growth_years(financial_data, "revenue")
+                item['epsGrowthYears'] = count_consecutive_growth_years(financial_data, 'eps')
+                item['netIncomeGrowthYears'] = count_consecutive_growth_years(financial_data, 'netIncome')
+                item['grossProfitGrowthYears'] = count_consecutive_growth_years(financial_data, 'grossProfit')
         except:
             item['revenueGrowthYears'] = None
+            item['epsGrowthYears'] = None
+            item['netIncomeGrowthYears'] = None
+            item['grossProfitGrowthYears'] = None
 
     return stock_screener_data
 
@@ -1862,20 +1849,13 @@ async def get_most_shorted_stocks(con):
 
     sorted_list = sorted(extracted_data, key=lambda x: x['shortOutStandingPercent'], reverse=True)
 
-    query_template = """
-        SELECT 
-            name, sector
-        FROM 
-            stocks 
-        WHERE
-            symbol = ?
-    """
-
-    for item in sorted_list:
+    for index, item in enumerate(sorted_list, start=1):
         try:
             symbol = item['symbol']
-            data = pd.read_sql_query(query_template, con, params=(symbol,))
-            item['name'] = data['name'].iloc[0]
+            with open(f"json/quote/{symbol}.json") as file:
+                data = orjson.loads(file.read())
+            item['name'] = data['name']
+            item['rank'] = index
             #item['sector'] = data['sector'].iloc[0]
         except Exception as e:
             print(e)
