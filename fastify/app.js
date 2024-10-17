@@ -201,8 +201,8 @@ fastify.register(async function (fastify) {
         ) {
           connection.socket.send(
             JSON.stringify({
-              bp: jsonData.bp?.toFixed(2),
-              ap: jsonData.ap?.toFixed(2),
+              bp: jsonData.bp,
+              ap: jsonData.ap,
               lp: jsonData.lp?.toFixed(2),
               type: jsonData.type,
               time: formatTimestampNewYork(jsonData?.t),

@@ -467,7 +467,7 @@ async def get_stock(data: TickerData, api_key: str = Security(get_api_key)):
     res_json = orjson.dumps(res)
     compressed_data = gzip.compress(res_json)
     redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 60*5)
+    redis_client.expire(cache_key, 60*3)
 
     return StreamingResponse(
         io.BytesIO(compressed_data),
