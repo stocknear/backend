@@ -19,7 +19,7 @@ async def save_json(data):
 
 async def get_data(session, total_symbols):
     sources = ["twitter", "stocktwits"]  # Sources to loop through
-    result_data = {}  # Dictionary to store results from both sources
+    result_data = {}  # Dictionary to store the final combined results
 
     for source in sources:
         # Construct the API URL with the source parameter
@@ -30,11 +30,11 @@ async def get_data(session, total_symbols):
                 if response.status == 200:
                     data = await response.json()
                     if len(data) > 0:
-                        res_list = []
                         for item in data:
                             symbol = item['symbol']
                             item['sentiment'] = round(item['sentiment']*100)
                             item['lastSentiment'] = round(item['lastSentiment']*100)
+
                             if symbol in total_symbols:
                                 try:
                                     with open(f"json/quote/{symbol}.json", 'r') as file:
@@ -42,17 +42,29 @@ async def get_data(session, total_symbols):
                                         item['price'] = round(res['price'], 2)
                                         item['changesPercentage'] = round(res['changesPercentage'], 2)
                                         item['marketCap'] = round(res['marketCap'], 2)
-                                    res_list.append({**item})
-                                except:
+
+                                    # If the symbol already exists, keep the one with the highest sentiment
+                                    if symbol in result_data:
+                                        if item['sentiment'] > result_data[symbol]['sentiment']:
+                                            result_data[symbol] = item
+                                    else:
+                                        result_data[symbol] = item
+
+                                except Exception as e:
+                                    print(f"Error reading data for {symbol}: {e}")
                                     pass
-                        result_data[source] = res_list  # Store the result list for the current source
+
         except Exception as e:
             print(f"Error fetching data from {source}: {e}")
             pass
-    
+
+    # Convert the result_data dictionary to a list of items
+    final_result = list(result_data.values())
+
     # Save the combined result as a single JSON file
-    if result_data:
-        await save_json(result_data)
+    if final_result:
+        await save_json(final_result)
+
 
 
 

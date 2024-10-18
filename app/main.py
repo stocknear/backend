@@ -4040,7 +4040,7 @@ async def get_fomc_impact(api_key: str = Security(get_api_key)):
         with open(f"json/sentiment-tracker/data.json", 'rb') as file:
             res = orjson.loads(file.read())
     except:
-        res = {}
+        res = []
 
     data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
