@@ -71,10 +71,13 @@ async def process_chunk(session, chunk):
     data = await get_data(session, chunk)
     tasks = []
     for symbol in chunk:
-        filtered_data = [item for item in data if item['symbol'] == symbol]
-        filtered_data = await filter_and_deduplicate(filtered_data)
-        if filtered_data:
-            tasks.append(save_json(symbol, filtered_data))
+        try:
+            filtered_data = [item for item in data if item['symbol'] == symbol]
+            filtered_data = await filter_and_deduplicate(filtered_data)
+            if filtered_data:
+                tasks.append(save_json(symbol, filtered_data))
+        except Exception as e:
+            print(e)
     if tasks:
         await asyncio.gather(*tasks)
 
@@ -89,7 +92,7 @@ async def main():
     total_symbols = stock_symbols + etf_symbols + crypto_symbols
 
     # Dynamically adjust chunk size
-    chunk_size = 15  # Adjust based on your needs
+    chunk_size = 10  # Adjust based on your needs
     chunks = [total_symbols[i:i + chunk_size] for i in range(0, len(total_symbols), chunk_size)]
 
     async with aiohttp.ClientSession() as session:
