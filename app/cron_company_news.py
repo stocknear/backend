@@ -31,7 +31,7 @@ async def filter_and_deduplicate(data, excluded_domains=None, deduplicate_key='t
     return filtered_data
 
 
-async def save_quote_as_json(symbol, data):
+async def save_json(symbol, data):
     """
     Save data as JSON in a batch to reduce disk I/O
     """
@@ -74,7 +74,7 @@ async def process_chunk(session, chunk):
         filtered_data = [item for item in data if item['symbol'] == symbol]
         filtered_data = await filter_and_deduplicate(filtered_data)
         if filtered_data:
-            tasks.append(save_quote_as_json(symbol, filtered_data))
+            tasks.append(save_json(symbol, filtered_data))
     if tasks:
         await asyncio.gather(*tasks)
 
