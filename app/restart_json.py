@@ -819,6 +819,28 @@ async def get_earnings_calendar(con, stock_symbols):
 
             start_date += timedelta(days=1)  # Increment date by one day
 
+    seen_symbols = set()
+    unique_data = []
+
+    for item in res_list:
+        symbol = item.get('symbol')
+        try:
+            with open(f"json/quote/{symbol}.json", 'r') as file:
+                quote = ujson.load(file)
+                try:
+                    earnings_date = datetime.strptime(quote['earningsAnnouncement'].split('T')[0], '%Y-%m-%d').strftime('%Y-%m-%d')
+                except:
+                    earnings_date = '-'
+        except Exception as e:
+            earnings_date = '-'
+            print(e)
+
+        if symbol is None or symbol not in seen_symbols:
+            #bug in fmp endpoint. Double check that earnings date is the same as in quote endpoint
+            if item['date'] == earnings_date:
+                #print(symbol, item['date'], earnings_date)
+                unique_data.append(item)
+            seen_symbols.add(symbol)
 
     return res_list
 
@@ -1883,7 +1905,7 @@ async def save_json_files():
     crypto_symbols = [row[0] for row in crypto_cursor.fetchall()]
 
 
-    
+
     stock_screener_data = await get_stock_screener(con)
     with open(f"json/stock-screener/data.json", 'w') as file:
         ujson.dump(stock_screener_data, file)
@@ -1962,7 +1984,7 @@ async def save_json_files():
     data = await get_magnificent_seven(con)
     with open(f"json/magnificent-seven/data.json", 'w') as file:
         ujson.dump(data, file)
-
+    
 
     con.close()
     etf_con.close()

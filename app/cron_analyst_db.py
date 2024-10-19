@@ -1,5 +1,5 @@
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 import numpy as np
 from scipy.stats import norm
 import time
@@ -12,6 +12,8 @@ import pandas as pd
 from collections import Counter
 import aiohttp
 import asyncio
+import statistics
+
 
 load_dotenv()
 api_key = os.getenv('BENZINGA_API_KEY')
@@ -118,59 +120,75 @@ def calculate_rating(data):
         return round(normalized_rating, 2)
 
 def get_top_stocks():
-	with open(f"json/analyst/all-analyst-data.json", 'r') as file:
-		analyst_stats_list = ujson.load(file)
+    with open(f"json/analyst/all-analyst-data.json", 'r') as file:
+        analyst_stats_list = ujson.load(file)
 
-	filtered_data = [item for item in analyst_stats_list if item['analystScore'] >= 5]
+    filtered_data = [item for item in analyst_stats_list if item['analystScore'] >= 4]
 
-	res_list = []
-	for item in filtered_data:
-	    ticker_list = item['ratingsList']
-	    ticker_list = [{'ticker': i['ticker'], 'pt_current': i['pt_current']} for i in ticker_list if i['rating_current'] == 'Strong Buy']
-	    if len(ticker_list) > 0:
-	        #res_list += list(set(ticker_list))
-	        res_list += ticker_list
-	        
-	# Create a dictionary to store ticker occurrences and corresponding pt_current values
-	ticker_data = {}
-	for item in res_list:
-	    ticker = item['ticker']
-	    pt_current_str = item['pt_current']
-	    if pt_current_str:  # Skip empty strings
-	        pt_current = float(pt_current_str)
-	        if ticker in ticker_data:
-	            ticker_data[ticker]['sum'] += pt_current
-	            ticker_data[ticker]['counter'] += 1
-	        else:
-	            ticker_data[ticker] = {'sum': pt_current, 'counter': 1}
+    res_list = []
+    # Define the date range for the past 12 months
+    end_date = datetime.now().date()
+    start_date = end_date - timedelta(days=365)
 
-	for ticker, info in ticker_data.items():
-	    try:
-	        with open(f"json/quote/{ticker}.json", 'r') as file:
-	            res = ujson.load(file)
-	        info['price'] = res.get('price', None)
-	        info['name'] = res.get('name', None)
-	        info['marketCap'] = res.get('marketCap', None)
-	    except:
-	        info['price'] = None
-	        info['name'] = None
-	        info['marketCap'] = None
+    res_list = []
+    for item in filtered_data:
+        ticker_list = item['ratingsList']
+        # Filter by 'Strong Buy' and ensure the rating is within the last 12 months
+        ticker_list = [{'ticker': i['ticker'], 'adjusted_pt_current': i['adjusted_pt_current'], 'date': i['date']} 
+                       for i in ticker_list 
+                       if i['rating_current'] == 'Strong Buy' 
+                       and start_date <= datetime.strptime(i['date'], '%Y-%m-%d').date() <= end_date]
+        if len(ticker_list) > 0:
+            res_list += ticker_list
 
-	# Calculate average pt_current for each ticker
-	for ticker, info in ticker_data.items():
-	    info['average'] = round(info['sum'] / info['counter'],2)
+    # Create a dictionary to store ticker occurrences and corresponding pt_current values
+    ticker_data = {}
+    for item in res_list:
+        ticker = item['ticker']
+        pt_current_str = item['adjusted_pt_current']
+        if pt_current_str:  # Skip empty strings
+            pt_current = float(pt_current_str)
+            if ticker in ticker_data:
+                ticker_data[ticker]['pt_list'].append(pt_current)
+            else:
+                ticker_data[ticker] = {'pt_list': [pt_current]}
 
-	# Convert the dictionary back to a list format
-	result = [{'ticker': ticker, 'upside': round((info['average']/info.get('price')-1)*100, 2) if info.get('price') else None, 'priceTarget': info['average'], 'price': info['price'], 'counter': info['counter'], 'name': info['name'], 'marketCap': info['marketCap']} for ticker, info in ticker_data.items()]
-	result = [item for item in result if item['upside'] is not None and item['upside'] >= 5 and item['upside'] <= 250] #filter outliners
+    for ticker, info in ticker_data.items():
+        try:
+            with open(f"json/quote/{ticker}.json", 'r') as file:
+                res = ujson.load(file)
+            info['price'] = res.get('price', None)
+            info['name'] = res.get('name', None)
+            info['marketCap'] = res.get('marketCap', None)
+        except:
+            info['price'] = None
+            info['name'] = None
+            info['marketCap'] = None
 
-	result_sorted = sorted(result, key=lambda x: x['counter'] if x['counter'] is not None else float('-inf'), reverse=True)
+    # Calculate median pt_current for each ticker
+    for ticker, info in ticker_data.items():
+        if info['pt_list']:
+            info['median'] = round(statistics.median(info['pt_list']), 2)
+    
+    # Convert the dictionary back to a list format
+    result = [{'ticker': ticker, 
+               'upside': round((info['median']/info.get('price')-1)*100, 2) if info.get('price') else None, 
+               'priceTarget': info['median'], 
+               'price': info['price'], 
+               'counter': len(info['pt_list']), 
+               'name': info['name'], 
+               'marketCap': info['marketCap']} 
+              for ticker, info in ticker_data.items()]
+    
+    result = [item for item in result if item['upside'] is not None and item['upside'] >= 5 and item['upside'] <= 250]  # Filter outliers
 
-	for rank, item in enumerate(result_sorted):
-		item['rank'] = rank+1
+    result_sorted = sorted(result, key=lambda x: x['counter'] if x['counter'] is not None else float('-inf'), reverse=True)
 
-	with open(f"json/analyst/top-stocks.json", 'w') as file:
-	    ujson.dump(result_sorted, file)
+    for rank, item in enumerate(result_sorted):
+        item['rank'] = rank + 1
+
+    with open(f"json/analyst/top-stocks.json", 'w') as file:
+        ujson.dump(result_sorted, file)
 
 
 async def get_analyst_ratings(analyst_id, session):
@@ -423,3 +441,4 @@ async def run():
 
 if __name__ == "__main__":
     asyncio.run(run())
+    
