@@ -4,6 +4,10 @@ from tqdm import tqdm
 from datetime import datetime
 
 # Define quarter-end dates for a given year
+#The last quarter Q4 result is not shown in any sec files
+#But using the https://www.sec.gov/Archives/edgar/data/1045810/000104581024000029/nvda-20240128.htm 10-K you see the annual end result which can be subtracted with all Quarter results to obtain Q4 (dumb af but works so don't judge me people)
+
+
 def closest_quarter_end(date_str):
     date = datetime.strptime(date_str, "%Y-%m-%d")
     year = date.year
@@ -26,7 +30,7 @@ set_identity("Michael Mccallum mike.mccalum@indigo.com")
 symbol = 'NVDA'
 revenue_sources = []
 geography_sources = []
-filings = Company(symbol).get_filings(form="10-Q").latest(50)
+filings = Company(symbol).get_filings(form=["10-K","10-Q"]).latest(50)
 #print(filings[0].xbrl())
 
 for i in range(0,17):
@@ -68,5 +72,5 @@ for i in range(0,17):
         print(e)
 
 
-print(revenue_sources)
+#print(revenue_sources)
 print(geography_sources)
