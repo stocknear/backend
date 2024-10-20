@@ -149,45 +149,45 @@ def compute_q4_results(dataset):
 
 
 
-def generate_revenue_dataset(dataset):
+def generate_revenue_dataset(dataset, custom_order):
     name_replacements = {
         "datacenter": "Data Center",
         "professionalvisualization": "Visualization",
         "oemandother": "OEM & Other",
         "automotive": "Automotive",
         "oemip": "OEM & Other",
-        "gaming": "Gaming"
+        "gaming": "Gaming",
+        "mac": "Mac",
+        "iphone": "IPhone",
+        "ipad": "IPad",
+        "wearableshomeandaccessories": "Wearables",
+        "hardwareandaccessories": "Hardware & Accessories",
+        "software": "Software",
+        "collectibles": "Collectibles",
     }
+
     dataset = [revenue for revenue in dataset if revenue['name'] not in ['Compute', 'Networking']]
 
 
     for item in dataset:
-        item['date'] = closest_quarter_end(item['date'])
+        #item['date'] = closest_quarter_end(item['date'])
         
         name = item.get('name').lower()
-        value = int(item.get('value'))
+        value = int(float(item.get('value')))
         if name in name_replacements:
             item['name'] = name_replacements[name]
             item['value'] = int(value)
 
-    # Custom order for specific countries
-    custom_order = {
-        'Data Center': 4,
-        'Gaming': 3,
-        'Visualization': 2,
-        'Automotive': 1,
-        'OEM & Other': 0
-    }
-    
+
     dataset = sorted(
         dataset,
         key=lambda item: (datetime.strptime(item['date'], '%Y-%m-%d'), custom_order.get(item['name'], 4)),
         reverse = True
     )
 
-    dataset = compute_q4_results(dataset)
+    #dataset = compute_q4_results(dataset)
     unique_names = sorted(
-            list(set(item['name'] for item in dataset if item['name'] not in {'CloudServiceAgreements'})),
+            list(set(item['name'] for item in dataset if item['name'] not in {'CloudServiceAgreements','Digital','AllOther','PreOwnedVideoGameProducts'})),
             key=lambda item: custom_order.get(item, 4),  # Use 4 as default for items not in custom_order
             reverse=True)
 
@@ -218,6 +218,10 @@ def generate_revenue_dataset(dataset):
 def generate_geography_dataset(dataset):
 
     country_replacements = {
+        "americas": "United States",
+        "unitedstates": "United States",
+        "videogamebrandsunitedstates": "United States",
+        "greaterchina": "China",
         "country:us": "United States",
         "country:cn": "China",
         "chinaincludinghongkong": "China"
@@ -230,17 +234,29 @@ def generate_geography_dataset(dataset):
         'Other': 0
     }
 
-    for item in dataset:
-        item['date'] = closest_quarter_end(item['date'])
-        name = item.get('name').lower()
-        value = int(float(item.get('value')))
-        if name in country_replacements:
-            item['name'] = country_replacements[name]
-            item['value'] = value
-        else:
-            item['name'] = 'Other'
-            item['value'] = value
+    aggregated_data = {}
 
+    for item in dataset:
+        # Standardize country names
+        name = item.get('name', '').lower()
+        date = item.get('date')
+        value = int(float(item.get('value', 0)))
+
+        # Replace country name if necessary
+        country_name = country_replacements.get(name, 'Other')
+
+        # Use (country_name, date) as the key to sum values
+        key = (country_name, date)
+
+        if key in aggregated_data:
+            aggregated_data[key] += value  # Add the value if the country-date pair exists
+        else:
+            aggregated_data[key] = value  # Initialize the value if new country-date pair
+
+    # Convert the aggregated data back into the desired list format
+    dataset = [{'name': country, 'date': date, 'value': total_value} for (country, date), total_value in aggregated_data.items()]
+
+    print(dataset)
     dataset = aggregate_other_values(dataset)
     dataset = sorted(
         dataset,
@@ -248,7 +264,7 @@ def generate_geography_dataset(dataset):
         reverse = True
     )
 
-    dataset = compute_q4_results(dataset)
+    #dataset = compute_q4_results(dataset)
     result = {}
 
     unique_names = sorted(
@@ -281,11 +297,11 @@ def generate_geography_dataset(dataset):
     return final_result
 
 
-def run(symbol):
+def run(symbol, custom_order):
 
     revenue_sources = []
     geography_sources = []
-    filings = Company(symbol).get_filings(form=["10-K","10-Q"]).latest(20)
+    filings = Company(symbol).get_filings(form=["10-Q"]).latest(20)
     #print(filings[0].xbrl())
 
     for i in range(0,17):
@@ -302,23 +318,23 @@ def run(symbol):
                 except (ValueError, SyntaxError):
                     dimensions_dict = {}
 
-                for column_name in ["srt:StatementGeographicalAxis","srt:ProductOrServiceAxis"]:
+                for column_name in ["srt:StatementGeographicalAxis","us-gaap:StatementBusinessSegmentsAxis", "srt:ProductOrServiceAxis"]:
 
                     product_dimension = dimensions_dict.get(column_name) if isinstance(dimensions_dict, dict) else None
-                    #print(product_dimension)
                     #print(row["namespace"], row["fact"], product_dimension, row["value"])
                     
                     if column_name == "srt:ProductOrServiceAxis":
                         if row["namespace"] == "us-gaap" and product_dimension is not None and (product_dimension.startswith(symbol.lower() + ":") or product_dimension.startswith('country' + ":")):
                             revenue_sources.append({
-                                "name": product_dimension.replace("Member", "").replace(f"{symbol.lower()}:", ""),
+                                "name": product_dimension.replace("Member", "").replace("VideoGameAccessories","HardwareAndAccessories").replace("NewVideoGameHardware","HardwareAndAccessories").replace("NewVideoGameSoftware","Software").replace(f"{symbol.lower()}:", ""),
                                 "value": row["value"], "date": row["end_date"]
                             })
 
                     else:
+                        #print(dimensions_dict)
                         if row["namespace"] == "us-gaap" and product_dimension is not None and (product_dimension.startswith(symbol.lower() + ":") or product_dimension.startswith('country' + ":")):
                             geography_sources.append({
-                                "name": product_dimension.replace("Member", "").replace(f"{symbol.lower()}:", ""),
+                                "name": product_dimension.replace("SegmentMember","").replace("Member", "").replace(f"{symbol.lower()}:", ""),
                                 "value": row["value"], "date": row["end_date"]
                             })
 
@@ -326,15 +342,43 @@ def run(symbol):
         except Exception as e:
             print(e)
 
-    revenue_dataset = generate_revenue_dataset(revenue_sources)
+    revenue_dataset = generate_revenue_dataset(revenue_sources, custom_order)
     geographic_dataset = generate_geography_dataset(geography_sources)
-
     final_dataset = {'revenue': revenue_dataset, 'geographic': geographic_dataset}
-    print(final_dataset)
     with open(f"json/business-metrics/{symbol}.json", "w") as file:
         ujson.dump(final_dataset, file)
 
 if __name__ == "__main__":
-    symbol = 'NVDA'
-    run(symbol)
+    '''
+    custom_order = {
+        'HardwareAndAccessories': 4,
+        'Software': 3,
+        'Collectibles': 2,
+    }
+    run('GME', custom_order)
+    '''
+
+    for symbol in ['NVDA','AAPL','GME']:
+        if symbol == 'NVDA':
+            custom_order = {
+                'Data Center': 4,
+                'Gaming': 3,
+                'Visualization': 2,
+                'Automotive': 1,
+                'OEM & Other': 0
+            }
+        elif symbol == 'AAPL':
+            custom_order = {
+                'Iphone': 4,
+                'Mac': 3,
+                'IPad': 2,
+                'Wearables': 1,
+            }
+        elif symbol == 'GME':
+            custom_order = {
+                'HardwareAndAccessories': 4,
+                'Software': 3,
+                'Collectibles': 2,
+            }
+        run(symbol, custom_order)
 
