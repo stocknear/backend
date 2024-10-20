@@ -4054,6 +4054,35 @@ async def get_fomc_impact(api_key: str = Security(get_api_key)):
         headers={"Content-Encoding": "gzip"}
     )
 
+@app.post("/business-metrics")
+async def get_fomc_impact(data: TickerData, api_key: str = Security(get_api_key)):
+    ticker = data.ticker
+    cache_key = f"business-metrics-{ticker}"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
+    try:
+        with open(f"json/business-metrics/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
+    except:
+        res = {}
+
+    data = orjson.dumps(res)
+    compressed_data = gzip.compress(data)
+
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key,3600*3600)
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
+
 @app.get("/newsletter")
 async def get_newsletter():
     try:
