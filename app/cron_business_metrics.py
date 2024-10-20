@@ -242,6 +242,10 @@ def generate_geography_dataset(dataset):
         date = item.get('date')
         value = int(float(item.get('value', 0)))
 
+        year = int(date[:4])
+        if year < 2019:
+            continue  # Skip this item if the year is less than 2019
+
         # Replace country name if necessary
         country_name = country_replacements.get(name, 'Other')
 
@@ -256,7 +260,7 @@ def generate_geography_dataset(dataset):
     # Convert the aggregated data back into the desired list format
     dataset = [{'name': country, 'date': date, 'value': total_value} for (country, date), total_value in aggregated_data.items()]
 
-    print(dataset)
+    
     dataset = aggregate_other_values(dataset)
     dataset = sorted(
         dataset,
