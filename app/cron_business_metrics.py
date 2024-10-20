@@ -149,7 +149,7 @@ def compute_q4_results(dataset):
 
 
 
-def generate_revenue_dataset(dataset, custom_order):
+def generate_revenue_dataset(dataset):
     name_replacements = {
         "datacenter": "Data Center",
         "professionalvisualization": "Visualization",
@@ -166,54 +166,56 @@ def generate_revenue_dataset(dataset, custom_order):
         "collectibles": "Collectibles",
     }
 
-    dataset = [revenue for revenue in dataset if revenue['name'] not in ['Compute', 'Networking']]
+    # Filter out unwanted categories
+    excluded_names = {'compute', 'networking', 'cloudserviceagreements', 'digital', 'allother', 'preownedvideogameproducts'}
+    dataset = [revenue for revenue in dataset if revenue['name'].lower() not in excluded_names]
 
-
+    # Process and clean the dataset
     for item in dataset:
-        #item['date'] = closest_quarter_end(item['date'])
-        
         name = item.get('name').lower()
         value = int(float(item.get('value')))
         if name in name_replacements:
             item['name'] = name_replacements[name]
-            item['value'] = int(value)
+        item['value'] = value
 
-
-    dataset = sorted(
-        dataset,
-        key=lambda item: (datetime.strptime(item['date'], '%Y-%m-%d'), custom_order.get(item['name'], 4)),
-        reverse = True
-    )
-
-    #dataset = compute_q4_results(dataset)
-    unique_names = sorted(
-            list(set(item['name'] for item in dataset if item['name'] not in {'CloudServiceAgreements','Digital','AllOther','PreOwnedVideoGameProducts'})),
-            key=lambda item: custom_order.get(item, 4),  # Use 4 as default for items not in custom_order
-            reverse=True)
-
-    result = {}
-
-    # Iterate through the original data
+    # Group by name and calculate total value
+    name_totals = defaultdict(int)
     for item in dataset:
-        # Get the date and value
+        name_totals[item['name']] += item['value']
+
+    # Sort names by total value and get top 5, ensuring excluded names are not considered
+    top_names = sorted(
+        [(name, total) for name, total in name_totals.items() if name.lower() not in excluded_names],
+        key=lambda x: x[1],
+        reverse=True
+    )[:5]
+    top_names = [name for name, _ in top_names]
+
+    # Filter dataset to include only top 5 names
+    dataset = [item for item in dataset if item['name'] in top_names]
+
+    # Sort the dataset
+    dataset.sort(key=lambda item: (datetime.strptime(item['date'], '%Y-%m-%d'), item['value']), reverse=True)
+
+    # Process the data into the required format
+    result = {}
+    for item in dataset:
         date = item['date']
         value = item['value']
-        
-        # Initialize the dictionary for the date if not already done
         if date not in result:
             result[date] = {'date': date, 'value': []}
-        
-        # Append the value to the list
         result[date]['value'].append(value)
 
     # Convert the result dictionary to a list
     res_list = list(result.values())
 
-    # Print the final result
+    # Add value growth (assuming add_value_growth function exists)
     res_list = add_value_growth(res_list)
-    
-    final_result = {'names': unique_names, 'history': res_list}
+
+    final_result = {'names': top_names, 'history': res_list}
     return final_result
+
+
 
 def generate_geography_dataset(dataset):
 
@@ -301,7 +303,7 @@ def generate_geography_dataset(dataset):
     return final_result
 
 
-def run(symbol, custom_order):
+def run(symbol):
 
     revenue_sources = []
     geography_sources = []
@@ -346,7 +348,7 @@ def run(symbol, custom_order):
         except Exception as e:
             print(e)
 
-    revenue_dataset = generate_revenue_dataset(revenue_sources, custom_order)
+    revenue_dataset = generate_revenue_dataset(revenue_sources)
     geographic_dataset = generate_geography_dataset(geography_sources)
     final_dataset = {'revenue': revenue_dataset, 'geographic': geographic_dataset}
     with open(f"json/business-metrics/{symbol}.json", "w") as file:
@@ -363,26 +365,5 @@ if __name__ == "__main__":
     '''
 
     for symbol in ['NVDA','AAPL','GME']:
-        if symbol == 'NVDA':
-            custom_order = {
-                'Data Center': 4,
-                'Gaming': 3,
-                'Visualization': 2,
-                'Automotive': 1,
-                'OEM & Other': 0
-            }
-        elif symbol == 'AAPL':
-            custom_order = {
-                'Iphone': 4,
-                'Mac': 3,
-                'IPad': 2,
-                'Wearables': 1,
-            }
-        elif symbol == 'GME':
-            custom_order = {
-                'HardwareAndAccessories': 4,
-                'Software': 3,
-                'Collectibles': 2,
-            }
-        run(symbol, custom_order)
+        run(symbol)
 
