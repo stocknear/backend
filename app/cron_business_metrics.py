@@ -333,34 +333,46 @@ def run(symbol):
                     dimensions_dict = ast.literal_eval(dimensions_str) if isinstance(dimensions_str, str) else dimensions_str
                 except (ValueError, SyntaxError):
                     dimensions_dict = {}
-
+                #print(dimensions_dict)
                 for column_name in [
                     "srt:StatementGeographicalAxis",
                     "us-gaap:StatementBusinessSegmentsAxis",
                     "srt:ProductOrServiceAxis",
                 ]:
                     product_dimension = dimensions_dict.get(column_name) if isinstance(dimensions_dict, dict) else None
-
                     # Check if the namespace is 'us-gaap' and product_dimension is valid
                     if row["namespace"] == "us-gaap" and product_dimension is not None and (
                         product_dimension.startswith(symbol.lower() + ":") or 
-                        product_dimension.startswith("country" + ":")
+                        product_dimension.startswith("country" + ":") or
+                        product_dimension.startswith("us-gaap"+":")
                     ):
+
+                        replacements = {
+                            "Member": "",
+                            "VideoGameAccessories": "HardwareAndAccessories",
+                            "NewVideoGameHardware": "HardwareAndAccessories",
+                            "NewVideoGameSoftware": "Software",
+                            f"{symbol.lower()}:": "",
+                            "us-gaap:": "",
+                            "SegmentMember": "",
+                        }
+
+
+                        name = product_dimension
+                        for old, new in replacements.items():
+                            name = name.replace(old, new)
+
+                        print(name,column_name)
                         # Determine the target list and the name transformation logic
-                        if symbol in ['NVDA','AAPL','GME']:
+                        if symbol in ['META','NVDA','AAPL','GME']:
                             column_list = ["srt:ProductOrServiceAxis"]
                         else:
                             column_list = ["srt:ProductOrServiceAxis", "us-gaap:StatementBusinessSegmentsAxis"]
 
                         if column_name in column_list:
-                            name = product_dimension.replace("Member", "").replace(
-                                "VideoGameAccessories", "HardwareAndAccessories"
-                            ).replace("NewVideoGameHardware", "HardwareAndAccessories").replace(
-                                "NewVideoGameSoftware", "Software"
-                            ).replace(f"{symbol.lower()}:", "")
+                            
                             revenue_sources.append({"name": name, "value": row["value"], "date": row["end_date"]})
                         else:
-                            name = product_dimension.replace("SegmentMember", "").replace("Member", "").replace(f"{symbol.lower()}:", "")
                             geography_sources.append({"name": name, "value": row["value"], "date": row["end_date"]})
 
 
@@ -368,6 +380,7 @@ def run(symbol):
         except Exception as e:
             print(e)
 
+    print(revenue_sources)
     revenue_dataset = generate_revenue_dataset(revenue_sources)
     geographic_dataset = generate_geography_dataset(geography_sources)
     final_dataset = {'revenue': revenue_dataset, 'geographic': geographic_dataset}
@@ -384,6 +397,6 @@ if __name__ == "__main__":
     run('GME', custom_order)
     '''
 
-    for symbol in ['TSLA']: #['TSLA','NVDA','AAPL','GME']:
+    for symbol in ['META']: #['TSLA','NVDA','AAPL','GME']:
         run(symbol)
 
