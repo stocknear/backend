@@ -211,7 +211,7 @@ def generate_revenue_dataset(dataset):
     }
 
     # Filter out unwanted categories
-    excluded_names = {'automotiveleasing ','officeproductsandcloudservices','serverproductsandcloudservices','automotiverevenues','automotive','computeandnetworking','graphics','gpu','automotivesegment','energygenerationandstoragesales','energygenerationandstorage','automotivesaleswithoutresalevalueguarantee','salesandservices','compute', 'networking', 'cloudserviceagreements', 'digital', 'allother', 'preownedvideogameproducts'}
+    excluded_names = {'enterpriseembeddedandsemicustom','computingandgraphics','automotiveleasing ','officeproductsandcloudservices','serverproductsandcloudservices','automotiverevenues','automotive','computeandnetworking','graphics','gpu','automotivesegment','energygenerationandstoragesales','energygenerationandstorage','automotivesaleswithoutresalevalueguarantee','salesandservices','compute', 'networking', 'cloudserviceagreements', 'digital', 'allother', 'preownedvideogameproducts'}
     dataset = [revenue for revenue in dataset if revenue['name'].lower() not in excluded_names]
 
     # Process and clean the dataset
@@ -381,6 +381,7 @@ def run(symbol):
                 ]:
                     product_dimension = dimensions_dict.get(column_name) if isinstance(dimensions_dict, dict) else None
                     # Check if the namespace is 'us-gaap' and product_dimension is valid
+                    print(product_dimension)
                     if row["namespace"] == "us-gaap" and product_dimension is not None and (
                         product_dimension.startswith(symbol.lower() + ":") or 
                         product_dimension.startswith("country" + ":") or
@@ -401,7 +402,6 @@ def run(symbol):
                         name = product_dimension
                         for old, new in replacements.items():
                             name = name.replace(old, new)
-
                         # Determine the target list and the name transformation logic
                         if symbol in ['MSFT','META','NVDA','AAPL','GME']:
                             column_list = ["srt:ProductOrServiceAxis"]
@@ -436,6 +436,6 @@ if __name__ == "__main__":
     run('GME', custom_order)
     '''
 
-    for symbol in ['MSFT']: #['TSLA','NVDA','AAPL','GME']:
+    for symbol in ['AMD']: #['TSLA','NVDA','AAPL','GME']:
         run(symbol)
 
