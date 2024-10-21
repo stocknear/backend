@@ -150,6 +150,40 @@ def compute_q4_results(dataset):
 
 
 def generate_revenue_dataset(dataset):
+    # Find all unique names and dates
+    all_dates = sorted(set(item['date'] for item in dataset))
+    all_names = sorted(set(item['name'] for item in dataset))
+    
+    # Check and fill missing combinations at the beginning
+    name_date_map = defaultdict(lambda: defaultdict(lambda: None))
+    for item in dataset:
+        name_date_map[item['name']][item['date']] = item['value']
+    
+    # Ensure all names have entries for all dates
+    for name in all_names:
+        for date in all_dates:
+            if date not in name_date_map[name]:
+                dataset.append({'name': name, 'date': date, 'value': None})
+    
+    # Clean and process the dataset values
+    processed_dataset = []
+    for item in dataset:
+        if item['value'] not in (None, '', 0):
+            processed_dataset.append({
+                'name': item['name'],
+                'date': item['date'],
+                'value': int(float(item['value']))
+            })
+        else:
+            processed_dataset.append({
+                'name': item['name'],
+                'date': item['date'],
+                'value': None
+            })
+        
+    dataset = processed_dataset
+
+
     name_replacements = {
         "datacenter": "Data Center",
         "professionalvisualization": "Visualization",
@@ -169,8 +203,13 @@ def generate_revenue_dataset(dataset):
         "servicesandother": "Services & Other",
         "automotiveregulatorycredits": "Regulatory Credits",
         "intelligentcloud": "Intelligent Cloud",
-        "productivityandbusinessprocesses": "Productivity & Business"
+        "productivityandbusinessprocesses": "Productivity & Business",
+        "searchandnewsadvertising": "Advertising",
+        "linkedincorporation": "LinkedIn",
+        "morepersonalcomputing": "More Personal Computing",
+        "serviceother": "Service Other",
     }
+
     # Filter out unwanted categories
     excluded_names = {'automotiveleasing ','officeproductsandcloudservices','serverproductsandcloudservices','automotiverevenues','automotive','computeandnetworking','graphics','gpu','automotivesegment','energygenerationandstoragesales','energygenerationandstorage','automotivesaleswithoutresalevalueguarantee','salesandservices','compute', 'networking', 'cloudserviceagreements', 'digital', 'allother', 'preownedvideogameproducts'}
     dataset = [revenue for revenue in dataset if revenue['name'].lower() not in excluded_names]
@@ -189,7 +228,7 @@ def generate_revenue_dataset(dataset):
     # Group by name and calculate total value
     name_totals = defaultdict(int)
     for item in dataset:
-        name_totals[item['name']] += item['value']
+        name_totals[item['name']] += item['value'] if item['value'] != None else 0
 
     # Sort names by total value and get top 5, ensuring excluded names are not considered
     top_names = sorted(
@@ -203,7 +242,8 @@ def generate_revenue_dataset(dataset):
     dataset = [item for item in dataset if item['name'] in top_names]
 
     # Sort the dataset
-    dataset.sort(key=lambda item: (datetime.strptime(item['date'], '%Y-%m-%d'), item['value']), reverse=True)
+    dataset.sort(key=lambda item: (datetime.strptime(item['date'], '%Y-%m-%d'), item['value'] if item['value'] != None else 0), reverse=True)
+
 
     # Process the data into the required format
     result = {}
@@ -216,7 +256,7 @@ def generate_revenue_dataset(dataset):
 
     # Convert the result dictionary to a list
     res_list = list(result.values())
-
+    print(res_list)
     # Add value growth (assuming add_value_growth function exists)
     res_list = add_value_growth(res_list)
 
@@ -362,9 +402,8 @@ def run(symbol):
                         for old, new in replacements.items():
                             name = name.replace(old, new)
 
-                        print(name,column_name)
                         # Determine the target list and the name transformation logic
-                        if symbol in ['META','NVDA','AAPL','GME']:
+                        if symbol in ['MSFT','META','NVDA','AAPL','GME']:
                             column_list = ["srt:ProductOrServiceAxis"]
                         else:
                             column_list = ["srt:ProductOrServiceAxis", "us-gaap:StatementBusinessSegmentsAxis"]
@@ -397,6 +436,6 @@ if __name__ == "__main__":
     run('GME', custom_order)
     '''
 
-    for symbol in ['META']: #['TSLA','NVDA','AAPL','GME']:
+    for symbol in ['MSFT']: #['TSLA','NVDA','AAPL','GME']:
         run(symbol)
 
