@@ -4,7 +4,7 @@ import ujson
 from tqdm import tqdm
 from datetime import datetime
 from collections import defaultdict
-
+import re
 
 #Tell the SEC who you are
 set_identity("Max Mustermann max.mustermann@indigo.com")
@@ -13,6 +13,15 @@ set_identity("Max Mustermann max.mustermann@indigo.com")
 # Define quarter-end dates for a given year
 #The last quarter Q4 result is not shown in any sec files
 #But using the https://www.sec.gov/Archives/edgar/data/1045810/000104581024000029/nvda-20240128.htm 10-K you see the annual end result which can be subtracted with all Quarter results to obtain Q4 (dumb af but works so don't judge me people)
+
+def format_name(name):
+    # Step 1: Insert spaces between camel case transitions (lowercase followed by uppercase)
+    formatted_name = re.sub(r'([a-z])([A-Z])', r'\1 \2', name)
+    
+    # Step 2: Replace "And" with "&"
+    formatted_name = formatted_name.replace("And", " & ").replace('Revenue','')
+    
+    return formatted_name
 
 
 def add_value_growth(data):
@@ -339,7 +348,7 @@ def generate_revenue_dataset(dataset):
     # Sort the dataset
     dataset.sort(key=lambda item: (datetime.strptime(item['date'], '%Y-%m-%d'), item['value'] if item['value'] != None else 0), reverse=True)
 
-    top_names = [name_replacements.get(name.lower(), name) for name in top_names]
+    top_names = [name_replacements.get(name.lower(), format_name(name)) for name in top_names]
     print(top_names)
 
     result = {}
