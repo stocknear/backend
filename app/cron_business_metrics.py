@@ -172,7 +172,7 @@ def generate_revenue_dataset(dataset):
         "productivityandbusinessprocesses": "Productivity & Business"
     }
     # Filter out unwanted categories
-    excluded_names = {'officeproductsandcloudservices','serverproductsandcloudservices','automotiverevenues','automotive','computeandnetworking','graphics','gpu','automotivesegment','energygenerationandstoragesales','energygenerationandstorage','automotivesaleswithoutresalevalueguarantee','salesandservices','compute', 'networking', 'cloudserviceagreements', 'digital', 'allother', 'preownedvideogameproducts'}
+    excluded_names = {'automotiveleasing ','officeproductsandcloudservices','serverproductsandcloudservices','automotiverevenues','automotive','computeandnetworking','graphics','gpu','automotivesegment','energygenerationandstoragesales','energygenerationandstorage','automotivesaleswithoutresalevalueguarantee','salesandservices','compute', 'networking', 'cloudserviceagreements', 'digital', 'allother', 'preownedvideogameproducts'}
     dataset = [revenue for revenue in dataset if revenue['name'].lower() not in excluded_names]
 
     # Process and clean the dataset
@@ -334,25 +334,35 @@ def run(symbol):
                 except (ValueError, SyntaxError):
                     dimensions_dict = {}
 
-                for column_name in ["srt:StatementGeographicalAxis","us-gaap:StatementBusinessSegmentsAxis", "srt:ProductOrServiceAxis"]:
-
+                for column_name in [
+                    "srt:StatementGeographicalAxis",
+                    "us-gaap:StatementBusinessSegmentsAxis",
+                    "srt:ProductOrServiceAxis",
+                ]:
                     product_dimension = dimensions_dict.get(column_name) if isinstance(dimensions_dict, dict) else None
-                    #print(row["namespace"], row["fact"], product_dimension, row["value"])
-                    
-                    if column_name == "srt:ProductOrServiceAxis":
-                        if row["namespace"] == "us-gaap" and product_dimension is not None and (product_dimension.startswith(symbol.lower() + ":") or product_dimension.startswith('country' + ":")):
-                            revenue_sources.append({
-                                "name": product_dimension.replace("Member", "").replace("VideoGameAccessories","HardwareAndAccessories").replace("NewVideoGameHardware","HardwareAndAccessories").replace("NewVideoGameSoftware","Software").replace(f"{symbol.lower()}:", ""),
-                                "value": row["value"], "date": row["end_date"]
-                            })
 
-                    else:
-                        #print(dimensions_dict)
-                        if row["namespace"] == "us-gaap" and product_dimension is not None and (product_dimension.startswith(symbol.lower() + ":") or product_dimension.startswith('country' + ":")):
-                            geography_sources.append({
-                                "name": product_dimension.replace("SegmentMember","").replace("Member", "").replace(f"{symbol.lower()}:", ""),
-                                "value": row["value"], "date": row["end_date"]
-                            })
+                    # Check if the namespace is 'us-gaap' and product_dimension is valid
+                    if row["namespace"] == "us-gaap" and product_dimension is not None and (
+                        product_dimension.startswith(symbol.lower() + ":") or 
+                        product_dimension.startswith("country" + ":")
+                    ):
+                        # Determine the target list and the name transformation logic
+                        if symbol in ['NVDA','AAPL','GME']:
+                            column_list = ["srt:ProductOrServiceAxis"]
+                        else:
+                            column_list = ["srt:ProductOrServiceAxis", "us-gaap:StatementBusinessSegmentsAxis"]
+
+                        if column_name in column_list:
+                            name = product_dimension.replace("Member", "").replace(
+                                "VideoGameAccessories", "HardwareAndAccessories"
+                            ).replace("NewVideoGameHardware", "HardwareAndAccessories").replace(
+                                "NewVideoGameSoftware", "Software"
+                            ).replace(f"{symbol.lower()}:", "")
+                            revenue_sources.append({"name": name, "value": row["value"], "date": row["end_date"]})
+                        else:
+                            name = product_dimension.replace("SegmentMember", "").replace("Member", "").replace(f"{symbol.lower()}:", "")
+                            geography_sources.append({"name": name, "value": row["value"], "date": row["end_date"]})
+
 
 
         except Exception as e:
@@ -374,6 +384,6 @@ if __name__ == "__main__":
     run('GME', custom_order)
     '''
 
-    for symbol in ['TSLA']: #['NVDA','AAPL','GME']:
+    for symbol in ['TSLA']: #['TSLA','NVDA','AAPL','GME']:
         run(symbol)
 
