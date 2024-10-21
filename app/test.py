@@ -83,8 +83,6 @@ def aggregate_other_values(data):
 
 
 
-revenue_sources = [{'name': 'Product', 'value': '17080000000', 'date': '2024-03-31'}, {'name': 'ServiceOther', 'value': '44778000000', 'date': '2024-03-31'}, {'name': 'ServerProductsAndCloudServices', 'value': '24832000000', 'date': '2024-03-31'}, {'name': 'OfficeProductsAndCloudServices', 'value': '13911000000', 'date': '2024-03-31'}, {'name': 'Windows', 'value': '5929000000', 'date': '2024-03-31'}, {'name': 'Gaming', 'value': '5451000000', 'date': '2024-03-31'}, {'name': 'LinkedInCorporation', 'value': '4013000000', 'date': '2024-03-31'}, {'name': 'SearchAndNewsAdvertising', 'value': '3134000000', 'date': '2024-03-31'}, {'name': 'EnterpriseAndPartnerServices', 'value': '1861000000', 'date': '2024-03-31'}, {'name': 'DynamicsProductsAndCloudServices', 'value': '1646000000', 'date': '2024-03-31'}, {'name': 'Devices', 'value': '1067000000', 'date': '2024-03-31'}, {'name': 'OtherProductsAndServices', 'value': '14000000', 'date': '2024-03-31'}, {'name': 'Product', 'value': '18941000000', 'date': '2023-12-31'}, {'name': 'ServiceOther', 'value': '43079000000', 'date': '2023-12-31'}, {'name': 'ServerProductsAndCloudServices', 'value': '23953000000', 'date': '2023-12-31'}, {'name': 'OfficeProductsAndCloudServices', 'value': '13477000000', 'date': '2023-12-31'}, {'name': 'Gaming', 'value': '7111000000', 'date': '2023-12-31'}, {'name': 'Windows', 'value': '5262000000', 'date': '2023-12-31'}, {'name': 'LinkedInCorporation', 'value': '4195000000', 'date': '2023-12-31'}, {'name': 'SearchAndNewsAdvertising', 'value': '3220000000', 'date': '2023-12-31'}, {'name': 'EnterpriseAndPartnerServices', 'value': '1917000000', 'date': '2023-12-31'}, {'name': 'DynamicsProductsAndCloudServices', 'value': '1576000000', 'date': '2023-12-31'}, {'name': 'Devices', 'value': '1298000000', 'date': '2023-12-31'}, {'name': 'OtherProductsAndServices', 'value': '11000000', 'date': '2023-12-31'}, {'name': 'Product', 'value': '15535000000', 'date': '2023-09-30'}, {'name': 'ServiceOther', 'value': '40982000000', 'date': '2023-09-30'}, {'name': 'ServerProductsAndCloudServices', 'value': '22308000000', 'date': '2023-09-30'}, {'name': 'OfficeProductsAndCloudServices', 'value': '13140000000', 'date': '2023-09-30'}, {'name': 'Windows', 'value': '5567000000', 'date': '2023-09-30'}, {'name': 'Gaming', 'value': '3919000000', 'date': '2023-09-30'}, {'name': 'LinkedInCorporation', 'value': '3913000000', 'date': '2023-09-30'}, {'name': 'SearchAndNewsAdvertising', 'value': '3053000000', 'date': '2023-09-30'}, {'name': 'EnterpriseAndPartnerServices', 'value': '1944000000', 'date': '2023-09-30'}, {'name': 'Dynamics', 'value': '1540000000', 'date': '2023-09-30'}, {'name': 'Devices', 'value': '1125000000', 'date': '2023-09-30'}, {'name': 'OtherProductsAndServices', 'value': '8000000', 'date': '2023-09-30'}, {'name': 'Product', 'value': '15588000000', 'date': '2023-03-31'}, {'name': 'ServiceOther', 'value': '37269000000', 'date': '2023-03-31'}, {'name': 'ServerProductsAndCloudServices', 'value': '20025000000', 'date': '2023-03-31'}, {'name': 'OfficeProductsAndCloudServices', 'value': '12438000000', 'date': '2023-03-31'}, {'name': 'Windows', 'value': '5328000000', 'date': '2023-03-31'}, {'name': 'Gaming', 'value': '3607000000', 'date': '2023-03-31'}, {'name': 'LinkedInCorporation', 'value': '3697000000', 'date': '2023-03-31'}, {'name': 'SearchAndNewsAdvertising', 'value': '3045000000', 'date': '2023-03-31'}, {'name': 'EnterpriseServices', 'value': '2007000000', 'date': '2023-03-31'}, {'name': 'Devices', 'value': '1282000000', 'date': '2023-03-31'}, {'name': 'OtherProductsAndServices', 'value': '1428000000', 'date': '2023-03-31'}, {'name': 'Product', 'value': '16517000000', 'date': '2022-12-31'}, {'name': 'ServiceOther', 'value': '36230000000', 'date': '2022-12-31'}, {'name': 'ServerProductsAndCloudServices', 'value': '19594000000', 'date': '2022-12-31'}, {'name': 'OfficeProductsAndCloudServices', 'value': '11837000000', 'date': '2022-12-31'}, {'name': 'Windows', 'value': '4808000000', 'date': '2022-12-31'}, {'name': 'Gaming', 'value': '4758000000', 'date': '2022-12-31'}, {'name': 'LinkedInCorporation', 'value': '3876000000', 'date': '2022-12-31'}, {'name': 'SearchAndNewsAdvertising', 'value': '3223000000', 'date': '2022-12-31'}, {'name': 'EnterpriseServices', 'value': '1862000000', 'date': '2022-12-31'}, {'name': 'Devices', 'value': '1430000000', 'date': '2022-12-31'}, {'name': 'OtherProductsAndServices', 'value': '1359000000', 'date': '2022-12-31'}, {'name': 'Product', 'value': '15741000000', 'date': '2022-09-30'}, {'name': 'ServiceOther', 'value': '34381000000', 'date': '2022-09-30'}, {'name': 'ServerProductsAndCloudServices', 'value': '18388000000', 'date': '2022-09-30'}, {'name': 'OfficeProductsAndCloudServices', 'value': '11548000000', 'date': '2022-09-30'}, {'name': 'Windows', 'value': '5313000000', 'date': '2022-09-30'}, {'name': 'LinkedInCorporation', 'value': '3663000000', 'date': '2022-09-30'}, {'name': 'Gaming', 'value': '3610000000', 'date': '2022-09-30'}, {'name': 'SearchAndNewsAdvertising', 'value': '2928000000', 'date': '2022-09-30'}, {'name': 'EnterpriseServices', 'value': '1876000000', 'date': '2022-09-30'}, {'name': 'Devices', 'value': '1448000000', 'date': '2022-09-30'}, {'name': 'OtherProductsAndServices', 'value': '1348000000', 'date': '2022-09-30'}, {'name': 'Product', 'value': '17366000000', 'date': '2022-03-31'}, {'name': 'ServiceOther', 'value': '31994000000', 'date': '2022-03-31'}, {'name': 'ServerProductsAndCloudServices', 'value': '17038000000', 'date': '2022-03-31'}, {'name': 'OfficeProductsAndCloudServices', 'value': '11164000000', 'date': '2022-03-31'}, {'name': 'Windows', 'value': '6077000000', 'date': '2022-03-31'}, {'name': 'Gaming', 'value': '3740000000', 'date': '2022-03-31'}, {'name': 'LinkedInCorporation', 'value': '3437000000', 'date': '2022-03-31'}, {'name': 'SearchAndNewsAdvertising', 'value': '2945000000', 'date': '2022-03-31'}, {'name': 'EnterpriseServices', 'value': '1891000000', 'date': '2022-03-31'}, {'name': 'Devices', 'value': '1764000000', 'date': '2022-03-31'}, {'name': 'OtherProductsAndServices', 'value': '1304000000', 'date': '2022-03-31'}, {'name': 'Product', 'value': '20779000000', 'date': '2021-12-31'}, {'name': 'ServiceOther', 'value': '30949000000', 'date': '2021-12-31'}, {'name': 'ServerProductsAndCloudServices', 'value': '16375000000', 'date': '2021-12-31'}, {'name': 'OfficeProductsAndCloudServices', 'value': '11251000000', 'date': '2021-12-31'}, {'name': 'Windows', 'value': '6600000000', 'date': '2021-12-31'}, {'name': 'Gaming', 'value': '5442000000', 'date': '2021-12-31'}, {'name': 'LinkedInCorporation', 'value': '3531000000', 'date': '2021-12-31'}, {'name': 'SearchAndNewsAdvertising', 'value': '3064000000', 'date': '2021-12-31'}, {'name': 'Devices', 'value': '2285000000', 'date': '2021-12-31'}, {'name': 'EnterpriseServices', 'value': '1823000000', 'date': '2021-12-31'}, {'name': 'OtherProductsAndServices', 'value': '1357000000', 'date': '2021-12-31'}, {'name': 'Product', 'value': '16631000000', 'date': '2021-09-30'}, {'name': 'ServiceOther', 'value': '28686000000', 'date': '2021-09-30'}, {'name': 'ServerProductsAndCloudServices', 'value': '15069000000', 'date': '2021-09-30'}, {'name': 'OfficeProductsAndCloudServices', 'value': '10808000000', 'date': '2021-09-30'}, {'name': 'Windows', 'value': '5676000000', 'date': '2021-09-30'}, {'name': 'Gaming', 'value': '3593000000', 'date': '2021-09-30'}, {'name': 'LinkedInCorporation', 'value': '3136000000', 'date': '2021-09-30'}, {'name': 'SearchAndNewsAdvertising', 'value': '2656000000', 'date': '2021-09-30'}, {'name': 'EnterpriseServices', 'value': '1791000000', 'date': '2021-09-30'}, {'name': 'Devices', 'value': '1361000000', 'date': '2021-09-30'}, {'name': 'OtherProductsAndServices', 'value': '1227000000', 'date': '2021-09-30'}, {'name': 'Product', 'value': '16873000000', 'date': '2021-03-31'}, {'name': 'ServiceOther', 'value': '24833000000', 'date': '2021-03-31'}, {'name': 'ServerProductsAndCloudServices', 'value': '13204000000', 'date': '2021-03-31'}, {'name': 'OfficeProductsAndCloudServices', 'value': '10016000000', 'date': '2021-03-31'}, {'name': 'Windows', 'value': '5646000000', 'date': '2021-03-31'}, {'name': 'Gaming', 'value': '3533000000', 'date': '2021-03-31'}, {'name': 'LinkedInCorporation', 'value': '2562000000', 'date': '2021-03-31'}, {'name': 'SearchAdvertising', 'value': '2218000000', 'date': '2021-03-31'}, {'name': 'Devices', 'value': '1599000000', 'date': '2021-03-31'}, {'name': 'EnterpriseServices', 'value': '1803000000', 'date': '2021-03-31'}, {'name': 'OtherProductsAndServices', 'value': '1125000000', 'date': '2021-03-31'}, {'name': 'Product', 'value': '19460000000', 'date': '2020-12-31'}, {'name': 'ServiceOther', 'value': '23616000000', 'date': '2020-12-31'}, {'name': 'ServerProductsAndCloudServices', 'value': '12729000000', 'date': '2020-12-31'}, {'name': 'OfficeProductsAndCloudServices', 'value': '9881000000', 'date': '2020-12-31'}, {'name': 'Windows', 'value': '5716000000', 'date': '2020-12-31'}, {'name': 'Gaming', 'value': '5031000000', 'date': '2020-12-31'}, {'name': 'LinkedInCorporation', 'value': '2577000000', 'date': '2020-12-31'}, {'name': 'SearchAdvertising', 'value': '2184000000', 'date': '2020-12-31'}, {'name': 'Devices', 'value': '2120000000', 'date': '2020-12-31'}, {'name': 'EnterpriseServices', 'value': '1695000000', 'date': '2020-12-31'}, {'name': 'OtherProductsAndServices', 'value': '1143000000', 'date': '2020-12-31'}, {'name': 'Product', 'value': '15803000000', 'date': '2020-09-30'}, {'name': 'ServiceOther', 'value': '21351000000', 'date': '2020-09-30'}, {'name': 'ServerProductsAndCloudServices', 'value': '11195000000', 'date': '2020-09-30'}, {'name': 'OfficeProductsAndCloudServices', 'value': '9278000000', 'date': '2020-09-30'}, {'name': 'Windows', 'value': '5305000000', 'date': '2020-09-30'}, {'name': 'Gaming', 'value': '3092000000', 'date': '2020-09-30'}, {'name': 'LinkedInCorporation', 'value': '2206000000', 'date': '2020-09-30'}, {'name': 'SearchAdvertising', 'value': '1789000000', 'date': '2020-09-30'}, {'name': 'EnterpriseServices', 'value': '1637000000', 'date': '2020-09-30'}, {'name': 'Devices', 'value': '1620000000', 'date': '2020-09-30'}, {'name': 'OtherProductsAndServices', 'value': '1032000000', 'date': '2020-09-30'}, {'name': 'Product', 'value': '15871000000', 'date': '2020-03-31'}, {'name': 'ServiceOther', 'value': '19150000000', 'date': '2020-03-31'}, {'name': 'ServerProductsAndCloudServices', 'value': '10490000000', 'date': '2020-03-31'}, {'name': 'OfficeProductsAndCloudServices', 'value': '8920000000', 'date': '2020-03-31'}, {'name': 'Windows', 'value': '5220000000', 'date': '2020-03-31'}, {'name': 'Gaming', 'value': '2349000000', 'date': '2020-03-31'}, {'name': 'SearchAdvertising', 'value': '1986000000', 'date': '2020-03-31'}, {'name': 'LinkedInCorporation', 'value': '2050000000', 'date': '2020-03-31'}, {'name': 'EnterpriseServices', 'value': '1633000000', 'date': '2020-03-31'}, {'name': 'Devices', 'value': '1412000000', 'date': '2020-03-31'}, {'name': 'OtherProductsAndServices', 'value': '961000000', 'date': '2020-03-31'}, {'name': 'Product', 'value': '18255000000', 'date': '2019-12-31'}, {'name': 'ServiceOther', 'value': '18651000000', 'date': '2019-12-31'}, {'name': 'ServerProductsAndCloudServices', 'value': '10119000000', 'date': '2019-12-31'}, {'name': 'OfficeProductsAndCloudServices', 'value': '8983000000', 'date': '2019-12-31'}, {'name': 'Windows', 'value': '5593000000', 'date': '2019-12-31'}, {'name': 'Gaming', 'value': '3327000000', 'date': '2019-12-31'}, {'name': 'SearchAdvertising', 'value': '2163000000', 'date': '2019-12-31'}, {'name': 'LinkedInCorporation', 'value': '2102000000', 'date': '2019-12-31'}, {'name': 'Devices', 'value': '2048000000', 'date': '2019-12-31'}, {'name': 'EnterpriseServices', 'value': '1612000000', 'date': '2019-12-31'}, {'name': 'OtherProductsAndServices', 'value': '959000000', 'date': '2019-12-31'}, {'name': 'Product', 'value': '15768000000', 'date': '2019-09-30'}, {'name': 'ServiceOther', 'value': '17287000000', 'date': '2019-09-30'}, {'name': 'ServerProductsAndCloudServices', 'value': '9192000000', 'date': '2019-09-30'}, {'name': 'OfficeProductsAndCloudServices', 'value': '8466000000', 'date': '2019-09-30'}, {'name': 'Windows', 'value': '5353000000', 'date': '2019-09-30'}, {'name': 'Gaming', 'value': '2542000000', 'date': '2019-09-30'}, {'name': 'SearchAdvertising', 'value': '1991000000', 'date': '2019-09-30'}, {'name': 'LinkedInCorporation', 'value': '1909000000', 'date': '2019-09-30'}, {'name': 'EnterpriseServices', 'value': '1545000000', 'date': '2019-09-30'}, {'name': 'Devices', 'value': '1202000000', 'date': '2019-09-30'}, {'name': 'OtherProductsAndServices', 'value': '855000000', 'date': '2019-09-30'}, {'name': 'Product', 'value': '15448000000', 'date': '2019-03-31'}, {'name': 'ServiceOther', 'value': '15123000000', 'date': '2019-03-31'}, {'name': 'OfficeProductsAndCloudServices', 'value': '7889000000', 'date': '2019-03-31'}, {'name': 'ServerProductsAndCloudServices', 'value': '8053000000', 'date': '2019-03-31'}, {'name': 'Windows', 'value': '4944000000', 'date': '2019-03-31'}, {'name': 'Gaming', 'value': '2363000000', 'date': '2019-03-31'}, {'name': 'SearchAdvertising', 'value': '1911000000', 'date': '2019-03-31'}, {'name': 'LinkedInCorporation', 'value': '1696000000', 'date': '2019-03-31'}, {'name': 'Devices', 'value': '1423000000', 'date': '2019-03-31'}, {'name': 'EnterpriseServices', 'value': '1542000000', 'date': '2019-03-31'}, {'name': 'OtherProductsAndServices', 'value': '750000000', 'date': '2019-03-31'}, {'name': 'Product', 'value': '16219000000', 'date': '2018-12-31'}, {'name': 'ServiceOther', 'value': '16252000000', 'date': '2018-12-31'}, {'name': 'OfficeProductsAndCloudServices', 'value': '7747000000', 'date': '2018-12-31'}, {'name': 'ServerProductsAndCloudServices', 'value': '7791000000', 'date': '2018-12-31'}, {'name': 'Windows', 'value': '4758000000', 'date': '2018-12-31'}, {'name': 'Gaming', 'value': '4232000000', 'date': '2018-12-31'}, {'name': 'SearchAdvertising', 'value': '1976000000', 'date': '2018-12-31'}, {'name': 'LinkedInCorporation', 'value': '1693000000', 'date': '2018-12-31'}, {'name': 'Devices', 'value': '1948000000', 'date': '2018-12-31'}, {'name': 'EnterpriseServices', 'value': '1521000000', 'date': '2018-12-31'}, {'name': 'OtherProductsAndServices', 'value': '805000000', 'date': '2018-12-31'}]
-
 
 def generate_revenue_dataset(dataset):
     # Find all unique names and dates
@@ -120,6 +118,21 @@ def generate_revenue_dataset(dataset):
         
     dataset = processed_dataset
 
+    dataset = sorted(dataset, key=lambda item: datetime.strptime(item['date'], '%Y-%m-%d'), reverse=True)
+
+    remember_names = set()  # Use a set for faster membership checks
+
+    first_date = dataset[0]['date']
+
+    # Iterate through dataset to remember names where date matches first_date and value is None
+    for item in dataset:
+        if item['date'] == first_date and item['value'] is None:
+            remember_names.add(item['name'])
+
+    # Use list comprehension to filter items not in remember_names
+    dataset = [{**item} for item in dataset if item['name'] not in remember_names]
+
+
 
     name_replacements = {
         "datacenter": "Data Center",
@@ -145,10 +158,11 @@ def generate_revenue_dataset(dataset):
         "linkedincorporation": "LinkedIn",
         "morepersonalcomputing": "More Personal Computing",
         "serviceother": "Service Other",
+        "governmentoperatingsegment": "Government Operating"
     }
 
     # Filter out unwanted categories
-    excluded_names = {'automotiveleasing ','officeproductsandcloudservices','serverproductsandcloudservices','automotiverevenues','automotive','computeandnetworking','graphics','gpu','automotivesegment','energygenerationandstoragesales','energygenerationandstorage','automotivesaleswithoutresalevalueguarantee','salesandservices','compute', 'networking', 'cloudserviceagreements', 'digital', 'allother', 'preownedvideogameproducts'}
+    excluded_names = {'enterpriseembeddedandsemicustom','computingandgraphics','automotiveleasing ','officeproductsandcloudservices','serverproductsandcloudservices','automotiverevenues','automotive','computeandnetworking','graphics','gpu','automotivesegment','energygenerationandstoragesales','energygenerationandstorage','automotivesaleswithoutresalevalueguarantee','salesandservices','compute', 'networking', 'cloudserviceagreements', 'digital', 'allother', 'preownedvideogameproducts'}
     dataset = [revenue for revenue in dataset if revenue['name'].lower() not in excluded_names]
 
     # Process and clean the dataset
@@ -182,6 +196,8 @@ def generate_revenue_dataset(dataset):
     dataset.sort(key=lambda item: (datetime.strptime(item['date'], '%Y-%m-%d'), item['value'] if item['value'] != None else 0), reverse=True)
 
 
+
+    
     # Process the data into the required format
     result = {}
     for item in dataset:
@@ -191,75 +207,19 @@ def generate_revenue_dataset(dataset):
             result[date] = {'date': date, 'value': []}
         result[date]['value'].append(value)
 
+
+
     # Convert the result dictionary to a list
     res_list = list(result.values())
+    
     # Add value growth (assuming add_value_growth function exists)
     res_list = add_value_growth(res_list)
-
-    final_result = {'names': top_names, 'history': res_list}
-
-    #print(len(top_names), len(res_list[4]['value']))
     print(res_list)
+    final_result = {'names': top_names, 'history': res_list}
     return final_result
 
 
-def generate_geography_dataset(dataset):
-
-    country_replacements = {
-        "country:us": "United States",
-        "country:cn": "China",
-        "chinaincludinghongkong": "China"
-    }
-
-    # Custom order for specific countries
-    custom_order = {
-        'United States': 2,
-        'China': 1,
-        'Other': 0
-    }
-
-    for item in dataset:
-        item['date'] = closest_quarter_end(item['date'])
-        name = item.get('name').lower()
-        value = int(float(item.get('value')))
-        if name in country_replacements:
-            item['name'] = country_replacements[name]
-            item['value'] = value
-        else:
-            item['name'] = 'Other'
-            item['value'] = value
-
-    dataset = aggregate_other_values(dataset)
-    dataset = sorted(
-        dataset,
-        key=lambda item: (datetime.strptime(item['date'], '%Y-%m-%d'), custom_order.get(item['name'], 3)),
-        reverse = True
-    )
-
-    dataset = compute_q4_results(dataset)
-    result = {}
-
-    # Iterate through the original data
-    for item in dataset:
-        # Get the date and value
-        date = item['date']
-        value = item['value']
-        
-        # Initialize the dictionary for the date if not already done
-        if date not in result:
-            result[date] = {'date': date, 'value': []}
-        
-        # Append the value to the list
-        result[date]['value'].append(value)
-
-    # Convert the result dictionary to a list
-    # Convert the result dictionary to a list
-    final_result = list(result.values())
-
-    # Print the final result
-    final_result = add_value_growth(final_result)
-    print(final_result)
-
+revenue_sources = [{'name': 'GovernmentOperatingSegment', 'value': '370767000', 'date': '2024-06-30'}, {'name': 'Commercial', 'value': '307367000', 'date': '2024-06-30'}, {'name': 'GovernmentOperatingSegment', 'value': '335373000', 'date': '2024-03-31'}, {'name': 'Commercial', 'value': '298965000', 'date': '2024-03-31'}, {'name': 'GovernmentOperatingSegment', 'value': '307603000', 'date': '2023-09-30'}, {'name': 'Commercial', 'value': '250556000', 'date': '2023-09-30'}, {'name': 'GovernmentOperatingSegment', 'value': '301505000', 'date': '2023-06-30'}, {'name': 'Commercial', 'value': '231812000', 'date': '2023-06-30'}, {'name': 'GovernmentOperatingSegment', 'value': '289070000', 'date': '2023-03-31'}, {'name': 'Commercial', 'value': '236116000', 'date': '2023-03-31'}, {'name': 'GovernmentOperatingSegment', 'value': '273834000', 'date': '2022-09-30'}, {'name': 'Commercial', 'value': '204046000', 'date': '2022-09-30'}, {'name': 'Commercial', 'value': '210012000', 'date': '2022-06-30'}, {'name': 'Commercial', 'value': '204567000', 'date': '2022-03-31'}, {'name': 'LicenseAndService', 'value': '25000000', 'date': '2019-12-31'}, {'name': 'LicenseAndService', 'value': '25000000', 'date': '2020-09-30'}, {'name': 'Government', 'value': '162561000', 'date': '2020-09-30'}, {'name': 'Commercial', 'value': '126805000', 'date': '2020-09-30'}]
 
 generate_revenue_dataset(revenue_sources)
 

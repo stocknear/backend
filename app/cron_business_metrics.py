@@ -149,122 +149,6 @@ def compute_q4_results(dataset):
 
 
 
-def generate_revenue_dataset(dataset):
-    # Find all unique names and dates
-    all_dates = sorted(set(item['date'] for item in dataset))
-    all_names = sorted(set(item['name'] for item in dataset))
-    
-    # Check and fill missing combinations at the beginning
-    name_date_map = defaultdict(lambda: defaultdict(lambda: None))
-    for item in dataset:
-        name_date_map[item['name']][item['date']] = item['value']
-    
-    # Ensure all names have entries for all dates
-    for name in all_names:
-        for date in all_dates:
-            if date not in name_date_map[name]:
-                dataset.append({'name': name, 'date': date, 'value': None})
-    
-    # Clean and process the dataset values
-    processed_dataset = []
-    for item in dataset:
-        if item['value'] not in (None, '', 0):
-            processed_dataset.append({
-                'name': item['name'],
-                'date': item['date'],
-                'value': int(float(item['value']))
-            })
-        else:
-            processed_dataset.append({
-                'name': item['name'],
-                'date': item['date'],
-                'value': None
-            })
-        
-    dataset = processed_dataset
-
-
-    name_replacements = {
-        "datacenter": "Data Center",
-        "professionalvisualization": "Visualization",
-        "oemandother": "OEM & Other",
-        "automotive": "Automotive",
-        "oemip": "OEM & Other",
-        "gaming": "Gaming",
-        "mac": "Mac",
-        "iphone": "IPhone",
-        "ipad": "IPad",
-        "wearableshomeandaccessories": "Wearables",
-        "hardwareandaccessories": "Hardware & Accessories",
-        "software": "Software",
-        "collectibles": "Collectibles",
-        "automotivesales": "Auto",
-        "energygenerationandstoragesegment": "Energy and Storage",
-        "servicesandother": "Services & Other",
-        "automotiveregulatorycredits": "Regulatory Credits",
-        "intelligentcloud": "Intelligent Cloud",
-        "productivityandbusinessprocesses": "Productivity & Business",
-        "searchandnewsadvertising": "Advertising",
-        "linkedincorporation": "LinkedIn",
-        "morepersonalcomputing": "More Personal Computing",
-        "serviceother": "Service Other",
-    }
-
-    # Filter out unwanted categories
-    excluded_names = {'enterpriseembeddedandsemicustom','computingandgraphics','automotiveleasing ','officeproductsandcloudservices','serverproductsandcloudservices','automotiverevenues','automotive','computeandnetworking','graphics','gpu','automotivesegment','energygenerationandstoragesales','energygenerationandstorage','automotivesaleswithoutresalevalueguarantee','salesandservices','compute', 'networking', 'cloudserviceagreements', 'digital', 'allother', 'preownedvideogameproducts'}
-    dataset = [revenue for revenue in dataset if revenue['name'].lower() not in excluded_names]
-
-    # Process and clean the dataset
-    for item in dataset:
-        try:
-            name = item.get('name').lower()
-            value = int(float(item.get('value')))
-            if name in name_replacements:
-                item['name'] = name_replacements[name]
-            item['value'] = value
-        except:
-            pass
-
-    # Group by name and calculate total value
-    name_totals = defaultdict(int)
-    for item in dataset:
-        name_totals[item['name']] += item['value'] if item['value'] != None else 0
-
-    # Sort names by total value and get top 5, ensuring excluded names are not considered
-    top_names = sorted(
-        [(name, total) for name, total in name_totals.items() if name.lower() not in excluded_names],
-        key=lambda x: x[1],
-        reverse=True
-    )[:5]
-    top_names = [name for name, _ in top_names]
-
-    # Filter dataset to include only top 5 names
-    dataset = [item for item in dataset if item['name'] in top_names]
-
-    # Sort the dataset
-    dataset.sort(key=lambda item: (datetime.strptime(item['date'], '%Y-%m-%d'), item['value'] if item['value'] != None else 0), reverse=True)
-
-
-    # Process the data into the required format
-    result = {}
-    for item in dataset:
-        date = item['date']
-        value = item['value']
-        if date not in result:
-            result[date] = {'date': date, 'value': []}
-        result[date]['value'].append(value)
-
-    # Convert the result dictionary to a list
-    res_list = list(result.values())
-    print(res_list)
-    # Add value growth (assuming add_value_growth function exists)
-    res_list = add_value_growth(res_list)
-
-    final_result = {'names': top_names, 'history': res_list}
-    return final_result
-
-
-
 def generate_geography_dataset(dataset):
 
     country_replacements = {
@@ -352,6 +236,130 @@ def generate_geography_dataset(dataset):
     final_result = {'names': unique_names, 'history': res_list}
     return final_result
 
+def generate_revenue_dataset(dataset):
+    name_replacements = {
+        "datacenter": "Data Center",
+        "professionalvisualization": "Visualization",
+        "oemandother": "OEM & Other",
+        "automotive": "Automotive",
+        "oemip": "OEM & Other",
+        "gaming": "Gaming",
+        "mac": "Mac",
+        "iphone": "IPhone",
+        "ipad": "IPad",
+        "wearableshomeandaccessories": "Wearables",
+        "hardwareandaccessories": "Hardware & Accessories",
+        "software": "Software",
+        "collectibles": "Collectibles",
+        "automotivesales": "Auto",
+        "automotiveleasing": "Auto Leasing",
+        "energygenerationandstoragesegment": "Energy and Storage",
+        "servicesandother": "Services & Other",
+        "automotiveregulatorycredits": "Regulatory Credits",
+        "intelligentcloud": "Intelligent Cloud",
+        "productivityandbusinessprocesses": "Productivity & Business",
+        "searchandnewsadvertising": "Advertising",
+        "linkedincorporation": "LinkedIn",
+        "morepersonalcomputing": "More Personal Computing",
+        "serviceother": "Service Other",
+        "governmentoperatingsegment": "Government Operating Segment"
+    }
+    excluded_names = {'government','enterpriseembeddedandsemicustom','computingandgraphics','automotiveleasing ','officeproductsandcloudservices','serverproductsandcloudservices','automotiverevenues','automotive','computeandnetworking','graphics','gpu','automotivesegment','energygenerationandstoragesales','energygenerationandstorage','automotivesaleswithoutresalevalueguarantee','salesandservices','compute', 'networking', 'cloudserviceagreements', 'digital', 'allother', 'preownedvideogameproducts'}
+    dataset = [item for item in dataset if item['name'].lower() not in excluded_names]
+
+    # Find all unique names and dates
+    all_dates = sorted(set(item['date'] for item in dataset))
+    all_names = sorted(set(item['name'] for item in dataset))
+    dataset = [revenue for revenue in dataset if revenue['name'].lower() not in excluded_names]
+    # Check and fill missing combinations at the beginning
+    name_date_map = defaultdict(lambda: defaultdict(lambda: None))
+    for item in dataset:
+        name_date_map[item['name']][item['date']] = item['value']
+    
+    # Ensure all names have entries for all dates
+    for name in all_names:
+        for date in all_dates:
+            if date not in name_date_map[name]:
+                dataset.append({'name': name, 'date': date, 'value': None})
+    
+    # Clean and process the dataset values
+    processed_dataset = []
+    for item in dataset:
+        if item['value'] not in (None, '', 0):
+            processed_dataset.append({
+                'name': item['name'],
+                'date': item['date'],
+                'value': int(float(item['value']))
+            })
+        else:
+            processed_dataset.append({
+                'name': item['name'],
+                'date': item['date'],
+                'value': None
+            })
+        
+    dataset = processed_dataset
+
+
+    #If the last value of the latest date is null or 0 remove all names in the list
+    dataset = sorted(dataset, key=lambda item: datetime.strptime(item['date'], '%Y-%m-%d'), reverse=True)
+    remember_names = set()  # Use a set for faster membership checks
+
+    first_date = dataset[0]['date']
+
+    # Iterate through dataset to remember names where date matches first_date and value is None
+    for item in dataset:
+        if item['date'] == first_date and (item['value'] == None or item['value'] == 0):
+            remember_names.add(item['name'])
+            print(item['name'])
+
+    # Use list comprehension to filter items not in remember_names
+    dataset = [{**item} for item in dataset if item['name'] not in remember_names]
+
+
+
+
+
+    # Group by name and calculate total value
+    name_totals = defaultdict(int)
+    for item in dataset:
+        name_totals[item['name']] += item['value'] if item['value'] != None else 0
+
+    # Sort names by total value and get top 5, ensuring excluded names are not considered
+    top_names = sorted(
+        [(name, total) for name, total in name_totals.items() if name.lower() not in excluded_names],
+        key=lambda x: x[1],
+        reverse=True
+    )[:5]
+    top_names = [name for name, _ in top_names]
+
+    # Filter dataset to include only top 5 names
+    dataset = [item for item in dataset if item['name'] in top_names]
+
+    # Sort the dataset
+    dataset.sort(key=lambda item: (datetime.strptime(item['date'], '%Y-%m-%d'), item['value'] if item['value'] != None else 0), reverse=True)
+
+    top_names = [name_replacements[name.lower()] for name in top_names if name.lower() in name_replacements]
+    print(top_names)
+
+    result = {}
+    for item in dataset:
+        date = item['date']
+        value = item['value']
+        if date not in result:
+            result[date] = {'date': date, 'value': []}
+        result[date]['value'].append(value)
+
+
+
+    # Convert the result dictionary to a list
+    res_list = list(result.values())
+    
+    # Add value growth (assuming add_value_growth function exists)
+    res_list = add_value_growth(res_list)
+    final_result = {'names': top_names, 'history': res_list}
+    return final_result
+
 
 def run(symbol):
 
@@ -373,7 +381,6 @@ def run(symbol):
                     dimensions_dict = ast.literal_eval(dimensions_str) if isinstance(dimensions_str, str) else dimensions_str
                 except (ValueError, SyntaxError):
                     dimensions_dict = {}
-                #print(dimensions_dict)
                 for column_name in [
                     "srt:StatementGeographicalAxis",
                     "us-gaap:StatementBusinessSegmentsAxis",
@@ -381,7 +388,6 @@ def run(symbol):
                 ]:
                     product_dimension = dimensions_dict.get(column_name) if isinstance(dimensions_dict, dict) else None
                     # Check if the namespace is 'us-gaap' and product_dimension is valid
-                    print(product_dimension)
                     if row["namespace"] == "us-gaap" and product_dimension is not None and (
                         product_dimension.startswith(symbol.lower() + ":") or 
                         product_dimension.startswith("country" + ":") or
@@ -411,6 +417,7 @@ def run(symbol):
                         if column_name in column_list:
                             
                             revenue_sources.append({"name": name, "value": row["value"], "date": row["end_date"]})
+
                         else:
                             geography_sources.append({"name": name, "value": row["value"], "date": row["end_date"]})
 
@@ -419,7 +426,6 @@ def run(symbol):
         except Exception as e:
             print(e)
 
-    print(revenue_sources)
     revenue_dataset = generate_revenue_dataset(revenue_sources)
     geographic_dataset = generate_geography_dataset(geography_sources)
     final_dataset = {'revenue': revenue_dataset, 'geographic': geographic_dataset}
@@ -436,6 +442,7 @@ if __name__ == "__main__":
     run('GME', custom_order)
     '''
 
-    for symbol in ['AMD']: #['TSLA','NVDA','AAPL','GME']:
+    for symbol in ['TSLA']: #['PLTR','META','TSLA','NVDA','AAPL','GME']:
+        #for AMD we need 10-K form to get geography revenue
         run(symbol)
 
