@@ -317,7 +317,7 @@ def generate_revenue_dataset(dataset):
     dataset = [{**item} for item in dataset if item['name'] not in remember_names]
 
 
-
+    dataset = [ item for item in dataset if datetime.strptime(item['date'], '%Y-%m-%d').year >= 2019]
 
 
     # Group by name and calculate total value
@@ -339,7 +339,7 @@ def generate_revenue_dataset(dataset):
     # Sort the dataset
     dataset.sort(key=lambda item: (datetime.strptime(item['date'], '%Y-%m-%d'), item['value'] if item['value'] != None else 0), reverse=True)
 
-    top_names = [name_replacements[name.lower()] for name in top_names if name.lower() in name_replacements]
+    top_names = [name_replacements.get(name.lower(), name) for name in top_names]
     print(top_names)
 
     result = {}
@@ -381,6 +381,8 @@ def run(symbol):
                     dimensions_dict = ast.literal_eval(dimensions_str) if isinstance(dimensions_str, str) else dimensions_str
                 except (ValueError, SyntaxError):
                     dimensions_dict = {}
+
+
                 for column_name in [
                     "srt:StatementGeographicalAxis",
                     "us-gaap:StatementBusinessSegmentsAxis",
@@ -391,7 +393,8 @@ def run(symbol):
                     if row["namespace"] == "us-gaap" and product_dimension is not None and (
                         product_dimension.startswith(symbol.lower() + ":") or 
                         product_dimension.startswith("country" + ":") or
-                        product_dimension.startswith("us-gaap"+":")
+                        product_dimension.startswith("us-gaap"+":") or
+                        product_dimension.startswith("srt"+":")
                     ):
 
                         replacements = {
@@ -401,15 +404,17 @@ def run(symbol):
                             "NewVideoGameSoftware": "Software",
                             f"{symbol.lower()}:": "",
                             "us-gaap:": "",
+                            "srt:": "",
                             "SegmentMember": "",
                         }
 
 
                         name = product_dimension
+
                         for old, new in replacements.items():
                             name = name.replace(old, new)
                         # Determine the target list and the name transformation logic
-                        if symbol in ['MSFT','META','NVDA','AAPL','GME']:
+                        if symbol in ['NFLX','LLY','MSFT','META','NVDA','AAPL','GME']:
                             column_list = ["srt:ProductOrServiceAxis"]
                         else:
                             column_list = ["srt:ProductOrServiceAxis", "us-gaap:StatementBusinessSegmentsAxis"]
@@ -426,6 +431,7 @@ def run(symbol):
         except Exception as e:
             print(e)
 
+    print(geography_sources)
     revenue_dataset = generate_revenue_dataset(revenue_sources)
     geographic_dataset = generate_geography_dataset(geography_sources)
     final_dataset = {'revenue': revenue_dataset, 'geographic': geographic_dataset}
@@ -442,7 +448,7 @@ if __name__ == "__main__":
     run('GME', custom_order)
     '''
 
-    for symbol in ['TSLA']: #['PLTR','META','TSLA','NVDA','AAPL','GME']:
+    for symbol in ['ADBE']: #['NFLX','PLTR','MSFT','META','TSLA','NVDA','AAPL','GME']:
         #for AMD we need 10-K form to get geography revenue
         run(symbol)
 
