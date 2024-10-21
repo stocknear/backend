@@ -164,19 +164,27 @@ def generate_revenue_dataset(dataset):
         "hardwareandaccessories": "Hardware & Accessories",
         "software": "Software",
         "collectibles": "Collectibles",
+        "automotivesales": "Auto",
+        "energygenerationandstoragesegment": "Energy and Storage",
+        "servicesandother": "Services & Other",
+        "automotiveregulatorycredits": "Regulatory Credits",
+        "intelligentcloud": "Intelligent Cloud",
+        "productivityandbusinessprocesses": "Productivity & Business"
     }
-
     # Filter out unwanted categories
-    excluded_names = {'compute', 'networking', 'cloudserviceagreements', 'digital', 'allother', 'preownedvideogameproducts'}
+    excluded_names = {'officeproductsandcloudservices','serverproductsandcloudservices','automotiverevenues','automotive','computeandnetworking','graphics','gpu','automotivesegment','energygenerationandstoragesales','energygenerationandstorage','automotivesaleswithoutresalevalueguarantee','salesandservices','compute', 'networking', 'cloudserviceagreements', 'digital', 'allother', 'preownedvideogameproducts'}
     dataset = [revenue for revenue in dataset if revenue['name'].lower() not in excluded_names]
 
     # Process and clean the dataset
     for item in dataset:
-        name = item.get('name').lower()
-        value = int(float(item.get('value')))
-        if name in name_replacements:
-            item['name'] = name_replacements[name]
-        item['value'] = value
+        try:
+            name = item.get('name').lower()
+            value = int(float(item.get('value')))
+            if name in name_replacements:
+                item['name'] = name_replacements[name]
+            item['value'] = value
+        except:
+            pass
 
     # Group by name and calculate total value
     name_totals = defaultdict(int)
@@ -239,25 +247,27 @@ def generate_geography_dataset(dataset):
     aggregated_data = {}
 
     for item in dataset:
-        # Standardize country names
-        name = item.get('name', '').lower()
-        date = item.get('date')
-        value = int(float(item.get('value', 0)))
+        try:
+            name = item.get('name', '').lower()
+            date = item.get('date')
+            value = int(float(item.get('value', 0)))
 
-        year = int(date[:4])
-        if year < 2019:
-            continue  # Skip this item if the year is less than 2019
+            year = int(date[:4])
+            if year < 2019:
+                continue  # Skip this item if the year is less than 2019
 
-        # Replace country name if necessary
-        country_name = country_replacements.get(name, 'Other')
+            # Replace country name if necessary
+            country_name = country_replacements.get(name, 'Other')
 
-        # Use (country_name, date) as the key to sum values
-        key = (country_name, date)
+            # Use (country_name, date) as the key to sum values
+            key = (country_name, date)
 
-        if key in aggregated_data:
-            aggregated_data[key] += value  # Add the value if the country-date pair exists
-        else:
-            aggregated_data[key] = value  # Initialize the value if new country-date pair
+            if key in aggregated_data:
+                aggregated_data[key] += value  # Add the value if the country-date pair exists
+            else:
+                aggregated_data[key] = value  # Initialize the value if new country-date pair
+        except:
+            pass
 
     # Convert the aggregated data back into the desired list format
     dataset = [{'name': country, 'date': date, 'value': total_value} for (country, date), total_value in aggregated_data.items()]
@@ -364,6 +374,6 @@ if __name__ == "__main__":
     run('GME', custom_order)
     '''
 
-    for symbol in ['NVDA','AAPL','GME']:
+    for symbol in ['TSLA']: #['NVDA','AAPL','GME']:
         run(symbol)
 
