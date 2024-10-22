@@ -273,9 +273,12 @@ def generate_revenue_dataset(dataset):
         "morepersonalcomputing": "More Personal Computing",
         "serviceother": "Service Other",
         "governmentoperatingsegment": "Government Operating Segment",
-        "InternationalDevelopmentalLicensedMarketsandCorporate": "License Market",
-        "YouTubeAdvertisingRevenue": "Youtube Ads",
-        "GoogleAdvertisingRevenue": "Google Ads",
+        "internationaldevelopmentallicensedmarketsandcorporate": "License Market",
+        "youtubeadvertisingrevenue": "Youtube Ads",
+        "googleadvertisingrevenue": "Google Ads",
+        "cloudservicesandlicensesupport": "Cloude Services & Support",
+        "infrastructurecloudservicesandlicensesupport": "Infrastructure Cloud",
+        "applicationscloudservicesandlicensesupport": "Application Cloud"
     }
     excluded_names = {'government','enterpriseembeddedandsemicustom','computingandgraphics','automotiveleasing ','officeproductsandcloudservices','serverproductsandcloudservices','automotiverevenues','automotive','computeandnetworking','graphics','gpu','automotivesegment','energygenerationandstoragesales','energygenerationandstorage','automotivesaleswithoutresalevalueguarantee','salesandservices','compute', 'networking', 'cloudserviceagreements', 'digital', 'allother', 'preownedvideogameproducts'}
     dataset = [item for item in dataset if item['name'].lower() not in excluded_names]
@@ -425,7 +428,7 @@ def process_filings(filings, symbol):
                         for old, new in replacements.items():
                             name = name.replace(old, new)
                         
-                        if symbol in ['SAVE','BA','NFLX','LLY','MSFT','META','NVDA','AAPL','GME']:
+                        if symbol in ['ORCL','SAVE','BA','NFLX','LLY','MSFT','META','NVDA','AAPL','GME']:
                             column_list = ["srt:ProductOrServiceAxis"]
                         else:
                             column_list = ["srt:ProductOrServiceAxis", "us-gaap:StatementBusinessSegmentsAxis"]
@@ -461,5 +464,5 @@ def run(symbol):
         ujson.dump(final_dataset, file)
 
 if __name__ == "__main__":
-    for symbol in ['GOOGL']: #['AMD','SAVE','BA','ADBE','NFLX','PLTR','MSFT','META','TSLA','NVDA','AAPL','GME']:
+    for symbol in ['ORCL']: #['GOOGL','AMD','SAVE','BA','ADBE','NFLX','PLTR','MSFT','META','TSLA','NVDA','AAPL','GME']:
         run(symbol)
