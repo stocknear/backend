@@ -272,7 +272,10 @@ def generate_revenue_dataset(dataset):
         "linkedincorporation": "LinkedIn",
         "morepersonalcomputing": "More Personal Computing",
         "serviceother": "Service Other",
-        "governmentoperatingsegment": "Government Operating Segment"
+        "governmentoperatingsegment": "Government Operating Segment",
+        "InternationalDevelopmentalLicensedMarketsandCorporate": "License Market",
+        "YouTubeAdvertisingRevenue": "Youtube Ads",
+        "GoogleAdvertisingRevenue": "Google Ads",
     }
     excluded_names = {'government','enterpriseembeddedandsemicustom','computingandgraphics','automotiveleasing ','officeproductsandcloudservices','serverproductsandcloudservices','automotiverevenues','automotive','computeandnetworking','graphics','gpu','automotivesegment','energygenerationandstoragesales','energygenerationandstorage','automotivesaleswithoutresalevalueguarantee','salesandservices','compute', 'networking', 'cloudserviceagreements', 'digital', 'allother', 'preownedvideogameproducts'}
     dataset = [item for item in dataset if item['name'].lower() not in excluded_names]
@@ -377,6 +380,7 @@ def process_filings(filings, symbol):
     revenue_sources = []
     geography_sources = []
     
+
     for i in range(0,17):
         try:
             filing_xbrl = filings[i].xbrl()
@@ -389,7 +393,9 @@ def process_filings(filings, symbol):
                     dimensions_dict = ast.literal_eval(dimensions_str) if isinstance(dimensions_str, str) else dimensions_str
                 except (ValueError, SyntaxError):
                     dimensions_dict = {}
-                    
+                
+                #print(dimensions_dict)
+                
                 for column_name in [
                     "srt:StatementGeographicalAxis",
                     "us-gaap:StatementBusinessSegmentsAxis",
@@ -401,7 +407,8 @@ def process_filings(filings, symbol):
                         product_dimension.startswith(symbol.lower() + ":") or 
                         product_dimension.startswith("country" + ":") or
                         product_dimension.startswith("us-gaap"+":") or
-                        product_dimension.startswith("srt"+":")
+                        product_dimension.startswith("srt"+":") or
+                        product_dimension.startswith("goog"+":")
                     ):
                         replacements = {
                             "Member": "",
@@ -409,6 +416,7 @@ def process_filings(filings, symbol):
                             "NewVideoGameHardware": "HardwareAndAccessories",
                             "NewVideoGameSoftware": "Software",
                             f"{symbol.lower()}:": "",
+                            "goog:": "",
                             "us-gaap:": "",
                             "srt:": "",
                             "SegmentMember": "",
@@ -416,7 +424,7 @@ def process_filings(filings, symbol):
                         name = product_dimension
                         for old, new in replacements.items():
                             name = name.replace(old, new)
-                            
+                        
                         if symbol in ['SAVE','BA','NFLX','LLY','MSFT','META','NVDA','AAPL','GME']:
                             column_list = ["srt:ProductOrServiceAxis"]
                         else:
@@ -443,7 +451,8 @@ def run(symbol):
         filings_10k = Company(symbol).get_filings(form=["10-K"]).latest(20)
         _, geography_sources = process_filings(filings_10k, symbol)
     
-    print(geography_sources)
+    print(revenue_sources)
+    #print(geography_sources)
     revenue_dataset = generate_revenue_dataset(revenue_sources)
     geographic_dataset = generate_geography_dataset(geography_sources)
     final_dataset = {'revenue': revenue_dataset, 'geographic': geographic_dataset}
@@ -452,5 +461,5 @@ def run(symbol):
         ujson.dump(final_dataset, file)
 
 if __name__ == "__main__":
-    for symbol in ['AMD','SAVE','BA','ADBE','NFLX','PLTR','MSFT','META','TSLA','NVDA','AAPL','GME']:
+    for symbol in ['GOOGL']: #['AMD','SAVE','BA','ADBE','NFLX','PLTR','MSFT','META','TSLA','NVDA','AAPL','GME']:
         run(symbol)
