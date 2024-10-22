@@ -6,6 +6,7 @@ from datetime import datetime
 from collections import defaultdict
 import re
 
+
 #Tell the SEC who you are
 set_identity("Max Mustermann max.mustermann@indigo.com")
 
@@ -370,42 +371,38 @@ def generate_revenue_dataset(dataset):
     return final_result
 
 
-def run(symbol):
 
+
+def process_filings(filings, symbol):
     revenue_sources = []
     geography_sources = []
-    filings = Company(symbol).get_filings(form=["10-Q","10-K"]).latest(20)
-    #print(filings[0].xbrl())
-
+    
     for i in range(0,17):
         try:
             filing_xbrl = filings[i].xbrl()
             facts = filing_xbrl.facts.data
             latest_rows = facts.groupby('dimensions').head(1)
-
-
+            
             for index, row in latest_rows.iterrows():
                 dimensions_str = row.get("dimensions", "{}")
                 try:
                     dimensions_dict = ast.literal_eval(dimensions_str) if isinstance(dimensions_str, str) else dimensions_str
                 except (ValueError, SyntaxError):
                     dimensions_dict = {}
-
-
+                    
                 for column_name in [
                     "srt:StatementGeographicalAxis",
                     "us-gaap:StatementBusinessSegmentsAxis",
                     "srt:ProductOrServiceAxis",
                 ]:
                     product_dimension = dimensions_dict.get(column_name) if isinstance(dimensions_dict, dict) else None
-                    # Check if the namespace is 'us-gaap' and product_dimension is valid
+                    
                     if row["namespace"] == "us-gaap" and product_dimension is not None and (
                         product_dimension.startswith(symbol.lower() + ":") or 
                         product_dimension.startswith("country" + ":") or
                         product_dimension.startswith("us-gaap"+":") or
                         product_dimension.startswith("srt"+":")
                     ):
-
                         replacements = {
                             "Member": "",
                             "VideoGameAccessories": "HardwareAndAccessories",
@@ -416,39 +413,44 @@ def run(symbol):
                             "srt:": "",
                             "SegmentMember": "",
                         }
-
-
                         name = product_dimension
-
                         for old, new in replacements.items():
                             name = name.replace(old, new)
-                        # Determine the target list and the name transformation logic
+                            
                         if symbol in ['SAVE','BA','NFLX','LLY','MSFT','META','NVDA','AAPL','GME']:
                             column_list = ["srt:ProductOrServiceAxis"]
                         else:
                             column_list = ["srt:ProductOrServiceAxis", "us-gaap:StatementBusinessSegmentsAxis"]
-
-                        if column_name in column_list:
                             
+                        if column_name in column_list:
                             revenue_sources.append({"name": name, "value": row["value"], "date": row["end_date"]})
-
                         else:
                             geography_sources.append({"name": name, "value": row["value"], "date": row["end_date"]})
-
-
-
+                            
         except Exception as e:
             print(e)
+            
+    return revenue_sources, geography_sources
 
+def run(symbol):
+    # First try with 10-Q filings only
+    filings = Company(symbol).get_filings(form=["10-Q"]).latest(20)
+    revenue_sources, geography_sources = process_filings(filings, symbol)
+    
+    # If no geography sources found, try with 10-K filings
+    if not geography_sources:
+        print(f"No geography sources found in 10-Q for {symbol}, checking 10-K filings...")
+        filings_10k = Company(symbol).get_filings(form=["10-K"]).latest(20)
+        _, geography_sources = process_filings(filings_10k, symbol)
+    
     print(geography_sources)
     revenue_dataset = generate_revenue_dataset(revenue_sources)
     geographic_dataset = generate_geography_dataset(geography_sources)
     final_dataset = {'revenue': revenue_dataset, 'geographic': geographic_dataset}
+    
     with open(f"json/business-metrics/{symbol}.json", "w") as file:
         ujson.dump(final_dataset, file)
 
 if __name__ == "__main__":
-
-    for symbol in []: #['SAVE','BA','ADBE','NFLX','PLTR','MSFT','META','TSLA','NVDA','AAPL','GME']:
-        #for AMD, SAVE we need 10-K form to get geography revenue
+    for symbol in ['AMD','SAVE','BA','ADBE','NFLX','PLTR','MSFT','META','TSLA','NVDA','AAPL','GME']:
         run(symbol)

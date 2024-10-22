@@ -42,7 +42,7 @@ def remove_duplicates(data, key):
     return new_data
 
 def extract_sector(ticker, con):
-	
+    
     query_template = f"""
     SELECT 
         sector
@@ -52,10 +52,10 @@ def extract_sector(ticker, con):
         symbol = ?
     """
     try:
-    	df = pd.read_sql_query(query_template, con, params=(ticker,))
-    	sector = df['sector'].iloc[0]
+        df = pd.read_sql_query(query_template, con, params=(ticker,))
+        sector = df['sector'].iloc[0]
     except:
-    	sector = None
+        sector = None
 
     return sector
 
