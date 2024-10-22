@@ -374,7 +374,7 @@ def run(symbol):
 
     revenue_sources = []
     geography_sources = []
-    filings = Company(symbol).get_filings(form=["10-Q"]).latest(20)
+    filings = Company(symbol).get_filings(form=["10-Q","10-K"]).latest(20)
     #print(filings[0].xbrl())
 
     for i in range(0,17):
@@ -423,7 +423,7 @@ def run(symbol):
                         for old, new in replacements.items():
                             name = name.replace(old, new)
                         # Determine the target list and the name transformation logic
-                        if symbol in ['NFLX','LLY','MSFT','META','NVDA','AAPL','GME']:
+                        if symbol in ['SAVE','BA','NFLX','LLY','MSFT','META','NVDA','AAPL','GME']:
                             column_list = ["srt:ProductOrServiceAxis"]
                         else:
                             column_list = ["srt:ProductOrServiceAxis", "us-gaap:StatementBusinessSegmentsAxis"]
@@ -448,16 +448,7 @@ def run(symbol):
         ujson.dump(final_dataset, file)
 
 if __name__ == "__main__":
-    '''
-    custom_order = {
-        'HardwareAndAccessories': 4,
-        'Software': 3,
-        'Collectibles': 2,
-    }
-    run('GME', custom_order)
-    '''
 
-    for symbol in ['ADBE']: #['NFLX','PLTR','MSFT','META','TSLA','NVDA','AAPL','GME']:
-        #for AMD we need 10-K form to get geography revenue
+    for symbol in []: #['SAVE','BA','ADBE','NFLX','PLTR','MSFT','META','TSLA','NVDA','AAPL','GME']:
+        #for AMD, SAVE we need 10-K form to get geography revenue
         run(symbol)
-
