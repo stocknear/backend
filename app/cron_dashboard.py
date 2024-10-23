@@ -129,14 +129,13 @@ if tomorrow.weekday() >= 5:  # 5 = Saturday, 6 = Sunday
 
 tomorrow = tomorrow.strftime('%Y-%m-%d')
 
-async def get_upcoming_earnings(session):
+async def get_upcoming_earnings(session, end_date):
 	url = "https://api.benzinga.com/api/v2.1/calendar/earnings"
 
 	importance_list = ["1","2","3","4","5"]
 	res_list = []
 	for importance in importance_list:
-
-		querystring = {"token": benzinga_api_key,"parameters[importance]":importance,"parameters[date_from]":today,"parameters[date_to]":tomorrow,"parameters[date_sort]":"date"}
+		querystring = {"token": benzinga_api_key,"parameters[importance]":importance,"parameters[date_from]":today,"parameters[date_to]":end_date,"parameters[date_sort]":"date"}
 		try:
 			async with session.get(url, params=querystring, headers=headers) as response:
 				res = ujson.loads(await response.text())['earnings']
@@ -170,12 +169,12 @@ async def get_upcoming_earnings(session):
 						pass
 			res_list = remove_duplicates(res_list)
 			res_list.sort(key=lambda x: x['marketCap'], reverse=True)
+
 			res_list = [{k: v for k, v in d.items() if k != 'marketCap'} for d in res_list]
 			
 		except Exception as e:
 			print(e)
 			pass
-
 	return res_list[:10]
 
 
@@ -314,7 +313,10 @@ async def run():
 	async with aiohttp.ClientSession() as session:
 		benzinga_news = await get_latest_bezinga_market_news(session)
 		recent_earnings = await get_recent_earnings(session)
-		upcoming_earnings = await get_upcoming_earnings(session)
+		upcoming_earnings = await get_upcoming_earnings(session, today)
+		if len(upcoming_earnings) < 5:
+			upcoming_earnings = await get_upcoming_earnings(session, tomorrow)
+			
 		top_sector = await get_top_sector(session)
 		recent_dividends = await get_recent_dividends(session)
 
