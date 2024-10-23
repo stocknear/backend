@@ -75,6 +75,7 @@ async def fetch_all_data(session, symbol, time_period):
         url = f"https://financialmodelingprep.com/api/v3/historical-chart/{time_period}/{symbol}?serietype=bar&extend=false&from={current_start_date.strftime('%Y-%m-%d')}&to={current_end_date.strftime('%Y-%m-%d')}&apikey={api_key}"
         
         data = await fetch_data(session, url)
+        print("api endpoint called")
         
         if data:
             all_data.extend(data)  # Accumulate the fetched data
@@ -119,7 +120,7 @@ async def run():
     # List of total symbols to process
     total_symbols = stock_symbols  # Use stock_symbols + etf_symbols if needed
     
-    chunk_size = len(total_symbols) #// 500  # Divide the list into N chunks
+    chunk_size = len(total_symbols) // 500  # Divide the list into N chunks
     chunks = [total_symbols[i:i + chunk_size] for i in range(0, len(total_symbols), chunk_size)]
 
     for chunk in tqdm(chunks):
