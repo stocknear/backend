@@ -421,7 +421,7 @@ async def get_stock(data: HistoricalPrice, api_key: str = Security(get_api_key))
             headers={"Content-Encoding": "gzip"}
         )
 
-    if time_period == '1day':
+    if time_period == 'max':
         try:
             with open(f"json/historical-price/max/{ticker}.json", 'rb') as file:
                 res = orjson.loads(file.read())

@@ -7,12 +7,13 @@ from tqdm import tqdm
 import os
 from dotenv import load_dotenv
 from aiohttp import TCPConnector
+import gc
 
 load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
 
 # Rate limiting
-MAX_REQUESTS_PER_MINUTE = 100
+MAX_REQUESTS_PER_MINUTE = 500
 request_semaphore = asyncio.Semaphore(MAX_REQUESTS_PER_MINUTE)
 
 async def fetch_data(session, url):
@@ -62,13 +63,12 @@ async def get_data(session, symbol, time_period):
 
 async def fetch_all_data(session, symbol, time_period):
     end_date = datetime.utcnow()
-    start_date = end_date - timedelta(days=365*20)
+    start_date = end_date - timedelta(days=180)
     
     step = timedelta(days=5)  # Step of 5 days
     current_start_date = start_date
     
     all_data = []  # To accumulate all the data
-
     while current_start_date < end_date:
         current_end_date = min(current_start_date + step, end_date)
         
@@ -87,6 +87,7 @@ async def fetch_all_data(session, symbol, time_period):
         # Sort the data by date before saving
         all_data.sort(key=lambda x: x['date'])
         await save_json(symbol, all_data, time_period)
+        gc.collect()
 
 
 async def save_json(symbol, data, interval):
@@ -97,13 +98,14 @@ async def save_json(symbol, data, interval):
 
 async def process_symbol(session, symbol):
     await get_data(session, symbol, '1hour')
+    await get_data(session, symbol, '30min')
 
 async def run():
     # Load symbols from databases
     con = sqlite3.connect('stocks.db')
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
-    cursor.execute("SELECT DISTINCT symbol FROM stocks")
+    cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
     stock_symbols = [row[0] for row in cursor.fetchall()]
     
     etf_con = sqlite3.connect('etf.db')
@@ -115,19 +117,27 @@ async def run():
     etf_con.close()
 
     # List of total symbols to process
-    total_symbols = ['GOOGL']  # Use stock_symbols + etf_symbols if needed
+    total_symbols = stock_symbols  # Use stock_symbols + etf_symbols if needed
+    
+    chunk_size = len(total_symbols) // 500  # Divide the list into N chunks
+    chunks = [total_symbols[i:i + chunk_size] for i in range(0, len(total_symbols), chunk_size)]
 
-    # Setting up aiohttp connector with rate limiting
-    connector = TCPConnector(limit=MAX_REQUESTS_PER_MINUTE)
-    async with aiohttp.ClientSession(connector=connector) as session:
-        tasks = [process_symbol(session, symbol) for symbol in total_symbols]
-        
-        # Use tqdm to track progress of tasks
-        for i, task in enumerate(tqdm(asyncio.as_completed(tasks), total=len(tasks)), 1):
-            await task  # Ensure all tasks are awaited properly
-            if i % MAX_REQUESTS_PER_MINUTE == 0:
-                print(f'Processed {i} symbols, sleeping to respect rate limits...')
-                await asyncio.sleep(60)  # Pause for 60 seconds to avoid hitting rate limits
+    for chunk in tqdm(chunks):
+        print(len(chunk))
+        connector = TCPConnector(limit=MAX_REQUESTS_PER_MINUTE)
+        async with aiohttp.ClientSession(connector=connector) as session:
+            tasks = [process_symbol(session, symbol) for symbol in chunk]
+            
+            # Use tqdm to track progress of tasks
+            for i, task in enumerate(tqdm(asyncio.as_completed(tasks), total=len(tasks)), 1):
+                await task  # Ensure all tasks are awaited properly
+                if i % MAX_REQUESTS_PER_MINUTE == 0:
+                    print(f'Processed {i} symbols, sleeping to respect rate limits...')
+                    gc.collect()
+                    await asyncio.sleep(30)  # Pause for 60 seconds to avoid hitting rate limits
+
+        gc.collect()
+        await asyncio.sleep(30)
 
 if __name__ == "__main__":
     asyncio.run(run())

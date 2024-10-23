@@ -464,5 +464,5 @@ def run(symbol):
         ujson.dump(final_dataset, file)
 
 if __name__ == "__main__":
-    for symbol in ['ORCL']: #['GOOGL','AMD','SAVE','BA','ADBE','NFLX','PLTR','MSFT','META','TSLA','NVDA','AAPL','GME']:
+    for symbol in ['ORCL']: #['ORCL','GOOGL','AMD','SAVE','BA','ADBE','NFLX','PLTR','MSFT','META','TSLA','NVDA','AAPL','GME']:
         run(symbol)
