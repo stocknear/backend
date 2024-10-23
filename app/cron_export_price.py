@@ -119,7 +119,7 @@ async def run():
     # List of total symbols to process
     total_symbols = stock_symbols  # Use stock_symbols + etf_symbols if needed
     
-    chunk_size = len(total_symbols) // 500  # Divide the list into N chunks
+    chunk_size = len(total_symbols) #// 500  # Divide the list into N chunks
     chunks = [total_symbols[i:i + chunk_size] for i in range(0, len(total_symbols), chunk_size)]
 
     for chunk in tqdm(chunks):
