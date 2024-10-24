@@ -79,7 +79,12 @@ def get_data(ticker):
 
 
 ticker_data = get_data(ticker)
-ticker_data = [item for item in ticker_data if datetime.strptime(item['date_expiration'], '%Y-%m-%d') >= datetime.now()]
+ticker_data = [
+    item for item in ticker_data 
+    if datetime.strptime(item['date_expiration'], '%Y-%m-%d') >= datetime.now() and 
+    datetime.strptime(item['date_expiration'], '%Y-%m-%d') <= datetime.now() + timedelta(days=5)
+]
+
 print(len(ticker_data))
 
 def calculate_option_greeks(S, K, T, r, sigma, option_type='CALL'):

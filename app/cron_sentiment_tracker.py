@@ -13,7 +13,7 @@ load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
 
 async def save_json(data):
-    with open(f"json/sentiment-tracker/data.json", 'wb') as file:
+    with open(f"json/tracker/sentiment/data.json", 'wb') as file:
         file.write(orjson.dumps(data))
 
 
@@ -60,6 +60,11 @@ async def get_data(session, total_symbols):
 
     # Convert the result_data dictionary to a list of items
     final_result = list(result_data.values())
+    final_result = sorted(final_result, key=lambda x: x['sentiment'], reverse=True)
+    
+    for index, stock in enumerate(final_result, start=1):
+        stock['rank'] = index
+
 
     # Save the combined result as a single JSON file
     if final_result:
