@@ -16,11 +16,24 @@ def calculate_volatility(prices_df):
     returns = prices_df['return'].dropna()
     return returns.std() * np.sqrt(252)
 
+
 # Load API key from environment
 load_dotenv()
 api_key = os.getenv('BENZINGA_API_KEY')
 fin = financial_data.Benzinga(api_key)
+# Connect to SQLite database
 stock_con = sqlite3.connect('stocks.db')
+etf_con = sqlite3.connect('etf.db')
+
+stock_cursor = stock_con.cursor()
+stock_cursor.execute("PRAGMA journal_mode = wal")
+stock_cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%' AND marketCap >= 500E6")
+stock_symbols = [row[0] for row in stock_cursor.fetchall()]
+
+etf_cursor = etf_con.cursor()
+etf_cursor.execute("PRAGMA journal_mode = wal")
+etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
+etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
 
 query_template = """
@@ -30,20 +43,22 @@ query_template = """
 """
 
 
-ticker = 'NVDA'
+ticker = 'SPY'
 end_date = date.today()
 start_date = end_date - timedelta(1)
 end_date_str = end_date.strftime('%Y-%m-%d')
 start_date_str = start_date.strftime('%Y-%m-%d')
 
 query = query_template.format(ticker=ticker)
-df_price = pd.read_sql_query(query, stock_con, params=('2024-01-01', end_date_str)).round(2)
+df_price = pd.read_sql_query(query, stock_con if ticker in stock_symbols else etf_con, params=('2024-01-01', end_date_str)).round(2)
 df_price = df_price.rename(columns={"change_percent": "changesPercentage"})
 
 volatility = calculate_volatility(df_price)
 print(start_date, end_date)
 print('volatility', volatility)
 
+stock_con.close()
+etf_con.close()
 
 def get_data(ticker):
     res_list = []
@@ -80,14 +95,15 @@ def calculate_option_greeks(S, K, T, r, sigma, option_type='CALL'):
         return 0, 0
     
     d1 = (np.log(S / K) + (r + 0.5 * sigma ** 2) * T) / (sigma * np.sqrt(T))
-    d2 = d1 - sigma * np.sqrt(T)
+    #d2 = d1 - sigma * np.sqrt(T)
     
     if option_type == 'CALL':
         delta = norm.cdf(d1)
-        gamma = norm.pdf(d1) / (S * sigma * np.sqrt(T))
+        #gamma = norm.pdf(d1) / (S * sigma * np.sqrt(T))
     else:  # PUT
-        delta = -norm.cdf(-d1)
-        gamma = norm.pdf(d1) / (S * sigma * np.sqrt(T))
+        delta = norm.cdf(d1) - 1 #-norm.cdf(-d1)
+        #gamma = norm.pdf(d1) / (S * sigma * np.sqrt(T))
+    gamma = norm.pdf(d1) / (S * sigma * np.sqrt(T)) if S > 0 and sigma > 0 and np.sqrt(T) > 0 else 0
         
     return delta, gamma
 
@@ -98,6 +114,7 @@ def process_options_data(df):
     # Convert data types
     df['strike_price'] = pd.to_numeric(df['strike_price'])
     df['volume'] = pd.to_numeric(df['volume'])
+    df['open_interest'] = pd.to_numeric(df['open_interest'])
     df['underlying_price'] = pd.to_numeric(df['underlying_price'])
     df['date_expiration'] = pd.to_datetime(df['date_expiration'])
     df['date'] = pd.to_datetime(df['date'])
@@ -124,18 +141,19 @@ def process_options_data(df):
     
     # Calculate DEX (Delta Exposure) and GEX (Gamma Exposure)
     # Convert volume to float if it's not already
-    df['volume'] = df['volume'].astype(float)
+    df['volume'] = df['volume'].astype(int)
+    df['open_interest'] = df['open_interest'].astype(float)
     
     # Get price per contract
     df['price'] = pd.to_numeric(df['price'])
     
     # Calculate position values
     contract_multiplier = 100  # Standard option contract multiplier
-    df['position_value'] = df['price'] * df['volume'] * contract_multiplier
+    df['position_value'] = df['price'] * df['open_interest'] * contract_multiplier
     
     # Calculate exposures
-    df['dex'] = df['delta'] * df['volume'] * contract_multiplier
-    df['gex'] = df['gamma'] * df['volume'] * contract_multiplier * df['underlying_price'] * 0.01
+    df['gex'] = df['gamma'] * df['volume'] * contract_multiplier #df['gamma'] * df['open_interest'] * df['volume'] * df['underlying_price']
+    df['dex'] = df['delta'] * df['volume'] * contract_multiplier * df['underlying_price'] * 0.01 #df['delta'] * df['volume'] * df['underlying_price'] *0.01
     
     return df
 

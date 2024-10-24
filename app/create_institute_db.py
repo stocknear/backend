@@ -62,7 +62,7 @@ crypto_con.close()
 
 load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
-quarter_date = '2024-06-30'
+quarter_date = '2024-09-30'
 
 
 if os.path.exists("backup_db/institute.db"):
