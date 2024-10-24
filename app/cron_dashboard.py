@@ -223,8 +223,8 @@ async def get_recent_earnings(session):
 			pass
 
 	res_list = remove_duplicates(res_list)
-	#res_list.sort(key=lambda x: x['marketCap'], reverse=True)
-	res_list.sort(key=lambda x: (-parse_time(x['time']).timestamp(), -x['marketCap']))
+	res_list.sort(key=lambda x: x['marketCap'], reverse=True)
+	#res_list.sort(key=lambda x: (-parse_time(x['time']).timestamp(), -x['marketCap']))
 	res_list = [{k: v for k, v in d.items() if k != 'marketCap'} for d in res_list]
 	return res_list[0:10]
 
