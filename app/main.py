@@ -225,8 +225,8 @@ class PoliticianId(BaseModel):
 
 class TranscriptData(BaseModel):
     ticker: str
-    year: str
-    quarter: str
+    year: int
+    quarter: int
 
 class GetWatchList(BaseModel):
     watchListId: str
