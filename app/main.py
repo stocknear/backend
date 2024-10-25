@@ -3937,7 +3937,7 @@ async def get_next_earnings(data:TickerData, api_key: str = Security(get_api_key
         res = {}
 
     redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key,3600*3600)
+    redis_client.expire(cache_key,5*60)
 
     return res
 
@@ -3955,7 +3955,7 @@ async def get_surprise_earnings(data:TickerData, api_key: str = Security(get_api
         res = {}
 
     redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key,15*60)
+    redis_client.expire(cache_key,5*60)
 
     return res
 

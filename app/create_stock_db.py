@@ -27,7 +27,7 @@ warnings.filterwarnings("ignore", category=RuntimeWarning, message="invalid valu
 start_date = datetime(2015, 1, 1).strftime("%Y-%m-%d")
 end_date = datetime.today().strftime("%Y-%m-%d")
 
-quarter_date = '2024-09-30'
+quarter_date = '2024-06-30'
 
 
 if os.path.exists("backup_db/stocks.db"):
