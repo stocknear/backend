@@ -40,6 +40,16 @@ query_price = """
     LIMIT 1
 """
 
+query_shares = f"""
+    SELECT 
+        historicalShares
+    FROM 
+        stocks
+    WHERE
+        symbol = ?
+"""
+
+
 time_frames = {
     'change1W': (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d'),
     'change1M': (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'),
@@ -68,6 +78,50 @@ def calculate_price_changes(symbol, item, con):
         # Handle exceptions by setting all fields to None
         for name in time_frames.keys():
             item[name] = None
+
+def filter_data_quarterly(data):
+    # Generate a range of quarter-end dates from the start to the end date
+    start_date = data[0]['date']
+    end_date = datetime.today().strftime('%Y-%m-%d')
+    quarter_ends = pd.date_range(start=start_date, end=end_date, freq='QE').strftime('%Y-%m-%d').tolist()
+
+    # Filter data to keep only entries with dates matching quarter-end dates
+    filtered_data = [entry for entry in data if entry['date'] in quarter_ends]
+    
+    return filtered_data
+
+def calculate_share_changes(symbol, item, con):
+    item['sharesQoQ'] = None
+    item['sharesYoY'] = None
+    try: 
+        # Execute query and load data
+        df = pd.read_sql_query(query_shares, con, params=(symbol,))
+        shareholder_statistics = orjson.loads(df.to_dict()['historicalShares'][0])
+        
+        # Keys to keep
+        keys_to_keep = ["date", "floatShares", "outstandingShares"]
+
+        # Create new list with only the specified keys and convert floatShares and outstandingShares to integers
+        shareholder_statistics = [
+            {key: int(d[key]) if key in ["floatShares", "outstandingShares"] else d[key] 
+             for key in keys_to_keep}
+            for d in shareholder_statistics
+        ]
+
+        shareholder_statistics = sorted(shareholder_statistics, key=lambda x: datetime.strptime(x['date'], '%Y-%m-%d'), reverse=False)
+
+        historical_shares = filter_data_quarterly(shareholder_statistics)
+        
+        latest_data = historical_shares[-1]['outstandingShares']
+        previous_quarter = historical_shares[-2]['outstandingShares']
+        previous_year = historical_shares[-4]['outstandingShares']
+
+        item['sharesQoQ'] = round((latest_data/previous_quarter-1)*100,2)
+        item['sharesYoY'] = round((latest_data/previous_year-1)*100,2)
+    except:
+        item['sharesQoQ'] = None
+        item['sharesYoY'] = None
+
 
 # Replace NaN values with None in the resulting JSON object
 def replace_nan_inf_with_none(obj):
@@ -501,6 +555,7 @@ async def get_stock_screener(con):
             item['marketCap'] = None
 
         calculate_price_changes(symbol, item, con)
+        calculate_share_changes(symbol, item, con)
         
 
         try:

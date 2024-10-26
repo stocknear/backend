@@ -536,6 +536,12 @@ data = {
         "text": "Operating margin is the percentage of revenue left as operating income, after subtracting cost of revenue and all operating expenses from the revenue.",
         "equation": "Operating Margin = (Operating Income / Revenue) * 100%", 
     },
+    "sharesQoQ": {
+        "text": "The change in the number of shares outstanding, comparing the most recent quarter to the previous quarter.",
+    },
+    "sharesYoY": {
+        "text": "The change in the number of shares outstanding, comparing the most recent quarter to the same quarter a year ago.",
+    },
 }
 
 
