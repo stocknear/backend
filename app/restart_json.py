@@ -377,9 +377,14 @@ def get_financial_statements(item, symbol):
         item['interestIncomeToCapitalization'] = None
 
     try:
-        item['ebit'] = item['operatingIncome'] 
+        item['ebit'] = item['operatingIncome']
+        item['operatingMargin'] = round((item['operatingIncome'] / item['revenue']) * 100,2)
+        item['ebitMargin'] = item['operatingMargin']
     except:
         item['ebit'] = None
+        item['operatingMargin'] = None
+        item['ebitMargin'] = None
+
     
 
     return item

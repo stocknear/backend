@@ -528,6 +528,14 @@ data = {
         "text": "The inventory turnover ratio measures how many times inventory has been sold and replaced during a time period.",
         "equation": "Inventory Turnover Ratio = Cost of Revenue / Average Inventory", 
     },
+    "ebitMargin": {
+        "text": "EBIT Margin is a profitability ratio that measures the percentage of revenue left as EBIT (Earnings Before Interest and Taxes).",
+        "equation": "EBIT Margin = (EBIT / Revenue) * 100%", 
+    },
+    "operatingMargin": {
+        "text": "Operating margin is the percentage of revenue left as operating income, after subtracting cost of revenue and all operating expenses from the revenue.",
+        "equation": "Operating Margin = (Operating Income / Revenue) * 100%", 
+    },
 }
 
 
