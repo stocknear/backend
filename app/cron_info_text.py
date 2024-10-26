@@ -495,6 +495,30 @@ data = {
     },
     "grossProfitGrowthYears": {
         "text": "For how many consecutive fiscal years the company's gross profit has been growing.",
+    },
+    "ebit": {
+        "text": "EBIT stands for Earnings Before Interest and Taxes and is a commonly used measure of earnings or profits. It is similar to operating income.",
+        'equation': 'EBIT = Net Income + Interest + Taxes',
+    },
+    "peg": {
+        "text": "The price/earnings to growth (PEG) ratio is calculated by dividing a company's PE ratio by its expected earnings growth next year.",
+        "equation": "PEG Ratio = PE Ratio / Expected Earnings Growth"
+    },
+    "evSales": {
+        "text": "The enterprise value to sales (EV/Sales) ratio is similar to the price-to-sales ratio, but the price is adjusted for the company's debt and cash levels.",
+        "equation": "EV/Sales Ratio = Enterprise Value / Revenue"
+    },
+    "evEarnings": {
+        "text": "The enterprise value to earnings (EV/Earnings) ratio measures valuation, but the price is adjusted for the company's levels of cash and debt.",
+        "equation": "EV/Earnings Ratio = Enterprise Value / Net Income"
+    },
+    "evEBITDA": {
+        "text": "The EV/EBITDA ratio measures a company's valuation relative to its EBITDA, or Earnings Before Interest, Taxes, Depreciation, and Amortization.",
+        "equation": "EV/EBITDA Ratio = Enterprise Value / EBITDA"
+    },
+    "evEBIT": {
+        "text": "The EV/EBIT is a valuation metric that measures a company's price relative to EBIT, or Earnings Before Interest and Taxes.",
+        "equation": "EV/EBIT Ratio = Enterprise Value / EBIT"
     }
 
 }

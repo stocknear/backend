@@ -334,6 +334,11 @@ def get_financial_statements(item, symbol):
         item['interestIncomeToCapitalization'] = round((item['interestIncome'] / item['marketCap']) * 100,1)
     except:
         item['interestIncomeToCapitalization'] = None
+
+    try:
+        item['ebit'] = item['operatingIncome'] 
+    except:
+        item['ebit'] = None
     
 
     return item
@@ -511,9 +516,18 @@ async def get_stock_screener(con):
 
         try:
             with open(f"json/enterprise-values/{symbol}.json", 'r') as file:
-                item['enterpriseValue'] = orjson.loads(file.read())[-1]['enterpriseValue']
+                ev = orjson.loads(file.read())[-1]['enterpriseValue']
+                item['enterpriseValue'] = ev
+                item['evSales'] = round(ev / item['revenue'],2)
+                item['evEarnings'] = round(ev / item['netIncome'],2)
+                item['evEBITDA'] = round(ev / item['ebitda'],2)
+                item['evEBIT'] = round(ev / item['ebit'],2)
         except:
             item['enterpriseValue'] = None
+            item['evSales'] = None
+            item['evEarnings'] = None
+            item['evEBITDA'] = None
+            item['evEBIT'] = None
 
         try:
             with open(f"json/analyst/summary/{symbol}.json", 'r') as file:
@@ -644,14 +658,19 @@ async def get_stock_screener(con):
             with open(f"json/analyst-estimate/{symbol}.json", 'r') as file:
                 res = orjson.loads(file.read())
                 item['forwardPS'] = None
+                item['peg'] = None
                 for analyst_item in res:
                     if analyst_item['date'] == next_year and item['marketCap'] > 0 and analyst_item['estimatedRevenueAvg'] > 0:
                         # Calculate forwardPS: marketCap / estimatedRevenueAvg
                         item['forwardPS'] = round(item['marketCap'] / analyst_item['estimatedRevenueAvg'], 1)
+                        if item['eps'] > 0:
+                            cagr = ((analyst_item['estimatedEpsHigh']/item['eps'] ) -1)*100
+                            item['peg'] = round(item['priceEarningsRatio'] / cagr,2) if cagr > 0 else None
                         break  # Exit the loop once the desired item is found
         except:
             item['forwardPS'] = None
-
+            item['peg'] = None
+ 
         try:
             item['halalStocks'] = get_halal_compliant(item)
         except:
@@ -1910,6 +1929,7 @@ async def save_json_files():
     with open(f"json/stock-screener/data.json", 'w') as file:
         ujson.dump(stock_screener_data, file)
 
+    '''
     earnings_list = await get_earnings_calendar(con,symbols)
     with open(f"json/earnings-calendar/calendar.json", 'w') as file:
         ujson.dump(earnings_list, file)
@@ -1984,7 +2004,7 @@ async def save_json_files():
     data = await get_magnificent_seven(con)
     with open(f"json/magnificent-seven/data.json", 'w') as file:
         ujson.dump(data, file)
-    
+    '''
 
     con.close()
     etf_con.close()
