@@ -522,12 +522,14 @@ async def get_stock_screener(con):
                 item['evEarnings'] = round(ev / item['netIncome'],2)
                 item['evEBITDA'] = round(ev / item['ebitda'],2)
                 item['evEBIT'] = round(ev / item['ebit'],2)
+                item['evFCF'] = round(ev / item['freeCashFlow'],2)
         except:
             item['enterpriseValue'] = None
             item['evSales'] = None
             item['evEarnings'] = None
             item['evEBITDA'] = None
             item['evEBIT'] = None
+            item['evFCF'] = None
 
         try:
             with open(f"json/analyst/summary/{symbol}.json", 'r') as file:
