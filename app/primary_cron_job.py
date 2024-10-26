@@ -308,6 +308,7 @@ def run_ai_score():
     run_command(["python3", "cron_ai_score.py"])
     run_command(["python3", "cron_stockdeck.py"])
     run_command(["python3", "restart_json.py"])
+    run_command(["python3", "cron_statistics.py"])
 
 # Create functions to run each schedule in a separate thread
 def run_threaded(job_func):
