@@ -39,24 +39,7 @@ class TASignals:
         ta_df['atr'] = AverageTrueRange(self.data['High'], self.data['Low'], self.data['Close'], window=14).average_true_range()
         ta_df['cci'] = CCIIndicator(high=self.data['High'], low=self.data['Low'], close=self.data['Close']).cci()
         ta_df['mfi'] = MFIIndicator(high=self.data['High'], low=self.data['Low'], close=self.data['Close'], volume=self.data['Volume']).money_flow_index()
-        # Calculate 52-week change
-        # Define periods for different time frames
-        periods = {
-            '1W': 5,
-            '1M': 21,
-            '3M': 63,
-            '6M': 126,
-            '1Y': 252,
-            '3Y': 756
-        }
 
-        # Calculate percentage change for each period
-        for period_name, period_days in periods.items():
-            if len(self.data['Close']) >= period_days:
-                change = ((self.data['Close'].iloc[-1] - self.data['Close'].iloc[-period_days]) / self.data['Close'].iloc[-period_days]) * 100
-                ta_df[f'change_{period_name}'] = change
-            else:
-                ta_df[f'change_{period_name}'] = np.nan  # Not enough data for the period
 
         last_values = {col: [round(ta_df[col].iloc[-1],2)] for col in ta_df.columns} if not ta_df.empty else None
         last_values_df = pd.DataFrame(last_values)
@@ -121,8 +104,9 @@ def process_symbol(ticker):
         create_columns(con, ta_df)
         update_database(ta_df, ticker, con)
 
-    except Exception as e:
-        print(f"Failed create ta signals for {ticker}: {e}")
+    except:
+        pass
+        #print(f"Failed create ta signals for {ticker}: {e}")
 
 
 

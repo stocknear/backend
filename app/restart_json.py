@@ -28,6 +28,47 @@ benzinga_api_key = os.getenv('benzinga_api_key')
 berlin_tz = pytz.timezone('Europe/Berlin')
 
 
+query_price = """
+    SELECT 
+        close
+    FROM 
+        "{symbol}"
+    WHERE
+        date <= ?
+    ORDER BY 
+        date DESC
+    LIMIT 1
+"""
+
+time_frames = {
+    'change1W': (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d'),
+    'change1M': (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'),
+    'change3M': (datetime.now() - timedelta(days=90)).strftime('%Y-%m-%d'),
+    'change6M': (datetime.now() - timedelta(days=180)).strftime('%Y-%m-%d'),
+    'change1Y': (datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d'),
+    'change3Y': (datetime.now() - timedelta(days=365 * 3)).strftime('%Y-%m-%d'),
+}
+
+def calculate_price_changes(symbol, item, con):
+    try:
+        # Loop through each time frame to calculate the change
+        for name, date in time_frames.items():
+            item[name] = None  # Initialize to None
+
+            query = query_price.format(symbol=symbol)
+            data = pd.read_sql_query(query, con, params=(date,))
+            
+            # Check if data was retrieved and calculate the percentage change
+            if not data.empty:
+                past_price = data.iloc[0]['close']
+                current_price = item['price']
+                item[name] = round(((current_price - past_price) / past_price) * 100, 2)
+                
+    except:
+        # Handle exceptions by setting all fields to None
+        for name in time_frames.keys():
+            item[name] = None
+
 # Replace NaN values with None in the resulting JSON object
 def replace_nan_inf_with_none(obj):
     if isinstance(obj, list):
@@ -403,17 +444,11 @@ async def get_stock_screener(con):
 
     #Stock Screener Data
     
-    cursor.execute("SELECT symbol, name, change_1W, change_1M, change_3M, change_6M, change_1Y, change_3Y, sma_20, sma_50, sma_100, sma_200, ema_20, ema_50, ema_100, ema_200, rsi, atr, stoch_rsi, mfi, cci, beta FROM stocks WHERE symbol NOT LIKE '%.%' AND eps IS NOT NULL AND marketCap IS NOT NULL AND beta IS NOT NULL")
+    cursor.execute("SELECT symbol, name, sma_20, sma_50, sma_100, sma_200, ema_20, ema_50, ema_100, ema_200, rsi, atr, stoch_rsi, mfi, cci, beta FROM stocks WHERE symbol NOT LIKE '%.%' AND eps IS NOT NULL AND marketCap IS NOT NULL AND beta IS NOT NULL")
     raw_data = cursor.fetchall()
     stock_screener_data = [{
             'symbol': symbol,
             'name': name,
-            'change1W': change_1W,
-            'change1M': change_1M,
-            'change3M': change_3M,
-            'change6M': change_6M,
-            'change1Y': change_1Y,
-            'change3Y': change_3Y,
             'sma20': sma_20,
             'sma50': sma_50,
             'sma100': sma_100,
@@ -428,7 +463,7 @@ async def get_stock_screener(con):
             'mfi': mfi,
             'cci': cci,
             'beta': beta,
-        } for (symbol, name, change_1W, change_1M, change_3M, change_6M, change_1Y, change_3Y, sma_20, sma_50, sma_100, sma_200, ema_20, ema_50, ema_100, ema_200, rsi, atr, stoch_rsi, mfi, cci, beta) in raw_data]
+        } for (symbol, name, sma_20, sma_50, sma_100, sma_200, ema_20, ema_50, ema_100, ema_200, rsi, atr, stoch_rsi, mfi, cci, beta) in raw_data]
 
     stock_screener_data = [{k: round(v, 2) if isinstance(v, (int, float)) else v for k, v in entry.items()} for entry in stock_screener_data]
 
@@ -459,6 +494,9 @@ async def get_stock_screener(con):
             item['relativeVolume'] = None
             item['pe'] = None
             item['marketCap'] = None
+
+        calculate_price_changes(symbol, item, con)
+        
 
         try:
             with open(f"json/stockdeck/{symbol}.json", 'r') as file:

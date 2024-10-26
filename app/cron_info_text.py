@@ -523,8 +523,11 @@ data = {
     "evFCF": {
         "text": "The enterprise value to free cash flow (EV/FCF) ratio is similar to the price to free cash flow ratio, except the price is adjusted for the company's cash and debt.",
         "equation": "EV/FCF Ratio = Enterprise Value / Free Cash Flow", 
-    }
-
+    },
+    "inventoryTurnover": {
+        "text": "The inventory turnover ratio measures how many times inventory has been sold and replaced during a time period.",
+        "equation": "Inventory Turnover Ratio = Cost of Revenue / Average Inventory", 
+    },
 }
 
 
