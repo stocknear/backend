@@ -2032,7 +2032,7 @@ async def save_json_files():
     with open(f"json/stock-screener/data.json", 'w') as file:
         ujson.dump(stock_screener_data, file)
 
-    '''
+    
     earnings_list = await get_earnings_calendar(con,symbols)
     with open(f"json/earnings-calendar/calendar.json", 'w') as file:
         ujson.dump(earnings_list, file)
@@ -2107,7 +2107,7 @@ async def save_json_files():
     data = await get_magnificent_seven(con)
     with open(f"json/magnificent-seven/data.json", 'w') as file:
         ujson.dump(data, file)
-    '''
+    
 
     con.close()
     etf_con.close()
