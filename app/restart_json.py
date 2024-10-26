@@ -93,6 +93,7 @@ def filter_data_quarterly(data):
 def calculate_share_changes(symbol, item, con):
     item['sharesQoQ'] = None
     item['sharesYoY'] = None
+    item['floatShares'] = None
     try: 
         # Execute query and load data
         df = pd.read_sql_query(query_shares, con, params=(symbol,))
@@ -109,7 +110,8 @@ def calculate_share_changes(symbol, item, con):
         ]
 
         shareholder_statistics = sorted(shareholder_statistics, key=lambda x: datetime.strptime(x['date'], '%Y-%m-%d'), reverse=False)
-
+        #Add latest float shares for statistics page
+        item['floatShares'] = shareholder_statistics[-1]['floatShares']
         historical_shares = filter_data_quarterly(shareholder_statistics)
         
         latest_data = historical_shares[-1]['outstandingShares']
@@ -121,6 +123,7 @@ def calculate_share_changes(symbol, item, con):
     except:
         item['sharesQoQ'] = None
         item['sharesYoY'] = None
+        item['floatShares'] = None
 
 
 # Replace NaN values with None in the resulting JSON object

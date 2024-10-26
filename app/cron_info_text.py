@@ -542,6 +542,13 @@ data = {
     "sharesYoY": {
         "text": "The change in the number of shares outstanding, comparing the most recent quarter to the same quarter a year ago.",
     },
+    "floatShares": {
+        "text": "Float is the amount of shares that are considered available for trading. It subtracts closely held shares by insiders and restricted stock from the total number of shares outstanding."
+    },
+    "interestCoverage": {
+        "text": "The interest coverage ratio is a measure of the ability of a company to pay its interest expenses. It is calculated by dividing the company's Earnings Before Interest and Taxes (EBIT) by its interest expenses.",
+        "equation": "Interest Coverage Ratio = EBIT / Interest Expense"
+    }
 }
 
 
