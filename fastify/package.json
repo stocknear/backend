@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "start": "nodemon app.js"
+    "start": "fuser -k 2000/tcp || true && nodemon app.js"
   },
   "dependencies": {
     "@fastify/cors": "^8.5.0",
