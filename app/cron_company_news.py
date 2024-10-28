@@ -30,7 +30,7 @@ async def filter_and_deduplicate(data, excluded_domains=None, deduplicate_key='t
     Filter out items with specified domains in their URL and remove duplicates based on a specified key.
     """
     if excluded_domains is None:
-        excluded_domains = ['prnewswire.com', 'globenewswire.com', 'accesswire.com']
+        excluded_domains = ['prnewswire.com', 'globenewswire.com', 'accesswire.com', 'youtube.com']
     seen_keys = set()
     filtered_data = []
     for item in data:
