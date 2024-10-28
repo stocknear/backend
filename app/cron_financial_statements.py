@@ -63,6 +63,12 @@ async def get_financial_statements(session, symbol, semaphore, request_counter):
                     await asyncio.sleep(60)  # Pause for 60 seconds
                     request_counter[0] = 0  # Reset the request counter after the pause
 
+
+        url = f"https://financialmodelingprep.com/api/v3/key-metrics-ttm/{symbol}?apikey={api_key}"
+        data = await fetch_data(session, url, symbol)
+        if data:
+            await save_json(symbol, 'ttm', 'key-metrics', data)
+
         # Fetch owner earnings data
         owner_earnings_url = f"https://financialmodelingprep.com/api/v4/owner_earnings?symbol={symbol}&apikey={api_key}"
         owner_earnings_data = await fetch_data(session, owner_earnings_url, symbol)

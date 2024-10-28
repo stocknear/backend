@@ -563,7 +563,7 @@ async def get_stock_screener(con):
 
         try:
             with open(f"json/stockdeck/{symbol}.json", 'r') as file:
-                res = orjson.loads(file.read())[0]
+                res = orjson.loads(file.read())
                 item['employees'] = int(res['fullTimeEmployees'])
                 item['sharesOutStanding'] = int(res['sharesOutstanding'])
                 item['country'] = get_country_name(res['country'])
@@ -686,6 +686,17 @@ async def get_stock_screener(con):
             item['returnOnTangibleAssets'] = None
             item['grahamNumber'] = None
 
+
+        try:
+            with open(f"json/financial-statements/key-metrics/ttm/{symbol}.json", 'r') as file:
+                res = orjson.loads(file.read())[0]
+                item['revenueTTM'] = round(res['revenuePerShareTTM']*item['sharesOutStanding'],2)
+                item['netIncomeTTM'] = round(res['netIncomePerShareTTM']*item['sharesOutStanding'],2)
+         
+        except:
+            item['revenueTTM'] = None
+            item['netIncomeTTM'] = None
+            
 
         try:
             with open(f"json/ai-score/companies/{symbol}.json", 'r') as file:

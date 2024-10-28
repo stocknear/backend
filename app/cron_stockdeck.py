@@ -1,4 +1,4 @@
-import ujson
+import orjson
 import asyncio
 import sqlite3
 import pandas as pd
@@ -6,11 +6,11 @@ from tqdm import tqdm
 
 async def save_stockdeck(symbol, data):
     with open(f"json/stockdeck/{symbol}.json", 'w') as file:
-        ujson.dump(data, file)
+        file.write(orjson.dumps(data).decode('utf-8'))
 
 query_template = """
     SELECT 
-        profile, quote,
+        profile,
         stock_split
     FROM 
         stocks 
@@ -18,45 +18,49 @@ query_template = """
         symbol = ?
 """
 
+with open(f"json/stock-screener/data.json", 'rb') as file:
+    stock_screener_data = orjson.loads(file.read())
+stock_screener_data_dict = {item['symbol']: item for item in stock_screener_data}
+
+screener_columns = ['floatShares', 'forwardPE','shortOutStandingPercent','shortFloatPercent','revenueTTM',"netIncomeTTM"]
+
 async def get_data(ticker):
     try: 
         df = pd.read_sql_query(query_template, con, params=(ticker,))
         if df.empty:
-            final_res =[{}]
-            return final_res
+            res_list =[{}]
+            return res_list
         else:
             data= df.to_dict(orient='records')
             data =data[0]
 
-            company_profile =  ujson.loads(data['profile'])
-            #company_quote =  ujson.loads(data['quote'])
+            company_profile =  orjson.loads(data['profile'])
             try:
                 with open(f"json/quote/{ticker}.json", 'r') as file:
-                    company_quote = ujson.load(file)
+                    company_quote = orjson.loads(file.read())
             except:
                 company_quote = {}
 
             try:
                 with open(f"json/ai-score/companies/{ticker}.json", 'r') as file:
-                    score = ujson.load(file)['score']
+                    score = orjson.loads(file.read())['score']
             except:
                 score = None
 
             try:
-                with open(f"json/forward-pe/{ticker}.json", 'r') as file:
-                    forward_pe = ujson.load(file)['forwardPE']
-                    if forward_pe == 0:
-                        forward_pe = None
+                screener_result = {column: stock_screener_data_dict.get(ticker, {}).get(column, None) for column in screener_columns}
             except:
-                forward_pe = None
+                screener_result = {column: None for column in screener_columns}
+
 
             if data['stock_split'] == None:
                 company_stock_split = []
             else:
-                company_stock_split = ujson.loads(data['stock_split'])
+                company_stock_split = orjson.loads(data['stock_split'])
 
-            res_profile = [
-                {
+            res_list = {
+                    **screener_result,
+                    "ipoDate": company_profile[0]['ipoDate'],
                     'ceoName': company_profile[0]['ceo'],
                     'companyName': company_profile[0]['companyName'],
                     'industry': company_profile[0]['industry'],
@@ -70,7 +74,6 @@ async def get_data(ticker):
                     'pe': company_quote['pe'],
                     'eps': company_quote['eps'],
                     'sharesOutstanding': company_quote['sharesOutstanding'],
-                    'forwardPE': forward_pe,
                     'score': score,
                     'previousClose': company_quote['price'], #This is true because I update my db before the market opens hence the price will be the previousClose price.
                     'website': company_profile[0]['website'],
@@ -78,16 +81,12 @@ async def get_data(ticker):
                     'fullTimeEmployees': company_profile[0]['fullTimeEmployees'],
                     'stockSplits': company_stock_split,
                 }
-            ]
 
-
-            final_res = {k: v for d in [res_profile] for dict in d for k, v in dict.items()}
-            
-            return final_res
+            return res_list
     except Exception as e:
         print(e)
-        final_res =[{}]
-        return final_res
+        res_list ={}
+        return res_list
 
 async def run():
     cursor = con.cursor()
@@ -96,7 +95,7 @@ async def run():
     stocks_symbols = [row[0] for row in cursor.fetchall()]
     for ticker in tqdm(stocks_symbols):
         res = await get_data(ticker)  
-        await save_stockdeck(ticker, [res])
+        await save_stockdeck(ticker, res)
 
 try:
     con = sqlite3.connect('stocks.db')
