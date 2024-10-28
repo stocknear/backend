@@ -316,6 +316,8 @@ class HistoricalDate(BaseModel):
 class OptionsWatchList(BaseModel):
     optionsIdList: list
 
+class MarketCapData(BaseModel):
+    category: str
 
 # Replace NaN values with None in the resulting JSON object
 def replace_nan_inf_with_none(obj):
@@ -4141,6 +4143,35 @@ async def get_statistics(data: TickerData, api_key: str = Security(get_api_key))
         headers={"Content-Encoding": "gzip"}
     )
 
+
+@app.post("/cap-category")
+async def get_statistics(data: MarketCapData, api_key: str = Security(get_api_key)):
+    category = data.category
+    cache_key = f"market-cap-category-{category}"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
+    try:
+        with open(f"json/market-cap/list/{category}.json", 'rb') as file:
+            res = orjson.loads(file.read())
+    except:
+        res = []
+
+    data = orjson.dumps(res)
+    compressed_data = gzip.compress(data)
+
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key,60*10)
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
 
 @app.get("/newsletter")
 async def get_newsletter():
