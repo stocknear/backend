@@ -140,7 +140,8 @@ async def get_gainer_loser_active_stocks():
                 volume = pd.read_sql_query(query, con)
                 entry['marketCap'] = int(fundamental_data['marketCap'].iloc[0])
                 entry['volume'] = int(volume['volume'].iloc[0])
-                if entry['marketCap'] >= market_cap_threshold and entry['volume'] >= volume_threshold:
+                entry['changesPercentage'] = round(entry['changesPercentage'],2)
+                if entry['marketCap'] >= market_cap_threshold and entry['volume'] >= volume_threshold and abs(entry['changesPercentage']) < 500:
                     filtered_gainer_json.append(entry)
             except:
                 entry['marketCap'] = None
@@ -156,7 +157,8 @@ async def get_gainer_loser_active_stocks():
                 volume = pd.read_sql_query(query, con)
                 entry['marketCap'] = int(fundamental_data['marketCap'].iloc[0])
                 entry['volume'] = int(volume['volume'].iloc[0])
-                if entry['marketCap'] >= market_cap_threshold and entry['volume'] >= volume_threshold:
+                entry['changesPercentage'] = round(entry['changesPercentage'],2)
+                if entry['marketCap'] >= market_cap_threshold and entry['volume'] >= volume_threshold and abs(entry['changesPercentage']) < 500:
                     filtered_loser_json.append(entry)
             except:
                 entry['marketCap'] = None
@@ -173,7 +175,9 @@ async def get_gainer_loser_active_stocks():
                 volume = pd.read_sql_query(query, con)
                 entry['marketCap'] = int(fundamental_data['marketCap'].iloc[0])
                 entry['volume'] = int(volume['volume'].iloc[0])
-                filtered_active_json.append(entry)
+                entry['changesPercentage'] = round(entry['changesPercentage'],2)
+                if abs(entry['changesPercentage']) < 500:
+                    filtered_active_json.append(entry)
             except:
                 entry['marketCap'] = None
                 entry['volume'] = None
@@ -194,7 +198,7 @@ async def get_gainer_loser_active_stocks():
             SELECT 
                 gainer,loser,most_active
             FROM 
-                market_movers 
+                market_movers
         """
         past_gainer = pd.read_sql_query(query_market_movers, con)
 
