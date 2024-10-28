@@ -22,7 +22,7 @@ with open(f"json/stock-screener/data.json", 'rb') as file:
     stock_screener_data = orjson.loads(file.read())
 stock_screener_data_dict = {item['symbol']: item for item in stock_screener_data}
 
-screener_columns = ['floatShares', 'forwardPE','shortOutStandingPercent','shortFloatPercent','revenueTTM',"netIncomeTTM"]
+screener_columns = ['floatShares', 'forwardPE','shortOutStandingPercent','shortFloatPercent','revenuePerEmployee','profitPerEmployee','revenueTTM',"netIncomeTTM"]
 
 async def get_data(ticker):
     try: 
