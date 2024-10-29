@@ -316,8 +316,7 @@ class HistoricalDate(BaseModel):
 class OptionsWatchList(BaseModel):
     optionsIdList: list
 
-class MarketCapData(BaseModel):
-    category: str
+
 
 # Replace NaN values with None in the resulting JSON object
 def replace_nan_inf_with_none(obj):
@@ -2079,12 +2078,6 @@ async def filter_stock_list(data: FilterStockList, api_key: str = Security(get_a
     """
 
     conditions = {
-        'megaCap': "marketCap >= 200e9 AND (exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ')",
-        'largeCap': "marketCap < 200e9 AND marketCap >= 10e9 AND (exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ')",
-        'midCap': "marketCap < 10e9 AND marketCap >= 2e9 AND (exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ')",
-        'smallCap': "marketCap < 2e9 AND marketCap >= 300e6 AND (exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ')",
-        'microCap': "marketCap < 300e6 AND marketCap >= 50e6 AND (exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ')",
-        'nanoCap': "marketCap < 50e6 AND (exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ')",
         'nasdaq': "exchangeShortName = 'NASDAQ'",
         'nyse': "exchangeShortName = 'NYSE'",
         'xetra': "exchangeShortName = 'XETRA'",
@@ -4144,10 +4137,10 @@ async def get_statistics(data: TickerData, api_key: str = Security(get_api_key))
     )
 
 
-@app.post("/cap-category")
-async def get_statistics(data: MarketCapData, api_key: str = Security(get_api_key)):
-    category = data.category
-    cache_key = f"market-cap-category-{category}"
+@app.post("/list-category")
+async def get_statistics(data: FilterStockList, api_key: str = Security(get_api_key)):
+    filter_list = data.filterList
+    cache_key = f"filter-list-{filter_list}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
         return StreamingResponse(
@@ -4155,8 +4148,13 @@ async def get_statistics(data: MarketCapData, api_key: str = Security(get_api_ke
             media_type="application/json",
             headers={"Content-Encoding": "gzip"}
         )
+
+    if filter_list in ['financial','healthcare','technology','industrials','consumer-cyclical','real-estate','basic-materials','communication-services','energy','consumer-defensive','utilities']:
+        category_type = 'sector'
+    else:
+        category_type = 'market-cap'
     try:
-        with open(f"json/market-cap/list/{category}.json", 'rb') as file:
+        with open(f"json/{category_type}/list/{filter_list}.json", 'rb') as file:
             res = orjson.loads(file.read())
     except:
         res = []

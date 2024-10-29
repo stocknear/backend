@@ -265,7 +265,7 @@ def run_tracker():
         "cron_lobbying_tracker.py",
         "cron_sentiment_tracker.py"
         "cron_insider_tracker.py"
-        "cron_cap_category.py"
+        "cron_list.py"
     ]
     for script in scripts:
         run_command(["python3", script])
