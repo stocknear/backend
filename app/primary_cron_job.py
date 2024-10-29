@@ -4,8 +4,8 @@ import schedule
 import time
 import subprocess
 import threading  # Import threading module for parallel execution
-import logging  # Import logging module
-from logging.handlers import RotatingFileHandler
+#import logging  # Import logging module
+#from logging.handlers import RotatingFileHandler
 
 
 from dotenv import load_dotenv
@@ -21,6 +21,7 @@ useast_ip_address = os.getenv('USEAST_IP_ADDRESS')
 
 
 # Setup logging
+'''
 log_file = 'logs/cron_job.log'
 logger = logging.getLogger('CronJobLogger')
 logger.setLevel(logging.INFO)
@@ -28,7 +29,7 @@ handler = RotatingFileHandler(log_file, maxBytes=5*1024*1024, backupCount=5)  # 
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
-
+'''
 
 
 # Set the system's timezone to Berlin at the beginning
@@ -51,11 +52,12 @@ def run_command(command):
     stdout, stderr = process.communicate()
     
     # Log stdout and stderr
+    '''
     logger.info(f"Command: {' '.join(command)}")
     logger.info("Output:\n" + stdout)
     if stderr:
         logger.error("Error:\n" + stderr)
-
+    '''
 
 
 def run_cron_insider_trading():
