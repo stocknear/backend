@@ -130,7 +130,6 @@ def get_etf_provider(etf_symbols, etf_con):
     cursor = etf_con.cursor()
     cursor.execute("SELECT DISTINCT etfProvider FROM etfs")
     etf_provider = [row[0] for row in cursor.fetchall()]
-    print(etf_provider)
     query = "SELECT symbol, name, expenseRatio, totalAssets, numberOfHoldings FROM etfs WHERE etfProvider = ?"
     
     for provider in etf_provider:
@@ -213,7 +212,7 @@ async def run():
         etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
         # Process market cap categories
-        '''
+        
         for category, condition in market_cap_conditions.items():
             await process_category(cursor, category, condition, 'market-cap')
             await asyncio.sleep(1)  # Small delay between categories
@@ -225,7 +224,6 @@ async def run():
         
 
         get_etf_holding(etf_symbols, etf_con)
-        '''
         get_etf_provider(etf_symbols, etf_con)
 
 
