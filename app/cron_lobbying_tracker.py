@@ -71,24 +71,20 @@ def main():
             item['ticker'] = item['ticker'].replace('BRK.A','BRK-A').replace("BRK.B","BRK-B")
             symbol = item['ticker']
             if symbol in stock_symbols:
-                item['assetType'] = "stocks"
-            else:
-                item['assetType'] = "etf"
+                try:
+                    with open(f"json/quote/{symbol}.json") as file:
+                        quote_data = orjson.loads(file.read())
 
-            try:
-                with open(f"json/quote/{symbol}.json") as file:
-                    quote_data = orjson.loads(file.read())
-
-                    item['date'] = item['date'].replace('p.m.', 'PM').replace('a.m.', 'AM')
-                    res.append({
-                        **item,
-                        'name': quote_data['name'], 
-                        'price': round(quote_data['price'],2),
-                        'changesPercentage': round(quote_data['changesPercentage'],2)
-                    })
-                
-            except Exception as e:
-                print(f"Error processing {symbol}: {e}")
+                        item['date'] = item['date'].replace('p.m.', 'PM').replace('a.m.', 'AM')
+                        res.append({
+                            **item,
+                            'name': quote_data['name'], 
+                            'price': round(quote_data['price'],2),
+                            'changesPercentage': round(quote_data['changesPercentage'],2)
+                        })
+                    
+                except Exception as e:
+                    print(f"Error processing {symbol}: {e}")
 
         # Save the JSON data
         if len(res) > 0:
