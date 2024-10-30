@@ -167,15 +167,18 @@ async def get_upcoming_earnings(session, end_date):
 					except Exception as e:
 						print('Upcoming Earnings:', e)
 						pass
-			res_list = remove_duplicates(res_list)
-			res_list.sort(key=lambda x: x['marketCap'], reverse=True)
-
-			res_list = [{k: v for k, v in d.items() if k != 'marketCap'} for d in res_list]
-			
 		except Exception as e:
 			print(e)
 			pass
-	return res_list[:10]
+	try:
+		res_list = remove_duplicates(res_list)
+		res_list.sort(key=lambda x: x['marketCap'], reverse=True)
+		#res_list = [{k: v for k, v in d.items() if k != 'marketCap'} for d in res_list]
+		return res_list[:10]
+	except:
+		return []
+
+	
 
 
 async def get_recent_earnings(session):
