@@ -124,7 +124,7 @@ def get_etf_holding(etf_symbols, etf_con):
             with open(f"json/etf/holding/{ticker}.json", 'wb') as file:
                 file.write(orjson.dumps(res))
 
-def get_etf_provider(etf_symbols, etf_con):
+def get_etf_provider(etf_con):
 
 
     cursor = etf_con.cursor()
@@ -145,21 +145,12 @@ def get_etf_provider(etf_symbols, etf_con):
             for item in res:
                 try:
                     symbol = item['symbol']
-                    if symbol in quote_cache:
-                        quote_data = quote_cache[symbol]
-                    else:
-                        # Load the quote data from file if not in cache
-                        try:
-                            with open(f"json/quote/{symbol}.json") as file:
-                                quote_data = orjson.loads(file.read())
-                                quote_cache[symbol] = quote_data  # Cache the loaded data
-                        except:
-                            quote_data = None
-
-                        # Assign price and changesPercentage if available, otherwise set to None
-                        item['price'] = round(quote_data.get('price'), 2) if quote_data else None
-                        item['changesPercentage'] = round(quote_data.get('changesPercentage'), 2) if quote_data else None
-                        item['name'] = quote_data.get('name') if quote_data else None
+                    with open(f"json/quote/{symbol}.json") as file:
+                        quote_data = orjson.loads(file.read())
+                    # Assign price and changesPercentage if available, otherwise set to None
+                    item['price'] = round(quote_data.get('price'), 2) if quote_data else None
+                    item['changesPercentage'] = round(quote_data.get('changesPercentage'), 2) if quote_data else None
+                    item['name'] = quote_data.get('name') if quote_data else None
                 except:
                     pass
 
@@ -170,7 +161,8 @@ def get_etf_provider(etf_symbols, etf_con):
             if sorted_res:
                 with open(f"json/etf/provider/{provider}.json", 'wb') as file:
                     file.write(orjson.dumps(sorted_res))
-        except:
+        except Exception as e:
+            print(e)
             pass
     cursor.close()
 
@@ -222,9 +214,10 @@ async def run():
             await process_category(cursor, category, condition, 'sector')
             await asyncio.sleep(1)  # Small delay between categories
         
-
+        
         get_etf_holding(etf_symbols, etf_con)
-        get_etf_provider(etf_symbols, etf_con)
+        
+        get_etf_provider(etf_con)
 
 
     except Exception as e:
