@@ -2318,33 +2318,37 @@ async def get_all_etf_providers(api_key: str = Security(get_api_key)):
     return res
 
 
-@app.post("/etf-provider")
-async def etf_provider(data: ETFProviderData, api_key: str = Security(get_api_key)):
-    data = data.dict()
-    etf_provider = data['etfProvider'].lower()
 
+@app.post("/etf-provider")
+async def etf_holdings(data: ETFProviderData, api_key: str = Security(get_api_key)):
+    etf_provider = data.etfProvider.lower()
     cache_key = f"etf-provider-{etf_provider}"
     cached_result = redis_client.get(cache_key)
-    
     if cached_result:
-        return orjson.loads(cached_result)
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
 
-    # Check if data is cached; if not, fetch and cache it
-    cursor = etf_con.cursor()
-    query = "SELECT symbol, name, expenseRatio, totalAssets, numberOfHoldings FROM etfs WHERE etfProvider = ?"
-    cursor.execute(query, (etf_provider,))
-    raw_data = cursor.fetchall()
-    cursor.close()
-    # Extract only relevant data and sort it
-    # Extract only relevant data and filter only integer totalAssets
-    res = [
-        {'symbol': row[0], 'name': row[1], 'expenseRatio': row[2], 'totalAssets': row[3], 'numberOfHoldings': row[4]}
-        for row in raw_data if isinstance(row[3], float) or isinstance(row[3], int)
-    ]
-    sorted_res = sorted(res, key=lambda x: x['totalAssets'], reverse=True)
-    redis_client.set(cache_key, orjson.dumps(sorted_res))
-    redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
-    return sorted_res
+    try:
+        with open(f"json/etf/provider/{etf_provider}.json", 'rb') as file:
+            res = orjson.loads(file.read())
+    except:
+        res = []
+
+    data = orjson.dumps(res)
+    compressed_data = gzip.compress(data)
+
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key,60*10)
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
+
 
 @app.get("/etf-new-launches")
 async def etf_provider(api_key: str = Security(get_api_key)):

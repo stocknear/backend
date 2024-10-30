@@ -13,7 +13,7 @@ stock_screener_data_dict = {item['symbol']: item for item in stock_screener_data
 
 
 query_etf_holding = f"SELECT holding from etfs WHERE symbol = ?"
-
+quote_cache = {}
 
 async def save_json(category, data, category_type='market-cap'):
     with open(f"json/{category_type}/list/{category}.json", 'wb') as file:
@@ -21,11 +21,16 @@ async def save_json(category, data, category_type='market-cap'):
 
 async def get_quote_data(symbol):
     """Get quote data for a symbol from JSON file"""
-    try:
-        with open(f"json/quote/{symbol}.json", 'r') as file:
-            return orjson.loads(file.read())
-    except FileNotFoundError:
-        return None
+    if symbol in quote_cache:
+        return quote_cache[symbol]
+    else:
+        try:
+            with open(f"json/quote/{symbol}.json") as file:
+                quote_data = orjson.loads(file.read())
+                quote_cache[symbol] = quote_data  # Cache the loaded data
+                return quote_data
+        except:
+            return None
 
 async def process_category(cursor, category, condition, category_type='market-cap'):
     """
@@ -80,7 +85,6 @@ async def process_category(cursor, category, condition, category_type='market-ca
     return sorted_result
 
 def get_etf_holding(etf_symbols, etf_con):
-    quote_cache = {}
 
     for ticker in tqdm(etf_symbols):
         res = []
@@ -120,6 +124,58 @@ def get_etf_holding(etf_symbols, etf_con):
             with open(f"json/etf/holding/{ticker}.json", 'wb') as file:
                 file.write(orjson.dumps(res))
 
+def get_etf_provider(etf_symbols, etf_con):
+
+
+    cursor = etf_con.cursor()
+    cursor.execute("SELECT DISTINCT etfProvider FROM etfs")
+    etf_provider = [row[0] for row in cursor.fetchall()]
+    print(etf_provider)
+    query = "SELECT symbol, name, expenseRatio, totalAssets, numberOfHoldings FROM etfs WHERE etfProvider = ?"
+    
+    for provider in etf_provider:
+        try:
+            cursor.execute(query, (provider,))
+            raw_data = cursor.fetchall()
+            # Extract only relevant data and sort it
+            # Extract only relevant data and filter only integer totalAssets
+            res = [
+                {'symbol': row[0], 'name': row[1], 'expenseRatio': row[2], 'totalAssets': row[3], 'numberOfHoldings': row[4]}
+                for row in raw_data if isinstance(row[3], float) or isinstance(row[3], int)
+            ]
+            for item in res:
+                try:
+                    symbol = item['symbol']
+                    if symbol in quote_cache:
+                        quote_data = quote_cache[symbol]
+                    else:
+                        # Load the quote data from file if not in cache
+                        try:
+                            with open(f"json/quote/{symbol}.json") as file:
+                                quote_data = orjson.loads(file.read())
+                                quote_cache[symbol] = quote_data  # Cache the loaded data
+                        except:
+                            quote_data = None
+
+                        # Assign price and changesPercentage if available, otherwise set to None
+                        item['price'] = round(quote_data.get('price'), 2) if quote_data else None
+                        item['changesPercentage'] = round(quote_data.get('changesPercentage'), 2) if quote_data else None
+                        item['name'] = quote_data.get('name') if quote_data else None
+                except:
+                    pass
+
+            sorted_res = sorted(res, key=lambda x: x['totalAssets'], reverse=True)
+
+
+            # Save results to a file if there's data to write
+            if sorted_res:
+                with open(f"json/etf/provider/{provider}.json", 'wb') as file:
+                    file.write(orjson.dumps(sorted_res))
+        except:
+            pass
+    cursor.close()
+
+
 async def run():
     """Main function to run the analysis for all categories"""
     market_cap_conditions = {
@@ -157,7 +213,7 @@ async def run():
         etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
         # Process market cap categories
-        
+        '''
         for category, condition in market_cap_conditions.items():
             await process_category(cursor, category, condition, 'market-cap')
             await asyncio.sleep(1)  # Small delay between categories
@@ -169,6 +225,8 @@ async def run():
         
 
         get_etf_holding(etf_symbols, etf_con)
+        '''
+        get_etf_provider(etf_symbols, etf_con)
 
 
     except Exception as e:
