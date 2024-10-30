@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 import ujson
+import orjson
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
@@ -9,24 +10,24 @@ from selenium.webdriver.chrome.options import Options
 from dotenv import load_dotenv
 import sqlite3
 
+load_dotenv()
+url = os.getenv('CORPORATE_LOBBYING')
+
 def save_json(data, file_path):
     with open(file_path, 'w') as file:
         ujson.dump(data, file)
 
-query_template = """
-    SELECT 
-        name, sector
-    FROM 
-        stocks 
-    WHERE
-        symbol = ?
-"""
 
 def main():
     # Load environment variables
     con = sqlite3.connect('stocks.db')
-    load_dotenv()
-    url = os.getenv('CORPORATE_LOBBYING')
+
+    cursor = con.cursor()
+    cursor.execute("PRAGMA journal_mode = wal")
+    cursor.execute("SELECT DISTINCT symbol FROM stocks")
+    stock_symbols = [row[0] for row in cursor.fetchall()]
+
+
 
     # Set up the WebDriver options
     options = Options()
@@ -67,22 +68,27 @@ def main():
         # Fetch additional data from the database
         res = []
         for item in data:
+            item['ticker'] = item['ticker'].replace('BRK.A','BRK-A').replace("BRK.B","BRK-B")
             symbol = item['ticker']
+            if symbol in stock_symbols:
+                item['assetType'] = "stocks"
+            else:
+                item['assetType'] = "etf"
+
             try:
-                db_data = pd.read_sql_query(query_template, con, params=(symbol,))
-                if not db_data.empty:
-                    item['date'] = item['date'].replace('p.m.', 'PM')
-                    item['date'] = item['date'].replace('a.m.', 'AM')
+                with open(f"json/quote/{symbol}.json") as file:
+                    quote_data = orjson.loads(file.read())
+
+                    item['date'] = item['date'].replace('p.m.', 'PM').replace('a.m.', 'AM')
                     res.append({
-                        **item, 
-                        'name': db_data['name'].iloc[0], 
-                        'sector': db_data['sector'].iloc[0]
+                        **item,
+                        'name': quote_data['name'], 
+                        'price': round(quote_data['price'],2),
+                        'changesPercentage': round(quote_data['changesPercentage'],2)
                     })
-                else:
-                    res.append(item)
+                
             except Exception as e:
                 print(f"Error processing {symbol}: {e}")
-                res.append(item)
 
         # Save the JSON data
         if len(res) > 0:
