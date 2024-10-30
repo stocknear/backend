@@ -580,7 +580,7 @@ async def get_stock_screener(con):
             with open(f"json/stockdeck/{symbol}.json", 'r') as file:
                 res = orjson.loads(file.read())
                 data = res['stockSplits'][0]
-                item['lastStockSplit'] = data['label']
+                item['lastStockSplit'] = data['date']
                 item['splitType'] = 'forward' if data['numerator'] > data['denominator'] else 'backward'
                 item['splitRatio'] = f"{data['numerator']}"+":"+f"{data['denominator']}"
         except:
