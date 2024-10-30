@@ -43,19 +43,20 @@ def all_hedge_funds(con):
     all_ciks = cursor.fetchall()
 
     res_list = [{
-    'cik': row[0],
-    'name': format_company_name(row[1]),
-    'numberOfStocks': row[2],
-    'marketValue': row[3],
-    'winRate': row[4],
-    'turnover': row[5],
-    'performancePercentage3year': row[6]
-    } for row in all_ciks if row[2] >= 3]
+        'cik': row[0],
+        'name': format_company_name(row[1]),
+        'numberOfStocks': row[2],
+        'marketValue': row[3],
+        'winRate': row[4],
+        'turnover': row[5],
+        'performancePercentage3year': row[6]
+    } for row in all_ciks if row[2] >= 3 and abs(row[6]) < 500]
 
     sorted_res_list = sorted(res_list, key=lambda x: x['marketValue'], reverse=True)
 
     with open(f"json/hedge-funds/all-hedge-funds.json", 'w') as file:
         ujson.dump(sorted_res_list, file)
+
 
 
 def spy_performance():
