@@ -2,6 +2,7 @@ import orjson
 import sqlite3
 import asyncio
 import aiohttp
+import pandas as pd
 from tqdm import tqdm
 
 
@@ -9,6 +10,9 @@ from tqdm import tqdm
 with open(f"json/stock-screener/data.json", 'rb') as file:
     stock_screener_data = orjson.loads(file.read())
 stock_screener_data_dict = {item['symbol']: item for item in stock_screener_data}
+
+
+query_etf_holding = f"SELECT holding from etfs WHERE symbol = ?"
 
 
 async def save_json(category, data, category_type='market-cap'):
@@ -75,6 +79,46 @@ async def process_category(cursor, category, condition, category_type='market-ca
     print(f"Processed and saved {len(sorted_result)} stocks for {category}")
     return sorted_result
 
+def get_etf_holding(etf_symbols, etf_con):
+    quote_cache = {}
+
+    for ticker in tqdm(etf_symbols):
+        res = []
+        df = pd.read_sql_query(query_etf_holding, etf_con, params=(ticker,))
+
+        try:
+            # Load holdings data from the SQL query result
+            data = orjson.loads(df['holding'].iloc[0])
+            res = [{key: item[key] for key in ('asset', 'weightPercentage', 'sharesNumber')} for item in data]
+            
+            for item in res:
+                asset = item['asset']
+                
+                # Check if the asset data is already in the cache
+                if asset in quote_cache:
+                    quote_data = quote_cache[asset]
+                else:
+                    # Load the quote data from file if not in cache
+                    try:
+                        with open(f"json/quote/{asset}.json") as file:
+                            quote_data = orjson.loads(file.read())
+                            quote_cache[asset] = quote_data  # Cache the loaded data
+                    except:
+                        quote_data = None
+
+                # Assign price and changesPercentage if available, otherwise set to None
+                item['price'] = round(quote_data.get('price'), 2) if quote_data else None
+                item['changesPercentage'] = round(quote_data.get('changesPercentage'), 2) if quote_data else None
+                item['name'] = quote_data.get('name') if quote_data else None
+
+        except Exception as e:
+            print(e)
+            res = []
+
+        # Save results to a file if there's data to write
+        if res:
+            with open(f"json/etf/holding/{ticker}.json", 'wb') as file:
+                file.write(orjson.dumps(res))
 
 async def run():
     """Main function to run the analysis for all categories"""
@@ -106,7 +150,14 @@ async def run():
         cursor = con.cursor()
         cursor.execute("PRAGMA journal_mode = wal")
 
+        etf_con = sqlite3.connect('etf.db')
+        etf_cursor = etf_con.cursor()
+        etf_cursor.execute("PRAGMA journal_mode = wal")
+        etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
+        etf_symbols = [row[0] for row in etf_cursor.fetchall()]
+
         # Process market cap categories
+        
         for category, condition in market_cap_conditions.items():
             await process_category(cursor, category, condition, 'market-cap')
             await asyncio.sleep(1)  # Small delay between categories
@@ -115,12 +166,17 @@ async def run():
         for category, condition in sector_conditions.items():
             await process_category(cursor, category, condition, 'sector')
             await asyncio.sleep(1)  # Small delay between categories
+        
+
+        get_etf_holding(etf_symbols, etf_con)
+
 
     except Exception as e:
         print(e)
         raise
     finally:
         con.close()
+        etf_con.close()
 
 
 if __name__ == "__main__":
