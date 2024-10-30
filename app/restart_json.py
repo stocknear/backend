@@ -576,6 +576,18 @@ async def get_stock_screener(con):
             item['sector'] = None
             item['industry'] = None
 
+        try:
+            with open(f"json/stockdeck/{symbol}.json", 'r') as file:
+                res = orjson.loads(file.read())
+                data = res['stockSplits'][0]
+                item['lastStockSplit'] = data['label']
+                item['splitType'] = 'forward' if data['numerator'] > data['denominator'] else 'backward'
+                item['splitRatio'] = f"{data['numerator']}"+":"+f"{data['denominator']}"
+        except:
+            item['lastStockSplit'] = None
+            item['splitType'] = None
+            item['splitRatio'] = None
+
         #Financial Statements
         item.update(get_financial_statements(item, symbol))
 
