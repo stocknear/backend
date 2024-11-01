@@ -649,7 +649,7 @@ async def get_stock_screener(con):
                 res = orjson.loads(file.read())
                 item['analystRating'] = res['consensusRating']
                 item['analystCounter'] = res['numOfAnalyst']
-                item['priceTarget'] = res['priceTarget']
+                item['priceTarget'] = res['medianPriceTarget']
                 item['upside'] = round((item['priceTarget']/item['price']-1)*100, 1) if item['price'] else None
         except Exception as e:
             item['analystRating'] = None
