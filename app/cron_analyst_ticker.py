@@ -18,6 +18,7 @@ api_key = os.getenv('BENZINGA_API_KEY')
 
 fin = financial_data.Benzinga(api_key)
 
+
 query_template = """
     SELECT date,close
     FROM "{ticker}"
@@ -60,11 +61,15 @@ def get_summary(res_list):
                 # Collect all pt_current values for each analyst
                 latest_pt_current[analyst_name].append(pt_current_value)
             except (ValueError, TypeError):
-                print(f"Invalid pt_current value for analyst '{analyst_name}': {item['pt_current']}")
+                print(f"Invalid pt_current value for analyst '{analyst_name}': {item['adjusted_pt_current']}")
     
     # Compute statistics for price targets
     pt_current_values = [val for sublist in latest_pt_current.values() for val in sublist]
-    
+    #remove outliers to keep high and low price target reasonable
+    q1, q3 = np.percentile(pt_current_values, [25, 75])
+    iqr = q3 - q1
+    pt_current_values = [x for x in pt_current_values if (q1 - 1.5 * iqr) <= x <= (q3 + 1.5 * iqr)]
+
     # Compute different price target metrics if there are values, otherwise set to 0
     if pt_current_values:
         median_pt_current = statistics.median(pt_current_values)
@@ -297,10 +302,10 @@ try:
     with open(f"json/analyst/all-analyst-data.json", 'r') as file:
     	analyst_stats_list = ujson.load(file)
 
-    chunk_size = len(stock_symbols) // 40  # Divide the list into N chunks
+    chunk_size = len(stock_symbols) // 100  # Divide the list into N chunks
 
     chunks = [stock_symbols[i:i + chunk_size] for i in range(0, len(stock_symbols), chunk_size)]
-    #chunks = [['CMG']]
+    #chunks = [['NVDA']]
     for chunk in chunks:
         run(chunk, analyst_stats_list, con)
 
