@@ -477,6 +477,39 @@ async def get_stock(data: TickerData, api_key: str = Security(get_api_key)):
     )
 
 
+@app.post("/hover-stock-chart")
+async def get_hover_stock_chart(data: TickerData, api_key: str = Security(get_api_key)):
+    data = data.dict()
+    ticker = data['ticker'].upper()
+    cache_key = f"hover-stock-chart-{ticker}"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
+
+    try:
+        with open(f"json/one-day-price/{ticker}.json", 'rb') as file:
+            price_data = orjson.loads(file.read())
+        with open(f"json/quote/{ticker}.json", 'rb') as file:
+            quote_data = orjson.loads(file.read())
+        res = {**quote_data, 'history': price_data}
+    except:
+        res = {}
+    res_json = orjson.dumps(res)
+    compressed_data = gzip.compress(res_json)
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 60*3)
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
+
+
 
 def shuffle_list(lst):
     for i in range(len(lst) - 1, 0, -1):
