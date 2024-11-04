@@ -41,16 +41,18 @@ async def get_historical_data(ticker, query_con, session):
             for response in [response_1w, response_1m]:
                 json_data = await response.json()
                 df = pd.DataFrame(json_data).iloc[::-1].reset_index(drop=True)
+                '''
                 try:
                     df = df.drop(['volume'], axis=1)
                 except:
                     pass
+                '''
                 df = df.round(2).rename(columns={"date": "time"})
                 data.append(df.to_json(orient="records"))
 
             # Database read for 6M, 1Y, MAX data
             query_template = """
-                SELECT date, open,high,low,close
+                SELECT date, open,high,low,close,volume
                 FROM "{ticker}"
                 WHERE date BETWEEN ? AND ?
             """

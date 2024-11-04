@@ -38,7 +38,7 @@ def filter_data_quarterly(data):
 def get_yahoo_data(ticker, outstanding_shares, float_shares):
     try:
         data_dict = yf.Ticker(ticker).info
-        forward_pe = round(data_dict['forwardPE'],2)
+        forward_pe = round(data_dict.get('forwardPE'), 2) if data_dict.get('forwardPE') is not None else None
         short_outstanding_percent = round((data_dict['sharesShort']/outstanding_shares)*100,2)
         short_float_percent = round((data_dict['sharesShort']/float_shares)*100,2)
         return {'forwardPE': forward_pe}, {'sharesShort': data_dict['sharesShort'], 'shortRatio': data_dict['shortRatio'], 'sharesShortPriorMonth': data_dict['sharesShortPriorMonth'], 'shortOutStandingPercent': short_outstanding_percent, 'shortFloatPercent': short_float_percent}
