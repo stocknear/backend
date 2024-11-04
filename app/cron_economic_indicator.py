@@ -121,6 +121,14 @@ async def get_inflation_rate():
         data = [entry for entry in data if datetime.strptime(entry['date'], "%Y-%m-%d").day == 1]
     return data
 
+async def get_fed_fund_rate():
+    async with aiohttp.ClientSession() as session:
+        url = f"https://financialmodelingprep.com/api/v4/economic?name=federalFunds&apikey={api_key}"
+        data = await get_data(session,url)
+        data = sorted(data[:300], key=lambda x: x['date'])
+    return data
+
+
 # Main function to manage the date iteration and API calls
 async def run():
     cpi = await get_cpi()
@@ -131,6 +139,7 @@ async def run():
     real_gdp = await get_real_gdp()
     real_gdp_per_capita = await get_real_gdp_per_capita()
     inflation_rate = await get_inflation_rate()
+    fed_fund_rate = await get_fed_fund_rate()
     data = {
         'cpi': cpi,
         'treasury': treasury,
@@ -139,7 +148,8 @@ async def run():
         'gdp': gdp,
         'realGDP': real_gdp,
         'realGDPPerCapita': real_gdp_per_capita,
-        'inflationRate': inflation_rate
+        'inflationRate': inflation_rate,
+        'fedFundRate': fed_fund_rate,
     }
 
     await save_json(data)
