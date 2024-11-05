@@ -74,7 +74,7 @@ def send_email(recipient, symbol, asset_type, current_price,target_price, condit
     html_body = html_body.replace('currentDate', formatted_date)
     html_body = html_body.replace('addingSentence', f'The price of ${current_price} is at/{condition} your target price of ${target_price}')
     html_body = html_body.replace('symbol', symbol)
-    html_body = html_body.replace('asset-link', f'/{asset_type}/{symbol}')
+    html_body = html_body.replace('asset-link', f'{asset_type}/{symbol}')
 
     # Create a MIMEMultipart object
     message = MIMEMultipart('alternative')
