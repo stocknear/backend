@@ -141,6 +141,40 @@ def format_recent_earnings_data(earnings_data):
     
     return "".join(formatted_items)
 
+def format_upcoming_dividends_data(dividends_data):
+    """Format dividends data into Reddit-friendly markdown with nested bullet points."""
+    formatted_items = []
+    
+    for item in dividends_data:
+        symbol = item.get('symbol', None)
+        if symbol is not None:
+            name = item.get('name', 'Unknown')
+            dividend = item.get('dividend', 0)
+            dividend_prior = item.get('dividendPrior', 1)
+            dividend_yoy = calculate_yoy_change(dividend, dividend_prior)
+            dividend_yield = item.get('dividendYield', 0)
+            ex_dividend_date = item.get('exDividendDate')
+            payable_date = item.get('payableDate')
+            record_date = item.get('recordDate')
+            
+            # Create hyperlink for symbol
+            symbol_link = f"[{symbol}](https://stocknear.com/stocks/{symbol})"
+            
+            # Format the entry text with nested bullet points
+            entry = (
+                f"**{name}** ({symbol_link}) has announced its upcoming dividend details:\n\n"
+                f"* **Dividend:** ${dividend:.2f} per share "
+                f"({dividend_yoy:+.2f}% YoY)\n"
+                f"* **Dividend Yield:** {dividend_yield:.2f}%\n"
+                f"* **Ex-Dividend Date:** {datetime.fromisoformat(ex_dividend_date).strftime('%b %d, %Y')}\n"
+                f"* **Payable Date:** {datetime.fromisoformat(payable_date).strftime('%b %d, %Y')}\n"
+                f"* **Record Date:** {datetime.fromisoformat(record_date).strftime('%b %d, %Y')}\n\n"
+            )
+            formatted_items.append(entry)
+    
+    return "".join(formatted_items)
+
+
 def post_to_reddit():
     # Load environment variables
     load_dotenv()
@@ -158,11 +192,12 @@ def post_to_reddit():
         data = orjson.loads(file.read())
     
     #formatted_text = format_upcoming_earnings_data(data.get('upcomingEarnings', []))
-    #title = f"Upcoming Earnings for today, {formatted_date}"
+    #title = f"Upcoming Earnings for {formatted_date}"
 
-    formatted_text = format_recent_earnings_data(data.get('recentEarnings', []))
-    title = f"Recent Earnings for today, {formatted_date}"
-
+    #formatted_text = format_recent_earnings_data(data.get('recentEarnings', []))
+    #title = f"Recent Earnings for {formatted_date}"
+    formatted_text = format_upcoming_dividends_data(data.get('recentDividends', []))
+    title = f"Upcoming Dividend Announcements for {formatted_date}"
     try:
         # Initialize Reddit instance
         reddit = praw.Reddit(
@@ -175,18 +210,23 @@ def post_to_reddit():
         
         # Define the subreddit and post details
         subreddit = reddit.subreddit("stocknear")
+        
+        #for flair in subreddit.flair.link_templates:
+        #    print(f"Flair ID: {flair['id']}, Flair Text: {flair['text']}")
+
         earnings_flair_id = 'b9f76638-772e-11ef-96c1-0afbf26bd890'
+        dividends_flair_id = '27d56764-9bc8-11ef-9264-322a4c2c1b46'
         
         # Submit the post with the formatted text
         
         post = subreddit.submit(
             title=title,
             selftext=formatted_text,
-            flair_id=earnings_flair_id
+            flair_id=dividends_flair_id
         )
         print(f"Post created successfully with 'Earnings' flair: {post.url}")
-        
-
+    
+    
     except praw.exceptions.PRAWException as e:
         print(f"Error posting to Reddit: {str(e)}")
         return None

@@ -71,6 +71,9 @@ def aggregate_transactions(transactions, min_value=100_000):
         # Calculate average value
         avg_value = sum(t['value'] for t in group_list) / len(group_list)
         
+        # Calculate the total number of shares in the group
+        total_shares = sum(t['shares'] for t in group_list)
+        
         # Only include transactions with average value >= min_value
         if avg_value >= min_value:
             # Find latest filing date
@@ -79,17 +82,19 @@ def aggregate_transactions(transactions, min_value=100_000):
                 for t in group_list
             ).strftime('%Y-%m-%d %H:%M:%S')
             
-            # Create aggregated transaction with formatted name
+            # Create aggregated transaction with formatted name and total shares
             result.append({
                 'reportingName': format_name(key[0]),
                 'symbol': key[1],
                 'transactionType': key[2],
                 'filingDate': latest_date,
-                'avgValue': avg_value
+                'avgValue': avg_value,
+                'totalShares': total_shares  # Added total shares here
             })
     
     # Sort the final result by filingDate
     return sorted(result, key=lambda x: x['filingDate'], reverse=True)
+
 
 
 async def get_data(session, symbols):
@@ -107,6 +112,7 @@ async def get_data(session, symbols):
                             "reportingName": item.get("reportingName"),
                             "symbol": item.get("symbol"),
                             "filingDate": item.get("filingDate"),
+                            "shares": item.get("securitiesTransacted"),
                             "value": round(item.get("securitiesTransacted") * item.get("price"),2),
                             "transactionType": "Buy" if item.get("acquistionOrDisposition") == "A" 
                                                 else "Sell" if item.get("acquistionOrDisposition") == "D" 
@@ -124,7 +130,6 @@ async def get_data(session, symbols):
                 break
 
     res_list = aggregate_transactions(res_list)
-    
 
     new_data = []
     for item in res_list:
