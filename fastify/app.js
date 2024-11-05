@@ -76,8 +76,6 @@ fastify.register(require("./feedback/server"), { pb });
 fastify.register(require("./create-watchlist/server"), { pb });
 fastify.register(require("./delete-watchlist/server"), { pb });
 fastify.register(require("./edit-name-watchlist/server"), { pb });
-fastify.register(require("./get-notifications/server"), { pb });
-fastify.register(require("./update-notifications/server"), { pb });
 fastify.register(require("./create-strategy/server"), { pb });
 fastify.register(require("./delete-strategy/server"), { pb });
 fastify.register(require("./all-strategies/server"), { pb });
