@@ -123,7 +123,7 @@ def add_rank(data):
             item['rank'] = index
     return data
 
-async def get_gainer_loser_active_stocks():
+async def get_gainer_loser_active_stocks(symbols):
 
     #Database read 1y and 3y data
     query_fundamental_template = """
@@ -158,7 +158,6 @@ async def get_gainer_loser_active_stocks():
         ]
 
         gainer_json, loser_json, active_json = await asyncio.gather(*tasks)
-
 
 
         gainer_json = [{k: v for k, v in stock.items() if stock['symbol'] in symbols} for stock in gainer_json]
@@ -222,17 +221,26 @@ async def get_gainer_loser_active_stocks():
                 entry['marketCap'] = None
                 entry['volume'] = None
 
+
         filtered_active_json = sorted(filtered_active_json, key=lambda x: (x['marketCap'] >= 10**9, x['volume']), reverse=True)
 
 
-        stocks = filtered_gainer_json[:20] + filtered_loser_json[:20] + filtered_active_json[:20]
+        # Get the original lengths
+        gainer_length = len(filtered_gainer_json)
+        loser_length = len(filtered_loser_json)
+        active_length = len(filtered_active_json)
 
-        #remove change key element
+        # Combine all lists
+        stocks = filtered_gainer_json + filtered_loser_json + filtered_active_json
+
+        # Remove change key element
         stocks = [{k: v for k, v in stock.items() if k != "change"} for stock in stocks]
-      
-        day_gainer_json = stocks[:20]
-        day_loser_json = stocks[20:40]
-        day_active_json = stocks[40:60]
+
+        # Slice based on the original lengths
+        day_gainer_json = stocks[:gainer_length]
+        day_loser_json = stocks[gainer_length:gainer_length + loser_length]
+        day_active_json = stocks[gainer_length + loser_length:]
+        
 
         query_market_movers = """
             SELECT 
@@ -338,8 +346,8 @@ async def get_pre_after_market_movers(symbols):
 
 
     # Sort the list by changesPercentage in descending order and slice the top 10
-    gainers = sorted(res_list, key=lambda x: x['changesPercentage'], reverse=True)[:20]
-    losers = sorted(res_list, key=lambda x: x['changesPercentage'], reverse=False)[:20]
+    gainers = sorted(res_list, key=lambda x: x['changesPercentage'], reverse=True)[:50]
+    losers = sorted(res_list, key=lambda x: x['changesPercentage'], reverse=False)[:50]
 
     for index, item in enumerate(gainers, start=1):
         item['rank'] = index  # Add rank field
@@ -380,14 +388,14 @@ try:
     con = sqlite3.connect('stocks.db')
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
-    cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE (exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' or exchangeShortName = 'AMEX')")
+    cursor.execute("SELECT DISTINCT symbol FROM stocks")
     symbols = [row[0] for row in cursor.fetchall()]
     #Filter out tickers
-    symbols = [symbol for symbol in symbols if symbol != "STEC"]
+    #symbols = [symbol for symbol in symbols if symbol != "STEC"]
 
     
     
-    data = asyncio.run(get_gainer_loser_active_stocks())
+    data = asyncio.run(get_gainer_loser_active_stocks(symbols))
     with open(f"json/market-movers/data.json", 'w') as file:
         ujson.dump(data, file)
     

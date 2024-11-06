@@ -175,29 +175,50 @@ def format_upcoming_dividends_data(dividends_data):
     return "".join(formatted_items)
 
 
+import os
+from datetime import datetime
+import orjson
+import praw
+from dotenv import load_dotenv
+
 def post_to_reddit():
     # Load environment variables
     load_dotenv()
     
-    # Get current date
+    # Get current date with formatting
     today = datetime.now()
     month_str = today.strftime("%b")
     day = today.day
-    year = today.year  # Added the year variable
+    year = today.year
     day_suffix = "th" if 11 <= day <= 13 else {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
     formatted_date = f"{month_str} {day}{day_suffix} {year}"
     
-    # Load and format data
+    # Load and parse data from JSON file
     with open("json/dashboard/data.json", "rb") as file:
         data = orjson.loads(file.read())
     
-    #formatted_text = format_upcoming_earnings_data(data.get('upcomingEarnings', []))
-    #title = f"Upcoming Earnings for {formatted_date}"
-
-    #formatted_text = format_recent_earnings_data(data.get('recentEarnings', []))
-    #title = f"Recent Earnings for {formatted_date}"
-    formatted_text = format_upcoming_dividends_data(data.get('recentDividends', []))
-    title = f"Upcoming Dividend Announcements for {formatted_date}"
+    # Define the post configurations
+    post_configs = [
+        {
+            "data_key": "upcomingEarnings",
+            "format_func": format_upcoming_earnings_data,
+            "title": f"Upcoming Earnings for {formatted_date}",
+            "flair_id": "b9f76638-772e-11ef-96c1-0afbf26bd890"
+        },
+        {
+            "data_key": "recentEarnings",
+            "format_func": format_recent_earnings_data,
+            "title": f"Recent Earnings for {formatted_date}",
+            "flair_id": "b9f76638-772e-11ef-96c1-0afbf26bd890"
+        },
+        {
+            "data_key": "recentDividends",
+            "format_func": format_upcoming_dividends_data,
+            "title": f"Upcoming Dividend Announcements for {formatted_date}",
+            "flair_id": "27d56764-9bc8-11ef-9264-322a4c2c1b46"
+        }
+    ]
+    
     try:
         # Initialize Reddit instance
         reddit = praw.Reddit(
@@ -208,31 +229,27 @@ def post_to_reddit():
             user_agent=os.getenv('REDDIT_USER_AGENT', 'script:my_bot:v1.0 (by /u/username)')
         )
         
-        # Define the subreddit and post details
+        # Define the subreddit
         subreddit = reddit.subreddit("stocknear")
         
-        #for flair in subreddit.flair.link_templates:
-        #    print(f"Flair ID: {flair['id']}, Flair Text: {flair['text']}")
-
-        earnings_flair_id = 'b9f76638-772e-11ef-96c1-0afbf26bd890'
-        dividends_flair_id = '27d56764-9bc8-11ef-9264-322a4c2c1b46'
-        
-        # Submit the post with the formatted text
-        
-        post = subreddit.submit(
-            title=title,
-            selftext=formatted_text,
-            flair_id=dividends_flair_id
-        )
-        print(f"Post created successfully with 'Earnings' flair: {post.url}")
-    
+        # Loop through post configurations to submit each post
+        for config in post_configs:
+            formatted_text = config["format_func"](data.get(config["data_key"], []))
+            title = config["title"]
+            flair_id = config["flair_id"]
+            
+            # Submit the post
+            post = subreddit.submit(
+                title=title,
+                selftext=formatted_text,
+                flair_id=flair_id
+            )
+            print(f"Post created successfully: {post.url}")
     
     except praw.exceptions.PRAWException as e:
         print(f"Error posting to Reddit: {str(e)}")
-        return None
     except Exception as e:
         print(f"Unexpected error: {str(e)}")
-        return None
 
 if __name__ == "__main__":
     post_to_reddit()

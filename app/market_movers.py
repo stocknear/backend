@@ -86,11 +86,11 @@ class Past_Market_Movers:
             performance_data.sort(key=lambda x: x[3], reverse=True)
             high_volume = sorted(performance_data, key=lambda x: x[4], reverse=True)
 
-            for symbol, name, price, changes_percentage, volume, market_cap in performance_data[:20]:
+            for symbol, name, price, changes_percentage, volume, market_cap in performance_data[:50]:
                 gainer_data.append({'symbol': symbol, 'name': name, 'price': price, 'changesPercentage': changes_percentage, 'volume': volume, 'marketCap': market_cap})
-            for symbol, name, price, changes_percentage, volume, market_cap in performance_data[-20:]:
+            for symbol, name, price, changes_percentage, volume, market_cap in performance_data[-50:]:
                 loser_data.append({'symbol': symbol, 'name': name, 'price': price, 'changesPercentage': changes_percentage, 'volume': volume, 'marketCap': market_cap})
-            for symbol, name, price, changes_percentage, volume, market_cap in high_volume[:20]:
+            for symbol, name, price, changes_percentage, volume, market_cap in high_volume[:50]:
                 active_data.append({'symbol': symbol, 'name': name, 'price': price, 'changesPercentage': changes_percentage, 'volume': volume, 'marketCap': market_cap})
 
             
