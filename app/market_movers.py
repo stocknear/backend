@@ -48,7 +48,7 @@ class Past_Market_Movers:
                 start_date = current_date
         return start_date.strftime("%Y-%m-%d")
 
-    def run(self, time_periods=[7,30,90,180]):
+    def run(self, time_periods=[7,20,252,756,1260]):
         performance_data = []
         query_template = """
             SELECT date, close, volume FROM "{ticker}" WHERE date >= ?
@@ -75,9 +75,10 @@ class Past_Market_Movers:
                     if not df.empty:
                         fundamental_data = pd.read_sql_query(query_fundamental_template, self.con, params=(ticker,))
                         avg_volume = df['volume'].mean()
-                        if avg_volume > 1E6 and df['close'].mean() > 1:
+                        market_cap = int(fundamental_data['marketCap'].iloc[0])
+                        if avg_volume > 1E6 and df['close'].mean() > 1 and market_cap >=50E6:
                             changes_percentage = ((df['close'].iloc[-1] - df['close'].iloc[0]) / df['close'].iloc[0]) * 100
-                            performance_data.append((ticker, fundamental_data['name'].iloc[0], df['close'].iloc[-1], changes_percentage, avg_volume, int(fundamental_data['marketCap'].iloc[0])))
+                            performance_data.append((ticker, fundamental_data['name'].iloc[0], df['close'].iloc[-1], changes_percentage, avg_volume, market_cap))
                 except:
                     pass
 
@@ -97,18 +98,22 @@ class Past_Market_Movers:
                 gainer_json['1W'] = gainer_data
                 loser_json['1W'] = loser_data
                 active_json['1W'] = active_data
-            elif time_period == 30:
+            elif time_period == 20:
                 gainer_json['1M'] = gainer_data
                 loser_json['1M'] = loser_data
                 active_json['1M'] = active_data
-            elif time_period == 90:
-                gainer_json['3M'] = gainer_data
-                loser_json['3M'] = loser_data
-                active_json['3M'] = active_data
-            elif time_period == 180:
-                gainer_json['6M'] = gainer_data
-                loser_json['6M'] = loser_data
-                active_json['6M'] = active_data
+            elif time_period == 252:
+                gainer_json['1Y'] = gainer_data
+                loser_json['1Y'] = loser_data
+                active_json['1Y'] = active_data
+            elif time_period == 756:
+                gainer_json['3Y'] = gainer_data
+                loser_json['3Y'] = loser_data
+                active_json['3Y'] = active_data
+            elif time_period == 1260:
+                gainer_json['5Y'] = gainer_data
+                loser_json['5Y'] = loser_data
+                active_json['5Y'] = active_data
 
         return gainer_json, loser_json, active_json
 

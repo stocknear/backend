@@ -82,7 +82,12 @@ async def get_quote_of_stocks(ticker_list):
             df = await response.json()
     return df
 
-
+def add_rank(data):
+    for key in data:
+        for index, item in enumerate(data[key], start=1):
+            item['rank'] = index
+    return data
+    
 async def get_gainer_loser_active_stocks():
 
     #Database read 1y and 3y data
@@ -218,7 +223,9 @@ async def get_gainer_loser_active_stocks():
     # Iterate through time periods, categories, and symbols
     for time_period in data.keys():
         for category in data[time_period].keys():
-            for stock_data in data[time_period][category]:
+            # Add rank and process symbols
+            for index, stock_data in enumerate(data[time_period][category], start=1):
+                stock_data['rank'] = index  # Add rank field
                 symbol = stock_data["symbol"]
                 unique_symbols.add(symbol)
 
@@ -230,16 +237,17 @@ async def get_gainer_loser_active_stocks():
     latest_quote = await get_quote_of_stocks(unique_symbols_list)
     # Updating values in the data list based on matching symbols from the quote list
     for time_period in data.keys():
-        for category in data[time_period].keys():
-            for stock_data in data[time_period][category]:
-                symbol = stock_data["symbol"]
-                quote_stock = next((item for item in latest_quote if item["symbol"] == symbol), None)
-                if quote_stock:
-                    stock_data['price'] = quote_stock['price']
-                    stock_data['changesPercentage'] = quote_stock['changesPercentage']
-                    stock_data['marketCap'] = quote_stock['marketCap']
-                    stock_data['volume'] = quote_stock['volume']
-
+        # Only proceed if the time period is "1D"
+        if time_period == "1D":
+            for category in data[time_period].keys():
+                for stock_data in data[time_period][category]:
+                    symbol = stock_data["symbol"]
+                    quote_stock = next((item for item in latest_quote if item["symbol"] == symbol), None)
+                    if quote_stock:
+                        stock_data['price'] = quote_stock['price']
+                        stock_data['changesPercentage'] = quote_stock['changesPercentage']
+                        stock_data['marketCap'] = quote_stock['marketCap']
+                        stock_data['volume'] = quote_stock['volume']
 
     return data 
 
@@ -310,17 +318,20 @@ try:
     #Filter out tickers
     symbols = [symbol for symbol in symbols if symbol != "STEC"]
 
-    data = asyncio.run(get_historical_data())
-    with open(f"json/mini-plots-index/data.json", 'w') as file:
-        ujson.dump(data, file)
+    
 
     data = asyncio.run(get_gainer_loser_active_stocks())
     with open(f"json/market-movers/data.json", 'w') as file:
+        ujson.dump(data, file)
+    '''
+    data = asyncio.run(get_historical_data())
+    with open(f"json/mini-plots-index/data.json", 'w') as file:
         ujson.dump(data, file)
 
     data = asyncio.run(get_pre_post_market_movers(symbols))
     with open(f"json/market-movers/pre-post-data.json", 'w') as file:
         ujson.dump(data, file)
+    '''
 
     con.close()
 except Exception as e:
