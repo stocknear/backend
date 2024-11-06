@@ -316,7 +316,8 @@ class HistoricalDate(BaseModel):
 class OptionsWatchList(BaseModel):
     optionsIdList: list
 
-
+class ParamsData(BaseModel):
+    params: str
 
 # Replace NaN values with None in the resulting JSON object
 def replace_nan_inf_with_none(obj):
@@ -4218,6 +4219,44 @@ async def get_statistics(data: FilterStockList, api_key: str = Security(get_api_
         media_type="application/json",
         headers={"Content-Encoding": "gzip"}
     )
+
+@app.post("/pre-after-market-movers")
+async def get_statistics(data: ParamsData, api_key: str = Security(get_api_key)):
+    params = data.params
+    cache_key = f"pre-after-market-movers-{params}"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
+
+    if params == 'premarket':
+        try:
+            with open(f"json/market-movers/premarket.json", 'rb') as file:
+                res = orjson.loads(file.read())
+        except:
+            res = {'gainers': [], 'losers': []}
+    elif params == 'afterhours':
+        try:
+            with open(f"json/market-movers/afterhours.json", 'rb') as file:
+                res = orjson.loads(file.read())
+        except:
+            res = {'gainers': [], 'losers': []}
+
+    data = orjson.dumps(res)
+    compressed_data = gzip.compress(data)
+
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key,60*15)
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
+
 
 @app.get("/newsletter")
 async def get_newsletter():

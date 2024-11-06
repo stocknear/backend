@@ -20,6 +20,41 @@ api_key = os.getenv('FMP_API_KEY')
 market_cap_threshold = 1E6
 volume_threshold = 50_000
 
+
+def check_market_hours():
+
+    holidays = [
+        "2024-01-01", "2024-01-15", "2024-02-19", "2024-03-29",
+        "2024-05-27", "2024-06-19", "2024-07-04", "2024-09-02",
+        "2024-11-28", "2024-12-25"
+    ]
+    
+    # Get the current date and time in ET (Eastern Time)
+    et_timezone = pytz.timezone('America/New_York')
+    current_time = datetime.now(et_timezone)
+    current_date_str = current_time.strftime('%Y-%m-%d')
+    current_hour = current_time.hour
+    current_minute = current_time.minute
+    current_day = current_time.weekday()  # Monday is 0, Sunday is 6
+
+    # Check if the current date is a holiday or weekend
+    is_weekend = current_day >= 5  # Saturday (5) or Sunday (6)
+    is_holiday = current_date_str in holidays
+
+    # Determine the market status
+    if is_weekend or is_holiday:
+        return 0 #Closed
+    elif current_hour < 9 or (current_hour == 9 and current_minute < 30):
+        return 1 # Pre-Market
+    elif 9 <= current_hour < 16 or (current_hour == 16 and current_minute == 0):
+        return 0 #"Market hours."
+    elif 16 <= current_hour < 24:
+        return 2 #"After-market hours."
+    else:
+        return 0 #"Market is closed."
+
+market_status = check_market_hours()
+
 async def get_todays_data(ticker):
 
     current_weekday = datetime.today().weekday()
@@ -87,7 +122,7 @@ def add_rank(data):
         for index, item in enumerate(data[key], start=1):
             item['rank'] = index
     return data
-    
+
 async def get_gainer_loser_active_stocks():
 
     #Database read 1y and 3y data
@@ -265,7 +300,7 @@ async def get_historical_data():
 
     return res_list
 
-async def get_pre_post_market_movers(symbols):
+async def get_pre_after_market_movers(symbols):
     res_list = []
 
     # Loop through the symbols and load the corresponding JSON files
@@ -303,10 +338,42 @@ async def get_pre_post_market_movers(symbols):
 
 
     # Sort the list by changesPercentage in descending order and slice the top 10
-    top_5_gainers = sorted(res_list, key=lambda x: x['changesPercentage'], reverse=True)[:5]
-    top_5_losers = sorted(res_list, key=lambda x: x['changesPercentage'], reverse=False)[:5]
+    gainers = sorted(res_list, key=lambda x: x['changesPercentage'], reverse=True)[:20]
+    losers = sorted(res_list, key=lambda x: x['changesPercentage'], reverse=False)[:20]
 
-    return {'gainers': top_5_gainers, 'losers': top_5_losers}
+    for index, item in enumerate(gainers, start=1):
+        item['rank'] = index  # Add rank field
+    for index, item in enumerate(losers, start=1):
+        item['rank'] = index  # Add rank field
+
+    data = {'gainers': gainers, 'losers': losers}
+
+    unique_symbols = set()
+
+    # Iterate through categories and symbols
+    for category in data.keys():
+        # Add rank and process symbols
+        for index, stock_data in enumerate(data[category], start=1):
+            stock_data['rank'] = index  # Add rank field
+            symbol = stock_data["symbol"]
+            unique_symbols.add(symbol)
+
+    # Convert the set to a list if needed
+    unique_symbols_list = list(unique_symbols)
+
+    # Get the latest quote of all unique symbols and map it back to the original data list to update all values
+    latest_quote = await get_quote_of_stocks(unique_symbols_list)
+
+    # Updating values in the data list based on matching symbols from the quote list
+    for category in data.keys():
+        for stock_data in data[category]:
+            symbol = stock_data["symbol"]
+            quote_stock = next((item for item in latest_quote if item["symbol"] == symbol), None)
+            if quote_stock:
+                stock_data['marketCap'] = quote_stock['marketCap']
+                stock_data['volume'] = quote_stock['volume']
+
+    return data
 
 
 try:
@@ -319,19 +386,23 @@ try:
     symbols = [symbol for symbol in symbols if symbol != "STEC"]
 
     
-
+    
     data = asyncio.run(get_gainer_loser_active_stocks())
     with open(f"json/market-movers/data.json", 'w') as file:
         ujson.dump(data, file)
-    '''
+    
     data = asyncio.run(get_historical_data())
     with open(f"json/mini-plots-index/data.json", 'w') as file:
         ujson.dump(data, file)
-
-    data = asyncio.run(get_pre_post_market_movers(symbols))
-    with open(f"json/market-movers/pre-post-data.json", 'w') as file:
-        ujson.dump(data, file)
-    '''
+    
+    data = asyncio.run(get_pre_after_market_movers(symbols))
+    if market_status == 1:
+        with open(f"json/market-movers/premarket.json", 'w') as file:
+            ujson.dump(data, file)
+    elif market_status == 2:
+        with open(f"json/market-movers/afterhours.json", 'w') as file:
+            ujson.dump(data, file)
+    
 
     con.close()
 except Exception as e:

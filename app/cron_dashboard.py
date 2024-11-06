@@ -362,9 +362,15 @@ async def run():
 					market_movers = {'gainers': data['gainers']['1D'][:5], 'losers': data['losers']['1D'][:5]}
 			except:
 				market_movers = {}
-		else:
+		elif market_status == 1:
 			try:
-				with open(f"json/market-movers/pre-post-data.json", 'r') as file:
+				with open(f"json/market-movers/premarket.json", 'r') as file:
+					market_movers = ujson.load(file)
+			except:
+				market_movers = {}
+		elif market_status == 2:
+			try:
+				with open(f"json/market-movers/afterhours.json", 'r') as file:
 					market_movers = ujson.load(file)
 			except:
 				market_movers = {}
