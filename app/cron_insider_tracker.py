@@ -10,6 +10,7 @@ from tqdm import tqdm
 from dotenv import load_dotenv
 import os
 import time
+import pandas as pd
 
 load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
@@ -18,6 +19,17 @@ api_key = os.getenv('FMP_API_KEY')
 async def save_json(data):
     async with async_open(f"json/tracker/insider/data.json", 'w') as file:
         await file.write(ujson.dumps(data))
+
+def remove_outliers(group, tolerance=0.5):
+    # Calculate the median price
+    median_price = group['price'].median()
+    
+    # Define the lower and upper bounds within 50% of the median
+    lower_bound = median_price * (1 - tolerance)
+    upper_bound = median_price * (1 + tolerance)
+    
+    # Filter the group based on these bounds
+    return group[(group['price'] >= lower_bound) & (group['price'] <= upper_bound)]
 
 
 def format_name(name):
@@ -113,7 +125,8 @@ async def get_data(session, symbols):
                             "symbol": item.get("symbol"),
                             "filingDate": item.get("filingDate"),
                             "shares": item.get("securitiesTransacted"),
-                            "value": round(item.get("securitiesTransacted") * item.get("price"),2),
+                            "value": round(item.get("securitiesTransacted",0) * item.get("price",0),2),
+                            "price": item.get("price",0),
                             "transactionType": "Buy" if item.get("acquistionOrDisposition") == "A" 
                                                 else "Sell" if item.get("acquistionOrDisposition") == "D" 
                                                 else None,  # None if neither "A" nor "D"
@@ -128,6 +141,11 @@ async def get_data(session, symbols):
             except Exception as e:
                 print(f"Error while fetching data: {e}")
                 break
+
+    df = pd.DataFrame(res_list)
+
+    filtered_df = df.groupby('symbol', group_keys=False).apply(remove_outliers)
+    res_list = filtered_df.to_dict('records')
 
     res_list = aggregate_transactions(res_list)
 
