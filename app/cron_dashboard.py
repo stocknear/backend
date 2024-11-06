@@ -365,13 +365,19 @@ async def run():
 		elif market_status == 1:
 			try:
 				with open(f"json/market-movers/premarket.json", 'r') as file:
-					market_movers = ujson.load(file)
+					data = ujson.load(file)
+					gainers = [{ 'symbol': item['symbol'], 'name': item['name'], 'price': item['price'], 'changesPercentage': item['changesPercentage']} for item in data['gainers'][:5]]
+					losers = [{ 'symbol': item['symbol'], 'name': item['name'], 'price': item['price'], 'changesPercentage': item['changesPercentage']} for item in data['losers'][:5]]
+					market_movers={'gainers': gainers, 'losers': losers}
 			except:
 				market_movers = {}
 		elif market_status == 2:
 			try:
 				with open(f"json/market-movers/afterhours.json", 'r') as file:
-					market_movers = ujson.load(file)
+					data = ujson.load(file)
+					gainers = [{ 'symbol': item['symbol'], 'name': item['name'], 'price': item['price'], 'changesPercentage': item['changesPercentage']} for item in data['gainers'][:5]]
+					losers = [{ 'symbol': item['symbol'], 'name': item['name'], 'price': item['price'], 'changesPercentage': item['changesPercentage']} for item in data['losers'][:5]]
+					market_movers={'gainers': gainers, 'losers': losers}
 			except:
 				market_movers = {}
 
