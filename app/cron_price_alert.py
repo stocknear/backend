@@ -131,8 +131,8 @@ async def run():
                     }
                     pb.collection('notifications').create(newNotification)
                     #send alert via email
-                    recipient = (pb.collection('users').get_one(item.user)).email
-                    send_email(recipient, symbol, item.asset_type, current_price, target_price, item.condition)
+                    #recipient = (pb.collection('users').get_one(item.user)).email
+                    #send_email(recipient, symbol, item.asset_type, current_price, target_price, item.condition)
 
                 elif (item.condition == 'above') and target_price <= current_price:
                     #print('above true', symbol, target_price)
@@ -147,8 +147,8 @@ async def run():
                     }
                     pb.collection('notifications').create(newNotification)
                     #send alert via email
-                    recipient = (pb.collection('users').get_one(item.user)).email
-                    send_email(recipient, symbol, item.asset_type, current_price, target_price, item.condition)
+                    #recipient = (pb.collection('users').get_one(item.user)).email
+                    #send_email(recipient, symbol, item.asset_type, current_price, target_price, item.condition)
 try:
     asyncio.run(run())
 except Exception as e:
