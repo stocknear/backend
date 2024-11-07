@@ -229,7 +229,7 @@ async def main():
 
         print(len(total_symbols))
 
-        chunk_size = len(total_symbols) // 2000  # Divide the list into N chunks
+        chunk_size = 1 #len(total_symbols) // 2000  # Divide the list into N chunks
         chunks = [total_symbols[i:i + chunk_size] for i in range(0, len(total_symbols), chunk_size)]
         #chunks = [['NVDA']]
         loop = asyncio.get_running_loop()
