@@ -65,26 +65,6 @@ async def save_json(data):
         ujson.dump(data, file)
 
 
-def get_sector_path(sector):
-    sector_paths = {
-        'Financials': "/list/financial-sector",
-        'Healthcare': "/list/healthcare-sector",
-        'Information Technology': "/list/technology-sector",
-        'Technology': "/list/technology-sector",
-        'Financial Services': "/list/financial-sector",
-        'Industrials': "/list/industrials-sector",
-        'Energy': "/list/energy-sector",
-        'Utilities': "/list/utilities-sector",
-        'Consumer Cyclical': "/list/consumer-cyclical-sector",
-        'Real Estate': "/list/real-estate-sector",
-        'Basic Materials': "/list/basic-materials-sector",
-        'Communication Services': "/list/communication-services-sector",
-        'Consumer Defensive': "/list/consumer-defensive-sector"
-    }
-
-    # Return the path if the sector exists in the dictionary, otherwise return None or a default path
-    return sector_paths.get(sector, None)
-
 def parse_time(time_str):
     try:
         # Try parsing as full datetime
@@ -277,50 +257,16 @@ async def get_recent_dividends(session):
 	res_list = [{k: v for k, v in d.items() if k != 'marketCap'} for d in res_list]
 	return res_list[0:5]
 
-async def get_top_sector(session):
-    url = f"https://financialmodelingprep.com/api/v3/sectors-performance?apikey={fmp_api_key}"
-    try:
-        async with session.get(url) as response:
-            if response.status == 200:
-                sectors = await response.json()
-                sectors = [{'sector': item['sector'], 'changesPercentage': round(float(item['changesPercentage'].strip('%')), 2)} for item in sectors]
-                res = max(sectors, key=lambda x: x['changesPercentage'])
-                res['link'] = get_sector_path(res['sector'])
 
-                return res
-            else:
-                print(f"Failed to retrieve data: {response.status}")
-                return None
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        return None
-
-async def get_latest_bezinga_market_news(session):
-    url = "https://api.benzinga.com/api/v2/news"
-    querystring = {"token": benzinga_api_key,"channels":"News","pageSize":"10","displayOutput":"full"}
-    try:
-        async with session.get(url, params=querystring, headers=headers) as response:
-            res_list = []
-            res = ujson.loads(await response.text())
-            for item in res:
-                res_list.append({'date': item['created'], 'text': item['title'], 'url': item['url']})
-
-        res_list.sort(key=lambda x: datetime.strptime(x['date'], '%a, %d %b %Y %H:%M:%S %z'), reverse=True)
-        return res_list
-    except Exception as e:
-        #pass
-        print(e)
 
 
 async def run():
 	async with aiohttp.ClientSession() as session:
-		benzinga_news = await get_latest_bezinga_market_news(session)
 		recent_earnings = await get_recent_earnings(session)
 		upcoming_earnings = await get_upcoming_earnings(session, today)
 		if len(upcoming_earnings) < 5:
 			upcoming_earnings = await get_upcoming_earnings(session, tomorrow)
 			
-		top_sector = await get_top_sector(session)
 		recent_dividends = await get_recent_dividends(session)
 
 		#Avoid clashing of recent and upcoming earnings
@@ -385,7 +331,6 @@ async def run():
 		    'marketMovers': market_movers,
 		    'marketStatus': market_status,
 		    'optionsFlow': options_flow,
-		    'marketNews': benzinga_news,
 		    'recentEarnings': recent_earnings,
 		    'upcomingEarnings': upcoming_earnings,
 		    'recentDividends': recent_dividends,
