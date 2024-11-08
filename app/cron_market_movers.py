@@ -319,8 +319,8 @@ async def get_pre_after_market_movers(symbols):
                 data = ujson.load(file)
                 market_cap = int(data.get('marketCap', 0))
                 name = data.get('name',None)
-            # If market cap is >= 10 million, proceed to load pre-post quote data
-            if market_cap >= 10**7:
+
+            if market_cap >= 10E6:
                 try:
                     with open(f"json/pre-post-quote/{symbol}.json", "r") as file:
                         pre_post_data = ujson.load(file)
