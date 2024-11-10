@@ -4,7 +4,7 @@ import numpy as np
 from scipy.stats import norm
 import time
 import sqlite3
-import ujson
+import orjson
 import os
 from dotenv import load_dotenv
 from tqdm import tqdm 
@@ -19,6 +19,11 @@ load_dotenv()
 api_key = os.getenv('BENZINGA_API_KEY')
 
 headers = {"accept": "application/json"}
+
+# Load stock screener data
+with open(f"json/stock-screener/data.json", 'rb') as file:
+    stock_screener_data = orjson.loads(file.read())
+stock_screener_data_dict = {item['symbol']: item for item in stock_screener_data}
 
 query_template = """
     SELECT date, close
@@ -41,23 +46,60 @@ def remove_duplicates(data, key):
             new_data.append(item)
     return new_data
 
-def extract_sector(ticker, con):
-    
-    query_template = f"""
-    SELECT 
-        sector
-    FROM 
-        stocks
-    WHERE
-        symbol = ?
-    """
-    try:
-        df = pd.read_sql_query(query_template, con, params=(ticker,))
-        sector = df['sector'].iloc[0]
-    except:
-        sector = None
 
-    return sector
+
+async def get_data(ticker_list, item):
+    """Extract specified columns data for a given symbol."""
+    columns = ['sector', 'industry', 'price']
+
+    sector_list = []
+    industry_list = []
+
+    for ticker in ticker_list:
+        ticker_data = stock_screener_data_dict.get(ticker, {})
+        
+        # Extract specified columns data for each ticker
+        sector = ticker_data.get('sector',None)
+        industry = ticker_data.get('industry',None)
+        price = ticker_data.get('price',None)
+        price = round(price, 2) if price is not None else None
+
+
+        # Append data to relevant lists if values are present
+        if sector:
+            sector_list.append(sector)
+        if industry:
+            industry_list.append(industry)
+
+        # Update ratingsList in item with price for the corresponding ticker
+        try:
+            if len(item.get('ratingsList')) > 0:
+                for rating in item.get('ratingsList', []):
+                    try:
+                        if rating.get('ticker') == ticker:
+                            upside = round((float(rating['adjusted_pt_current'])/price-1)*100,2)
+                            rating['price'] = price
+                            rating['upside'] = upside
+                    except:
+                        rating['price'] = None
+                        rating['upside'] = None
+        except:
+            pass
+
+    # Get the top 3 most common sectors and industries
+    sector_counts = Counter(sector_list)
+    industry_counts = Counter(industry_list)
+    main_sectors = [item[0] for item in sector_counts.most_common(3)]
+    main_industries = [item[0] for item in industry_counts.most_common(3)]
+
+    # Add main sectors and industries to the item dictionary
+    item['mainSectors'] = main_sectors
+    item['mainIndustries'] = main_industries
+
+    return item
+
+
+
 
 def calculate_rating(data):
     overall_average_return = float(data['avgReturn'])
@@ -121,7 +163,7 @@ def calculate_rating(data):
 
 def get_top_stocks():
     with open(f"json/analyst/all-analyst-data.json", 'r') as file:
-        analyst_stats_list = ujson.load(file)
+        analyst_stats_list = orjson.loads(file.read())
 
     filtered_data = [item for item in analyst_stats_list if item['analystScore'] >= 4]
 
@@ -156,7 +198,7 @@ def get_top_stocks():
     for ticker, info in ticker_data.items():
         try:
             with open(f"json/quote/{ticker}.json", 'r') as file:
-                res = ujson.load(file)
+                res = orjson.loads(file.read())
             info['price'] = res.get('price', None)
             info['name'] = res.get('name', None)
             info['marketCap'] = res.get('marketCap', None)
@@ -188,7 +230,7 @@ def get_top_stocks():
         item['rank'] = rank + 1
 
     with open(f"json/analyst/top-stocks.json", 'w') as file:
-        ujson.dump(result_sorted, file)
+        file.write(orjson.dumps(result_sorted).decode('utf-8'))
 
 
 async def get_analyst_ratings(analyst_id, session):
@@ -240,7 +282,7 @@ async def get_all_analyst_stats():
         for response in responses:
             if response.status == 200:  # Check for successful response
                 try:
-                    data = ujson.loads(await response.text())['analyst_ratings_analyst']
+                    data = orjson.loads(await response.text())['analyst_ratings_analyst']
                     res_list += data
                 except Exception as e:
                     pass
@@ -381,18 +423,11 @@ async def run():
     # Step2: Get rating history for each individual analyst and score the analyst
     await get_single_analyst_data(analyst_list, con)
     try:
-        print('Start extracting main sectors')
+        print('Start extracting data')
         for item in tqdm(analyst_list):
             ticker_list = [entry['ticker'] for entry in item['ratingsList']]
-            sector_list = []
-            for ticker in ticker_list:
-                sector = extract_sector(ticker, con)
-                sector_list.append(sector)
-
-            sector_counts = Counter(sector_list)
-            main_sectors = sector_counts.most_common(3)
-            main_sectors = [item[0] for item in main_sectors if item[0] is not None]
-            item['mainSectors'] = main_sectors
+            if len(ticker_list) > 0:
+                await get_data(ticker_list, item)
 
     except Exception as e:
         print(e)
@@ -408,7 +443,7 @@ async def run():
         item['avgReturn'] = round(float(item['avgReturn']), 2)
         item['successRate'] = round(float(item['successRate']), 2)
         with open(f"json/analyst/analyst-db/{item['analystId']}.json", 'w') as file:
-            ujson.dump(item, file)
+            file.write(orjson.dumps(item).decode('utf-8'))
 
     # Save top 100 analysts
     top_analysts_list = []
@@ -426,11 +461,11 @@ async def run():
         })
 
     with open(f"json/analyst/top-analysts.json", 'w') as file:
-        ujson.dump(top_analysts_list, file)
+        file.write(orjson.dumps(top_analysts_list).decode('utf-8'))
 
     # Save all analyst data in raw form for the next step
     with open(f"json/analyst/all-analyst-data.json", 'w') as file:
-        ujson.dump(analyst_list, file)
+        file.write(orjson.dumps(analyst_list).decode('utf-8'))
 
     # Save top stocks with strong buys from 5-star analysts
     get_top_stocks()
