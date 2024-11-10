@@ -1291,10 +1291,10 @@ async def get_economic_calendar():
     ny_tz = pytz.timezone('America/New_York')
     today = datetime.now(ny_tz)
 
-    start_date = today - timedelta(weeks=1)
+    start_date = today - timedelta(weeks=6)
     start_date = start_date - timedelta(days=(start_date.weekday() - 0) % 7)
 
-    end_date = today + timedelta(weeks=1)
+    end_date = today + timedelta(weeks=6)
     end_date = end_date + timedelta(days=(4 - end_date.weekday()) % 7)
 
     url = "https://api.benzinga.com/api/v2.1/calendar/economics"

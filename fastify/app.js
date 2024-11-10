@@ -73,8 +73,6 @@ fastify.register(require("./delete-comment/server"), { pb });
 fastify.register(require("./delete-post/server"), { pb });
 fastify.register(require("./leaderboard/server"), { pb });
 fastify.register(require("./feedback/server"), { pb });
-fastify.register(require("./create-watchlist/server"), { pb });
-fastify.register(require("./delete-watchlist/server"), { pb });
 fastify.register(require("./edit-name-watchlist/server"), { pb });
 fastify.register(require("./create-strategy/server"), { pb });
 fastify.register(require("./delete-strategy/server"), { pb });
