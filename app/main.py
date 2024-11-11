@@ -1555,7 +1555,7 @@ async def get_fair_price(data: TickerData, api_key: str = Security(get_api_key))
         res = []
 
     redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 3600 * 24) # Set cache expiration time to Infinity
+    redis_client.expire(cache_key, 15*60) # Set cache expiration time to Infinity
 
     return res
 
@@ -1993,7 +1993,7 @@ async def get_congress_rss_feed(api_key: str = Security(get_api_key)):
         res = []
 
     redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 60*60)  # Set cache expiration time to 1 day
+    redis_client.expire(cache_key, 60*15)
     return res
 
 @app.get("/analysts-price-targets-rss-feed")

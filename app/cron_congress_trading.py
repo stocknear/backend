@@ -352,7 +352,7 @@ async def run():
         crypto_con.close()
 
         total_symbols = crypto_symbols +etf_symbols + stock_symbols
-        chunk_size = 500
+        chunk_size = 100
         politician_list = []
 
     except Exception as e:
@@ -367,8 +367,8 @@ async def run():
                 symbols_chunk = total_symbols[i:i + chunk_size]
                 data = await get_congress_data(symbols_chunk,session)
                 politician_list +=data
-                print('sleeping for 60 sec')
-                await asyncio.sleep(60)  # Wait for 60 seconds between chunks
+                print('sleeping for 30 sec')
+                await asyncio.sleep(30)  # Wait for 60 seconds between chunks
         
         
         create_politician_db(politician_list, stock_symbols, stock_raw_data, etf_symbols, etf_raw_data, crypto_symbols, crypto_raw_data)
