@@ -15,17 +15,18 @@ load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
 
 with open(f"json/stock-screener/data.json", 'rb') as file:
-        stock_screener_data = orjson.loads(file.read())
+    stock_screener_data = orjson.loads(file.read())
 
 def format_filename(industry_name):
-    # Replace spaces with hyphens
-    formatted_name = industry_name.replace(' ', '-')
+    # Replace spaces and slashes with hyphens
+    formatted_name = industry_name.replace(' ', '-').replace('/', '-')
     # Replace "&" with "and"
     formatted_name = formatted_name.replace('&', 'and')
     # Remove any extra hyphens (e.g., from consecutive spaces)
     formatted_name = re.sub(r'-+', '-', formatted_name)
     # Convert to lowercase for consistency
-    return formatted_name.lower()
+    formatted_name = formatted_name.lower()
+    return formatted_name
 
 
 date, _ = GetStartEndDate().run()
@@ -104,7 +105,8 @@ async def run():
         full_industry_list = get_each_industry_data()
         for industry, stocks in full_industry_list.items():
             filename = 'industries/'+format_filename(industry)
-            stocks = sorted(stocks, key= lambda x: x['marketCap'], reverse=True)
+            stocks = [item for item in stocks if item.get('marketCap') is not None and item['marketCap'] > 0]
+            stocks = sorted(stocks, key=lambda x: x['marketCap'], reverse=True)
             history_list = []
             for item in historical_pe_list:
                 try:
