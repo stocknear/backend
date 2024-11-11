@@ -7,24 +7,14 @@ from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.options import Options
 from dotenv import load_dotenv
-import sqlite3
 
 def save_json(data, file_path):
     with open(file_path, 'w') as file:
         ujson.dump(data, file)
 
-query_template = """
-    SELECT 
-        name, sector
-    FROM 
-        stocks 
-    WHERE
-        symbol = ?
-"""
 
 def main():
     # Load environment variables
-    con = sqlite3.connect('stocks.db')
     load_dotenv()
     url = os.getenv('DIVIDEND_KINGS')
 
@@ -53,7 +43,7 @@ def main():
             'Company Name': 'name',
             'Stock Price': 'price',
             '% Change': 'changesPercentage',
-            'Div. Yield': 'dividiendYield',
+            'Div. Yield': 'dividendYield',
             'Years': 'years'
         })
         df = df.drop(columns=['No.'])
@@ -63,21 +53,28 @@ def main():
         for item in data:
             symbol = item['symbol']
             try:
-                item['changesPercentage'] = round(float(item['changesPercentage'].replace('%','')),2)
-                item['dividiendYield'] = round(float(item['dividiendYield'].replace('%','')),2)
-                db_data = pd.read_sql_query(query_template, con, params=(symbol,))
-                res.append({**item,'sector': db_data['sector'].iloc[0]})
+                with open(f"json/quote/{symbol}.json") as file:
+                    quote_data = ujson.load(file)
+
+                    item['changesPercentage'] = round(quote_data['changesPercentage'],2)
+                    item['price'] = round(quote_data['price'],2)
+                    item['dividendYield'] = round(float(item['dividendYield'].replace('%','')),2)
+                    res.append({**item})
             except Exception as e:
+                print(e)
                 pass
 
         # Save the JSON data
         if len(res) > 0:
-            save_json(res, 'json/stocks-list/dividend-kings.json')
+            res = sorted(res, key=lambda x: x['years'], reverse=True)
+            for rank, item in enumerate(res, start=1):
+                item['rank'] = rank
+
+            save_json(res, 'json/dividends/list/dividend-kings.json')
     
     finally:
         # Ensure the WebDriver is closed
         driver.quit()
-        con.close()
 
 if __name__ == '__main__':
     main()

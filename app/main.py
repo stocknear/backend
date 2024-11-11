@@ -3750,7 +3750,7 @@ async def get_dividend_kings():
             headers={"Content-Encoding": "gzip"}
         )
     try:
-        with open(f"json/stocks-list/dividend-kings.json", 'rb') as file:
+        with open(f"json/dividends/list/dividend-kings.json", 'rb') as file:
             res = orjson.loads(file.read())
     except:
         res = []
@@ -3778,7 +3778,7 @@ async def get_dividend_kings():
             headers={"Content-Encoding": "gzip"}
         )
     try:
-        with open(f"json/stocks-list/dividend-aristocrats.json", 'rb') as file:
+        with open(f"json/dividends/list/dividend-aristocrats.json", 'rb') as file:
             res = orjson.loads(file.read())
     except:
         res = []
