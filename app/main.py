@@ -1861,8 +1861,6 @@ async def etf_holdings(data: TickerData, api_key: str = Security(get_api_key)):
 
 
 
-
-
 @app.post("/exchange-constituents")
 async def top_ai_signals(data:FilterStockList, api_key: str = Security(get_api_key)):
     data = data.dict()

@@ -1519,10 +1519,16 @@ async def get_congress_rss_feed(symbols, etf_symbols, crypto_symbols):
     for item in data:
         ticker = item.get("ticker")
         ticker = ticker.replace('BRK.A','BRK-A')
+        ticker = ticker.replace('BRK/A','BRK-A')
         ticker = ticker.replace('BRK.B','BRK-B')
+        ticker = ticker.replace('BRK/B','BRK-B')
         
         if item['assetDescription'] == 'Bitcoin':
             item['ticker'] = 'BTCUSD'
+            ticker = item.get("ticker")
+
+        if item['assetDescription'] == 'Ethereum':
+            item['ticker'] = 'ETHUSD'
             ticker = item.get("ticker")
         
         item['assetDescription'] = item['assetDescription'].replace('U.S','US')
@@ -1732,48 +1738,6 @@ async def get_all_crypto_tickers(crypto_con):
     return crypto_list_data
 
 
-async def get_magnificent_seven(con):
-  
-    symbol_list = ['MSFT','AAPL','GOOGL','AMZN','NVDA','META','TSLA']
-    
-    query_template = """
-        SELECT 
-            symbol, name, price, changesPercentage, marketCap,pe
-        FROM 
-            stocks 
-        WHERE
-            symbol = ?
-    """
-    
-    res_list = []
-    for symbol in symbol_list:
-        try:
-            try:
-                with open(f"json/financial-statements/income-statement/annual/{symbol}.json", 'rb') as file:
-                    json_data = orjson.loads(file.read())[0]
-                    revenue = json_data['revenue']
-                    netIncome = json_data['netIncome']
-            except:
-                revenue = None
-                netIncome = None
-
-            data = pd.read_sql_query(query_template, con, params=(symbol,))
-            
-            name = data['name'].iloc[0]
-
-            price = round(float(data['price'].iloc[0]),2)
-            changesPercentage = round(float(data['changesPercentage'].iloc[0]),2)
-            marketCap = int(data['marketCap'].iloc[0])
-            pe = round(float(data['pe'].iloc[0]),2)
-
-            res_list.append({'symbol': symbol, 'name': name, 'price': price, \
-                    'changesPercentage': changesPercentage, 'marketCap': marketCap, \
-                    'revenue': revenue, 'netIncome': netIncome, 'pe': pe})
-
-        except Exception as e:
-            print(e)
-
-    return res_list
 
 async def etf_providers(etf_con, etf_symbols):
 
@@ -1833,46 +1797,6 @@ async def etf_providers(etf_con, etf_symbols):
     result_list = sorted(result_list, key=lambda x: x['totalAssets'], reverse=True)
 
     return result_list
-
-async def etf_bitcoin_list(etf_con, etf_symbols):
-
-
-    result_list = []
-
-    query_template = """
-        SELECT 
-            symbol, name, expenseRatio, totalAssets
-        FROM 
-            etfs
-        WHERE
-            symbol = ?
-    """
-    
-    for symbol in etf_symbols:
-        try:
-            data = pd.read_sql_query(query_template, etf_con, params=(symbol,))
-            name = data['name'].iloc[0]
-            if ('Bitcoin' or 'bitcoin') in name:
-                expense_ratio = round(float(data['expenseRatio'].iloc[0]),2)
-                total_assets = int(data['totalAssets'].iloc[0])
-
-                result_list.append(
-                    {'symbol': symbol,
-                    'name': name,
-                    'expenseRatio': expense_ratio,
-                    'totalAssets': total_assets
-                    }
-                )
-            else:
-                pass
-
-        except Exception as e:
-            print(e)
-    
-    result_list = sorted(result_list, key=lambda x: x['totalAssets'], reverse=True)
-
-    return result_list
-
 
 
 async def get_ipo_calendar(con, symbols):
@@ -2096,9 +2020,7 @@ async def save_json_files():
         ujson.dump(data, file)
 
     
-    data = await etf_bitcoin_list(etf_con, etf_symbols)
-    with open(f"json/etf-bitcoin-list/data.json", 'w') as file:
-        ujson.dump(data, file)
+ 
     
     data = await etf_providers(etf_con, etf_symbols)
     with open(f"json/all-etf-providers/data.json", 'w') as file:
@@ -2127,9 +2049,6 @@ async def save_json_files():
     with open(f"json/stocks-list/sp500_constituent.json", 'w') as file:
         ujson.dump(data, file)
     
-    data = await get_magnificent_seven(con)
-    with open(f"json/magnificent-seven/data.json", 'w') as file:
-        ujson.dump(data, file)
     
 
     con.close()
