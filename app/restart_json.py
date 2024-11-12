@@ -1350,43 +1350,6 @@ async def get_economic_calendar():
     return filtered_data
 
 
-async def get_index_list(con,symbols, index_list):
-    
-    async with aiohttp.ClientSession() as session:
-
-        query_template = """
-            SELECT 
-                price, changesPercentage, marketCap
-            FROM 
-                stocks 
-            WHERE
-                symbol = ?
-        """
-        
-        url = f"https://financialmodelingprep.com/api/v3/{index_list}?apikey={api_key}"
-        async with session.get(url) as response:
-            data = await response.json()
-            filtered_data = [{k: v for k, v in stock.items() if stock['symbol'] in symbols} for stock in data]
-            filtered_data = [entry for entry in filtered_data if entry]
-
-            res_list = []
-            for entry in filtered_data:
-                symbol = entry['symbol']
-
-                query_data = pd.read_sql_query(query_template, con, params=(entry['symbol'],))
-
-                if query_data['marketCap'].iloc[0] != None and query_data['price'].iloc[0] != None and query_data['changesPercentage'].iloc[0] != None:
-                    entry['marketCap'] = int(query_data['marketCap'].iloc[0])
-                    entry['price'] = round(float(query_data['price'].iloc[0]),2)
-                    entry['changesPercentage'] = round(float(query_data['changesPercentage'].iloc[0]),2)
-                    res_list.append(entry)
-
-    sorted_res_list = sorted(res_list, key=lambda x: x['marketCap'], reverse=True)
-    return sorted_res_list
-
-
-
-
 def replace_representative(office):
     replacements = {
         'Carper, Thomas R. (Senator)': 'Tom Carper',
@@ -2021,18 +1984,7 @@ async def save_json_files():
     with open(f"json/stock-splits-calendar/calendar.json", 'w') as file:
         ujson.dump(stock_splits_data, file)
 
-    #Stocks Lists
-    data = await get_index_list(con,symbols,'nasdaq_constituent')
-    with open(f"json/stocks-list/nasdaq_constituent.json", 'w') as file:
-        ujson.dump(data, file)
-
-    data = await get_index_list(con,symbols,'dowjones_constituent')
-    with open(f"json/stocks-list/dowjones_constituent.json", 'w') as file:
-        ujson.dump(data, file)
-
-    data = await get_index_list(con,symbols,'sp500_constituent')
-    with open(f"json/stocks-list/sp500_constituent.json", 'w') as file:
-        ujson.dump(data, file)
+    
     
     
 

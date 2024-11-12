@@ -1789,35 +1789,6 @@ async def etf_holdings(data: TickerData, api_key: str = Security(get_api_key)):
 
 
 
-@app.post("/exchange-constituents")
-async def top_ai_signals(data:FilterStockList, api_key: str = Security(get_api_key)):
-    data = data.dict()
-    filter_list = data['filterList']
-
-    cache_key = f"filter-list-{filter_list}"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return orjson.loads(cached_result)
-
-    if filter_list == 'nasdaqConstituent':
-        path = f"nasdaq_constituent.json"
-    elif filter_list == 'dowjonesConstituent':
-        path = f"dowjones_constituent.json"
-    elif filter_list == 'sp500Constituent':
-        path = f"sp500_constituent.json"
-
-    try:
-        with open(f"json/stocks-list/{path}", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = []
-
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
-
-    return res
-
-
 @app.get("/all-stock-tickers")
 async def get_all_stock_tickers(api_key: str = Security(get_api_key)):
     cache_key = f"all_stock_tickers"
@@ -1955,71 +1926,6 @@ async def historical_sector_price(data:FilterStockList, api_key: str = Security(
         media_type="application/json",
         headers={"Content-Encoding": "gzip"}
     )
-
-
-@app.post("/filter-stock-list")
-async def filter_stock_list(data: FilterStockList, api_key: str = Security(get_api_key)):
-    data = data.dict()
-    filter_list = data['filterList']
-    cache_key = f"filter-list-{filter_list}"
-    cached_result = redis_client.get(cache_key)
-    
-    if cached_result:
-        return orjson.loads(cached_result)
-
-    cursor = con.cursor()
-    cursor.execute("PRAGMA journal_mode = wal")
-
-    base_query = """
-        SELECT symbol, name, price, changesPercentage, marketCap
-        FROM stocks 
-        WHERE (price IS NOT NULL OR changesPercentage IS NOT NULL) 
-        AND {}
-    """
-
-    conditions = {
-        'nasdaq': "exchangeShortName = 'NASDAQ'",
-        'nyse': "exchangeShortName = 'NYSE'",
-        'xetra': "exchangeShortName = 'XETRA'",
-        'amex': "exchangeShortName = 'AMEX'",
-    }
-
-    # Execute the query with the relevant country
-    if filter_list in conditions:
-        full_query = base_query.format(conditions[filter_list])
-        cursor.execute(full_query)
-
-    # Fetch the results
-    raw_data = cursor.fetchall()
-
-    res_list = [{
-            'symbol': symbol,
-            'name': name,
-            'price': price,
-            'changesPercentage': changesPercentage,
-            'marketCap': marketCap,
-            'revenue': None,    # Placeholder for revenue
-            'netIncome': None   # Placeholder for netIncome
-        } for (symbol, name, price, changesPercentage, marketCap) in raw_data]
-
-    # Create the dictionary keyed by symbol for revenue and netIncome
-    stock_screener_data_dict = {item['symbol']: item for item in stock_screener_data}
-    
-    # Update revenue and netIncome for each item in res_list
-    for item in res_list:
-        symbol = item['symbol']
-        if symbol in stock_screener_data_dict:
-            item['revenue'] = stock_screener_data_dict[symbol].get('revenue', None)
-            item['netIncome'] = stock_screener_data_dict[symbol].get('netIncome', None)
-    
-    
-    sorted_res_list = sorted(res_list, key=lambda x: x['marketCap'], reverse=True)
-
-    # Cache the result
-    redis_client.set(cache_key, orjson.dumps(sorted_res_list))
-    redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
-
-    return sorted_res_list
 
 
 
@@ -4026,7 +3932,7 @@ async def get_statistics(data: FilterStockList, api_key: str = Security(get_api_
         category_type = 'sector'
     elif filter_list == 'reits':
         category_type = 'industry'
-    elif filter_list in ['ca','cn','de','gb','il','in','jp']:
+    elif filter_list in ['ca','cn','de','gb','il','in','jp','nyse','nasdaq','amex','dowjones','sp500','nasdaq100']:
         category_type = 'stocks-list'
     else:
         category_type = 'market-cap'

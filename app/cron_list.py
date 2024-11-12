@@ -4,6 +4,11 @@ import asyncio
 import aiohttp
 import pandas as pd
 from tqdm import tqdm
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+api_key = os.getenv('FMP_API_KEY')
 
 
 # Load stock screener data
@@ -43,7 +48,7 @@ async def process_category(cursor, category, condition, category_type='market-ca
     cursor.execute(full_query)
     raw_data = cursor.fetchall()
     
-    result_list = []
+    res_list = []
     for row in raw_data:
         symbol = row[0]
         quote_data = await get_quote_data(symbol)
@@ -51,10 +56,9 @@ async def process_category(cursor, category, condition, category_type='market-ca
             item = {
                 'symbol': symbol,
                 'name': row[1],
-                'price': round(quote_data.get('price'),2),
-                'changesPercentage': round(quote_data.get('changesPercentage'),2),
-                'marketCap': quote_data.get('marketCap'),
-                'sector': row[4],  # Include sector information
+                'price': round(quote_data.get('price'), 2) if quote_data.get('price') is not None else None,
+                'changesPercentage': round(quote_data.get('changesPercentage'), 2) if quote_data.get('changesPercentage') is not None else None,
+                'marketCap': quote_data.get('marketCap', None),
                 'revenue': None,
             }
             
@@ -63,10 +67,10 @@ async def process_category(cursor, category, condition, category_type='market-ca
                 item['revenue'] = stock_screener_data_dict[symbol].get('revenue')
             
             if item['marketCap'] > 0:
-                result_list.append(item)
+                res_list.append(item)
     
     # Sort by market cap and save
-    sorted_result = sorted(result_list, key=lambda x: x['marketCap'] if x['marketCap'] else 0, reverse=True)
+    sorted_result = sorted(res_list, key=lambda x: x['marketCap'] if x['marketCap'] else 0, reverse=True)
     # Add rank to each item
     for rank, item in enumerate(sorted_result, 1):
         item['rank'] = rank
@@ -204,7 +208,7 @@ async def etf_bitcoin_list():
             etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
             etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
-            result_list = []
+            res_list = []
             query_template = """
                 SELECT 
                     symbol, name, expenseRatio, totalAssets
@@ -232,7 +236,7 @@ async def etf_bitcoin_list():
                         price = round(quote_data.get('price'), 2) if quote_data else None
                         changesPercentage = round(quote_data.get('changesPercentage'), 2) if quote_data else None
                         if total_assets > 0:
-                            result_list.append({
+                            res_list.append({
                                 'symbol': symbol,
                                 'name': name,
                                 'expenseRatio': expense_ratio,
@@ -243,13 +247,13 @@ async def etf_bitcoin_list():
                 except Exception as e:
                     print(f"Error processing symbol {symbol}: {e}")
             
-            if result_list:
-                result_list = sorted(result_list, key=lambda x: x['totalAssets'], reverse=True)
-                for rank, item in enumerate(result_list, start=1):
+            if res_list:
+                res_list = sorted(res_list, key=lambda x: x['totalAssets'], reverse=True)
+                for rank, item in enumerate(res_list, start=1):
                     item['rank'] = rank
                     
                 with open("json/etf-bitcoin-list/data.json", 'wb') as file:
-                    file.write(orjson.dumps(result_list))
+                    file.write(orjson.dumps(res_list))
 
     except Exception as e:
         print(f"Database error: {e}")
@@ -269,7 +273,7 @@ async def get_all_reits_list(cursor):
     cursor.execute(full_query)  # Assuming cursor is async
     raw_data = cursor.fetchall()
     
-    result_list = []
+    res_list = []
     for row in raw_data:
         symbol = row[0]
         
@@ -294,22 +298,78 @@ async def get_all_reits_list(cursor):
             
             # Append item if conditions are met
             if item['marketCap'] > 0 and item['dividendYield'] is not None:
-                result_list.append(item)
+                res_list.append(item)
     
-    if result_list:
-        result_list = sorted(result_list, key=lambda x: x['marketCap'] or 0, reverse=True)
+    if res_list:
+        res_list = sorted(res_list, key=lambda x: x['marketCap'] or 0, reverse=True)
         
         # Add rank to each item
-        for rank, item in enumerate(result_list, 1):
+        for rank, item in enumerate(res_list, 1):
             item['rank'] = rank
 
         with open("json/industry/list/reits.json", 'wb') as file:
-            file.write(orjson.dumps(result_list))
+            file.write(orjson.dumps(res_list))
+
+
+async def get_index_list():
+    with sqlite3.connect('stocks.db') as con:
+        cursor = con.cursor()
+        cursor.execute("PRAGMA journal_mode = wal")
+        cursor.execute("SELECT DISTINCT symbol FROM stocks")
+        symbols = [row[0] for row in cursor.fetchall()]
+
+    async with aiohttp.ClientSession() as session:
+
+        for index_list in ['nasdaq','dowjones','sp500']:
+            url = f"https://financialmodelingprep.com/api/v3/{index_list}_constituent?apikey={api_key}"
+            async with session.get(url) as response:
+                data = await response.json()
+                data = [{k: v for k, v in stock.items() if stock['symbol'] in symbols} for stock in data]
+                data = [entry for entry in data if entry]
+
+                res_list = []
+                for item in data:
+                    try:
+                        symbol = item['symbol']
+                        quote_data = await get_quote_data(symbol)
+
+                        if quote_data:
+                            item = {
+                                'symbol': symbol,
+                                'price': round(quote_data.get('price', 0), 2),
+                                'changesPercentage': round(quote_data.get('changesPercentage', 0), 2),
+                                'marketCap': quote_data.get('marketCap', 0),
+                                'revenue': None,
+                            }
+                            item['revenue'] = stock_screener_data_dict[symbol].get('revenue')
+
+                        if item['marketCap'] > 0:
+                            res_list.append(item)
+                    except Exception as e:
+                        print(e)
+
+            if res_list:
+                res_list = sorted(res_list, key=lambda x: x['marketCap'] or 0, reverse=True)
+                
+                # Add rank to each item
+                for rank, item in enumerate(res_list, 1):
+                    item['rank'] = rank
+
+                if index_list == 'nasdaq':
+                    extension = '100'
+                else:
+                    extension = ''
+                with open(f"json/stocks-list/list/{index_list+extension}.json", 'wb') as file:
+                    file.write(orjson.dumps(res_list))
 
 
 async def run():
-    await etf_bitcoin_list()
-    await get_magnificent_seven()
+    await asyncio.gather(
+        get_index_list(),
+        etf_bitcoin_list(),
+        get_magnificent_seven()
+    )
+
 
     """Main function to run the analysis for all categories"""
     market_cap_conditions = {
@@ -345,6 +405,11 @@ async def run():
         'jp': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' or exchangeShortName = 'AMEX') AND country = 'JP'",
     }
 
+    exchange_conditions = {
+        'nasdaq': "exchangeShortName = 'NASDAQ'",
+        'nyse': "exchangeShortName = 'NYSE'",
+        'amex': "exchangeShortName = 'AMEX'",
+    }
 
     try:
         con = sqlite3.connect('stocks.db')
@@ -359,22 +424,25 @@ async def run():
 
         await get_all_reits_list(cursor)
 
+        for category, condition in exchange_conditions.items():
+            await process_category(cursor, category, condition, 'stocks-list')
+            #await asyncio.sleep(1)  # Small delay between categories
+
         for category, condition in country_conditions.items():
             await process_category(cursor, category, condition, 'stocks-list')
-            await asyncio.sleep(1)  # Small delay between categories
+            #await asyncio.sleep(1)  # Small delay between categories
 
         for category, condition in market_cap_conditions.items():
             await process_category(cursor, category, condition, 'market-cap')
-            await asyncio.sleep(1)  # Small delay between categories
+            #await asyncio.sleep(1)  # Small delay between categories
 
         # Process sector categories
         for category, condition in sector_conditions.items():
             await process_category(cursor, category, condition, 'sector')
-            await asyncio.sleep(1)  # Small delay between categories
+            #await asyncio.sleep(1)  # Small delay between categories
         
         
         await get_etf_holding(etf_symbols, etf_con)
-        
         await get_etf_provider(etf_con)
 
 
