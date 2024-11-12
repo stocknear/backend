@@ -336,7 +336,7 @@ async def get_index_list():
                         if quote_data:
                             item = {
                                 'symbol': symbol,
-                                'name': quote_data('name',None),
+                                'name': quote_data.get('name',None),
                                 'price': round(quote_data.get('price', 0), 2),
                                 'changesPercentage': round(quote_data.get('changesPercentage', 0), 2),
                                 'marketCap': quote_data.get('marketCap', 0),
