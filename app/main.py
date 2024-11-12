@@ -1982,13 +1982,6 @@ async def filter_stock_list(data: FilterStockList, api_key: str = Security(get_a
         'nyse': "exchangeShortName = 'NYSE'",
         'xetra': "exchangeShortName = 'XETRA'",
         'amex': "exchangeShortName = 'AMEX'",
-        'DE': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' or exchangeShortName = 'AMEX') AND country = 'DE'",
-        'CA': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' or exchangeShortName = 'AMEX') AND country = 'CA'",
-        'CN': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' or exchangeShortName = 'AMEX') AND country = 'CN'",
-        'IN': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' or exchangeShortName = 'AMEX') AND country = 'IN'",
-        'IL': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' or exchangeShortName = 'AMEX') AND country = 'IL'",
-        'GB': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' or exchangeShortName = 'AMEX') AND country = 'GB'",
-        'JP': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' or exchangeShortName = 'AMEX') AND country = 'JP'",
     }
 
     # Execute the query with the relevant country
@@ -4019,7 +4012,7 @@ async def get_statistics(data: TickerData, api_key: str = Security(get_api_key))
 
 @app.post("/list-category")
 async def get_statistics(data: FilterStockList, api_key: str = Security(get_api_key)):
-    filter_list = data.filterList
+    filter_list = data.filterList.lower()
     cache_key = f"filter-list-{filter_list}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -4033,6 +4026,8 @@ async def get_statistics(data: FilterStockList, api_key: str = Security(get_api_
         category_type = 'sector'
     elif filter_list == 'reits':
         category_type = 'industry'
+    elif filter_list in ['ca','cn','de','gb','il','in','jp']:
+        category_type = 'stocks-list'
     else:
         category_type = 'market-cap'
     try:

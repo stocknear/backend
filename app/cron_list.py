@@ -335,6 +335,16 @@ async def run():
         'utilities': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' OR exchangeShortName = 'AMEX') AND (sector = 'Utilities')"
     }
 
+    country_conditions = {
+        'de': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' or exchangeShortName = 'AMEX') AND country = 'DE'",
+        'ca': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' or exchangeShortName = 'AMEX') AND country = 'CA'",
+        'cn': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' or exchangeShortName = 'AMEX') AND country = 'CN'",
+        'in': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' or exchangeShortName = 'AMEX') AND country = 'IN'",
+        'il': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' or exchangeShortName = 'AMEX') AND country = 'IL'",
+        'gb': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' or exchangeShortName = 'AMEX') AND country = 'GB'",
+        'jp': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' or exchangeShortName = 'AMEX') AND country = 'JP'",
+    }
+
 
     try:
         con = sqlite3.connect('stocks.db')
@@ -349,6 +359,9 @@ async def run():
 
         await get_all_reits_list(cursor)
 
+        for category, condition in country_conditions.items():
+            await process_category(cursor, category, condition, 'stocks-list')
+            await asyncio.sleep(1)  # Small delay between categories
 
         for category, condition in market_cap_conditions.items():
             await process_category(cursor, category, condition, 'market-cap')
