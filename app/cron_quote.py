@@ -1,4 +1,4 @@
-import ujson
+import orjson
 import asyncio
 import aiohttp
 import sqlite3
@@ -55,16 +55,19 @@ async def get_bid_ask_quote_of_stocks(ticker_list):
 
 async def save_quote_as_json(symbol, data):
     with open(f"json/quote/{symbol}.json", 'w') as file:
-        ujson.dump(data, file)
+        file.write(orjson.dumps(data).decode())
 
 async def save_pre_post_quote_as_json(symbol, data):
     try:
         with open(f"json/quote/{symbol}.json", 'r') as file:
-            previous_close = (ujson.load(file))['price']
+            quote_data = orjson.loads(file.read())
+            exchange = quote_data.get('exchange',None)
+            previous_close = quote_data['price']
             changes_percentage = round((data['price']/previous_close-1)*100,2)
-        with open(f"json/pre-post-quote/{symbol}.json", 'w') as file:
-            res = {'symbol': symbol, 'price': round(data['price'],2), 'changesPercentage': changes_percentage, 'time': data['timestamp']}
-            ujson.dump(res, file)
+        if exchange in ['NASDAQ','AMEX','NYSE']:
+            with open(f"json/pre-post-quote/{symbol}.json", 'w') as file:
+                res = {'symbol': symbol, 'price': round(data['price'],2), 'changesPercentage': changes_percentage, 'time': data['timestamp']}
+                file.write(orjson.dumps(res).decode())
     except Exception as e:
         pass
 
@@ -72,7 +75,7 @@ async def save_bid_ask_as_json(symbol, data):
     try:
         # Read previous close price and load existing quote data
         with open(f"json/quote/{symbol}.json", 'r') as file:
-            quote_data = ujson.load(file)
+            quote_data = orjson.loads(file.read())
 
         # Update quote data with new price, ask, bid, changesPercentage, and timestamp
         quote_data.update({
@@ -82,7 +85,7 @@ async def save_bid_ask_as_json(symbol, data):
 
         # Save the updated quote data back to the same JSON file
         with open(f"json/quote/{symbol}.json", 'w') as file:
-            ujson.dump(quote_data, file)
+            file.write(orjson.dumps(quote_data).decode())
     except Exception as e:
         print(f"An error occurred: {e}")  # Print the error for debugging
 
