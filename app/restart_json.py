@@ -1385,15 +1385,6 @@ async def get_index_list(con,symbols, index_list):
     return sorted_res_list
 
 
-async def get_delisted_list():
-    
-    async with aiohttp.ClientSession() as session:
-        url = f"https://financialmodelingprep.com/api/v3/delisted-companies?apikey={api_key}"
-        async with session.get(url) as response:
-            data = await response.json()
-    return data
-
-
 
 
 def replace_representative(office):
@@ -2020,16 +2011,10 @@ async def save_json_files():
         ujson.dump(data, file)
 
     
- 
-    
     data = await etf_providers(etf_con, etf_symbols)
     with open(f"json/all-etf-providers/data.json", 'w') as file:
         ujson.dump(data, file)
     
-    
-    delisted_data = await get_delisted_list()
-    with open(f"json/delisted-companies/data.json", 'w') as file:
-        ujson.dump(delisted_data, file)
 
             
     stock_splits_data = await get_stock_splits_calendar(con,symbols)

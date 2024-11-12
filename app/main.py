@@ -1465,78 +1465,6 @@ async def get_quant_stats(data: TickerData, api_key: str = Security(get_api_key)
 
 
 
-@app.post("/trading-signals")
-async def get_trading_signals(data: TickerData, api_key: str = Security(get_api_key)):
-
-    data = data.dict()
-    ticker = data['ticker'].upper()
-    cache_key = f"get-trading-signals-{ticker}"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return orjson.loads(cached_result)
-    if ticker in etf_symbols:
-        table_name = 'etfs'
-    else:
-        table_name = 'stocks'
-    # If the hash doesn't exist or doesn't match, fetch data from the database
-    query = f"""
-        SELECT
-            tradingSignals
-        FROM
-            {table_name}
-        WHERE
-            symbol = ?
-    """
-    try:
-        # Execute the query and read the result into a DataFrame
-        query_result = pd.read_sql_query(query, etf_con if table_name == 'etfs' else con, params=(ticker,))
-        
-        # Convert the DataFrame to a JSON object
-        if not query_result.empty:
-            res = query_result['tradingSignals'][0]
-            res = orjson.loads(res)[0]  # Assuming 'tradingSignals' column contains JSON strings        
-            res = replace_nan_inf_with_none(res)
-            #res = {'Start': '2021-07-14', 'End': '2023-11-10', 'Return [%]': 59.99997000000007, 'Buy & Hold Return [%]': -90.58823529411765, 'Return (Ann.) [%]': 77.21227166877182, 'Duration': '849', 'Volatility (Ann.) [%]': 34.82411687248909, 'Sharpe Ratio': 2.21720688428338, 'Sortino Ratio': None, 'Calmar Ratio': None, 'Max. Drawdown [%]': -0.0, 'Avg. Drawdown [%]': None, 'Max. Drawdown Duration': None, 'Avg. Drawdown Duration': None, '# Trades': 7, 'Win Rate [%]': 85.71428571428571, 'Best Trade [%]': 10.000000000000009, 'Worst Trade [%]': 0.0, 'Avg. Trade [%]': 6.944880005339327, 'Max. Trade Duration': '189', 'Avg. Trade Duration': '53', 'Profit Factor': None, 'Expectancy [%]': 6.989439132296275, 'SQN': 5.999999999999999, 'nextSignal': 'Hold'}
-
-        else:
-            res = []  # Set a default value if query_result is empty
-    except Exception as e:
-        print("Error fetching data from the database:", e)
-        res = []  # Set a default value in case of an error
-
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 3600 * 24) # Set cache expiration time to Infinity
-    return res
-
-
-@app.post("/fair-price")
-async def get_fair_price(data: TickerData, api_key: str = Security(get_api_key)):
-    data = data.dict()
-    ticker = data['ticker'].upper()
-    cache_key = f"get-fair-price-{ticker}"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return orjson.loads(cached_result)
-    
-    query_template = """
-        SELECT 
-            discounted_cash_flow
-        FROM 
-            stocks 
-        WHERE
-            symbol = ?
-    """
-    
-    try:
-        df = pd.read_sql_query(query_template, con, params=(ticker,))
-        dcf_value = float(df['discounted_cash_flow'].iloc[0])
-    except:
-        dcf_value = None
-
-
-    redis_client.set(cache_key, orjson.dumps(dcf_value))
-    redis_client.expire(cache_key, 3600 * 24) # Set cache expiration time to Infinity
-    return dcf_value
 
 
 @app.post("/congress-trading-ticker")
@@ -1994,78 +1922,7 @@ async def get_congress_rss_feed(api_key: str = Security(get_api_key)):
     redis_client.expire(cache_key, 60*15)
     return res
 
-@app.get("/analysts-price-targets-rss-feed")
-async def get_analysts_price_targets_rss_feed(api_key: str = Security(get_api_key)):
-    cache_key = f"analysts-price-targets-rss-feed"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return StreamingResponse(
-        io.BytesIO(cached_result),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"})
 
-    try:
-        with open(f"json/analysts-rss-feed/price-targets.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = []
-
-    data = orjson.dumps(res)
-    compressed_data = gzip.compress(data)
-    redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 60*60)  # Set cache expiration time to 1 day
-
-    return StreamingResponse(
-        io.BytesIO(compressed_data),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"}
-    )
-
-
-@app.get("/analysts-upgrades-downgrades-rss-feed")
-async def get_analysts_upgrades_downgrades_rss_feed(api_key: str = Security(get_api_key)):
-    cache_key = f"analysts-upgrades-downgrades-rss-feed"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return StreamingResponse(
-        io.BytesIO(cached_result),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"})
-
-    try:
-        with open(f"json/analysts-rss-feed/upgrades-downgrades.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = []
-
-    data = orjson.dumps(res)
-    compressed_data = gzip.compress(data)
-    redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 60*60)  # Set cache expiration time to 1 day
-
-    return StreamingResponse(
-        io.BytesIO(compressed_data),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"}
-    )
-
-@app.get("/delisted-companies")
-async def get_delisted_companies(api_key: str = Security(get_api_key)):
-
-    cache_key = f"delisted-companies"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return orjson.loads(cached_result)
-
-    try:
-        with open(f"json/delisted-companies/data.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = []
-
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
-    return res
 
 
 @app.post("/historical-sector-price")
@@ -2132,18 +1989,6 @@ async def filter_stock_list(data: FilterStockList, api_key: str = Security(get_a
         'IL': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' or exchangeShortName = 'AMEX') AND country = 'IL'",
         'GB': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' or exchangeShortName = 'AMEX') AND country = 'GB'",
         'JP': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' or exchangeShortName = 'AMEX') AND country = 'JP'",
-        'financial': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' OR exchangeShortName = 'AMEX') AND (sector = 'Financials' OR sector = 'Financial Services')",
-        'healthcare': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' OR exchangeShortName = 'AMEX') AND (sector = 'Healthcare')",
-        'technology': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' OR exchangeShortName = 'AMEX') AND (sector = 'Technology')",
-        'industrials': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' OR exchangeShortName = 'AMEX') AND (sector = 'Industrials')",
-        'consumer-cyclical': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' OR exchangeShortName = 'AMEX') AND (sector = 'Consumer Cyclical')",
-        'real-estate': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' OR exchangeShortName = 'AMEX') AND (sector = 'Real Estate')",
-        'basic-materials': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' OR exchangeShortName = 'AMEX') AND (sector = 'Basic Materials')",
-        'communication-services': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' OR exchangeShortName = 'AMEX') AND (sector = 'Communication Services')",
-        'energy': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' OR exchangeShortName = 'AMEX') AND (sector = 'Energy')",
-        'consumer-defensive': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' OR exchangeShortName = 'AMEX') AND (sector = 'Consumer Defensive')",
-        'utilities': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' OR exchangeShortName = 'AMEX') AND (sector = 'Utilities')",
-        'reit': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' OR exchangeShortName = 'AMEX') AND industry LIKE '%REIT%' AND symbol NOT LIKE '%-%'",
     }
 
     # Execute the query with the relevant country
@@ -2174,19 +2019,7 @@ async def filter_stock_list(data: FilterStockList, api_key: str = Security(get_a
             item['revenue'] = stock_screener_data_dict[symbol].get('revenue', None)
             item['netIncome'] = stock_screener_data_dict[symbol].get('netIncome', None)
     
-    # Optional: Filter or process the list further, e.g., for REITs as in your original code.
-    if filter_list == 'reit':
-        # No filtering based on dividendYield
-        # This includes all REITs in the list regardless of their dividendYield
-        # Simply check if the item is in the REIT condition
-        for item in res_list:
-            symbol = item['symbol']
-            if symbol in stock_screener_data_dict:
-                item['dividendYield'] = stock_screener_data_dict[symbol].get('dividendYield', None)
-        
-        # Remove elements where dividendYield is None
-        res_list = [item for item in res_list if item.get('dividendYield') is not None]
-        
+    
     sorted_res_list = sorted(res_list, key=lambda x: x['marketCap'], reverse=True)
 
     # Cache the result
@@ -4198,6 +4031,8 @@ async def get_statistics(data: FilterStockList, api_key: str = Security(get_api_
 
     if filter_list in ['financial','healthcare','technology','industrials','consumer-cyclical','real-estate','basic-materials','communication-services','energy','consumer-defensive','utilities']:
         category_type = 'sector'
+    elif filter_list == 'reits':
+        category_type = 'industry'
     else:
         category_type = 'market-cap'
     try:

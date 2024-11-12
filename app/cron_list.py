@@ -33,15 +33,6 @@ async def get_quote_data(symbol):
             return None
 
 async def process_category(cursor, category, condition, category_type='market-cap'):
-    """
-    Process stocks for a specific category (market cap or sector)
-    
-    Args:
-        cursor: Database cursor
-        category: Category name
-        condition: SQL WHERE condition
-        category_type: Either 'market-cap' or 'sector'
-    """
     base_query = """
         SELECT DISTINCT s.symbol, s.name, s.exchangeShortName, s.marketCap, s.sector
         FROM stocks s 
@@ -84,7 +75,8 @@ async def process_category(cursor, category, condition, category_type='market-ca
     print(f"Processed and saved {len(sorted_result)} stocks for {category}")
     return sorted_result
 
-def get_etf_holding(etf_symbols, etf_con):
+
+async def get_etf_holding(etf_symbols, etf_con):
 
     for ticker in tqdm(etf_symbols):
         res = []
@@ -124,8 +116,7 @@ def get_etf_holding(etf_symbols, etf_con):
             with open(f"json/etf/holding/{ticker}.json", 'wb') as file:
                 file.write(orjson.dumps(res))
 
-def get_etf_provider(etf_con):
-
+async def get_etf_provider(etf_con):
 
     cursor = etf_con.cursor()
     cursor.execute("SELECT DISTINCT etfProvider FROM etfs")
@@ -263,6 +254,58 @@ async def etf_bitcoin_list():
     except Exception as e:
         print(f"Database error: {e}")
 
+async def get_all_reits_list(cursor):
+    base_query = """
+        SELECT DISTINCT s.symbol, s.name, s.exchangeShortName, s.marketCap, s.sector
+        FROM stocks s 
+        WHERE {}
+    """
+    
+    # Use the specific condition within the dictionary
+    condition = "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' OR exchangeShortName = 'AMEX') AND industry LIKE '%REIT%' AND symbol NOT LIKE '%-%'"
+    full_query = base_query.format(condition)
+    
+    # Execute the query and fetch all rows
+    cursor.execute(full_query)  # Assuming cursor is async
+    raw_data = cursor.fetchall()
+    
+    result_list = []
+    for row in raw_data:
+        symbol = row[0]
+        
+        # Fetch quote data asynchronously
+        try:
+            quote_data = await get_quote_data(symbol)
+        except Exception as e:
+            print(f"Error fetching quote data for {symbol}: {e}")
+            continue
+        
+        if quote_data:
+            item = {
+                'symbol': symbol,
+                'name': row[1],
+                'price': round(quote_data.get('price', 0), 2),
+                'changesPercentage': round(quote_data.get('changesPercentage', 0), 2),
+                'marketCap': quote_data.get('marketCap', 0),
+            }
+            
+            # Get dividend yield if available
+            item['dividendYield'] = stock_screener_data_dict.get(symbol, {}).get('dividendYield', None)
+            
+            # Append item if conditions are met
+            if item['marketCap'] > 0 and item['dividendYield'] is not None:
+                result_list.append(item)
+    
+    if result_list:
+        result_list = sorted(result_list, key=lambda x: x['marketCap'] or 0, reverse=True)
+        
+        # Add rank to each item
+        for rank, item in enumerate(result_list, 1):
+            item['rank'] = rank
+
+        with open("json/industry/list/reits.json", 'wb') as file:
+            file.write(orjson.dumps(result_list))
+
 
 async def run():
     await etf_bitcoin_list()
@@ -292,6 +335,7 @@ async def run():
         'utilities': "(exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' OR exchangeShortName = 'AMEX') AND (sector = 'Utilities')"
     }
 
+
     try:
         con = sqlite3.connect('stocks.db')
         cursor = con.cursor()
@@ -303,8 +347,9 @@ async def run():
         etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
         etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
-        # Process market cap categories
-        
+        await get_all_reits_list(cursor)
+
+
         for category, condition in market_cap_conditions.items():
             await process_category(cursor, category, condition, 'market-cap')
             await asyncio.sleep(1)  # Small delay between categories
@@ -315,9 +360,9 @@ async def run():
             await asyncio.sleep(1)  # Small delay between categories
         
         
-        get_etf_holding(etf_symbols, etf_con)
+        await get_etf_holding(etf_symbols, etf_con)
         
-        get_etf_provider(etf_con)
+        await get_etf_provider(etf_con)
 
 
     except Exception as e:
