@@ -167,7 +167,48 @@ def get_etf_provider(etf_con):
     cursor.close()
 
 
+async def get_magnificent_seven():
+  
+    symbol_list = ['MSFT','AAPL','GOOGL','AMZN','NVDA','META','TSLA']
+   
+
+    res_list = []
+    for symbol in symbol_list:
+        try:
+            revenue = stock_screener_data_dict[symbol].get('revenue',None)
+
+            try:
+                with open(f"json/quote/{symbol}.json") as file:
+                        quote_data = orjson.loads(file.read())
+            except:
+                quote_data = None
+
+            # Assign price and changesPercentage if available, otherwise set to None
+            price = round(quote_data.get('price'), 2) if quote_data else None
+            changesPercentage = round(quote_data.get('changesPercentage'), 2) if quote_data else None
+            marketCap = quote_data.get('marketCap') if quote_data else None
+            name = quote_data.get('name') if quote_data else None
+
+            res_list.append({'symbol': symbol, 'name': name, 'price': price, \
+                    'changesPercentage': changesPercentage, 'marketCap': marketCap, \
+                    'revenue': revenue})
+
+        except Exception as e:
+            print(e)
+
+    if res_list:
+        res_list = sorted(res_list, key=lambda x: x['marketCap'], reverse=True)
+        for rank, item in enumerate(res_list, start=1):
+                item['rank'] = rank
+                
+        with open(f"json/magnificent-seven/data.json", 'wb') as file:
+            file.write(orjson.dumps(res_list))
+            print(res_list)
+
 async def run():
+
+    await get_magnificent_seven()
+
     """Main function to run the analysis for all categories"""
     market_cap_conditions = {
         'mega-cap-stocks': "marketCap >= 200e9 AND (exchangeShortName = 'NYSE' OR exchangeShortName = 'NASDAQ' OR exchangeShortName = 'AMEX')",
