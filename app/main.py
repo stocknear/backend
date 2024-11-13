@@ -25,7 +25,7 @@ from contextlib import contextmanager
 from pocketbase import PocketBase
 
 # FastAPI and related imports
-from fastapi import FastAPI, Depends, HTTPException, Security, Request, status
+from fastapi import FastAPI, Depends, HTTPException, Security, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
@@ -1577,30 +1577,45 @@ async def get_all_hedge_funds_data(api_key: str = Security(get_api_key)):
         headers={"Content-Encoding": "gzip"}
     )
 
-@app.get("/searchbar-data")
-async def get_stock(api_key: str = Security(get_api_key)):
-    cache_key = f"searchbar-data"
-    cached_result = redis_client.get(cache_key)
+@app.get("/searchbar")
+async def get_stock(
+    query: str = Query(""),
+    api_key: str = Security(get_api_key)
+):
+    # Return an empty list if query is empty
+    if not query:
+        return JSONResponse(content=[])
 
-    if cached_result:
-        return StreamingResponse(
-            io.BytesIO(cached_result),
-            media_type="application/json",
-            headers={"Content-Encoding": "gzip"}
-        )
+    prioritize_without_dots_for_names = {"apple"}
+    normalized_search_query = query.lower()
 
-    # Compress the JSON data
-    searchbar_data_json = orjson.dumps(searchbar_data)
-    compressed_data = gzip.compress(searchbar_data_json)
-
-    redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
-
-    return StreamingResponse(
-        io.BytesIO(compressed_data),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"}
+    # Create a generator for the filtered data to minimize memory usage
+    filtered_gen = (
+        {
+            "original": item,
+            "nameLower": item["name"].lower(),
+            "symbolLower": item["symbol"].lower()
+        }
+        for item in searchbar_data
+        if normalized_search_query in item["name"].lower() or normalized_search_query in item["symbol"].lower()
     )
+
+    # Sort and limit to top 5 directly
+    top_results = sorted(
+        filtered_gen,
+        key=lambda item: (
+            item["symbolLower"] != normalized_search_query,
+            item["symbolLower"].find(normalized_search_query) + item["nameLower"].find(normalized_search_query),
+            item["symbolLower"].count('.') if normalized_search_query in prioritize_without_dots_for_names else 0
+        )
+    )[:5]
+
+    # Re-map to the original structure before returning
+    result = [item["original"] for item in top_results]
+    
+    return JSONResponse(content=orjson.loads(orjson.dumps(result)))
+
+
 
 
 @app.post("/revenue-segmentation")
