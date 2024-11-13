@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 import requests
 from pathlib import Path
+import asyncio
 
 # Database related imports
 import sqlite3
@@ -329,6 +330,28 @@ def replace_nan_inf_with_none(obj):
         return None
     else:
         return obj
+
+def load_json(file_path):
+    try:
+        with open(file_path, 'rb') as file:
+            return orjson.loads(file.read())
+    except FileNotFoundError:
+        return None
+
+async def load_json_async(file_path):
+    # Check if the data is cached in Redis
+    cached_data = redis_client.get(file_path)
+    if cached_data:
+        return orjson.loads(cached_data)
+
+    try:
+        with open(file_path, 'r') as f:
+            data = orjson.loads(f.read())
+            # Cache the data in Redis for 10 minutes
+            redis_client.set(file_path, orjson.dumps(data), ex=600)
+            return data
+    except Exception:
+        return None
 
 
 @app.get("/")
@@ -1125,76 +1148,52 @@ async def get_analyst_ticke_history(data: TickerData, api_key: str = Security(ge
 
 
 @app.post("/indicator-data")
-async def get_indicator_data(data: IndicatorListData, api_key: str = Security(get_api_key)):
-    rule_of_list = data.ruleOfList
-    ticker_list = data.tickerList
-    combined_results = []  # List to store the combined results
-
-    # Keys that should be read from the quote files if they are in rule_of_list
-    quote_keys_to_include = ['volume', 'marketCap', 'changesPercentage', 'price', 'symbol', 'name']
-
-    def load_json(file_path):
-        try:
-            with open(file_path, 'rb') as file:
-                return orjson.loads(file.read())
-        except FileNotFoundError:
-            return None
-
-    # Ensure rule_of_list contains valid keys (fall back to defaults if necessary)
-    if not rule_of_list or not isinstance(rule_of_list, list):
-        rule_of_list = quote_keys_to_include  # Default keys
-
-    # Make sure 'symbol' and 'name' are always included in the rule_of_list
+async def get_indicator(data: IndicatorListData, api_key: str = Security(get_api_key)):
+    rule_of_list = data.ruleOfList or ['volume', 'marketCap', 'changesPercentage', 'price', 'symbol', 'name']
+    
+    # Ensure 'symbol' and 'name' are always included in the rule_of_list
     if 'symbol' not in rule_of_list:
         rule_of_list.append('symbol')
     if 'name' not in rule_of_list:
         rule_of_list.append('name')
+        
+    ticker_list = [t.upper() for t in data.tickerList]
+    combined_results = []
 
-    # Categorize tickers and fetch data
-    for ticker in map(str.upper, ticker_list):
+    # Load quote data in parallel
+    quote_data = await asyncio.gather(*[load_json_async(f"json/quote/{ticker}.json") for ticker in ticker_list])
+    quote_dict = {ticker: data for ticker, data in zip(ticker_list, quote_data) if data}
+
+    # Categorize tickers and extract data
+    for ticker, quote in quote_dict.items():
         ticker_type = 'stock'
         if ticker in etf_symbols:
             ticker_type = 'etf'
         elif ticker in crypto_symbols:
             ticker_type = 'crypto'
 
-        # Load quote data and filter to include only selected keys from rule_of_list
-        quote_dict = load_json(f"json/quote/{ticker}.json")
-        if quote_dict:
-            filtered_quote = {key: quote_dict.get(key) for key in rule_of_list if key in quote_dict}
-            filtered_quote['type'] = ticker_type  # Include ticker type
-            combined_results.append(filtered_quote)
+        filtered_quote = {key: quote.get(key) for key in rule_of_list if key in quote}
+        filtered_quote['type'] = ticker_type
+        combined_results.append(filtered_quote)
 
-
-    try:
-        # Filter out the keys that need to be fetched from the screener
-        screener_keys = [key for key in rule_of_list if key not in quote_keys_to_include]
-
-        # Create a mapping of stock_screener_data based on symbol for fast lookup
-        screener_dict = {
-            item['symbol']: {key: item.get(key) for key in screener_keys if key in item}
-            for item in stock_screener_data
-        }
-
-        # Merge the filtered stock_screener_data into combined_results for non-quote keys
+    # Fetch and merge data from stock_screener_data
+    screener_keys = [key for key in rule_of_list if key not in ['volume', 'marketCap', 'changesPercentage', 'price', 'symbol', 'name']]
+    if screener_keys:
+        screener_dict = {item['symbol']: {k: v for k, v in item.items() if k in screener_keys} for item in stock_screener_data}
         for result in combined_results:
             symbol = result.get('symbol')
             if symbol in screener_dict:
                 result.update(screener_dict[symbol])
 
-    except Exception as e:
-        print(f"An error occurred while merging data: {e}")
-
+    # Serialize and compress the response
     res = orjson.dumps(combined_results)
     compressed_data = gzip.compress(res)
-    
+
     return StreamingResponse(
         io.BytesIO(compressed_data),
         media_type="application/json",
         headers={"Content-Encoding": "gzip"}
     )
-
-
 @app.post("/get-watchlist")
 async def get_watchlist(data: GetWatchList, api_key: str = Security(get_api_key)):
     data = data.dict()
@@ -1207,13 +1206,6 @@ async def get_watchlist(data: GetWatchList, api_key: str = Security(get_api_key)
 
     # Keys that should be read from the quote files if they are in rule_of_list
     quote_keys_to_include = ['volume', 'marketCap', 'changesPercentage', 'price', 'symbol', 'name']
-
-    def load_json(file_path):
-        try:
-            with open(file_path, 'rb') as file:
-                return orjson.loads(file.read())
-        except FileNotFoundError:
-            return None
 
     # Ensure rule_of_list contains valid keys (fall back to defaults if necessary)
     if not rule_of_list or not isinstance(rule_of_list, list):
