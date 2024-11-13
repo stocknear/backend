@@ -3469,61 +3469,7 @@ async def get_reddit_tracker(api_key: str = Security(get_api_key)):
         headers={"Content-Encoding": "gzip"}
     )
 
-@app.get("/dividend-kings")
-async def get_dividend_kings():
-    cache_key = f"dividend-kings"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return StreamingResponse(
-            io.BytesIO(cached_result),
-            media_type="application/json",
-            headers={"Content-Encoding": "gzip"}
-        )
-    try:
-        with open(f"json/dividends/list/dividend-kings.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = []
 
-    data = orjson.dumps(res)
-    compressed_data = gzip.compress(data)
-
-    redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 60*20)
-
-    return StreamingResponse(
-        io.BytesIO(compressed_data),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"}
-    )
-
-@app.get("/dividend-aristocrats")
-async def get_dividend_kings():
-    cache_key = f"dividend-aristocrats"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return StreamingResponse(
-            io.BytesIO(cached_result),
-            media_type="application/json",
-            headers={"Content-Encoding": "gzip"}
-        )
-    try:
-        with open(f"json/dividends/list/dividend-aristocrats.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = []
-    data = orjson.dumps(res)
-    compressed_data = gzip.compress(data)
-
-    redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 60*20)
-
-    return StreamingResponse(
-        io.BytesIO(compressed_data),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"}
-    )
-    return res
 
 @app.post("/historical-market-cap")
 async def get_historical_market_cap(data:TickerData, api_key: str = Security(get_api_key)):
@@ -3915,7 +3861,6 @@ async def get_statistics(data: TickerData, api_key: str = Security(get_api_key))
         headers={"Content-Encoding": "gzip"}
     )
 
-
 @app.post("/list-category")
 async def get_statistics(data: FilterStockList, api_key: str = Security(get_api_key)):
     filter_list = data.filterList.lower()
@@ -3934,6 +3879,8 @@ async def get_statistics(data: FilterStockList, api_key: str = Security(get_api_
         category_type = 'industry'
     elif filter_list in ['ca','cn','de','gb','il','in','jp','nyse','nasdaq','amex','dowjones','sp500','nasdaq100']:
         category_type = 'stocks-list'
+    elif filter_list in ['dividend-kings','dividend-aristocrats']:
+        category_type = 'dividends'
     else:
         category_type = 'market-cap'
     try:
@@ -3941,7 +3888,6 @@ async def get_statistics(data: FilterStockList, api_key: str = Security(get_api_
             res = orjson.loads(file.read())
     except:
         res = []
-
     data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
 
