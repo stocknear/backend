@@ -24,8 +24,8 @@ query_template = """
     FROM "{ticker}"
     WHERE date BETWEEN ? AND ?
 """
-end_date = date.today()
-start_date_12m = end_date - timedelta(days=365)  # end_date is today
+end_date = datetime.today().date()
+start_date_12m = end_date - timedelta(days=365)
 
 
 # Define a function to remove duplicates based on a key
@@ -48,7 +48,8 @@ def get_summary(res_list):
    
     # Filter the data for the last 12 months
     filtered_data = [item for item in res_list if start_date_12m <= datetime.strptime(item['date'], '%Y-%m-%d').date() <= end_date]
-    
+
+
     # Initialize dictionary to store the latest price target for each analyst
     latest_pt_current = defaultdict(list)
     
@@ -144,11 +145,13 @@ def get_summary(res_list):
     
     # Count unique analysts
     unique_analyst_names = set()
-    numOfAnalyst = 0
+    numOfAnalyst = len(filtered_data)
+    '''
     for item in filtered_data:
         if item['analyst_name'] not in unique_analyst_names:
             unique_analyst_names.add(item['analyst_name'])
             numOfAnalyst += 1
+    '''
     
     # Update stats dictionary with new keys including recommendationList
     stats = {
@@ -232,6 +235,7 @@ def run(chunk,analyst_list, con):
 						item['action_comapny'] = 'Initiates'
 
 				summary = get_summary(ticker_filtered_data)
+				
 				try:
 					#Add historical price for the last 12 month
 					query = query_template.format(ticker=ticker)
@@ -305,7 +309,7 @@ try:
     chunk_size = len(stock_symbols) // 100  # Divide the list into N chunks
 
     chunks = [stock_symbols[i:i + chunk_size] for i in range(0, len(stock_symbols), chunk_size)]
-    #chunks = [['NVDA']]
+    #chunks = [['CUBI']]
     for chunk in chunks:
         run(chunk, analyst_stats_list, con)
 
