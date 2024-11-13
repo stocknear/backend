@@ -86,10 +86,10 @@ def get_each_industry_data():
             stock_data = {
                 'symbol': stock.get('symbol'),
                 'name': stock.get('name'),
+                'price': stock.get('price'),
                 'changesPercentage': stock.get('changesPercentage'),
                 'marketCap': stock.get('marketCap'),
                 'revenue': stock.get('revenue'),
-                'volume': stock.get('volume')
             }
             # Append stock data to the corresponding industry list
             industry_data[industry].append(stock_data)
@@ -107,6 +107,8 @@ async def run():
             filename = 'industries/'+format_filename(industry)
             stocks = [item for item in stocks if item.get('marketCap') is not None and item['marketCap'] > 0]
             stocks = sorted(stocks, key=lambda x: x['marketCap'], reverse=True)
+            for rank, item in enumerate(stocks, 1):
+                item['rank'] = rank
             history_list = []
             for item in historical_pe_list:
                 try:
