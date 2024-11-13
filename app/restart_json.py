@@ -1873,11 +1873,11 @@ async def get_most_shorted_stocks(con):
             "symbol": symbol,
             "sharesShort": data.get("sharesShort"),
             "shortRatio": data.get("shortRatio"),
-            "sharesShortPriorMonth": data.get("sharesShortPriorMonth"),
             "shortOutStandingPercent": data.get("shortOutStandingPercent"),
             "shortFloatPercent": data.get("shortFloatPercent"),
-            "latestOutstandingShares": data.get("latestOutstandingShares"),
-            "latestFloatShares": data.get("latestFloatShares")
+            #"sharesShortPriorMonth": data.get("sharesShortPriorMonth"),
+            #"latestOutstandingShares": data.get("latestOutstandingShares"),
+            #"latestFloatShares": data.get("latestFloatShares")
         }
 
     # Initialize a list to hold the extracted data
