@@ -213,13 +213,12 @@ def get_top_stocks():
             info['median'] = round(statistics.median(info['pt_list']), 2)
     
     # Convert the dictionary back to a list format
-    result = [{'ticker': ticker, 
+    result = [{'symbol': ticker, 
                'upside': round((info['median']/info.get('price')-1)*100, 2) if info.get('price') else None, 
                'priceTarget': info['median'], 
                'price': info['price'], 
                'counter': len(info['pt_list']), 
-               'name': info['name'], 
-               'marketCap': info['marketCap']} 
+               'name': info['name']} 
               for ticker, info in ticker_data.items()]
     
     result = [item for item in result if item['upside'] is not None and item['upside'] >= 5 and item['upside'] <= 250]  # Filter outliers
