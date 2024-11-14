@@ -33,7 +33,6 @@ async def get_data(session, total_symbols):
                         for item in data:
                             symbol = item['symbol']
                             item['sentiment'] = round(item['sentiment']*100)
-                            item['lastSentiment'] = round(item['lastSentiment']*100)
 
                             if symbol in total_symbols:
                                 try:
@@ -58,8 +57,13 @@ async def get_data(session, total_symbols):
             print(f"Error fetching data from {source}: {e}")
             pass
 
+
+
+
     # Convert the result_data dictionary to a list of items
     final_result = list(result_data.values())
+    final_result = [{k: v for k, v in item.items() if k != 'lastSentiment'} for item in final_result]
+
     final_result = sorted(final_result, key=lambda x: x['sentiment'], reverse=True)
     
     for index, stock in enumerate(final_result, start=1):
@@ -69,8 +73,6 @@ async def get_data(session, total_symbols):
     # Save the combined result as a single JSON file
     if final_result:
         await save_json(final_result)
-
-
 
 
 async def run():
