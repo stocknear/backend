@@ -17,7 +17,7 @@ load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
 
 
-market_cap_threshold = 1E6
+market_cap_threshold = 10E6
 volume_threshold = 50_000
 
 
@@ -320,7 +320,7 @@ async def get_pre_after_market_movers(symbols):
                 market_cap = int(data.get('marketCap', 0))
                 name = data.get('name',None)
 
-            if market_cap >= 10E6:
+            if market_cap >= market_cap_threshold:
                 try:
                     with open(f"json/pre-post-quote/{symbol}.json", "r") as file:
                         pre_post_data = ujson.load(file)
