@@ -111,7 +111,6 @@ tomorrow = tomorrow.strftime('%Y-%m-%d')
 
 async def get_upcoming_earnings(session, end_date):
 	url = "https://api.benzinga.com/api/v2.1/calendar/earnings"
-
 	importance_list = ["1","2","3","4","5"]
 	res_list = []
 	for importance in importance_list:
@@ -119,7 +118,7 @@ async def get_upcoming_earnings(session, end_date):
 		try:
 			async with session.get(url, params=querystring, headers=headers) as response:
 				res = ujson.loads(await response.text())['earnings']
-				res = [e for e in res if datetime.strptime(e['date'], "%Y-%m-%d").date() != date.today() or datetime.strptime(e['time'], "%H:%M:%S").time() >= datetime.strptime("16:00:00", "%H:%M:%S").time()]
+				#res = [e for e in res if datetime.strptime(e['date'], "%Y-%m-%d").date() != date.today() or datetime.strptime(e['time'], "%H:%M:%S").time() >= datetime.strptime("16:00:00", "%H:%M:%S").time()]
 				for item in res:
 					try:
 						symbol = item['ticker']
@@ -155,7 +154,8 @@ async def get_upcoming_earnings(session, end_date):
 		res_list.sort(key=lambda x: x['marketCap'], reverse=True)
 		#res_list = [{k: v for k, v in d.items() if k != 'marketCap'} for d in res_list]
 		return res_list[:10]
-	except:
+	except Exception as e:
+		print(e)
 		return []
 
 	
