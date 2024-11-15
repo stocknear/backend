@@ -118,7 +118,7 @@ async def get_upcoming_earnings(session, end_date):
 		try:
 			async with session.get(url, params=querystring, headers=headers) as response:
 				res = ujson.loads(await response.text())['earnings']
-				#res = [e for e in res if datetime.strptime(e['date'], "%Y-%m-%d").date() != date.today() or datetime.strptime(e['time'], "%H:%M:%S").time() >= datetime.strptime("16:00:00", "%H:%M:%S").time()]
+				res = [e for e in res if datetime.strptime(e['date'], "%Y-%m-%d").date() != date.today() or datetime.strptime(e['time'], "%H:%M:%S").time() >= datetime.strptime("16:00:00", "%H:%M:%S").time()]
 				for item in res:
 					try:
 						symbol = item['ticker']
