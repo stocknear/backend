@@ -9,6 +9,7 @@ import time
 import os
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
+from tqdm import tqdm
 
 date_format = "%a, %d %b %Y %H:%M:%S %z"
 
@@ -67,31 +68,37 @@ async def get_endpoint(session, symbol, con):
         res = ujson.loads(await response.text())
 
         for item in res:
-            date_obj = datetime.strptime(item['created'], date_format)
-            date_obj_utc = date_obj.astimezone(pytz.utc)
-            
-            new_date_obj_utc = date_obj_utc
-        
-            start_date_obj_utc = correct_weekday(date_obj_utc)
-
-            start_date = start_date_obj_utc.strftime("%Y-%m-%d")
-            end_date = new_date_obj_utc.strftime("%Y-%m-%d")
-
-            new_date_str = new_date_obj_utc.strftime("%b %d, %Y")
-            query = query_template.format(symbol=symbol)
-    
             try:
-                df = pd.read_sql_query(query,con, params=(start_date, end_date))
-                if not df.empty:
-                    change_percent = round((df['close'].iloc[1]/df['close'].iloc[0] -1)*100,2)
-                else:
-                    change_percent = '-'
-            except Exception as e:
-                change_percent = '-'
+                date_obj = datetime.strptime(item['created'], date_format)
+                date_obj_utc = date_obj.astimezone(pytz.utc)
+                
+                new_date_obj_utc = date_obj_utc
+            
+                start_date_obj_utc = correct_weekday(date_obj_utc)
 
-            res_list.append({'date': new_date_str, 'text': item['title'], 'changesPercentage': change_percent})
-        with open(f"json/wiim/company/{symbol}.json", 'w') as file:
+                start_date = start_date_obj_utc.strftime("%Y-%m-%d")
+                end_date = new_date_obj_utc.strftime("%Y-%m-%d")
+
+                new_date_str = new_date_obj_utc.strftime("%b %d, %Y")
+                query = query_template.format(symbol=symbol)
+        
+                try:
+                    df = pd.read_sql_query(query,con, params=(start_date, end_date))
+                    if not df.empty:
+                        change_percent = round((df['close'].iloc[1]/df['close'].iloc[0] -1)*100,2)
+                    else:
+                        change_percent = '-'
+                except Exception as e:
+                    change_percent = '-'
+                res_list.append({'date': new_date_str, 'text': item['title'], 'changesPercentage': change_percent})
+            except:
+                pass
+
+
+        if len(res_list) > 0:
+            with open(f"json/wiim/company/{symbol}.json", 'w') as file:
                 ujson.dump(res_list, file)
+
 
         '''
         current_date = datetime.now(pytz.utc)
@@ -144,11 +151,10 @@ async def run():
     etf_cursor.execute("PRAGMA journal_mode = wal")
     etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
     etf_symbols = [row[0] for row in etf_cursor.fetchall()]
-
     
     async with aiohttp.ClientSession() as session:
-        await get_latest_wiim(session, stock_symbols, etf_symbols)
-        await asyncio.gather(*(get_endpoint(session, symbol, con) for symbol in stock_symbols))
+        #await get_latest_wiim(session, stock_symbols, etf_symbols)
+        await asyncio.gather(*(get_endpoint(session, symbol, con) for symbol in tqdm(stock_symbols)))
         await asyncio.gather(*(get_endpoint(session, symbol, etf_con) for symbol in etf_symbols))
 
     con.close()
