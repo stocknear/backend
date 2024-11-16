@@ -382,7 +382,7 @@ schedule.every(3).hours.do(run_threaded, run_options_net_flow).tag('options_net_
 #schedule.every(4).hours.do(run_threaded, run_share_statistics).tag('share_statistics_job')
 #schedule.every(2).days.at("01:00").do(run_borrowed_share).tag('borrowed_share_job')
 
-schedule.every(12).hours.do(run_threaded, run_analyst_rating).tag('analyst_job')
+schedule.every(3).hours.do(run_threaded, run_analyst_rating).tag('analyst_job')
 
 
 schedule.every(2).minutes.do(run_threaded, run_dashboard).tag('dashboard_job')
