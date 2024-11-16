@@ -1664,15 +1664,6 @@ async def ticker_mentioning(con):
     return sorted_symbol_list
 
 
-async def get_all_stock_tickers(con):
-    cursor = con.cursor()
-    cursor.execute("SELECT symbol, name, marketCap, sector FROM stocks WHERE symbol != ? AND marketCap IS NOT NULL", ('%5EGSPC',))
-    raw_data = cursor.fetchall()
-
-    # Extract only relevant data and sort it
-    stock_list_data = sorted([{'symbol': row[0], 'name': row[1], 'marketCap': row[2], 'sector': row[3]} for row in raw_data], key=custom_symbol_sort)
-    return stock_list_data
-
 async def get_all_etf_tickers(etf_con):
     cursor = etf_con.cursor()
     cursor.execute("SELECT symbol, name, totalAssets, numberOfHoldings FROM etfs WHERE totalAssets IS NOT NULL")
@@ -1959,10 +1950,6 @@ async def save_json_files():
     
     data = await get_ipo_calendar(con, symbols)
     with open(f"json/ipo-calendar/data.json", 'w') as file:
-        ujson.dump(data, file)
-
-    data = await get_all_stock_tickers(con)
-    with open(f"json/all-symbols/stocks.json", 'w') as file:
         ujson.dump(data, file)
 
     data = await get_all_etf_tickers(etf_con)

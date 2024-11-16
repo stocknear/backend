@@ -1796,36 +1796,6 @@ async def etf_holdings(data: TickerData, api_key: str = Security(get_api_key)):
 
 
 
-@app.get("/all-stock-tickers")
-async def get_all_stock_tickers(api_key: str = Security(get_api_key)):
-    cache_key = f"all_stock_tickers"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return StreamingResponse(
-        io.BytesIO(cached_result),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"}
-    )
-    try:
-        with open(f"json/all-symbols/stocks.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = []
-
-    # Compress the JSON data
-    data = orjson.dumps(res)
-    compressed_data = gzip.compress(data)
-
-    redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
-
-    return StreamingResponse(
-        io.BytesIO(compressed_data),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"}
-    )
-
-
 @app.get("/all-etf-tickers")
 async def get_all_etf_tickers(api_key: str = Security(get_api_key)):
     cache_key = f"all-etf-tickers"
@@ -3884,7 +3854,7 @@ async def get_statistics(data: FilterStockList, api_key: str = Security(get_api_
         category_type = 'sector'
     elif filter_list == 'reits':
         category_type = 'industry'
-    elif filter_list in ['ca','cn','de','gb','il','in','jp','nyse','nasdaq','amex','dowjones','sp500','nasdaq100']:
+    elif filter_list in ['ca','cn','de','gb','il','in','jp','nyse','nasdaq','amex','dowjones','sp500','nasdaq100','all-stock-tickers']:
         category_type = 'stocks-list'
     elif filter_list in ['dividend-kings','dividend-aristocrats']:
         category_type = 'dividends'

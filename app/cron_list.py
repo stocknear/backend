@@ -363,9 +363,64 @@ async def get_index_list():
                 with open(f"json/stocks-list/list/{index_list+extension}.json", 'wb') as file:
                     file.write(orjson.dumps(res_list))
 
+async def get_all_stock_tickers():
+    try:
+        '''
+        with sqlite3.connect('etf.db') as etf_con:
+            etf_cursor = etf_con.cursor()
+            etf_cursor.execute("PRAGMA journal_mode = wal")
+            etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
+            etf_symbols = [row[0] for row in etf_cursor.fetchall()]
+        '''
+        with sqlite3.connect('stocks.db') as con:
+            cursor = con.cursor()
+            cursor.execute("PRAGMA journal_mode = wal")
+            cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
+            stock_symbols = [row[0] for row in cursor.fetchall()]
+
+        res_list = []
+        for symbol in stock_symbols:
+            try:
+                
+                try:
+                    with open(f"json/quote/{symbol}.json", "rb") as file:
+                        quote_data = orjson.loads(file.read())
+                except (FileNotFoundError, orjson.JSONDecodeError):
+                    quote_data = None
+
+                if quote_data:
+                    item = {
+                        'symbol': symbol,
+                        'name': quote_data.get('name',None),
+                        'price': round(quote_data.get('price'), 2) if quote_data.get('price') is not None else None,
+                        'changesPercentage': round(quote_data.get('changesPercentage'), 2) if quote_data.get('changesPercentage') is not None else None,
+                        'marketCap': quote_data.get('marketCap', None),
+                        'revenue': None,
+                    }
+                    
+                    # Add screener data if available
+                    if symbol in stock_screener_data_dict:
+                        item['revenue'] = stock_screener_data_dict[symbol].get('revenue')
+                    
+                    if item['marketCap'] > 0:
+                        res_list.append(item)
+
+            
+            except Exception as e:
+                print(f"Error processing symbol {symbol}: {e}")
+            
+        if res_list:
+            res_list = sorted(res_list, key=lambda x: x['symbol'], reverse=False)
+                
+            with open("json/stocks-list/list/all-stock-tickers.json", 'wb') as file:
+                file.write(orjson.dumps(res_list))
+
+    except Exception as e:
+        print(f"Database error: {e}")
 
 async def run():
     await asyncio.gather(
+        get_all_stock_tickers(),
         get_index_list(),
         etf_bitcoin_list(),
         get_magnificent_seven()
