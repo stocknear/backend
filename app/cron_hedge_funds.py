@@ -1,9 +1,15 @@
 import sqlite3
 import os
-import ujson
+import orjson
 import time
 from collections import Counter
 from tqdm import tqdm
+
+
+# Load stock screener data
+with open(f"json/stock-screener/data.json", 'rb') as file:
+    stock_screener_data = orjson.loads(file.read())
+stock_screener_data_dict = {item['symbol']: item for item in stock_screener_data}
 
 keys_to_keep = [
     "type", "securityName", "symbol", "weight", 
@@ -44,7 +50,7 @@ def all_hedge_funds(con):
 
     res_list = [{
         'cik': row[0],
-        'name': format_company_name(row[1]),
+        'name': format_company_name(row[1]).title(),
         'numberOfStocks': row[2],
         'marketValue': row[3],
         'winRate': row[4],
@@ -55,41 +61,8 @@ def all_hedge_funds(con):
     sorted_res_list = sorted(res_list, key=lambda x: x['marketValue'], reverse=True)
 
     with open(f"json/hedge-funds/all-hedge-funds.json", 'w') as file:
-        ujson.dump(sorted_res_list, file)
+        file.write(orjson.dumps(sorted_res_list).decode("utf-8"))
 
-
-
-def spy_performance():
-    import pandas as pd
-    import yfinance as yf
-    from datetime import datetime
-
-    # Define the start date and end date
-    start_date = '1993-01-01'
-    end_date = datetime.today().strftime('%Y-%m-%d')
-
-    # Generate the range of dates with quarterly frequency
-    date_range = pd.date_range(start=start_date, end=end_date, freq='QE')
-
-    # Convert the dates to the desired format (end of quarter dates)
-    end_of_quarters = date_range.strftime('%Y-%m-%d').tolist()
-
-    data = []
-
-    df = yf.download('SPY', start='1993-01-01', end=datetime.today(), interval="1d").reset_index()
-    df = df.rename(columns={'Adj Close': 'close', 'Date': 'date'})
-
-    df['date'] = df['date'].dt.strftime('%Y-%m-%d')
-    for target_date in end_of_quarters:
-        original_date = target_date
-        # Find close price for '2015-03-31' or the closest available date prior to it    
-        while target_date not in df['date'].values:
-            # If the target date doesn't exist, move one day back
-            target_date = (pd.to_datetime(target_date) - pd.Timedelta(days=1)).strftime('%Y-%m-%d')
-
-        # Get the close price for the found or closest date
-        close_price = round(df[df['date'] == target_date]['close'].values[0],2)
-        data.append({'date': original_date, 'price': close_price})
 
 
 def get_data(cik, stock_sectors):
@@ -99,15 +72,11 @@ def get_data(cik, stock_sectors):
         'cik': row[0],
         'name': row[1],
         'numberOfStocks': row[2],
-        'performancePercentage3year': row[3],
-        'performancePercentage5year': row[4],
-        'performanceSinceInceptionPercentage': row[5],
+        'performancePercentage3Year': row[3],
         'averageHoldingPeriod': row[6],
-        'turnover': row[7],
         'marketValue': row[8],
         'winRate': row[9],
-        'holdings': ujson.loads(row[10]),
-        'summary': ujson.loads(row[11]),
+        'holdings': orjson.loads(row[10]),
     } for row in cik_data]
 
     if not res:
@@ -120,30 +89,55 @@ def get_data(cik, stock_sectors):
         for holding in res['holdings']
     ]
 
-    res['holdings'] = filtered_holdings
-
-    # Cross-reference symbols in holdings with stock_sectors to determine sectors
-    sector_counts = Counter()
-    for holding in res['holdings']:
-        symbol = holding['symbol']
-        sector = next((item['sector'] for item in stock_sectors if item['symbol'] == symbol), None)
-        if sector:
-            sector_counts[sector] += 1
-
-    # Calculate the total number of holdings
-    total_holdings = sum(sector_counts.values())
-
-    # Calculate the percentage for each sector and get the top 5
-    top_5_sectors_percentage = [
-        {sector: round((count / total_holdings) * 100, 2)}
-        for sector, count in sector_counts.most_common(5)
+    
+    filtered_holdings = [
+        {
+            **{k: v for k, v in item.items() if k not in ['putCallShare', 'securityName']}, 
+            'name': item['securityName'].title()
+        }
+        for item in filtered_holdings 
+        if (
+            item['putCallShare'] == 'Share' and 
+            item['avgPricePaid'] > 0 and 
+            item['marketValue'] > 0 and 
+            item['sharesNumber'] > 0 and
+            item['weight'] > 0
+        )
     ]
+    res['holdings'] = filtered_holdings
+    for rank, item in enumerate(res['holdings'], 1):
+        item['rank'] = rank
 
-    # Add the top 5 sectors information to the result
-    res['topSectors'] = top_5_sectors_percentage
+    sector_list = []
+    industry_list = []
+
+    for item in res['holdings']:
+        symbol = item['symbol']
+        ticker_data = stock_screener_data_dict.get(symbol, {})
+        
+        # Extract specified columns data for each ticker
+        sector = ticker_data.get('sector',None)
+        industry = ticker_data.get('industry',None)
+
+        # Append data to relevant lists if values are present
+        if sector:
+            sector_list.append(sector)
+        if industry:
+            industry_list.append(industry)       
+
+    # Get the top 3 most common sectors and industries
+    sector_counts = Counter(sector_list)
+    industry_counts = Counter(industry_list)
+    main_sectors = [item[0] for item in sector_counts.most_common(3)]
+    main_industries = [item[0] for item in industry_counts.most_common(3)]
+
+    # Add main sectors and industries to the item dictionary
+    res['mainSectors'] = main_sectors
+    res['mainIndustries'] = main_industries
+
     if res:
         with open(f"json/hedge-funds/companies/{cik}.json", 'w') as file:
-            ujson.dump(res, file)
+            file.write(orjson.dumps(res).decode("utf-8"))
 
 if __name__ == '__main__':
     con = sqlite3.connect('institute.db')
@@ -164,7 +158,7 @@ if __name__ == '__main__':
         stock_con.close()
 
     all_hedge_funds(con)
-    spy_performance()
+    #spy_performance()
     for cik in tqdm(cik_symbols):
         try:
             get_data(cik, stock_sectors)
