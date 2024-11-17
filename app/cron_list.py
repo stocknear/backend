@@ -81,7 +81,6 @@ async def process_category(cursor, category, condition, category_type='market-ca
 
 
 async def get_etf_holding(etf_symbols, etf_con):
-
     for ticker in tqdm(etf_symbols):
         res = []
         df = pd.read_sql_query(query_etf_holding, etf_con, params=(ticker,))
@@ -89,24 +88,30 @@ async def get_etf_holding(etf_symbols, etf_con):
         try:
             # Load holdings data from the SQL query result
             data = orjson.loads(df['holding'].iloc[0])
-            res = [{key: item[key] for key in ('asset', 'weightPercentage', 'sharesNumber')} for item in data]
+            
+            # Rename 'asset' to 'symbol' and keep other keys the same
+            res = [{'symbol': item['asset'], 
+                    'weightPercentage': item['weightPercentage'], 
+                    'sharesNumber': item['sharesNumber']} 
+                   for item in data]
             
             for item in res:
-                asset = item['asset']
+                symbol = item['symbol']
                 
-                # Check if the asset data is already in the cache
-                if asset in quote_cache:
-                    quote_data = quote_cache[asset]
+                # Check if the symbol data is already in the cache
+                if symbol in quote_cache:
+                    quote_data = quote_cache[symbol]
                 else:
                     # Load the quote data from file if not in cache
                     try:
-                        with open(f"json/quote/{asset}.json") as file:
+                        with open(f"json/quote/{symbol}.json") as file:
                             quote_data = orjson.loads(file.read())
-                            quote_cache[asset] = quote_data  # Cache the loaded data
+                            quote_cache[symbol] = quote_data  # Cache the loaded data
                     except:
                         quote_data = None
 
                 # Assign price and changesPercentage if available, otherwise set to None
+                item['weightPercentage'] = round(item.get('weightPercentage'), 2) if item['weightPercentage'] else None
                 item['price'] = round(quote_data.get('price'), 2) if quote_data else None
                 item['changesPercentage'] = round(quote_data.get('changesPercentage'), 2) if quote_data else None
                 item['name'] = quote_data.get('name') if quote_data else None
@@ -117,8 +122,11 @@ async def get_etf_holding(etf_symbols, etf_con):
 
         # Save results to a file if there's data to write
         if res:
+            for rank, item in enumerate(res, 1):
+                item['rank'] = rank
             with open(f"json/etf/holding/{ticker}.json", 'wb') as file:
                 file.write(orjson.dumps(res))
+
 
 async def get_etf_provider(etf_con):
 
