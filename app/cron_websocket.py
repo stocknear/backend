@@ -50,7 +50,7 @@ class WebSocketStockTicker:
                 file_path = self.output_dir / f"{safe_symbol}.json"
                 
                 await self._safe_write(file_path, data)
-                logger.info(f"Processed data for {safe_symbol}")
+                #logger.info(f"Processed data for {safe_symbol}")
         
         except orjson.JSONDecodeError:
             logger.warning(f"Invalid JSON received: {message}")
