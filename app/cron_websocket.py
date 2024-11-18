@@ -6,13 +6,48 @@ import logging
 from pathlib import Path
 from typing import Dict, Any
 from dotenv import load_dotenv
+from datetime import datetime, time
+import zoneinfo
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO, 
-    format='%(asctime)s - %(levelname)s: %(message)s'
-)
-logger = logging.getLogger(__name__)
+def check_market_hours() -> bool:
+    """
+    Check if the stock market is currently open.
+    
+    Returns:
+        bool: True if market is open, False otherwise
+    """
+    # US stock market holidays for 2024
+    us_holidays = [
+        "2024-01-01",  # New Year's Day
+        "2024-01-15",  # Martin Luther King Jr. Day
+        "2024-02-19",  # Presidents' Day
+        "2024-03-29",  # Good Friday
+        "2024-05-27",  # Memorial Day
+        "2024-06-19",  # Juneteenth
+        "2024-07-04",  # Independence Day
+        "2024-09-02",  # Labor Day
+        "2024-11-28",  # Thanksgiving
+        "2024-12-25",  # Christmas Day
+    ]
+    
+    # Get current time in Eastern Time
+    et_tz = zoneinfo.ZoneInfo('America/New_York')
+    now = datetime.now(et_tz)
+    # Check for weekend
+    if now.weekday() >= 5:  # 5 and 6 are Saturday and Sunday
+        return False
+    
+    # Check for holidays
+    if now.strftime('%Y-%m-%d') in us_holidays:
+        return False
+    
+    # Market hours are 9:30 AM to 4:00 PM ET
+    market_open = time(9, 30)
+    market_close = time(16, 0)
+    current_time = now.time()
+    
+    # Check if current time is within market hours
+    return market_open <= current_time < market_close
 
 class WebSocketStockTicker:
     def __init__(self, api_key: str, uri: str = "wss://websockets.financialmodelingprep.com"):
@@ -50,7 +85,6 @@ class WebSocketStockTicker:
                 file_path = self.output_dir / f"{safe_symbol}.json"
                 
                 await self._safe_write(file_path, data)
-                #logger.info(f"Processed data for {safe_symbol}")
         
         except orjson.JSONDecodeError:
             logger.warning(f"Invalid JSON received: {message}")
@@ -60,6 +94,12 @@ class WebSocketStockTicker:
     async def connect(self) -> None:
         """Establish WebSocket connection with auto-reconnect."""
         while True:
+            # Check market hours before connecting
+            if not check_market_hours():
+                logger.info("Market is closed. Waiting 5 minutes before checking again.")
+                await asyncio.sleep(300)  # Wait 5 minutes before checking again
+                continue
+
             try:
                 async with websockets.connect(self.uri, ping_interval=30) as websocket:
                     # Login and subscribe
@@ -69,6 +109,10 @@ class WebSocketStockTicker:
                     
                     # Handle incoming messages
                     async for message in websocket:
+                        # Additional check in case market closes during connection
+                        if not check_market_hours():
+                            logger.info("Market closed during connection. Disconnecting.")
+                            break
                         await self._process_message(message)
             
             except (websockets.exceptions.ConnectionClosedError, 
