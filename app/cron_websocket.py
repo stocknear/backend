@@ -9,6 +9,11 @@ from dotenv import load_dotenv
 from datetime import datetime, time
 import zoneinfo
 
+
+# Set up logging configuration
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 def check_market_hours() -> bool:
     """
     Check if the stock market is currently open.
