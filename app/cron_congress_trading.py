@@ -1,4 +1,4 @@
-import ujson
+import orjson
 import asyncio
 import aiohttp
 import aiofiles
@@ -11,13 +11,19 @@ from tqdm import tqdm
 from dotenv import load_dotenv
 import os
 
+
+with open(f"json/stock-screener/data.json", 'rb') as file:
+    stock_screener_data = orjson.loads(file.read())
+stock_screener_data_dict = {item['symbol']: item for item in stock_screener_data}
+
+
 load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
 
 
 async def save_json_data(symbol, data):
     async with aiofiles.open(f"json/congress-trading/company/{symbol}.json", 'w') as file:
-        await file.write(ujson.dumps(data))
+        await file.write(orjson.dumps(data).decode("utf-8"))
 
 async def get_congress_data(symbols, session):
     tasks = []
@@ -234,35 +240,49 @@ def create_politician_db(data, stock_symbols, stock_raw_data, etf_symbols, etf_r
     grouped_data_list = list(grouped_data.values())
 
     for item in tqdm(grouped_data_list):
-        # Sort items by 'transactionDate'
-        item = sorted(item, key=lambda x: x['transactionDate'], reverse=True)
+        try:
+            # Sort items by 'transactionDate'
+            item = sorted(item, key=lambda x: x['transactionDate'], reverse=True)
 
-        # Calculate top sectors
-        sector_counts = Counter()
-        for holding in item:
-            symbol = holding['ticker']
-            sector = next((entry['sector'] for entry in stock_raw_data if entry['symbol'] == symbol), None)
-            if sector:
-                sector_counts[sector] += 1
+            # Calculate top sectors
+            sector_list = []
+            industry_list = []
 
-        # Calculate the total number of holdings
-        total_holdings = sum(sector_counts.values())
+            for holding in item:
+                symbol = holding['symbol']
+                ticker_data = stock_screener_data_dict.get(symbol, {})
+                
+                # Extract specified columns data for each ticker
+                sector = ticker_data.get('sector',None)
+                industry = ticker_data.get('industry',None)
 
-        # Calculate the percentage for each sector and get the top 5
-        top_5_sectors_percentage = [
-            {sector: round((count / total_holdings) * 100, 2)}
-            for sector, count in sector_counts.most_common(5)
-        ]
+                # Append data to relevant lists if values are present
+                if sector:
+                    sector_list.append(sector)
+                if industry:
+                    industry_list.append(industry)       
 
-        # Prepare the data to save in the file
-        result = {
-            'topSectors': top_5_sectors_percentage,
-            'history': item
-        }
+            # Get the top 3 most common sectors and industries
+            sector_counts = Counter(sector_list)
+            industry_counts = Counter(industry_list)
+            main_sectors = [item2[0] for item2 in sector_counts.most_common(3)]
+            main_industries = [item2[0] for item2 in industry_counts.most_common(3)]
 
-        # Save to JSON file
-        with open(f"json/congress-trading/politician-db/{item[0]['id']}.json", 'w') as file:
-            ujson.dump(result, file)
+        
+            # Prepare the data to save in the file
+            result = {
+                'mainSectors': main_sectors,
+                'mainIndustries': main_industries,
+                'history': item
+            }
+
+            # Save to JSON file
+            if result:
+                with open(f"json/congress-trading/politician-db/{item[0]['id']}.json", 'w') as file:
+                    file.write(orjson.dumps(result).decode("utf-8"))
+                    print(result)
+        except Exception as e:
+            print(e)
 
 
 def create_search_list():
@@ -277,7 +297,7 @@ def create_search_list():
             file_path = os.path.join(folder_path, filename)
             # Open and read the JSON file
             with open(file_path, 'r') as file:
-                data = ujson.load(file)
+                data = orjson.loads(file)
                 
                 # Access the history, which is a list of transactions
                 history = data.get('history', [])
@@ -305,7 +325,7 @@ def create_search_list():
 
     # Write the search list to a JSON file
     with open('json/congress-trading/search_list.json', 'w') as file:
-        ujson.dump(search_politician_list, file)
+        file.write(orjson.dumps(search_politician_list).decode("utf-8"))
 
 async def run():
     try:
@@ -364,11 +384,15 @@ async def run():
         connector = aiohttp.TCPConnector(limit=100)  # Adjust the limit as needed
         async with aiohttp.ClientSession(connector=connector) as session:
             for i in tqdm(range(0, len(total_symbols), chunk_size)):
-                symbols_chunk = total_symbols[i:i + chunk_size]
-                data = await get_congress_data(symbols_chunk,session)
-                politician_list +=data
-                print('sleeping for 30 sec')
-                await asyncio.sleep(30)  # Wait for 60 seconds between chunks
+                try:
+                    symbols_chunk = total_symbols[i:i + chunk_size]
+                    data = await get_congress_data(symbols_chunk,session)
+                    politician_list +=data
+                    print('sleeping for 30 sec')
+                    await asyncio.sleep(30)  # Wait for 60 seconds between chunks
+                except Exception as e:
+                    print(e)
+                    pass
         
         
         create_politician_db(politician_list, stock_symbols, stock_raw_data, etf_symbols, etf_raw_data, crypto_symbols, crypto_raw_data)

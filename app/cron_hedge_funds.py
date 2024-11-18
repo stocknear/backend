@@ -74,8 +74,8 @@ def all_hedge_funds(con):
         'marketValue': row[3],
         'winRate': row[4],
         'turnover': row[5],
-        'performancePercentage3year': row[6]
-    } for row in all_ciks if row[2] >= 3 and abs(row[6]) < 500]
+        'performancePercentage3Year': row[6]
+    } for row in all_ciks if row[2] >= 3 and row[4] >= 10 and row[6] >= 10 and abs(row[6]) < 500]
 
     sorted_res_list = sorted(res_list, key=lambda x: x['marketValue'], reverse=True)
 
