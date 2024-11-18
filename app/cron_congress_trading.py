@@ -239,19 +239,22 @@ def create_politician_db(data, stock_symbols, stock_raw_data, etf_symbols, etf_r
     # Convert defaultdict to list
     grouped_data_list = list(grouped_data.values())
 
+    keys_to_keep = {'dateRecieved', 'id', 'transactionDate', 'representative', 'assetType', 'type', 'disclosureDate', 'symbol', 'name', 'amount'}
+
     for item in tqdm(grouped_data_list):
         try:
+            item = [{key: entry[key] for key in entry if key in keys_to_keep} for entry in item]
             # Sort items by 'transactionDate'
             item = sorted(item, key=lambda x: x['transactionDate'], reverse=True)
 
             # Calculate top sectors
             sector_list = []
             industry_list = []
-
-            for holding in item:
-                symbol = holding['symbol']
+            for item2 in item:
+                symbol = item2['symbol']
                 ticker_data = stock_screener_data_dict.get(symbol, {})
-                
+
+
                 # Extract specified columns data for each ticker
                 sector = ticker_data.get('sector',None)
                 industry = ticker_data.get('industry',None)
@@ -268,7 +271,7 @@ def create_politician_db(data, stock_symbols, stock_raw_data, etf_symbols, etf_r
             main_sectors = [item2[0] for item2 in sector_counts.most_common(3)]
             main_industries = [item2[0] for item2 in industry_counts.most_common(3)]
 
-        
+ 
             # Prepare the data to save in the file
             result = {
                 'mainSectors': main_sectors,
@@ -280,7 +283,6 @@ def create_politician_db(data, stock_symbols, stock_raw_data, etf_symbols, etf_r
             if result:
                 with open(f"json/congress-trading/politician-db/{item[0]['id']}.json", 'w') as file:
                     file.write(orjson.dumps(result).decode("utf-8"))
-                    print(result)
         except Exception as e:
             print(e)
 
@@ -296,9 +298,10 @@ def create_search_list():
         if filename.endswith('.json'):
             file_path = os.path.join(folder_path, filename)
             # Open and read the JSON file
-            with open(file_path, 'r') as file:
-                data = orjson.loads(file)
-                
+            with open(file_path, 'rb') as file:
+                data = orjson.loads(file.read())
+
+
                 # Access the history, which is a list of transactions
                 history = data.get('history', [])
                 if not history:
@@ -388,8 +391,8 @@ async def run():
                     symbols_chunk = total_symbols[i:i + chunk_size]
                     data = await get_congress_data(symbols_chunk,session)
                     politician_list +=data
-                    print('sleeping for 30 sec')
-                    await asyncio.sleep(30)  # Wait for 60 seconds between chunks
+                    print('sleeping')
+                    await asyncio.sleep(30)
                 except Exception as e:
                     print(e)
                     pass
