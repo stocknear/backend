@@ -72,7 +72,6 @@ fastify.register(require("./create-post-image/server"), { sharp });
 fastify.register(require("./delete-comment/server"), { pb });
 fastify.register(require("./delete-post/server"), { pb });
 fastify.register(require("./leaderboard/server"), { pb });
-fastify.register(require("./feedback/server"), { pb });
 fastify.register(require("./edit-name-watchlist/server"), { pb });
 fastify.register(require("./create-strategy/server"), { pb });
 fastify.register(require("./delete-strategy/server"), { pb });
@@ -127,110 +126,111 @@ function formatTimestampNewYork(timestamp) {
 }
 
 fastify.register(async function (fastify) {
-  fastify.get("/realtime-data", { websocket: true }, (connection, req) => {
-    // Send a welcome message to the client
+  fastify.get(
+    "/realtime-data",
+    { websocket: true },
+    (connection, req) => {
 
-    //connection.socket.send('hi from server');
+      let jsonData;
+      let sendInterval;
+      let symbol;
+      let isSend = false;
 
-    // Listen for incoming messages from the client
-    connection.socket.on("message", (message) => {
-      symbol = message.toString("utf-8");
-      console.log("Received message from client:", symbol);
+     
+      // Function to send data to the client
+      const sendData = async () => {
+        if (!symbol) return; // Check if symbol is defined
+        const filePath = path.join(__dirname, `../app/json/websocket/companies/${symbol}.json`);
 
-      // If you want to dynamically update the subscription based on client's message
-      updateSubscription();
-    });
-
-    //======================
-    const login = {
-      event: "login",
-      data: {
-        apiKey: fmpAPIKey,
-      },
-    };
-
-    const subscribe = {
-      event: "subscribe",
-      data: {
-        ticker: "", // Initial value; will be updated dynamically
-      },
-    };
-
-    function updateSubscription() {
-      subscribe.data.ticker = symbol;
-    }
-
-    // Create a new WebSocket instance for your backend
-    const ws = new WebSocket("wss://websockets.financialmodelingprep.com");
-
-    // Handle WebSocket connection open
-
-    ws.on("open", function open() {
-      ws.send(JSON.stringify(login));
-      wait(2000); //2 seconds in milliseconds
-      ws.send(JSON.stringify(subscribe));
-    });
-
-    // Handle WebSocket errors
-    ws.on("error", function (error) {
-      console.error("WebSocket error:", error);
-      // Handle the error gracefully, you might want to notify the client or log it.
-      // For now, let's close the connection if an error occurs
-      connection.socket.close();
-    });
-
-    ws.on("message", function (data, flags) {
-      const stringData = data.toString("utf-8");
-
-      try {
-        const jsonData = JSON.parse(stringData);
-
-        // Check if bpData is a number, not equal to zero, and jsonData properties are not null/undefined
-        if (
-          //jsonData?.bp != null &&
-          //jsonData?.ap != null &&
-          jsonData?.lp != null &&
-          jsonData?.t != null &&
-          ["Q", "T"]?.includes(jsonData?.type) &&
-          connection.socket.readyState === WebSocket.OPEN &&
-          !isSend
-        ) {
-          connection.socket.send(
-            JSON.stringify({
-              bp: jsonData.bp,
-              ap: jsonData.ap,
-              lp: jsonData.lp?.toFixed(2),
-              type: jsonData.type,
-              time: formatTimestampNewYork(jsonData?.t),
-            })
-          );
-          isSend = true;
-          setTimeout(() => {
-            isSend = false;
-          }, 500);
-        }
-      } catch (error) {
-        console.error("Error parsing JSON:", error);
-      }
-    });
-
-    //======================
-
-    // Handle client disconnect
-    connection.socket.on("close", () => {
-      console.log("Client disconnected");
-      connection?.socket?.close();
-      // Check if the WebSocket is open before trying to close it
-      if (ws.readyState === WebSocket.OPEN) {
         try {
-          ws.close();
-        } catch (e) {
-          console.error("Error while closing WebSocket:", e);
+          if (fs.existsSync(filePath)) {
+            const fileData = fs.readFileSync(filePath, "utf8");
+            jsonData = JSON.parse(fileData);
+            
+            // Logic to send data if certain conditions are met
+            if (
+              jsonData?.lp != null &&
+              jsonData?.t != null &&
+              ["Q", "T"].includes(jsonData?.type) &&
+              connection.socket.readyState === WebSocket.OPEN &&
+              !isSend
+            ) {
+              connection.socket.send(
+                JSON.stringify({
+                  bp: jsonData?.bp,
+                  ap: jsonData?.ap,
+                  lp: jsonData?.lp?.toFixed(2),
+                  type: jsonData?.type,
+                  time: formatTimestampNewYork(jsonData?.t),
+                })
+              );
+              isSend = true;
+              setTimeout(() => {
+                isSend = false;
+              }, 500); // Reset isSend after 500ms
+            }
+          } else {
+            console.error("File not found:", filePath);
+            clearInterval(sendInterval);
+            connection.socket.close();
+            console.error("Connection closed");
+          }
+        } catch (err) {
+          console.error("Error sending data to client:", err);
+          clearInterval(sendInterval);
+          connection.socket.close();
         }
-      }
-    });
-  });
+      };
+
+      // Start receiving messages from the client
+      connection.socket.on("message", (message) => {
+        symbol = message.toString("utf-8")?.toUpperCase();
+        console.log("Received message from client:", symbol);
+
+        // Send data immediately upon receiving a symbol
+        sendData();
+
+        // Start periodic data sending if not already started
+        if (!sendInterval) {
+          sendInterval = setInterval(sendData, 5000);
+        }
+      });
+
+      // Handle client disconnect
+      connection.socket.on("close", () => {
+        console.log("Client disconnected");
+        clearInterval(sendInterval);
+        removeProcessListeners();
+      });
+
+      // Handle server crash cleanup
+      const closeHandler = () => {
+        console.log("Server is closing. Cleaning up resources...");
+        clearInterval(sendInterval);
+        connection.socket.close();
+        removeProcessListeners();
+      };
+
+      // Add close handler to process events
+      process.on("exit", closeHandler);
+      process.on("SIGINT", closeHandler);
+      process.on("SIGTERM", closeHandler);
+      process.on("uncaughtException", closeHandler);
+      process.on("unhandledRejection", closeHandler);
+
+      // Function to remove process listeners to avoid memory leaks
+      const removeProcessListeners = () => {
+        process.off("exit", closeHandler);
+        process.off("SIGINT", closeHandler);
+        process.off("SIGTERM", closeHandler);
+        process.off("uncaughtException", closeHandler);
+        process.off("unhandledRejection", closeHandler);
+      };
+    }
+  );
 });
+
+
 
 fastify.register(async function (fastify) {
   fastify.get(
