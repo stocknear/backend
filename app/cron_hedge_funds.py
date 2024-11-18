@@ -38,7 +38,26 @@ def format_company_name(company_name):
     
     return ' '.join(formatted_words)
 
-
+def remove_stock_duplicates(stocks):
+    """
+    Remove duplicate stocks keeping the highest weight entry for each symbol.
+    
+    Args:
+        stocks (list): List of dictionaries containing stock information
+        
+    Returns:
+        list: List with duplicates removed
+    """
+    symbol_dict = {}
+    
+    for stock in stocks:
+        symbol = stock['symbol']
+        weight = stock['weight']
+        
+        if symbol not in symbol_dict or weight > symbol_dict[symbol]['weight']:
+            symbol_dict[symbol] = stock
+    
+    return list(symbol_dict.values())
 
 def all_hedge_funds(con):
     
@@ -104,6 +123,9 @@ def get_data(cik, stock_sectors):
             item['weight'] > 0
         )
     ]
+
+    filtered_holdings = remove_stock_duplicates(filtered_holdings)
+
     res['holdings'] = filtered_holdings
     for rank, item in enumerate(res['holdings'], 1):
         item['rank'] = rank
@@ -147,6 +169,7 @@ if __name__ == '__main__':
     cursor.execute("PRAGMA journal_mode = wal")
     cursor.execute("SELECT DISTINCT cik FROM institutes")
     cik_symbols = [row[0] for row in cursor.fetchall()]
+    cik_symbols = ['0001067983']
 
     try:
         stock_cursor = stock_con.cursor()
