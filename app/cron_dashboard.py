@@ -109,7 +109,7 @@ if tomorrow.weekday() >= 5:  # 5 = Saturday, 6 = Sunday
 
 tomorrow = tomorrow.strftime('%Y-%m-%d')
 
-async def get_upcoming_earnings(session, end_date, filter_today=False):
+async def get_upcoming_earnings(session, end_date, filter_today=True):
     url = "https://api.benzinga.com/api/v2.1/calendar/earnings"
     importance_list = ["1", "2", "3", "4", "5"]
     res_list = []
@@ -278,15 +278,15 @@ async def get_recent_dividends(session):
 async def run():
 	async with aiohttp.ClientSession() as session:
 		recent_earnings = await get_recent_earnings(session)
-		
-		upcoming_earnings = await get_upcoming_earnings(session, today, filter_today=True)
+
+		upcoming_earnings = await get_upcoming_earnings(session, today, filter_today=False)
 		# If results are less than 5, try without the time filter.
 		if len(upcoming_earnings) < 5:
-		    upcoming_earnings = await get_upcoming_earnings(session, today, filter_today=False)
+		    upcoming_earnings = await get_upcoming_earnings(session, today, filter_today=True)
 
 		# If still less than 5 results, try fetching for tomorrow.
 		if len(upcoming_earnings) < 5:
-		    upcoming_earnings = await get_upcoming_earnings(session, tomorrow)
+		    upcoming_earnings = await get_upcoming_earnings(session, tomorrow, filter_today=True)
 
 			
 		recent_dividends = await get_recent_dividends(session)
