@@ -265,15 +265,15 @@ def create_politician_db(data, stock_symbols, stock_raw_data, etf_symbols, etf_r
                         sector_list.append(sector)
                     if industry:
                         industry_list.append(industry)
-                except:
-                    pass
+                except Exception as e:
+                    print(e) 
 
             # Get the top 3 most common sectors and industries
             sector_counts = Counter(sector_list)
             industry_counts = Counter(industry_list)
             main_sectors = [item2[0] for item2 in sector_counts.most_common(3)]
             main_industries = [item2[0] for item2 in industry_counts.most_common(3)]
-
+            
  
             # Prepare the data to save in the file
             result = {
@@ -378,7 +378,7 @@ async def run():
         crypto_con.close()
 
         total_symbols = crypto_symbols +etf_symbols + stock_symbols
-        chunk_size = 200
+        chunk_size = 100
         politician_list = []
 
     except Exception as e:
@@ -386,8 +386,7 @@ async def run():
         return
 
     try:
-        
-        connector = aiohttp.TCPConnector(limit=200)  # Adjust the limit as needed
+        connector = aiohttp.TCPConnector(limit=100)  # Adjust the limit as needed
         async with aiohttp.ClientSession(connector=connector) as session:
             for i in tqdm(range(0, len(total_symbols), chunk_size)):
                 try:
@@ -395,7 +394,7 @@ async def run():
                     data = await get_congress_data(symbols_chunk,session)
                     politician_list +=data
                     print('sleeping')
-                    await asyncio.sleep(10)
+                    await asyncio.sleep(30)
                 except Exception as e:
                     print(e)
                     pass
@@ -411,4 +410,3 @@ try:
     asyncio.run(run())
 except Exception as e:
     print(e)
-
