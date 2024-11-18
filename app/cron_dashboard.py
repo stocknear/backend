@@ -109,56 +109,71 @@ if tomorrow.weekday() >= 5:  # 5 = Saturday, 6 = Sunday
 
 tomorrow = tomorrow.strftime('%Y-%m-%d')
 
-async def get_upcoming_earnings(session, end_date):
-	url = "https://api.benzinga.com/api/v2.1/calendar/earnings"
-	importance_list = ["1","2","3","4","5"]
-	res_list = []
-	for importance in importance_list:
-		querystring = {"token": benzinga_api_key,"parameters[importance]":importance,"parameters[date_from]":today,"parameters[date_to]":end_date,"parameters[date_sort]":"date"}
-		try:
-			async with session.get(url, params=querystring, headers=headers) as response:
-				res = ujson.loads(await response.text())['earnings']
-				res = [e for e in res if datetime.strptime(e['date'], "%Y-%m-%d").date() != date.today() or datetime.strptime(e['time'], "%H:%M:%S").time() >= datetime.strptime("16:00:00", "%H:%M:%S").time()]
-				for item in res:
-					try:
-						symbol = item['ticker']
-						name = item['name']
-						time = item['time']
-						is_today = True if item['date'] == datetime.today().strftime('%Y-%m-%d') else False
-						eps_prior = float(item['eps_prior']) if item['eps_prior'] != '' else 0
-						eps_est = float(item['eps_est']) if item['eps_est'] != '' else 0
-						revenue_est = float(item['revenue_est']) if item['revenue_est'] != '' else 0
-						revenue_prior = float(item['revenue_prior']) if item['revenue_prior'] != '' else 0
-						if symbol in stock_symbols and revenue_est != 0 and revenue_prior != 0 and eps_prior != 0 and eps_est != 0:
-							df = pd.read_sql_query(query_template, con, params=(symbol,))
-							market_cap = float(df['marketCap'].iloc[0]) if df['marketCap'].iloc[0] != '' else 0
-							res_list.append({
-								'symbol': symbol,
-								'name': name,
-								'time': time,
-								'isToday': is_today,
-								'marketCap': market_cap,
-								'epsPrior':eps_prior,
-								'epsEst': eps_est,
-								'revenuePrior': revenue_prior,
-								'revenueEst': revenue_est
-								})
-					except Exception as e:
-						print('Upcoming Earnings:', e)
-						pass
-		except Exception as e:
-			print(e)
-			pass
-	try:
-		res_list = remove_duplicates(res_list)
-		res_list.sort(key=lambda x: x['marketCap'], reverse=True)
-		#res_list = [{k: v for k, v in d.items() if k != 'marketCap'} for d in res_list]
-		return res_list[:10]
-	except Exception as e:
-		print(e)
-		return []
+async def get_upcoming_earnings(session, end_date, filter_today=False):
+    url = "https://api.benzinga.com/api/v2.1/calendar/earnings"
+    importance_list = ["1", "2", "3", "4", "5"]
+    res_list = []
+    today = date.today().strftime('%Y-%m-%d')
 
-	
+    for importance in importance_list:
+        querystring = {
+            "token": benzinga_api_key,
+            "parameters[importance]": importance,
+            "parameters[date_from]": today,
+            "parameters[date_to]": end_date,
+            "parameters[date_sort]": "date"
+        }
+        try:
+            async with session.get(url, params=querystring, headers=headers) as response:
+                res = ujson.loads(await response.text())['earnings']
+                
+                # Apply the time filter if filter_today is True
+                if filter_today:
+                    res = [
+                        e for e in res if
+                        datetime.strptime(e['date'], "%Y-%m-%d").date() != date.today() or
+                        datetime.strptime(e['time'], "%H:%M:%S").time() >= datetime.strptime("16:00:00", "%H:%M:%S").time()
+                    ]
+                
+                for item in res:
+                    try:
+                        symbol = item['ticker']
+                        name = item['name']
+                        time = item['time']
+                        is_today = item['date'] == today
+                        eps_prior = float(item['eps_prior']) if item['eps_prior'] != '' else 0
+                        eps_est = float(item['eps_est']) if item['eps_est'] != '' else 0
+                        revenue_est = float(item['revenue_est']) if item['revenue_est'] != '' else 0
+                        revenue_prior = float(item['revenue_prior']) if item['revenue_prior'] != '' else 0
+
+                        if symbol in stock_symbols and revenue_est and revenue_prior and eps_prior and eps_est:
+                            df = pd.read_sql_query(query_template, con, params=(symbol,))
+                            market_cap = float(df['marketCap'].iloc[0]) if df['marketCap'].iloc[0] != '' else 0
+                            res_list.append({
+                                'symbol': symbol,
+                                'name': name,
+                                'time': time,
+                                'isToday': is_today,
+                                'marketCap': market_cap,
+                                'epsPrior': eps_prior,
+                                'epsEst': eps_est,
+                                'revenuePrior': revenue_prior,
+                                'revenueEst': revenue_est
+                            })
+                    except Exception as e:
+                        print('Upcoming Earnings:', e)
+                        pass
+        except Exception as e:
+            print(e)
+            pass
+
+    try:
+        res_list = remove_duplicates(res_list)
+        res_list.sort(key=lambda x: x['marketCap'], reverse=True)
+        return res_list[:10]
+    except Exception as e:
+        print(e)
+        return []
 
 
 async def get_recent_earnings(session):
@@ -263,9 +278,16 @@ async def get_recent_dividends(session):
 async def run():
 	async with aiohttp.ClientSession() as session:
 		recent_earnings = await get_recent_earnings(session)
-		upcoming_earnings = await get_upcoming_earnings(session, today)
+		
+		upcoming_earnings = await get_upcoming_earnings(session, today, filter_today=True)
+		# If results are less than 5, try without the time filter.
 		if len(upcoming_earnings) < 5:
-			upcoming_earnings = await get_upcoming_earnings(session, tomorrow)
+		    upcoming_earnings = await get_upcoming_earnings(session, today, filter_today=False)
+
+		# If still less than 5 results, try fetching for tomorrow.
+		if len(upcoming_earnings) < 5:
+		    upcoming_earnings = await get_upcoming_earnings(session, tomorrow)
+
 			
 		recent_dividends = await get_recent_dividends(session)
 

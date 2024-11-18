@@ -250,20 +250,23 @@ def create_politician_db(data, stock_symbols, stock_raw_data, etf_symbols, etf_r
             # Calculate top sectors
             sector_list = []
             industry_list = []
-            for item2 in item:
-                symbol = item2['symbol']
-                ticker_data = stock_screener_data_dict.get(symbol, {})
+            for holding in item:
+                try:
+                    symbol = holding['symbol']
+                    ticker_data = stock_screener_data_dict.get(symbol, {})
 
 
-                # Extract specified columns data for each ticker
-                sector = ticker_data.get('sector',None)
-                industry = ticker_data.get('industry',None)
+                    # Extract specified columns data for each ticker
+                    sector = ticker_data.get('sector',None)
+                    industry = ticker_data.get('industry',None)
 
-                # Append data to relevant lists if values are present
-                if sector:
-                    sector_list.append(sector)
-                if industry:
-                    industry_list.append(industry)       
+                    # Append data to relevant lists if values are present
+                    if sector:
+                        sector_list.append(sector)
+                    if industry:
+                        industry_list.append(industry)
+                except:
+                    pass
 
             # Get the top 3 most common sectors and industries
             sector_counts = Counter(sector_list)
@@ -375,7 +378,7 @@ async def run():
         crypto_con.close()
 
         total_symbols = crypto_symbols +etf_symbols + stock_symbols
-        chunk_size = 100
+        chunk_size = 200
         politician_list = []
 
     except Exception as e:
@@ -384,7 +387,7 @@ async def run():
 
     try:
         
-        connector = aiohttp.TCPConnector(limit=100)  # Adjust the limit as needed
+        connector = aiohttp.TCPConnector(limit=200)  # Adjust the limit as needed
         async with aiohttp.ClientSession(connector=connector) as session:
             for i in tqdm(range(0, len(total_symbols), chunk_size)):
                 try:
@@ -392,7 +395,7 @@ async def run():
                     data = await get_congress_data(symbols_chunk,session)
                     politician_list +=data
                     print('sleeping')
-                    await asyncio.sleep(30)
+                    await asyncio.sleep(10)
                 except Exception as e:
                     print(e)
                     pass
