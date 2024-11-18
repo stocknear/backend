@@ -7,16 +7,10 @@ const cors = require("@fastify/cors");
 require("dotenv").config({ path: "../app/.env" });
 const fmpAPIKey = process.env.FMP_API_KEY;
 //const mixpanelAPIKey =  process.env.MIXPANEL_API_KEY;
-const twitchAPIKey = process.env.TWITCH_API_KEY;
-const twitchSecretKey = process.env.TWITCH_SECRET_KEY;
 
 //const Mixpanel = require('mixpanel');
 //const UAParser = require('ua-parser-js');
 
-const got = require("got"); //Only version npm i got@11.8.3 works with ESM
-const cheerio = require("cheerio");
-const sharp = require("sharp");
-const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
 //const pino = require('pino');
@@ -60,37 +54,9 @@ const corsMiddleware = (request, reply, done) => {
 };
 fastify.addHook("onRequest", corsMiddleware);
 
-//fastify.register(require('./mixpanel/server'), { mixpanel, UAParser });
-fastify.register(require("./get-post/server"), { pb });
-fastify.register(require("./get-one-post/server"), { pb });
-fastify.register(require("./get-portfolio-data/server"), { pb });
-fastify.register(require("./create-portfolio/server"), { pb, serialize });
-fastify.register(require("./buy-stock/server"), { pb });
-fastify.register(require("./sell-stock/server"), { pb });
-fastify.register(require("./create-post-link/server"), { got, cheerio, sharp });
-fastify.register(require("./create-post-image/server"), { sharp });
-fastify.register(require("./delete-comment/server"), { pb });
-fastify.register(require("./delete-post/server"), { pb });
-fastify.register(require("./leaderboard/server"), { pb });
-fastify.register(require("./edit-name-watchlist/server"), { pb });
-fastify.register(require("./create-strategy/server"), { pb });
-fastify.register(require("./delete-strategy/server"), { pb });
-fastify.register(require("./all-strategies/server"), { pb });
-fastify.register(require("./save-strategy/server"), { pb });
-fastify.register(require("./get-strategy/server"), { pb });
-fastify.register(require("./get-twitch-status/server"), {
-  axios,
-  twitchAPIKey,
-  twitchSecretKey,
-});
-fastify.register(require("./get-portfolio/server"), { pb });
-fastify.register(require("./create-price-alert/server"), { pb });
+
 fastify.register(require("./get-price-alert/server"), { pb, fs, path });
-fastify.register(require("./delete-price-alert/server"), { pb });
-fastify.register(require("./upvote/server"), { pb });
-fastify.register(require("./downvote/server"), { pb });
-fastify.register(require("./upvote-comment/server"), { pb });
-fastify.register(require("./downvote-comment/server"), { pb });
+
 
 //fastify.register(require('./create-comment/server'), { pb });
 
