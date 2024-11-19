@@ -345,9 +345,9 @@ async def get_pre_after_market_movers(symbols):
             pass
 
 
-    # Sort the list by changesPercentage in descending order and slice the top 10
-    gainers = sorted(res_list, key=lambda x: x['changesPercentage'], reverse=True)[:50]
-    losers = sorted(res_list, key=lambda x: x['changesPercentage'], reverse=False)[:50]
+    gainers = sorted([x for x in res_list if x['changesPercentage'] > 0], key=lambda x: x['changesPercentage'], reverse=True)
+    losers = sorted([x for x in res_list if x['changesPercentage'] < 0], key=lambda x: x['changesPercentage'])
+
 
     for index, item in enumerate(gainers, start=1):
         item['rank'] = index  # Add rank field
