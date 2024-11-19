@@ -72,12 +72,16 @@ def calculate_price_changes(symbol, item, con):
             if not data.empty:
                 past_price = data.iloc[0]['close']
                 current_price = item['price']
-                item[name] = round(((current_price - past_price) / past_price) * 100, 2)
+                change = round(((current_price - past_price) / past_price) * 100, 2)
+                
+                # Set item[name] to None if the change is -100
+                item[name] = None if change == -100 else change
                 
     except:
         # Handle exceptions by setting all fields to None
         for name in time_frames.keys():
             item[name] = None
+
 
 def filter_data_quarterly(data):
     # Generate a range of quarter-end dates from the start to the end date
