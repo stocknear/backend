@@ -239,41 +239,45 @@ def create_politician_db(data, stock_symbols, stock_raw_data, etf_symbols, etf_r
     # Convert defaultdict to list
     grouped_data_list = list(grouped_data.values())
 
-    keys_to_keep = {'dateRecieved', 'id', 'transactionDate', 'representative', 'assetType', 'type', 'disclosureDate', 'symbol', 'name', 'amount'}
+    #keys_to_keep = {'dateRecieved', 'id', 'transactionDate', 'representative', 'assetType', 'type', 'disclosureDate', 'symbol', 'name', 'amount'}
 
     for item in tqdm(grouped_data_list):
         try:
-            item = [{key: entry[key] for key in entry if key in keys_to_keep} for entry in item]
+            #item = [{key: entry[key] for key in entry if key in keys_to_keep} for entry in item]
             # Sort items by 'transactionDate'
             item = sorted(item, key=lambda x: x['transactionDate'], reverse=True)
 
             # Calculate top sectors
             sector_list = []
             industry_list = []
-            for holding in item:
+            for item2 in item:
                 try:
-                    symbol = holding['symbol']
+                    # Try to get 'symbol' first; if it doesn't exist, use 'ticker'
+                    symbol = item2.get('symbol') or item2.get('ticker')
+                    if not symbol:
+                        continue  # Skip if neither 'symbol' nor 'ticker' is present
+
                     ticker_data = stock_screener_data_dict.get(symbol, {})
 
-
                     # Extract specified columns data for each ticker
-                    sector = ticker_data.get('sector',None)
-                    industry = ticker_data.get('industry',None)
+                    sector = ticker_data.get('sector', None)
+                    industry = ticker_data.get('industry', None)
+                except:
+                    sector = None
+                    industry = None
 
-                    # Append data to relevant lists if values are present
-                    if sector:
-                        sector_list.append(sector)
-                    if industry:
-                        industry_list.append(industry)
-                except Exception as e:
-                    print(e) 
+                if sector:
+                    sector_list.append(sector)
+                if industry:
+                    industry_list.append(industry)
+
 
             # Get the top 3 most common sectors and industries
             sector_counts = Counter(sector_list)
             industry_counts = Counter(industry_list)
             main_sectors = [item2[0] for item2 in sector_counts.most_common(3)]
             main_industries = [item2[0] for item2 in industry_counts.most_common(3)]
-            
+
  
             # Prepare the data to save in the file
             result = {
@@ -386,6 +390,7 @@ async def run():
         return
 
     try:
+        
         connector = aiohttp.TCPConnector(limit=100)  # Adjust the limit as needed
         async with aiohttp.ClientSession(connector=connector) as session:
             for i in tqdm(range(0, len(total_symbols), chunk_size)):
