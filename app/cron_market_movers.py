@@ -1,5 +1,6 @@
 from datetime import date, datetime, timedelta, time
 import ujson
+import orjson
 import sqlite3
 import pandas as pd
 import asyncio
@@ -99,7 +100,7 @@ async def get_todays_data(ticker):
                         df_1d = pd.concat([df_1d, remaining_df[1:: ]])
                         #To-do FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
     
-                df_1d = ujson.loads(df_1d.to_json(orient="records"))
+                df_1d = orjson.loads(df_1d.to_json(orient="records"))
             except:
                 df_1d = []
     return df_1d
@@ -110,12 +111,23 @@ async def get_jsonparsed_data(session, url):
         return data
 
 async def get_quote_of_stocks(ticker_list):
+    '''
     ticker_str = ','.join(ticker_list)
     async with aiohttp.ClientSession() as session:
         url = f"https://financialmodelingprep.com/api/v3/quote/{ticker_str}?apikey={api_key}" 
         async with session.get(url) as response:
             df = await response.json()
-    return df
+    '''
+    res_list = []
+    for symbol in ticker_list:
+        try:
+            with open(f"json/quote/{symbol}.json") as file:
+                data = orjson.loads(file.read())
+                res_list.append(data)
+        except:
+            pass
+
+    return res_list
 
 def add_rank(data):
     for key in data:
@@ -264,10 +276,10 @@ async def get_gainer_loser_active_stocks(symbols):
     unique_symbols = set()
 
     # Iterate through time periods, categories, and symbols
-    for time_period in data.keys():
-        for category in data[time_period].keys():
+    for category in data.keys():
+        for time_period in data[category].keys():
             # Add rank and process symbols
-            for index, stock_data in enumerate(data[time_period][category], start=1):
+            for index, stock_data in enumerate(data[category][time_period], start=1):
                 stock_data['rank'] = index  # Add rank field
                 symbol = stock_data["symbol"]
                 unique_symbols.add(symbol)
@@ -277,13 +289,14 @@ async def get_gainer_loser_active_stocks(symbols):
 
     #Get the latest quote of all unique symbol and map it back to the original data list to update all values
 
+    '''
     latest_quote = await get_quote_of_stocks(unique_symbols_list)
     # Updating values in the data list based on matching symbols from the quote list
-    for time_period in data.keys():
+    for category in data.keys():
         # Only proceed if the time period is "1D"
-        if time_period == "1D":
-            for category in data[time_period].keys():
-                for stock_data in data[time_period][category]:
+        for time_period in data[category].keys():
+            if time_period != "1D":
+                for stock_data in data[category][time_period]:
                     symbol = stock_data["symbol"]
                     quote_stock = next((item for item in latest_quote if item["symbol"] == symbol), None)
                     if quote_stock:
@@ -291,7 +304,8 @@ async def get_gainer_loser_active_stocks(symbols):
                         stock_data['changesPercentage'] = quote_stock['changesPercentage']
                         stock_data['marketCap'] = quote_stock['marketCap']
                         stock_data['volume'] = quote_stock['volume']
-
+    '''
+    
     return data 
 
 
@@ -316,18 +330,18 @@ async def get_pre_after_market_movers(symbols):
         try:
             # Load the main quote JSON file
             with open(f"json/quote/{symbol}.json", "r") as file:
-                data = ujson.load(file)
+                data = orjson.loads(file.read())
                 market_cap = int(data.get('marketCap', 0))
                 name = data.get('name',None)
 
             if market_cap >= market_cap_threshold:
                 try:
                     with open(f"json/pre-post-quote/{symbol}.json", "r") as file:
-                        pre_post_data = ujson.load(file)
+                        pre_post_data = orjson.loads(file.read())
                         price = pre_post_data.get("price", None)
                         changes_percentage = pre_post_data.get("changesPercentage", None)
                         with open(f"json/one-day-price/{symbol}.json", 'rb') as file:
-                            one_day_price = ujson.load(file)
+                            one_day_price = orjson.loads(file.read())
                             # Filter out entries where 'close' is None
                             filtered_prices = [price for price in one_day_price if price['close'] is not None]
 
@@ -394,23 +408,21 @@ try:
     #symbols = [symbol for symbol in symbols if symbol != "STEC"]
 
     
-    
     data = asyncio.run(get_gainer_loser_active_stocks(symbols))
     with open(f"json/market-movers/data.json", 'w') as file:
-        ujson.dump(data, file)
+        file.write(orjson.dumps(data).decode("utf-8"))
     
     data = asyncio.run(get_historical_data())
     with open(f"json/mini-plots-index/data.json", 'w') as file:
-        ujson.dump(data, file)
+        file.write(orjson.dumps(data).decode("utf-8"))
     
     data = asyncio.run(get_pre_after_market_movers(symbols))
     if market_status == 1:
         with open(f"json/market-movers/premarket.json", 'w') as file:
-            ujson.dump(data, file)
+            file.write(orjson.dumps(data).decode("utf-8"))
     elif market_status == 2:
         with open(f"json/market-movers/afterhours.json", 'w') as file:
-            ujson.dump(data, file)
-    
+            file.write(orjson.dumps(data).decode("utf-8"))
 
     con.close()
 except Exception as e:

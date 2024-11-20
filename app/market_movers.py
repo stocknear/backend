@@ -107,7 +107,8 @@ class Past_Market_Movers:
             for symbol, name, price, changes_percentage, volume, market_cap in high_volume:
                 active_data.append({'symbol': symbol, 'name': name, 'price': price, 'changesPercentage': changes_percentage, 'volume': volume, 'marketCap': market_cap})
 
-            
+            loser_data.sort(key=lambda x: x['changesPercentage'], reverse=False)
+
             if time_period == 7:
                 gainer_json['1W'] = gainer_data
                 loser_json['1W'] = loser_data

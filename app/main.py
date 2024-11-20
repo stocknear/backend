@@ -125,6 +125,9 @@ stock_screener_data_dict = {item['symbol']: item for item in stock_screener_data
 #------End Stock Screener--------#
 
 
+etf_set, crypto_set = set(etf_symbols), set(crypto_symbols)
+
+
 ### TECH DEBT ###
 con = sqlite3.connect('stocks.db')
 etf_con = sqlite3.connect('etf.db')
@@ -1149,51 +1152,58 @@ async def get_analyst_ticke_history(data: TickerData, api_key: str = Security(ge
 
 @app.post("/indicator-data")
 async def get_indicator(data: IndicatorListData, api_key: str = Security(get_api_key)):
+    # Define default fields if none are provided
     rule_of_list = data.ruleOfList or ['volume', 'marketCap', 'changesPercentage', 'price', 'symbol', 'name']
     
-    # Ensure 'symbol' and 'name' are always included in the rule_of_list
-    if 'symbol' not in rule_of_list:
-        rule_of_list.append('symbol')
-    if 'name' not in rule_of_list:
-        rule_of_list.append('name')
-        
-    ticker_list = [t.upper() for t in data.tickerList]
+    # Ensure 'symbol' and 'name' are always included in rule_of_list
+    rule_of_list_set = set(rule_of_list).union({'symbol', 'name'})
+
+    # Convert ticker list to uppercase and filter existing symbols in stock_screener_data
+    ticker_list = set(map(str.upper, data.tickerList))
+    cache_key = f"indicator-data-{','.join(sorted(ticker_list))}-{','.join(sorted(rule_of_list_set))}"
+    
+    # Check if the result is cached
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
+    
+    # Prepare the result list and determine type
+    stock_screener_dict = {item['symbol']: item for item in stock_screener_data if item['symbol'] in ticker_list}
     combined_results = []
+    
+    # Process each ticker in the filtered stock_screener_dict
+    for ticker, ticker_data in stock_screener_dict.items():
+        # Determine the ticker type
+        ticker_type = (
+            'etf' if ticker in etf_set else 
+            'crypto' if ticker in crypto_set else 
+            'stock'
+        )
 
-    # Load quote data in parallel
-    quote_data = await asyncio.gather(*[load_json_async(f"json/quote/{ticker}.json") for ticker in ticker_list])
-    quote_dict = {ticker: data for ticker, data in zip(ticker_list, quote_data) if data}
-
-    # Categorize tickers and extract data
-    for ticker, quote in quote_dict.items():
-        ticker_type = 'stock'
-        if ticker in etf_symbols:
-            ticker_type = 'etf'
-        elif ticker in crypto_symbols:
-            ticker_type = 'crypto'
-
-        filtered_quote = {key: quote.get(key) for key in rule_of_list if key in quote}
-        filtered_quote['type'] = ticker_type
-        combined_results.append(filtered_quote)
-
-    # Fetch and merge data from stock_screener_data
-    screener_keys = [key for key in rule_of_list if key not in ['volume', 'marketCap', 'changesPercentage', 'price', 'symbol', 'name']]
-    if screener_keys:
-        screener_dict = {item['symbol']: {k: v for k, v in item.items() if k in screener_keys} for item in stock_screener_data}
-        for result in combined_results:
-            symbol = result.get('symbol')
-            if symbol in screener_dict:
-                result.update(screener_dict[symbol])
+        # Filter data according to rule_of_list and add the ticker type
+        filtered_data = {key: ticker_data.get(key) for key in rule_of_list_set}
+        filtered_data['type'] = ticker_type
+        combined_results.append(filtered_data)
 
     # Serialize and compress the response
     res = orjson.dumps(combined_results)
     compressed_data = gzip.compress(res)
+
+    # Cache the result
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 60)  # Cache expires after 1 minute
 
     return StreamingResponse(
         io.BytesIO(compressed_data),
         media_type="application/json",
         headers={"Content-Encoding": "gzip"}
     )
+
+
 @app.post("/get-watchlist")
 async def get_watchlist(data: GetWatchList, api_key: str = Security(get_api_key)):
     data = data.dict()
