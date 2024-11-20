@@ -207,6 +207,13 @@ async def openapi(username: str = Depends(get_current_username)):
 class TickerData(BaseModel):
     ticker: str
 
+class GeneralData(BaseModel):
+    params: str
+
+class ParamsData(BaseModel):
+    params: str
+    category: str
+
 class MarketNews(BaseModel):
     newsType: str
 
@@ -320,8 +327,6 @@ class HistoricalDate(BaseModel):
 class OptionsWatchList(BaseModel):
     optionsIdList: list
 
-class ParamsData(BaseModel):
-    params: str
 
 # Replace NaN values with None in the resulting JSON object
 def replace_nan_inf_with_none(obj):
@@ -609,9 +614,10 @@ async def get_similar_etfs(data: TickerData, api_key: str = Security(get_api_key
     return result
 
 
-@app.get("/market-movers")
-async def get_market_movers(api_key: str = Security(get_api_key)):
-    cache_key = f"get-market-movers"
+@app.post("/market-movers")
+async def get_market_movers(data: GeneralData, api_key: str = Security(get_api_key)):
+    params = data.params
+    cache_key = f"market-movers-{params}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
         return StreamingResponse(
@@ -620,7 +626,7 @@ async def get_market_movers(api_key: str = Security(get_api_key)):
             headers={"Content-Encoding": "gzip"}
         )
     try:
-        with open(f"json/market-movers/data.json", 'rb') as file:
+        with open(f"json/market-movers/markethours/{params}.json", 'rb') as file:
             res = orjson.loads(file.read())
     except:
         res = []
@@ -3890,7 +3896,8 @@ async def get_statistics(data: FilterStockList, api_key: str = Security(get_api_
 @app.post("/pre-after-market-movers")
 async def get_statistics(data: ParamsData, api_key: str = Security(get_api_key)):
     params = data.params
-    cache_key = f"pre-after-market-movers-{params}"
+    category = data.category
+    cache_key = f"pre-after-market-movers-{category}-{params}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
         return StreamingResponse(
@@ -3899,19 +3906,12 @@ async def get_statistics(data: ParamsData, api_key: str = Security(get_api_key))
             headers={"Content-Encoding": "gzip"}
         )
 
-    if params == 'premarket':
-        try:
-            with open(f"json/market-movers/premarket.json", 'rb') as file:
-                res = orjson.loads(file.read())
-        except:
-            res = {'gainers': [], 'losers': []}
-    elif params == 'afterhours':
-        try:
-            with open(f"json/market-movers/afterhours.json", 'rb') as file:
-                res = orjson.loads(file.read())
-        except:
-            res = {'gainers': [], 'losers': []}
-
+    try:
+        with open(f"json/market-movers/{category}/{params}.json", 'rb') as file:
+            res = orjson.loads(file.read())
+    except:
+        res = {'gainers': [], 'losers': []}
+        
     data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
 

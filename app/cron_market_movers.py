@@ -409,8 +409,9 @@ try:
 
     
     data = asyncio.run(get_gainer_loser_active_stocks(symbols))
-    with open(f"json/market-movers/data.json", 'w') as file:
-        file.write(orjson.dumps(data).decode("utf-8"))
+    for category in data.keys():
+        with open(f"json/market-movers/markethours/{category}.json", 'w') as file:
+            file.write(orjson.dumps(data[category]).decode("utf-8"))
     
     data = asyncio.run(get_historical_data())
     with open(f"json/mini-plots-index/data.json", 'w') as file:
@@ -418,11 +419,13 @@ try:
     
     data = asyncio.run(get_pre_after_market_movers(symbols))
     if market_status == 1:
-        with open(f"json/market-movers/premarket.json", 'w') as file:
-            file.write(orjson.dumps(data).decode("utf-8"))
+        for category in data.keys():
+            with open(f"json/market-movers/premarket/{category}.json", 'w') as file:
+                file.write(orjson.dumps(data[category]).decode("utf-8"))
     elif market_status == 2:
-        with open(f"json/market-movers/afterhours.json", 'w') as file:
-            file.write(orjson.dumps(data).decode("utf-8"))
+        for category in data.keys():
+            with open(f"json/market-movers/afterhours/{category}.json", 'w') as file:
+                file.write(orjson.dumps(data[category]).decode("utf-8"))
 
     con.close()
 except Exception as e:

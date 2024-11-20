@@ -322,30 +322,40 @@ async def run():
 
 
 		market_status = check_market_hours()
-		print(market_status)
 		if market_status == 0:
 			try:
-				with open(f"json/market-movers/data.json", 'r') as file:
-					data = ujson.load(file)
-					market_movers = {'gainers': data['gainers']['1D'][:5], 'losers': data['losers']['1D'][:5]}
+				with open(f"json/market-movers/markethours/gainers.json", 'r') as file:
+					gainers = ujson.load(file)
+				with open(f"json/market-movers/markethours/losers.json", 'r') as file:
+					losers = ujson.load(file)
+				market_movers = {'gainers': gainers['1D'][:5], 'losers': losers['1D'][:5]}
 			except:
 				market_movers = {}
 		elif market_status == 1:
 			try:
-				with open(f"json/market-movers/premarket.json", 'r') as file:
+				with open(f"json/market-movers/premarket/gainers.json", 'r') as file:
 					data = ujson.load(file)
-					gainers = [{ 'symbol': item['symbol'], 'name': item['name'], 'price': item['price'], 'changesPercentage': item['changesPercentage']} for item in data['gainers'][:5]]
-					losers = [{ 'symbol': item['symbol'], 'name': item['name'], 'price': item['price'], 'changesPercentage': item['changesPercentage']} for item in data['losers'][:5]]
-					market_movers={'gainers': gainers, 'losers': losers}
+					gainers = [{ 'symbol': item['symbol'], 'name': item['name'], 'price': item['price'], 'changesPercentage': item['changesPercentage']} for item in data[:5]]
+
+				with open(f"json/market-movers/premarket/losers.json", 'r') as file:
+					data = ujson.load(file)
+					losers = [{ 'symbol': item['symbol'], 'name': item['name'], 'price': item['price'], 'changesPercentage': item['changesPercentage']} for item in data[:5]]
+		
+				market_movers={'gainers': gainers, 'losers': losers}
 			except:
 				market_movers = {}
 		elif market_status == 2:
 			try:
-				with open(f"json/market-movers/afterhours.json", 'r') as file:
+				with open(f"json/market-movers/afterhours/gainers.json", 'r') as file:
 					data = ujson.load(file)
-					gainers = [{ 'symbol': item['symbol'], 'name': item['name'], 'price': item['price'], 'changesPercentage': item['changesPercentage']} for item in data['gainers'][:5]]
-					losers = [{ 'symbol': item['symbol'], 'name': item['name'], 'price': item['price'], 'changesPercentage': item['changesPercentage']} for item in data['losers'][:5]]
-					market_movers={'gainers': gainers, 'losers': losers}
+					gainers = [{ 'symbol': item['symbol'], 'name': item['name'], 'price': item['price'], 'changesPercentage': item['changesPercentage']} for item in data[:5]]
+
+				with open(f"json/market-movers/afterhours/losers.json", 'r') as file:
+					data = ujson.load(file)
+					losers = [{ 'symbol': item['symbol'], 'name': item['name'], 'price': item['price'], 'changesPercentage': item['changesPercentage']} for item in data[:5]]
+	
+				market_movers={'gainers': gainers, 'losers': losers}
+
 			except:
 				market_movers = {}
 
