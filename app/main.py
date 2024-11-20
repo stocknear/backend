@@ -1169,15 +1169,20 @@ async def get_indicator(data: IndicatorListData, api_key: str = Security(get_api
 
     # Categorize tickers and extract data
     for ticker, quote in quote_dict.items():
-        ticker_type = 'stock'
-        if ticker in etf_symbols:
-            ticker_type = 'etf'
-        elif ticker in crypto_symbols:
-            ticker_type = 'crypto'
+        # Determine the ticker type based on the sets
+        ticker_type = (
+            'etf' if ticker in etf_symbols else 
+            'crypto' if ticker in crypto_symbols else 
+            'stock'
+        )
 
+        # Filter the quote based on keys in rule_of_list
         filtered_quote = {key: quote.get(key) for key in rule_of_list if key in quote}
         filtered_quote['type'] = ticker_type
+
+        # Add the result to combined_results
         combined_results.append(filtered_quote)
+
 
     # Fetch and merge data from stock_screener_data
     screener_keys = [key for key in rule_of_list if key not in ['volume', 'marketCap', 'changesPercentage', 'price', 'symbol', 'name']]
