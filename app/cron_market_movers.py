@@ -289,13 +289,13 @@ async def get_gainer_loser_active_stocks(symbols):
 
     #Get the latest quote of all unique symbol and map it back to the original data list to update all values
 
-    '''
+    
     latest_quote = await get_quote_of_stocks(unique_symbols_list)
     # Updating values in the data list based on matching symbols from the quote list
     for category in data.keys():
         # Only proceed if the time period is "1D"
         for time_period in data[category].keys():
-            if time_period != "1D":
+            if time_period == "1D":
                 for stock_data in data[category][time_period]:
                     symbol = stock_data["symbol"]
                     quote_stock = next((item for item in latest_quote if item["symbol"] == symbol), None)
@@ -304,7 +304,7 @@ async def get_gainer_loser_active_stocks(symbols):
                         stock_data['changesPercentage'] = quote_stock['changesPercentage']
                         stock_data['marketCap'] = quote_stock['marketCap']
                         stock_data['volume'] = quote_stock['volume']
-    '''
+    
     
     return data 
 
