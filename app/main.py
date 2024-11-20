@@ -1159,10 +1159,10 @@ async def get_indicator(data: IndicatorListData, api_key: str = Security(get_api
         rule_of_list.append('symbol')
     if 'name' not in rule_of_list:
         rule_of_list.append('name')
-        
-    ticker_list = [t.upper() for t in data.tickerList]
-    combined_results = []
+    
+    ticker_list = [t.upper() for t in data.tickerList if t is not None]
 
+    combined_results = []
     # Load quote data in parallel
     quote_data = await asyncio.gather(*[load_json_async(f"json/quote/{ticker}.json") for ticker in ticker_list])
     quote_dict = {ticker: data for ticker, data in zip(ticker_list, quote_data) if data}
@@ -1389,6 +1389,7 @@ async def brownian_motion(data:TickerData, api_key: str = Security(get_api_key))
 @app.post("/stock-screener-data")
 async def stock_finder(data:StockScreenerData, api_key: str = Security(get_api_key)):
     rule_of_list = sorted(data.ruleOfList)
+
     cache_key = f"stock-screener-data-{rule_of_list}"
     cached_result = redis_client.get(cache_key)
     if cached_result:

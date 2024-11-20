@@ -17,8 +17,6 @@ job_status = {
     'options_flow_job': {'running': False},
 }
 
-useast_ip_address = os.getenv('USEAST_IP_ADDRESS')
-
 
 # Setup logging
 '''
@@ -186,48 +184,12 @@ def run_db_schedule_job():
         run_command(["bash", "run_universe.sh"])
 
 
-def run_dark_pool():
-    week = datetime.today().weekday()
-    if week <= 5:
-        run_command(["python3", "cron_dark_pool.py"])
-
-
-def run_dark_pool_flow():
-    week = datetime.today().weekday()
-    if week <= 5:
-        run_command(["python3", "cron_dark_pool_flow.py"])
-
-def run_market_maker():
-    run_command(["python3", "cron_market_maker.py"])
-
 def run_ownership_stats():
     week = datetime.today().weekday()
     if week <= 5:
         run_command(["python3", "cron_ownership_stats.py"])
 
-def run_clinical_trial():
-    week = datetime.today().weekday()
-    if week <= 5:
-        run_command(["python3", "cron_clinical_trial.py"])
 
-def run_fda_calendar():
-    week = datetime.today().weekday()
-    if week <= 5:
-        run_command(["python3", "cron_fda_calendar.py"])
-
-def run_borrowed_share():
-    run_command(["python3", "cron_borrowed_share.py"])
-
-'''
-def run_implied_volatility():
-    run_command(["python3", "cron_implied_volatility.py"])
-    command = [
-        "sudo", "rsync", "-avz", "-e", "ssh",
-        "/root/backend/app/json/implied-volatility",
-        f"root@{useast_ip_address}:/root/backend/app/json"
-    ]
-    run_command(command)
-'''
 
 def run_options_net_flow():
     run_command(["python3", "cron_options_net_flow.py"])
@@ -236,10 +198,6 @@ def run_options_gex():
     run_command(["python3", "cron_options_gex.py"])
     run_command(["python3", "cron_options_historical_flow.py"])
     
-
-
-def run_government_contract():
-    run_command(["python3", "cron_government_contract.py"])
 
 def run_hedge_fund():
     run_command(["python3", "cron_hedge_funds.py"])
@@ -282,17 +240,12 @@ def run_market_cap():
     run_command(["python3", "cron_market_cap.py"])
 
 
-
 def run_dividends():
     run_command(["python3", "cron_dividends.py"])
 
 
 def run_earnings():
     run_command(["python3", "cron_earnings.py"])
-
-
-def run_fomc_impact():
-    run_command(["python3", "cron_fomc_impact.py"])
 
 
 def run_economy_indicator():
@@ -323,7 +276,6 @@ def run_threaded(job_func):
 
 schedule.every().day.at("01:00").do(run_threaded, run_options_bubble_ticker).tag('options_ticker_job')
 schedule.every().day.at("02:00").do(run_threaded, run_db_schedule_job)
-schedule.every().day.at("03:00").do(run_threaded, run_dark_pool)
 schedule.every().day.at("05:00").do(run_threaded, run_options_gex).tag('options_gex_job')
 schedule.every().day.at("05:00").do(run_threaded, run_export_price).tag('export_price_job')
 
@@ -333,16 +285,13 @@ schedule.every().day.at("06:30").do(run_threaded, run_ai_score).tag('ai_score_jo
 
 schedule.every().day.at("07:00").do(run_threaded, run_ta_rating).tag('ta_rating_job')
 schedule.every().day.at("09:00").do(run_threaded, run_hedge_fund).tag('hedge_fund_job')
-schedule.every().day.at("07:30").do(run_threaded, run_government_contract).tag('government_contract_job')
 schedule.every().day.at("07:30").do(run_threaded, run_financial_statements).tag('financial_statements_job')
 schedule.every().day.at("08:00").do(run_threaded, run_economy_indicator).tag('economy_indicator_job')
 schedule.every().day.at("08:00").do(run_threaded, run_cron_insider_trading).tag('insider_trading_job')
 schedule.every().day.at("08:30").do(run_threaded, run_dividends).tag('dividends_job')
-schedule.every().day.at("08:30").do(run_threaded, run_fomc_impact).tag('fomc_impact_job')
 schedule.every().day.at("10:00").do(run_threaded, run_shareholders).tag('shareholders_job')
 schedule.every().day.at("10:30").do(run_threaded, run_sec_filings).tag('sec_filings_job')
 schedule.every().day.at("11:00").do(run_threaded, run_executive).tag('executive_job')
-schedule.every().day.at("11:45").do(run_threaded, run_clinical_trial).tag('clinical_trial_job')
 schedule.every().day.at("12:00").do(run_threaded, run_market_cap).tag('market_cap_josb')
 
 #schedule.every().day.at("05:00").do(run_threaded, run_implied_volatility).tag('implied_volatility_job')
@@ -354,7 +303,6 @@ schedule.every().day.at("14:00").do(run_threaded, run_cron_var).tag('var_job')
 schedule.every().day.at("14:00").do(run_threaded, run_cron_sector).tag('sector_job')
 
 
-schedule.every(2).days.at("01:00").do(run_threaded, run_market_maker).tag('markt_maker_job')
 schedule.every(2).days.at("08:30").do(run_threaded, run_financial_score).tag('financial_score_job')
 schedule.every().saturday.at("05:00").do(run_threaded, run_ownership_stats).tag('ownership_stats_job')
 schedule.every().saturday.at("06:00").do(run_threaded, run_sentiment_analysis).tag('sentiment_analysis_job')
@@ -367,7 +315,7 @@ schedule.every(15).minutes.do(run_threaded, run_cron_market_news).tag('market_ne
 schedule.every(30).minutes.do(run_threaded, run_cron_industry).tag('industry_job')
 
 schedule.every(7).minutes.do(run_threaded, run_one_day_price).tag('one_day_price_job')
-schedule.every(15).minutes.do(run_threaded, run_cron_heatmap).tag('heatmap_job')
+#schedule.every(15).minutes.do(run_threaded, run_cron_heatmap).tag('heatmap_job')
 
 
 schedule.every(10).minutes.do(run_threaded, run_tracker).tag('tracker_job')
@@ -375,12 +323,9 @@ schedule.every(10).minutes.do(run_threaded, run_tracker).tag('tracker_job')
 
 schedule.every(15).minutes.do(run_threaded, run_market_moods).tag('market_moods_job')
 schedule.every(10).minutes.do(run_threaded, run_earnings).tag('earnings_job')
-#schedule.every(10).minutes.do(run_threaded, run_dark_pool_flow).tag('dark_pool_flow_job')
 
-#schedule.every(2).hours.do(run_threaded, run_fda_calendar).tag('fda_calendar_job')
 schedule.every(3).hours.do(run_threaded, run_options_net_flow).tag('options_net_flow_job')
 #schedule.every(4).hours.do(run_threaded, run_share_statistics).tag('share_statistics_job')
-#schedule.every(2).days.at("01:00").do(run_borrowed_share).tag('borrowed_share_job')
 
 schedule.every(3).hours.do(run_threaded, run_analyst_rating).tag('analyst_job')
 
