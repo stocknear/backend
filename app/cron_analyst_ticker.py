@@ -46,8 +46,8 @@ def get_summary(res_list):
    
 
    
-    # Filter the data for the last 12 months
-    filtered_data = [item for item in res_list if start_date_12m <= datetime.strptime(item['date'], '%Y-%m-%d').date() <= end_date]
+    # Filter the data for the last 12 months and consider the last N ratings
+    filtered_data = [item for item in res_list if start_date_12m <= datetime.strptime(item['date'], '%Y-%m-%d').date() <= end_date][:30]
 
 
     # Initialize dictionary to store the latest price target for each analyst
