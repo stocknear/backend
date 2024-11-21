@@ -27,21 +27,27 @@ query_template = """
 end_date = datetime.today().date()
 start_date_12m = end_date - timedelta(days=365)
 
-def remove_duplicate_names(data):
-    # Create a dictionary to store the latest entry for each unique name
-    unique_entries = {}
+def filter_latest_entries(data):
+    latest_entries = {}
     
     for entry in data:
-        current_name = entry['name']
-        current_date = entry['date']
-        
-        # If the name doesn't exist or the current entry has a more recent date
-        if (current_name not in unique_entries or 
-            current_date > unique_entries[current_name]['date']):
-            unique_entries[current_name] = entry
-    
-    # Convert the dictionary values back to a list
-    return list(unique_entries.values())
+        try:
+            # Combine 'analyst' and 'name' to create a unique key
+            key = (entry['analyst'], entry['name'])
+            
+            # Convert date to a comparable format (datetime object)
+            date_time_str = f"{entry['date']} {entry['time']}"
+            date_time = datetime.strptime(date_time_str, '%Y-%m-%d %H:%M:%S')
+            
+            # If this combination is not in latest_entries or if it's a newer date, update the dictionary
+            if key not in latest_entries or date_time > latest_entries[key][0]:
+                latest_entries[key] = (date_time, entry)
+        except Exception as e:
+            print(f"Error processing entry: {e}")
+            pass
+
+    # Return only the latest entries
+    return [entry for _, entry in latest_entries.values()]
 
 # Example usage
 # filtered_list = remove_duplicate_names(your_original_list)
@@ -68,8 +74,9 @@ def get_summary(res_list):
 
    
     # Filter the data for the last 12 months and consider the last N ratings
+    #Furthermore consider only the last rating of the analyst if he provided multiple in the last 12 months
     filtered_data = [item for item in res_list if start_date_12m <= datetime.strptime(item['date'], '%Y-%m-%d').date() <= end_date]
-    filtered_data = remove_duplicate_names(filtered_data)[:30]
+    filtered_data = filter_latest_entries(filtered_data)[:30]
 
     # Initialize dictionary to store the latest price target for each analyst
     latest_pt_current = defaultdict(list)
@@ -330,7 +337,7 @@ try:
     chunk_size = len(stock_symbols) // 100  # Divide the list into N chunks
 
     chunks = [stock_symbols[i:i + chunk_size] for i in range(0, len(stock_symbols), chunk_size)]
-    #chunks = [['GME']]
+    #chunks = [['NVDA']]
     for chunk in chunks:
         run(chunk, analyst_stats_list, con)
 
