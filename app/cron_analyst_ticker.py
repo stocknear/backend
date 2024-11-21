@@ -27,6 +27,27 @@ query_template = """
 end_date = datetime.today().date()
 start_date_12m = end_date - timedelta(days=365)
 
+def remove_duplicate_names(data):
+    # Create a dictionary to store the latest entry for each unique name
+    unique_entries = {}
+    
+    for entry in data:
+        current_name = entry['name']
+        current_date = entry['date']
+        
+        # If the name doesn't exist or the current entry has a more recent date
+        if (current_name not in unique_entries or 
+            current_date > unique_entries[current_name]['date']):
+            unique_entries[current_name] = entry
+    
+    # Convert the dictionary values back to a list
+    return list(unique_entries.values())
+
+# Example usage
+# filtered_list = remove_duplicate_names(your_original_list)
+# Example usage
+# filtered_list = remove_duplicate_ids(your_original_list)
+
 
 # Define a function to remove duplicates based on a key
 def remove_duplicates(data, key):
@@ -47,8 +68,8 @@ def get_summary(res_list):
 
    
     # Filter the data for the last 12 months and consider the last N ratings
-    filtered_data = [item for item in res_list if start_date_12m <= datetime.strptime(item['date'], '%Y-%m-%d').date() <= end_date][:30]
-
+    filtered_data = [item for item in res_list if start_date_12m <= datetime.strptime(item['date'], '%Y-%m-%d').date() <= end_date]
+    filtered_data = remove_duplicate_names(filtered_data)[:30]
 
     # Initialize dictionary to store the latest price target for each analyst
     latest_pt_current = defaultdict(list)
@@ -309,7 +330,7 @@ try:
     chunk_size = len(stock_symbols) // 100  # Divide the list into N chunks
 
     chunks = [stock_symbols[i:i + chunk_size] for i in range(0, len(stock_symbols), chunk_size)]
-    #chunks = [['CUBI']]
+    #chunks = [['GME']]
     for chunk in chunks:
         run(chunk, analyst_stats_list, con)
 
