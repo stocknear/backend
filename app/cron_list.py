@@ -88,7 +88,7 @@ async def get_etf_holding(etf_symbols, etf_con):
         try:
             # Load holdings data from the SQL query result
             data = orjson.loads(df['holding'].iloc[0])
-            
+            last_update = data[0]['updated'][0:10]
             # Rename 'asset' to 'symbol' and keep other keys the same
             res = [{'symbol': item['asset'], 
                     'weightPercentage': item['weightPercentage'], 
@@ -117,7 +117,7 @@ async def get_etf_holding(etf_symbols, etf_con):
                 item['name'] = quote_data.get('name') if quote_data else None
 
         except Exception as e:
-            print(e)
+            last_update = None
             res = []
 
         # Save results to a file if there's data to write
@@ -125,7 +125,8 @@ async def get_etf_holding(etf_symbols, etf_con):
             for rank, item in enumerate(res, 1):
                 item['rank'] = rank
             with open(f"json/etf/holding/{ticker}.json", 'wb') as file:
-                file.write(orjson.dumps(res))
+                final_res = {'lastUpdate': last_update, 'holdings': res}
+                file.write(orjson.dumps(final_res))
 
 
 async def get_etf_provider(etf_con):
