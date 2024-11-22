@@ -48,8 +48,17 @@ data_changed = False
 subreddit = reddit.subreddit("wallstreetbets")
 
 # Iterate through new submissions
-for submission in subreddit.new(limit=1000):
+for submission in subreddit.hot(limit=1000):
     post_id = submission.id
+    
+    # Check if the post was deleted by moderators
+    if submission.removed_by_category == "mod":
+        # Remove post from existing data if it was deleted by moderators
+        if post_id in existing_posts:
+            del existing_posts[post_id]
+            data_changed = True
+        continue  # Skip this post
+
     # Check if this post is already in our data
     if post_id in existing_posts:
         # Update existing post
@@ -57,14 +66,20 @@ for submission in subreddit.new(limit=1000):
         existing_posts[post_id]['num_comments'] = submission.num_comments
         data_changed = True
     else:
+        # Try to get a high-quality thumbnail URL
+        thumbnail = None
+        if hasattr(submission, 'preview'):
+            thumbnail = submission.preview['images'][0]['source']['url']
+        
         # Extract the required fields for new post
         extracted_post = {
             "id": post_id,
             "permalink": submission.permalink,
             "title": submission.title,
+            "thumbnail": thumbnail,
             "selftext": submission.selftext,
             "created_utc": int(submission.created_utc),
-            "upvote_ratio": submission.upvote_ratio,
+            "upvote_ratio": round(submission.upvote_ratio * 100, 2),
             "num_comments": submission.num_comments,
             "link_flair_text": submission.link_flair_text,
             "author": str(submission.author),
@@ -73,7 +88,6 @@ for submission in subreddit.new(limit=1000):
         # Add the new post to the existing data
         existing_posts[post_id] = extracted_post
         data_changed = True
-
 
 if data_changed:
     # Convert the dictionary back to a list and sort by created_utc

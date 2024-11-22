@@ -123,58 +123,72 @@ def compute_daily_statistics(file_path):
 
 def compute_trending_tickers(daily_stats):
     today = datetime.now().date()
-    seven_days_ago = today - timedelta(days=14)
-    
-    trending = defaultdict(lambda: {'total': 0, 'PUT': 0, 'CALL': 0, 'sentiment': []})
-    
-    for date, stats in daily_stats.items():
-        if seven_days_ago <= date <= today:
-            for ticker, counts in stats['ticker_mentions'].items():
-                trending[ticker]['total'] += counts['total']
-                trending[ticker]['PUT'] += counts['PUT']
-                trending[ticker]['CALL'] += counts['CALL']
-                trending[ticker]['sentiment'].extend(counts['sentiment'])
-    
-    trending_list = [
-        {
-            'symbol': symbol,
-            'count': counts['total'],
-            'put': counts['PUT'],
-            'call': counts['CALL'],
-            'avgSentiment': round(sum(counts['sentiment']) / len(counts['sentiment']),2) if counts['sentiment'] else 0
-        }
-        for symbol, counts in trending.items() if symbol in total_symbols
-    ]
-    trending_list.sort(key=lambda x: x['count'], reverse=True)
+    period_list = [2,7,30,90]
+    res_dict = {}
 
-    for item in trending_list:
-        symbol = item['symbol']
-        try:
-            with open(f'json/quote/{symbol}.json') as f:
-                data = json.load(f)
-                name = data['name']
-                price = round(data['price'],2)
-                changes_percentage = round(data['changesPercentage'],2)
-        except Exception as e:
-            print(e)
-            name = None
-            price = None
-            changes_percentage = None
+    for time_period in period_list:
+        res_list = []
 
-        if symbol in stock_symbols:
-            item['assetType'] = 'stocks'
-            item['name'] = name
-            item['price'] = price
-            item['changesPercentage'] = changes_percentage
-        elif symbol in etf_symbols:
-            item['assetType'] = 'etf'
-            item['name'] = name
-            item['price'] = price
-            item['changesPercentage'] = changes_percentage
-        else:
-            item['assetType'] = ''
-    
-    return trending_list
+        N_day_ago = today - timedelta(days=time_period)
+        
+        trending = defaultdict(lambda: {'total': 0, 'PUT': 0, 'CALL': 0, 'sentiment': []})
+        
+        for date, stats in daily_stats.items():
+            if N_day_ago <= date <= today:
+                for ticker, counts in stats['ticker_mentions'].items():
+                    trending[ticker]['total'] += counts['total']
+                    trending[ticker]['PUT'] += counts['PUT']
+                    trending[ticker]['CALL'] += counts['CALL']
+                    trending[ticker]['sentiment'].extend(counts['sentiment'])
+        
+        res_list = [
+            {
+                'symbol': symbol,
+                'count': counts['total'],
+                'put': counts['PUT'],
+                'call': counts['CALL'],
+                'avgSentiment': round(sum(counts['sentiment']) / len(counts['sentiment']),2) if counts['sentiment'] else 0
+            }
+            for symbol, counts in trending.items() if symbol in total_symbols
+        ]
+        res_list.sort(key=lambda x: x['count'], reverse=True)
+
+        for item in res_list:
+            symbol = item['symbol']
+            try:
+                with open(f'json/quote/{symbol}.json') as f:
+                    data = json.load(f)
+                    name = data['name']
+                    price = round(data['price'],2)
+                    changes_percentage = round(data['changesPercentage'],2)
+            except Exception as e:
+                print(e)
+                name = None
+                price = None
+                changes_percentage = None
+
+            if symbol in stock_symbols:
+                item['assetType'] = 'stocks'
+                item['name'] = name
+                item['price'] = price
+                item['changesPercentage'] = changes_percentage
+            elif symbol in etf_symbols:
+                item['assetType'] = 'etf'
+                item['name'] = name
+                item['price'] = price
+                item['changesPercentage'] = changes_percentage
+            else:
+                item['assetType'] = ''
+
+        if time_period == 2:
+            res_dict['oneDay'] = res_list
+        elif time_period == 7:
+            res_dict['oneWeek'] = res_list
+        elif time_period == 30:
+            res_dict['oneMonth'] = res_list
+        elif time_period == 90:
+            res_dict['threeMonths'] = res_list
+    return res_dict
 
 # Usage
 file_path = 'json/reddit-tracker/wallstreetbets/data.json'
