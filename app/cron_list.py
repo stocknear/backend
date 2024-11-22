@@ -81,45 +81,54 @@ async def process_category(cursor, category, condition, category_type='market-ca
 
 
 async def get_etf_holding(etf_symbols, etf_con):
+    etf_symbols = ['AGG']
+
     for ticker in tqdm(etf_symbols):
         res = []
         df = pd.read_sql_query(query_etf_holding, etf_con, params=(ticker,))
-
         try:
             # Load holdings data from the SQL query result
             data = orjson.loads(df['holding'].iloc[0])
             last_update = data[0]['updated'][0:10]
             # Rename 'asset' to 'symbol' and keep other keys the same
-            res = [{'symbol': item['asset'], 
-                    'weightPercentage': item['weightPercentage'], 
-                    'sharesNumber': item['sharesNumber']} 
-                   for item in data]
-            
+            res = [
+                {
+                    'symbol': item.get('asset', None),
+                    'name': item.get('name', None).capitalize() if item.get('name') else None,
+                    'weightPercentage': item.get('weightPercentage', None),
+                    'sharesNumber': item.get('marketValue', None) if not item.get('asset') and item.get('sharesNumber') == 0 else item.get('sharesNumber', None)
+                }
+                for item in data
+                if item.get('marketValue', 0) >= 0  # Exclude items with a negative marketValue
+            ]
+
             for item in res:
-                symbol = item['symbol']
-                
-                # Check if the symbol data is already in the cache
-                if symbol in quote_cache:
-                    quote_data = quote_cache[symbol]
-                else:
-                    # Load the quote data from file if not in cache
-                    try:
-                        with open(f"json/quote/{symbol}.json") as file:
-                            quote_data = orjson.loads(file.read())
-                            quote_cache[symbol] = quote_data  # Cache the loaded data
-                    except:
-                        quote_data = None
+                try:
+                    symbol = item['symbol']
+                    
+                    # Check if the symbol data is already in the cache
+                    if symbol in quote_cache:
+                        quote_data = quote_cache[symbol]
+                    else:
+                        # Load the quote data from file if not in cache
+                        try:
+                            with open(f"json/quote/{symbol}.json") as file:
+                                quote_data = orjson.loads(file.read())
+                                quote_cache[symbol] = quote_data  # Cache the loaded data
+                                item['price'] = round(quote_data.get('price'), 2) if quote_data else None
+                                item['changesPercentage'] = round(quote_data.get('changesPercentage'), 2) if quote_data else None
+                                item['name'] = quote_data.get('name') if quote_data else None
+                        except:
+                            quote_data = None
+                except:
+                    pass
 
                 # Assign price and changesPercentage if available, otherwise set to None
                 item['weightPercentage'] = round(item.get('weightPercentage'), 2) if item['weightPercentage'] else None
-                item['price'] = round(quote_data.get('price'), 2) if quote_data else None
-                item['changesPercentage'] = round(quote_data.get('changesPercentage'), 2) if quote_data else None
-                item['name'] = quote_data.get('name') if quote_data else None
 
         except Exception as e:
             last_update = None
             res = []
-
         # Save results to a file if there's data to write
         if res:
             for rank, item in enumerate(res, 1):
