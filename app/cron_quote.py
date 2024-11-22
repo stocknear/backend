@@ -10,6 +10,8 @@ import os
 load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
 
+ny_timezone = pytz.timezone("America/New_York")
+
 
 # Function to delete all files in a directory
 def delete_files_in_directory(directory):
@@ -66,7 +68,9 @@ async def save_pre_post_quote_as_json(symbol, data):
             changes_percentage = round((data['price']/previous_close-1)*100,2)
         if exchange in ['NASDAQ','AMEX','NYSE']:
             with open(f"json/pre-post-quote/{symbol}.json", 'w') as file:
-                res = {'symbol': symbol, 'price': round(data['price'],2), 'changesPercentage': changes_percentage, 'time': data['timestamp']}
+                dt = datetime.fromtimestamp(data['timestamp']/1000, ny_timezone)
+                formatted_date = dt.strftime("%b %d, %Y, %I:%M %p %Z")
+                res = {'symbol': symbol, 'price': round(data['price'],2), 'changesPercentage': changes_percentage, 'time': formatted_date}
                 file.write(orjson.dumps(res).decode())
     except Exception as e:
         pass
