@@ -221,48 +221,53 @@ def run(chunk, analyst_list, con):
             ticker_filtered_data = [item for item in res_list if item['ticker'] == ticker]
             if len(ticker_filtered_data) != 0:
                 for item in ticker_filtered_data:
-                    if item['rating_current'] == 'Strong Sell' or item['rating_current'] == 'Strong Buy':
+                    try:
+                        if item['rating_current'] == 'Strong Sell' or item['rating_current'] == 'Strong Buy':
+                            pass
+                        elif item['rating_current'] == 'Accumulate' and item['rating_prior'] == 'Buy':
+                            item['rating_current'] = 'Buy'
+                        elif item['rating_current'] == 'Neutral':
+                            item['rating_current'] = 'Hold'
+                        elif item['rating_current'] == 'Equal-Weight' or item['rating_current'] == 'Sector Weight' or item['rating_current'] == 'Sector Perform':
+                            item['rating_current'] = 'Hold'
+                        elif item['rating_current'] == 'In-Line':
+                            item['rating_current'] = 'Hold'
+                        elif item['rating_current'] == 'Outperform' and item['action_company'] == 'Downgrades':
+                            item['rating_current'] = 'Hold'
+                        elif item['rating_current'] == 'Negative':
+                            item['rating_current'] = 'Sell'
+                        elif (item['rating_current'] == 'Outperform' or item['rating_current'] == 'Overweight') and (item['action_company'] == 'Reiterates' or item['action_company'] == 'Initiates Coverage On'):
+                            item['rating_current'] = 'Buy'
+                            item['action_company'] = 'Initiates'
+                        elif item['rating_current'] == 'Market Outperform' and (item['action_company'] == 'Maintains' or item['action_company'] == 'Reiterates'):
+                            item['rating_current'] = 'Buy'
+                        elif item['rating_current'] == 'Outperform' and (item['action_company'] == 'Maintains' or item['action_pt'] == 'Announces' or item['action_company'] == 'Upgrades'):
+                            item['rating_current'] = 'Buy'
+                        elif item['rating_current'] == 'Buy' and (item['action_company'] == 'Raises' or item['action_pt'] == 'Raises'):
+                            item['rating_current'] = 'Strong Buy'
+                        elif item.get("rating_prior",None) == "Buy" and item.get("rating_current",None) == "Buy" and (float(item.get("adjusted_pt_prior", 0)) < float(item.get('adjusted_pt_current', 0))):
+                            item["rating_current"] = "Strong Buy"
+                        elif item['rating_current'] == 'Overweight' and (item['action_company'] == 'Maintains' or item['action_company'] == 'Upgrades' or item['action_company'] == 'Reiterates' or item['action_pt'] == 'Raises'):
+                            item['rating_current'] = 'Buy'
+                        elif item['rating_current'] == 'Positive' or item['rating_current'] == 'Sector Outperform':
+                            item['rating_current'] = 'Buy'
+                        elif item['rating_current'] == 'Underperform' or item['rating_current'] == 'Underweight':
+                            item['rating_current'] = 'Sell'
+                        elif item['rating_current'] == 'Reduce' and (item['action_company'] == 'Downgrades' or item['action_pt'] == 'Lowers'):
+                            item['rating_current'] = 'Sell'
+                        elif item['rating_current'] == 'Sell' and item['action_pt'] == 'Announces':
+                            item['rating_current'] = 'Strong Sell'
+                        elif item['rating_current'] == 'Market Perform':
+                            item['rating_current'] = 'Hold'
+                        elif item['rating_prior'] == 'Outperform' and item['action_company'] == 'Downgrades':
+                            item['rating_current'] = 'Hold'
+                        elif item['rating_current'] == 'Peer Perform' and item['rating_prior'] == 'Peer Perform':
+                            item['rating_current'] = 'Hold'
+                        elif item['rating_current'] == 'Peer Perform' and item['action_pt'] == 'Announces':
+                            item['rating_current'] = 'Hold'
+                            item['action_company'] = 'Initiates'
+                    except:
                         pass
-                    elif item['rating_current'] == 'Accumulate' and item['rating_prior'] == 'Buy':
-                        item['rating_current'] = 'Buy'
-                    elif item['rating_current'] == 'Neutral':
-                        item['rating_current'] = 'Hold'
-                    elif item['rating_current'] == 'Equal-Weight' or item['rating_current'] == 'Sector Weight' or item['rating_current'] == 'Sector Perform':
-                        item['rating_current'] = 'Hold'
-                    elif item['rating_current'] == 'In-Line':
-                        item['rating_current'] = 'Hold'
-                    elif item['rating_current'] == 'Outperform' and item['action_company'] == 'Downgrades':
-                        item['rating_current'] = 'Hold'
-                    elif item['rating_current'] == 'Negative':
-                        item['rating_current'] = 'Sell'
-                    elif (item['rating_current'] == 'Outperform' or item['rating_current'] == 'Overweight') and (item['action_company'] == 'Reiterates' or item['action_company'] == 'Initiates Coverage On'):
-                        item['rating_current'] = 'Buy'
-                        item['action_company'] = 'Initiates'
-                    elif item['rating_current'] == 'Market Outperform' and (item['action_company'] == 'Maintains' or item['action_company'] == 'Reiterates'):
-                        item['rating_current'] = 'Buy'
-                    elif item['rating_current'] == 'Outperform' and (item['action_company'] == 'Maintains' or item['action_pt'] == 'Announces' or item['action_company'] == 'Upgrades'):
-                        item['rating_current'] = 'Buy'
-                    elif item['rating_current'] == 'Buy' and (item['action_company'] == 'Raises' or item['action_pt'] == 'Raises'):
-                        item['rating_current'] = 'Strong Buy'
-                    elif item['rating_current'] == 'Overweight' and (item['action_company'] == 'Maintains' or item['action_company'] == 'Upgrades' or item['action_company'] == 'Reiterates' or item['action_pt'] == 'Raises'):
-                        item['rating_current'] = 'Buy'
-                    elif item['rating_current'] == 'Positive' or item['rating_current'] == 'Sector Outperform':
-                        item['rating_current'] = 'Buy'
-                    elif item['rating_current'] == 'Underperform' or item['rating_current'] == 'Underweight':
-                        item['rating_current'] = 'Sell'
-                    elif item['rating_current'] == 'Reduce' and (item['action_company'] == 'Downgrades' or item['action_pt'] == 'Lowers'):
-                        item['rating_current'] = 'Sell'
-                    elif item['rating_current'] == 'Sell' and item['action_pt'] == 'Announces':
-                        item['rating_current'] = 'Strong Sell'
-                    elif item['rating_current'] == 'Market Perform':
-                        item['rating_current'] = 'Hold'
-                    elif item['rating_prior'] == 'Outperform' and item['action_company'] == 'Downgrades':
-                        item['rating_current'] = 'Hold'
-                    elif item['rating_current'] == 'Peer Perform' and item['rating_prior'] == 'Peer Perform':
-                        item['rating_current'] = 'Hold'
-                    elif item['rating_current'] == 'Peer Perform' and item['action_pt'] == 'Announces':
-                        item['rating_current'] = 'Hold'
-                        item['action_company'] = 'Initiates'
 
                 summary = get_summary(ticker_filtered_data)
                 
