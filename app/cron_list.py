@@ -184,6 +184,41 @@ async def get_magnificent_seven():
   
     symbol_list = ['MSFT','AAPL','GOOGL','AMZN','NVDA','META','TSLA']
    
+    res_list = []
+    for symbol in symbol_list:
+        try:
+            revenue = stock_screener_data_dict[symbol].get('revenue',None)
+
+            try:
+                with open(f"json/quote/{symbol}.json") as file:
+                        quote_data = orjson.loads(file.read())
+            except:
+                quote_data = None
+
+            # Assign price and changesPercentage if available, otherwise set to None
+            price = round(quote_data.get('price'), 2) if quote_data else None
+            changesPercentage = round(quote_data.get('changesPercentage'), 2) if quote_data else None
+            marketCap = quote_data.get('marketCap') if quote_data else None
+            name = quote_data.get('name') if quote_data else None
+
+            res_list.append({'symbol': symbol, 'name': name, 'price': price, \
+                    'changesPercentage': changesPercentage, 'marketCap': marketCap, \
+                    'revenue': revenue})
+
+        except Exception as e:
+            print(e)
+
+    if res_list:
+        res_list = sorted(res_list, key=lambda x: x['marketCap'], reverse=True)
+        for rank, item in enumerate(res_list, start=1):
+                item['rank'] = rank
+                
+        with open(f"json/stocks-list/list/magnificent-seven.json", 'wb') as file:
+            file.write(orjson.dumps(res_list))
+
+async def get_faang():
+  
+    symbol_list = ['AAPL','AMZN','GOOGL','META','NFLX']
 
     res_list = []
     for symbol in symbol_list:
@@ -214,8 +249,159 @@ async def get_magnificent_seven():
         for rank, item in enumerate(res_list, start=1):
                 item['rank'] = rank
                 
-        with open(f"json/magnificent-seven/data.json", 'wb') as file:
+        with open(f"json/stocks-list/list/faang.json", 'wb') as file:
             file.write(orjson.dumps(res_list))
+
+async def get_penny_stocks():
+    with sqlite3.connect('stocks.db') as con:
+        cursor = con.cursor()
+        cursor.execute("PRAGMA journal_mode = wal")
+        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
+        symbols = [row[0] for row in cursor.fetchall()]
+
+    res_list = []
+    for symbol in symbols:
+        try:
+
+            # Load quote data from JSON file
+            quote_data = await get_quote_data(symbol)
+
+            # Assign price and volume, and check if they meet the penny stock criteria
+            if quote_data:
+                price = round(quote_data.get('price',None), 2)
+                volume = quote_data.get('volume',None)
+                
+                if price < 5 and volume > 10000:
+                    changesPercentage = round(quote_data.get('changesPercentage'), 2)
+                    marketCap = quote_data.get('marketCap')
+                    name = quote_data.get('name')
+
+                    # Append stock data to res_list if it meets the criteria
+                    res_list.append({
+                        'symbol': symbol,
+                        'name': name,
+                        'price': price,
+                        'changesPercentage': changesPercentage,
+                        'marketCap': marketCap,
+                        'volume': volume
+                    })
+
+        except Exception as e:
+            print(e)
+
+    if res_list:
+        # Sort by market cap in descending order
+        res_list = sorted(res_list, key=lambda x: x['volume'], reverse=True)
+        
+        # Assign rank to each stock
+        for rank, item in enumerate(res_list, start=1):
+            item['rank'] = rank
+
+        # Write the filtered and ranked penny stocks to a JSON file
+        with open("json/stocks-list/list/penny-stocks.json", 'wb') as file:
+            file.write(orjson.dumps(res_list))
+
+async def get_oversold_stocks():
+    with sqlite3.connect('stocks.db') as con:
+        cursor = con.cursor()
+        cursor.execute("PRAGMA journal_mode = wal")
+        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
+        symbols = [row[0] for row in cursor.fetchall()]
+
+    res_list = []
+    for symbol in symbols:
+        try:
+
+            # Load quote data from JSON file
+            rsi = stock_screener_data_dict[symbol].get('rsi',None)
+
+            if rsi < 30 and rsi > 0:
+                quote_data = await get_quote_data(symbol)
+
+                # Assign price and volume, and check if they meet the penny stock criteria
+                if quote_data:
+                    price = round(quote_data.get('price',None), 2)
+                    changesPercentage = round(quote_data.get('changesPercentage'), 2)
+                    marketCap = quote_data.get('marketCap')
+                    name = quote_data.get('name')
+
+                    if marketCap > 100_000 and changesPercentage != 0:
+                        # Append stock data to res_list if it meets the criteria
+                        res_list.append({
+                            'symbol': symbol,
+                            'name': name,
+                            'price': price,
+                            'changesPercentage': changesPercentage,
+                            'marketCap': marketCap,
+                            'rsi': rsi
+                        })
+
+        except Exception as e:
+            print(e)
+
+    if res_list:
+        # Sort by market cap in descending order
+        res_list = sorted(res_list, key=lambda x: x['rsi'])
+        
+        # Assign rank to each stock
+        for rank, item in enumerate(res_list, start=1):
+            item['rank'] = rank
+
+        # Write the filtered and ranked penny stocks to a JSON file
+        with open("json/stocks-list/list/oversold-stocks.json", 'wb') as file:
+            file.write(orjson.dumps(res_list))
+
+async def get_overbought_stocks():
+    with sqlite3.connect('stocks.db') as con:
+        cursor = con.cursor()
+        cursor.execute("PRAGMA journal_mode = wal")
+        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
+        symbols = [row[0] for row in cursor.fetchall()]
+
+    res_list = []
+    for symbol in symbols:
+        try:
+
+            # Load quote data from JSON file
+            rsi = stock_screener_data_dict[symbol].get('rsi',None)
+
+            if rsi > 70 and rsi < 100:
+                quote_data = await get_quote_data(symbol)
+
+                # Assign price and volume, and check if they meet the penny stock criteria
+                if quote_data:
+                    price = round(quote_data.get('price',None), 2)
+                    changesPercentage = round(quote_data.get('changesPercentage'), 2)
+                    marketCap = quote_data.get('marketCap')
+                    name = quote_data.get('name')
+
+                    if marketCap > 100_000 and changesPercentage != 0:
+                        # Append stock data to res_list if it meets the criteria
+                        res_list.append({
+                            'symbol': symbol,
+                            'name': name,
+                            'price': price,
+                            'changesPercentage': changesPercentage,
+                            'marketCap': marketCap,
+                            'rsi': rsi
+                        })
+
+        except Exception as e:
+            print(e)
+
+    if res_list:
+        # Sort by market cap in descending order
+        res_list = sorted(res_list, key=lambda x: x['rsi'], reverse=True)
+        
+        # Assign rank to each stock
+        for rank, item in enumerate(res_list, start=1):
+            item['rank'] = rank
+
+        # Write the filtered and ranked penny stocks to a JSON file
+        with open("json/stocks-list/list/overbought-stocks.json", 'wb') as file:
+            file.write(orjson.dumps(res_list))
+
+
 
 
 async def etf_bitcoin_list():
@@ -441,7 +627,11 @@ async def run():
         get_all_stock_tickers(),
         get_index_list(),
         etf_bitcoin_list(),
-        get_magnificent_seven()
+        get_magnificent_seven(),
+        get_faang(),
+        get_penny_stocks(),
+        get_oversold_stocks(),
+        get_overbought_stocks(),
     )
 
 
