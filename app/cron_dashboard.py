@@ -335,11 +335,11 @@ async def run():
 			try:
 				with open(f"json/market-movers/premarket/gainers.json", 'r') as file:
 					data = ujson.load(file)
-					gainers = [{ 'symbol': item['symbol'], 'name': item['name'], 'price': item['price'], 'changesPercentage': item['changesPercentage']} for item in data[:5]]
+					gainers = [{ 'symbol': item['symbol'], 'name': item['name'], 'price': item['price'], 'changesPercentage': item['changesPercentage'], 'marketCap': item['marketCap']} for item in data[:5]]
 
 				with open(f"json/market-movers/premarket/losers.json", 'r') as file:
 					data = ujson.load(file)
-					losers = [{ 'symbol': item['symbol'], 'name': item['name'], 'price': item['price'], 'changesPercentage': item['changesPercentage']} for item in data[:5]]
+					losers = [{ 'symbol': item['symbol'], 'name': item['name'], 'price': item['price'], 'changesPercentage': item['changesPercentage'], 'marketCap': item['marketCap']} for item in data[:5]]
 		
 				market_movers={'gainers': gainers, 'losers': losers}
 			except:
@@ -348,11 +348,11 @@ async def run():
 			try:
 				with open(f"json/market-movers/afterhours/gainers.json", 'r') as file:
 					data = ujson.load(file)
-					gainers = [{ 'symbol': item['symbol'], 'name': item['name'], 'price': item['price'], 'changesPercentage': item['changesPercentage']} for item in data[:5]]
+					gainers = [{ 'symbol': item['symbol'], 'name': item['name'], 'price': item['price'], 'changesPercentage': item['changesPercentage'], 'marketCap': item['marketCap']} for item in data[:5]]
 
 				with open(f"json/market-movers/afterhours/losers.json", 'r') as file:
 					data = ujson.load(file)
-					losers = [{ 'symbol': item['symbol'], 'name': item['name'], 'price': item['price'], 'changesPercentage': item['changesPercentage']} for item in data[:5]]
+					losers = [{ 'symbol': item['symbol'], 'name': item['name'], 'price': item['price'], 'changesPercentage': item['changesPercentage'], 'marketCap': item['marketCap']} for item in data[:5]]
 	
 				market_movers={'gainers': gainers, 'losers': losers}
 
