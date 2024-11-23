@@ -262,6 +262,14 @@ async def get_analyst_ratings(analyst_id, session):
         if datetime.strptime(item['date'], '%Y-%m-%d') >= datetime(2015, 1, 1)
     ]
 
+    # If prior rating and current rating is "Buy" we interpret it as "Strong Buy"
+    for item in filtered_data:
+        try:
+            if item.get("rating_prior",None) == "Buy" and item.get("rating_current",None) == "Buy":
+                item["rating_current"] = "Strong Buy"
+        except:
+            pass
+
     return filtered_data
 
 async def get_all_analyst_stats():
@@ -417,7 +425,7 @@ async def run():
     print('Number of analysts:', len(analyst_list))
     
     #Test Mode
-    #analyst_list = [ item for item in analyst_list if item['analystId'] =='597f5b95c1f5580001ef542a']
+    #analyst_list = [ item for item in analyst_list if item['analystId'] =='5a02da51efacff00010633d2']
 
     # Step2: Get rating history for each individual analyst and score the analyst
     await get_single_analyst_data(analyst_list, con)
