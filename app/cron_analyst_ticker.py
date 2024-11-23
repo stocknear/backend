@@ -75,14 +75,16 @@ def get_summary(res_list):
    
     # Filter the data for the last 12 months and consider the last N ratings
     #Furthermore consider only the last rating of the analyst if he provided multiple in the last 12 months
+    #filtered data is needed for the recommendation list
     filtered_data = [item for item in res_list if start_date_12m <= datetime.strptime(item['date'], '%Y-%m-%d').date() <= end_date]
-    filtered_data = filter_latest_entries(filtered_data)[:30]
+    #unique list is needed for analyst summary rating
+    unique_filtered_data = filter_latest_entries(filtered_data)[:30]
 
     # Initialize dictionary to store the latest price target for each analyst
     latest_pt_current = defaultdict(list)
     
     # Iterate through the filtered data to collect pt_current for each analyst
-    for item in filtered_data:
+    for item in unique_filtered_data:
         if 'adjusted_pt_current' in item and item['adjusted_pt_current']:
             analyst_name = item['analyst_name']
             try:
@@ -149,7 +151,7 @@ def get_summary(res_list):
     
     # Compute consensus ratings (similar to previous implementation)
     consensus_ratings = defaultdict(str)
-    for item in filtered_data:
+    for item in unique_filtered_data:
         if 'rating_current' in item and item['rating_current'] and 'analyst_name' in item and item['analyst_name']:
             try:
                 analyst_name = item['analyst_name']
@@ -173,7 +175,7 @@ def get_summary(res_list):
     
     # Count unique analysts
     unique_analyst_names = set()
-    numOfAnalyst = len(filtered_data)
+    numOfAnalyst = len(unique_filtered_data)
     '''
     for item in filtered_data:
         if item['analyst_name'] not in unique_analyst_names:
@@ -197,129 +199,111 @@ def get_summary(res_list):
     res = {**stats, **categorical_ratings}
     return res
 
-def run(chunk,analyst_list, con):
-	start_date = datetime(2015,1,1)
-	end_date_str = end_date.strftime('%Y-%m-%d')
-	start_date_str = start_date.strftime('%Y-%m-%d')
+def run(chunk, analyst_list, con):
+    start_date = datetime(2015, 1, 1)
+    end_date_str = end_date.strftime('%Y-%m-%d')
+    start_date_str = start_date.strftime('%Y-%m-%d')
 
+    company_tickers = ','.join(chunk)
+    res_list = []
+    
+    for page in range(0, 500):
+        try:
+            data = fin.ratings(company_tickers=company_tickers, page=page, pagesize=1000, date_from=start_date_str, date_to=end_date_str)
+            data = ujson.loads(fin.output(data))['ratings']
+            res_list += data
+        except:
+            break
 
-	company_tickers = ','.join(chunk)
-	res_list = []
-	for page in range(0, 500):
-	    try:
-	        data = fin.ratings(company_tickers=company_tickers, page=page, pagesize=1000, date_from=start_date_str, date_to=end_date_str)
-	        data = ujson.loads(fin.output(data))['ratings']
-	        res_list += data
-	    except:
-	        break
+    res_list = [item for item in res_list if item.get('analyst_name')]
+    for ticker in chunk:
+        try:
+            ticker_filtered_data = [item for item in res_list if item['ticker'] == ticker]
+            if len(ticker_filtered_data) != 0:
+                for item in ticker_filtered_data:
+                    if item['rating_current'] == 'Strong Sell' or item['rating_current'] == 'Strong Buy':
+                        pass
+                    elif item['rating_current'] == 'Accumulate' and item['rating_prior'] == 'Buy':
+                        item['rating_current'] = 'Buy'
+                    elif item['rating_current'] == 'Neutral':
+                        item['rating_current'] = 'Hold'
+                    elif item['rating_current'] == 'Equal-Weight' or item['rating_current'] == 'Sector Weight' or item['rating_current'] == 'Sector Perform':
+                        item['rating_current'] = 'Hold'
+                    elif item['rating_current'] == 'In-Line':
+                        item['rating_current'] = 'Hold'
+                    elif item['rating_current'] == 'Outperform' and item['action_company'] == 'Downgrades':
+                        item['rating_current'] = 'Hold'
+                    elif item['rating_current'] == 'Negative':
+                        item['rating_current'] = 'Sell'
+                    elif (item['rating_current'] == 'Outperform' or item['rating_current'] == 'Overweight') and (item['action_company'] == 'Reiterates' or item['action_company'] == 'Initiates Coverage On'):
+                        item['rating_current'] = 'Buy'
+                        item['action_company'] = 'Initiates'
+                    elif item['rating_current'] == 'Market Outperform' and (item['action_company'] == 'Maintains' or item['action_company'] == 'Reiterates'):
+                        item['rating_current'] = 'Buy'
+                    elif item['rating_current'] == 'Outperform' and (item['action_company'] == 'Maintains' or item['action_pt'] == 'Announces' or item['action_company'] == 'Upgrades'):
+                        item['rating_current'] = 'Buy'
+                    elif item['rating_current'] == 'Buy' and (item['action_company'] == 'Raises' or item['action_pt'] == 'Raises'):
+                        item['rating_current'] = 'Strong Buy'
+                    elif item['rating_current'] == 'Overweight' and (item['action_company'] == 'Maintains' or item['action_company'] == 'Upgrades' or item['action_company'] == 'Reiterates' or item['action_pt'] == 'Raises'):
+                        item['rating_current'] = 'Buy'
+                    elif item['rating_current'] == 'Positive' or item['rating_current'] == 'Sector Outperform':
+                        item['rating_current'] = 'Buy'
+                    elif item['rating_current'] == 'Underperform' or item['rating_current'] == 'Underweight':
+                        item['rating_current'] = 'Sell'
+                    elif item['rating_current'] == 'Reduce' and (item['action_company'] == 'Downgrades' or item['action_pt'] == 'Lowers'):
+                        item['rating_current'] = 'Sell'
+                    elif item['rating_current'] == 'Sell' and item['action_pt'] == 'Announces':
+                        item['rating_current'] = 'Strong Sell'
+                    elif item['rating_current'] == 'Market Perform':
+                        item['rating_current'] = 'Hold'
+                    elif item['rating_prior'] == 'Outperform' and item['action_company'] == 'Downgrades':
+                        item['rating_current'] = 'Hold'
+                    elif item['rating_current'] == 'Peer Perform' and item['rating_prior'] == 'Peer Perform':
+                        item['rating_current'] = 'Hold'
+                    elif item['rating_current'] == 'Peer Perform' and item['action_pt'] == 'Announces':
+                        item['rating_current'] = 'Hold'
+                        item['action_company'] = 'Initiates'
 
-	res_list = [item for item in res_list if item.get('analyst_name')]
-	#print(res_list[-15])
+                summary = get_summary(ticker_filtered_data)
+                
+                try:
+                    # Add historical price for the last 12 months
+                    query = query_template.format(ticker=ticker)
+                    df_12m = pd.read_sql_query(query, con, params=(start_date_12m, end_date)).round(2)
+                    df_12m['date'] = pd.to_datetime(df_12m['date'])
 
-	for ticker in chunk:
-		try:
-			ticker_filtered_data = [item for item in res_list if item['ticker'] == ticker]
-			if len(ticker_filtered_data) != 0:
-				for item in ticker_filtered_data:
-					if item['rating_current'] == 'Strong Sell' or item['rating_current'] == 'Strong Buy':
-						pass
-					elif item['rating_current'] == 'Neutral':
-						item['rating_current'] = 'Hold'
-					elif item['rating_current'] == 'Equal-Weight' or item['rating_current'] == 'Sector Weight' or item['rating_current'] == 'Sector Perform':
-						item['rating_current'] = 'Hold'
-					elif item['rating_current'] == 'In-Line':
-						item['rating_current'] = 'Hold'
-					elif item['rating_current'] == 'Outperform' and item['action_company'] == 'Downgrades':
-						item['rating_current'] = 'Hold'
-					elif item['rating_current'] == 'Negative':
-						item['rating_current'] = 'Sell'
-					elif (item['rating_current'] == 'Outperform' or item['rating_current'] == 'Overweight') and (item['action_company'] == 'Reiterates' or item['action_company'] == 'Initiates Coverage On'):
-						item['rating_current'] = 'Buy'
-						item['action_comapny'] = 'Initiates'
-					elif item['rating_current'] == 'Market Outperform' and (item['action_company'] == 'Maintains' or item['action_company'] == 'Reiterates'):
-						item['rating_current'] = 'Buy'
-					elif item['rating_current'] == 'Outperform' and (item['action_company'] == 'Maintains' or item['action_pt'] == 'Announces' or item['action_company'] == 'Upgrades'):
-						item['rating_current'] = 'Buy'
-					elif item['rating_current'] == 'Buy' and (item['action_company'] == 'Raises' or item['action_pt'] == 'Raises'):
-						item['rating_current'] = 'Strong Buy'
-					elif item['rating_current'] == 'Overweight' and (item['action_company'] == 'Maintains' or item['action_company'] == 'Upgrades' or item['action_company'] == 'Reiterates' or item['action_pt'] == 'Raises'):
-						item['rating_current'] = 'Buy'
-					elif item['rating_current'] == 'Positive' or item['rating_current'] == 'Sector Outperform':
-						item['rating_current'] = 'Buy'
-					elif item['rating_current'] == 'Underperform' or item['rating_current'] == 'Underweight':
-						item['rating_current'] = 'Sell'
-					elif item['rating_current'] == 'Reduce' and (item['action_company'] == 'Downgrades' or item['action_pt'] == 'Lowers'):
-						item['rating_current'] = 'Sell'
-					elif item['rating_current'] == 'Sell' and item['action_pt'] == 'Announces':
-						item['rating_current'] = 'Strong Sell'
-					elif item['rating_current'] == 'Market Perform':
-						item['rating_current'] = 'Hold'
-					elif item['rating_prior'] == 'Outperform' and item['action_company'] == 'Downgrades':
-						item['rating_current'] = 'Hold'
-					elif item['rating_current'] == 'Peer Perform' and item['rating_prior'] == 'Peer Perfrom':
-						item['rating_current'] = 'Hold'
-					elif item['rating_current'] == 'Peer Perform' and item['action_pt'] == 'Announces':
-						item['rating_current'] = 'Hold'
-						item['action_comapny'] = 'Initiates'
+                    df_12m_last_per_month = df_12m.groupby(df_12m['date'].dt.to_period('M')).tail(1)
+                    past_price_list = [{"date": row['date'].strftime('%Y-%m-%d'), "close": row['close']} for _, row in df_12m_last_per_month.iterrows()]
+                    summary["pastPriceList"] = past_price_list
+                except:
+                    summary["pastPriceList"] = []
 
-				summary = get_summary(ticker_filtered_data)
-				
-				try:
-					#Add historical price for the last 12 month
-					query = query_template.format(ticker=ticker)
-					df_12m = pd.read_sql_query(query, con, params=(start_date_12m, end_date)).round(2)
-					df_12m['date'] = pd.to_datetime(df_12m['date'])
+                # Get ratings of each analyst
+                with open(f"json/analyst/summary/{ticker}.json", 'w') as file:
+                    ujson.dump(summary, file)
 
-					df_12m_last_per_month = df_12m.groupby(df_12m['date'].dt.to_period('M')).tail(1)
-					past_price_list = [{"date": row['date'].strftime('%Y-%m-%d'), "close": row['close']} for _, row in df_12m_last_per_month.iterrows()]
-					summary["pastPriceList"] = past_price_list
-				except:
-					summary["pastPriceList"] = []
+                for item1 in ticker_filtered_data:
+                    for item2 in analyst_stats_list:
+                        if item1['analyst'] == item2['companyName'] and item1['analyst_name'] == item2['analystName']:
+                            item1['analystId'] = item2['analystId']
+                            item1['analystScore'] = item2['analystScore']
+                            break
+                        elif item1['analyst_name'] == item2['analystName']:
+                            item1['analystId'] = item2['analystId']
+                            item1['analystScore'] = item2['analystScore']
+                            break
 
+                desired_keys = ['date', 'action_company', 'rating_current', 'adjusted_pt_current', 'adjusted_pt_prior', 'analystId', 'analystScore', 'analyst', 'analyst_name']
 
-				#get ratings of each analyst
-				with open(f"json/analyst/summary/{ticker}.json", 'w') as file:
-					ujson.dump(summary, file)
+                ticker_filtered_data = [
+                    {key: item[key] if key in item else None for key in desired_keys}
+                    for item in ticker_filtered_data
+                ]
 
-				for item1 in ticker_filtered_data:
-					#item1['analystId'] = ''
-					#item1['analystScore'] = 0
-					#item1['adjusted_pt_current'] = 0
-					#item1['adjusted_pt_prior'] = 0
-					for item2 in analyst_stats_list:
-						if item1['analyst'] == item2['companyName'] and item1['analyst_name'] == item2['analystName']:
-							item1['analystId'] = item2['analystId']
-							item1['analystScore'] = item2['analystScore']
-							break
-						elif item1['analyst_name'] == item2['analystName']:
-							item1['analystId'] = item2['analystId']
-							item1['analystScore'] = item2['analystScore']
-							break
-					#Bug: Benzinga does not give me reliable all analyst names and hence score. 
-					# Compute in those cases the analyst score separately for each analyst
-					
-					'''
-					if 'analystScore' not in item1: #or item1['analystScore'] == 0:
-						one_sample_list = get_one_sample_analyst_data(item1['analyst_name'], item1['analyst'])
-						item1['analystId'] = one_sample_list[0]['id']
-						item1['analystScore'] = one_sample_list[0]['analystScore']
-					'''
-
-				desired_keys = ['date', 'action_company', 'rating_current', 'adjusted_pt_current', 'adjusted_pt_prior', 'analystId', 'analystScore', 'analyst', 'analyst_name']
-
-				ticker_filtered_data = [
-				    {key: item[key] if key in item else None for key in desired_keys}
-				    for item in ticker_filtered_data
-				]
-
-
-				#print(ticker_filtered_data[0])
-				#time.sleep(10000)
-				with open(f"json/analyst/history/{ticker}.json", 'w') as file:
-					ujson.dump(ticker_filtered_data, file)
-		except Exception as e:
-			print(e)
-
+                with open(f"json/analyst/history/{ticker}.json", 'w') as file:
+                    ujson.dump(ticker_filtered_data, file)
+        except Exception as e:
+            print(e)
 
 
 
