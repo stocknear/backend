@@ -221,7 +221,7 @@ def get_top_stocks():
                'name': info['name']} 
               for ticker, info in ticker_data.items()]
     
-    result = [item for item in result if item['upside'] is not None and item['upside'] >= 5 and item['upside'] <= 250]  # Filter outliers
+    result = [item for item in result if item['upside'] is not None and item['upside'] >= 20 and item['upside'] <= 250]  # Filter outliers
 
     result_sorted = sorted(result, key=lambda x: x['counter'] if x['counter'] is not None else float('-inf'), reverse=True)
     
