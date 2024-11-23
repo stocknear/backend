@@ -1,5 +1,5 @@
 import praw
-import json
+import orjson
 from datetime import datetime
 import os
 from dotenv import load_dotenv
@@ -19,14 +19,14 @@ os.makedirs(os.path.dirname(file_path), exist_ok=True)
 # Function to load existing data
 def load_existing_data():
     if os.path.exists(file_path):
-        with open(file_path, 'r', encoding='utf-8') as f:
-            return json.load(f)
+        with open(file_path, 'r', encoding='utf-8') as file:
+            return orjson.loads(file.read())
     return []
 
 # Function to save data
 def save_data(data):
     with open(file_path, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
+        file.write(orjson.dumps(data, f, ensure_ascii=False, indent=4).decode("utf-8"))
 
 # Initialize Reddit instance
 reddit = praw.Reddit(
@@ -37,6 +37,14 @@ reddit = praw.Reddit(
 
 # Load existing data
 existing_data = load_existing_data()
+existing_data = [
+    {**item, 'upvote_ratio': round(item['upvote_ratio'] * 100,2) if item['upvote_ratio'] < 1 else item['upvote_ratio']}
+    for item in existing_data
+    if item['num_comments'] >= 50
+]
+
+
+
 
 # Create a dictionary of existing posts for faster lookup and update
 existing_posts = {post['id']: post for post in existing_data}
@@ -57,15 +65,27 @@ for submission in subreddit.hot(limit=1000):
         if post_id in existing_posts:
             del existing_posts[post_id]
             data_changed = True
+            print('deleted')
+        continue  # Skip this post
+
+    if submission.num_comments < 50:
+        # Remove post from existing data if it was deleted by moderators
+        if post_id in existing_posts:
+            del existing_posts[post_id]
+            data_changed = True
+            print('deleted')
         continue  # Skip this post
 
     # Check if this post is already in our data
     if post_id in existing_posts:
         # Update existing post
-        existing_posts[post_id]['upvote_ratio'] = submission.upvote_ratio
+        existing_posts[post_id]['upvote_ratio'] = round(submission.upvote_ratio * 100, 2)
         existing_posts[post_id]['num_comments'] = submission.num_comments
         data_changed = True
     else:
+        if submission.num_comments < 50:
+            continue  # Skip this post
+        
         # Try to get a high-quality thumbnail URL
         thumbnail = None
         if hasattr(submission, 'preview'):
