@@ -224,6 +224,9 @@ def get_top_stocks():
     result = [item for item in result if item['upside'] is not None and item['upside'] >= 5 and item['upside'] <= 250]  # Filter outliers
 
     result_sorted = sorted(result, key=lambda x: x['counter'] if x['counter'] is not None else float('-inf'), reverse=True)
+    
+    #top 100 stocks
+    result_sorted = result_sorted[:100]
 
     for rank, item in enumerate(result_sorted):
         item['rank'] = rank + 1
