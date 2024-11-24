@@ -401,7 +401,193 @@ async def get_overbought_stocks():
         with open("json/stocks-list/list/overbought-stocks.json", 'wb') as file:
             file.write(orjson.dumps(res_list))
 
+async def get_top_dividend_stocks():
+    with sqlite3.connect('stocks.db') as con:
+        cursor = con.cursor()
+        cursor.execute("PRAGMA journal_mode = wal")
+        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
+        symbols = [row[0] for row in cursor.fetchall()]
 
+    res_list = []
+    for symbol in symbols:
+        try:
+
+            # Load quote data from JSON file
+            analyst_rating = stock_screener_data_dict[symbol].get('analystRating',None)
+            analyst_counter = stock_screener_data_dict[symbol].get('analystCounter',0)
+            dividend_yield = stock_screener_data_dict[symbol].get('dividendYield',0)
+            payout_ratio = stock_screener_data_dict[symbol].get('payoutRatio',100)
+            if analyst_rating in ['Buy','Strong Buy'] and analyst_counter >= 10 and dividend_yield >=2 and payout_ratio < 60:
+                quote_data = await get_quote_data(symbol)
+
+                # Assign price and volume, and check if they meet the penny stock criteria
+                if quote_data:
+                    price = round(quote_data.get('price',None), 2)
+                    changesPercentage = round(quote_data.get('changesPercentage'), 2)
+                    marketCap = quote_data.get('marketCap')
+                    name = quote_data.get('name')
+
+                    # Append stock data to res_list if it meets the criteria
+                    res_list.append({
+                        'symbol': symbol,
+                        'name': name,
+                        'price': price,
+                        'changesPercentage': changesPercentage,
+                        'marketCap': marketCap,
+                        'dividendYield': dividend_yield
+                    })
+        except:
+            pass
+
+    if res_list:
+        # Sort by market cap in descending order
+        res_list = sorted(res_list, key=lambda x: x['marketCap'], reverse=True)
+        
+        # Assign rank to each stock
+        for rank, item in enumerate(res_list, start=1):
+            item['rank'] = rank
+
+        # Write the filtered and ranked penny stocks to a JSON file
+        with open("json/stocks-list/list/top-rated-dividend-stocks.json", 'wb') as file:
+            file.write(orjson.dumps(res_list))
+
+async def get_highest_revenue():
+    with sqlite3.connect('stocks.db') as con:
+        cursor = con.cursor()
+        cursor.execute("PRAGMA journal_mode = wal")
+        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
+        symbols = [row[0] for row in cursor.fetchall()]
+
+    res_list = []
+    for symbol in symbols:
+        try:
+            # Load quote data from JSON file
+            revenue = stock_screener_data_dict[symbol].get('revenue',None)
+            country = stock_screener_data_dict[symbol].get('country',None)
+            if revenue > 1E9 and revenue < 1E12 and country == 'United States': #bug where some companies have wrong revenue
+                quote_data = await get_quote_data(symbol)
+                # Assign price and volume, and check if they meet the penny stock criteria
+                if quote_data:
+                    price = round(quote_data.get('price',None), 2)
+                    changesPercentage = round(quote_data.get('changesPercentage'), 2)
+                    marketCap = quote_data.get('marketCap')
+                    name = quote_data.get('name')
+
+                    # Append stock data to res_list if it meets the criteria
+                    res_list.append({
+                        'symbol': symbol,
+                        'name': name,
+                        'price': price,
+                        'changesPercentage': changesPercentage,
+                        'marketCap': marketCap,
+                        'revenue': revenue
+                    })
+        except:
+            pass
+
+    if res_list:
+        # Sort by market cap in descending order
+        res_list = sorted(res_list, key=lambda x: x['revenue'], reverse=True)[:500]
+        
+        # Assign rank to each stock
+        for rank, item in enumerate(res_list, start=1):
+            item['rank'] = rank
+
+        # Write the filtered and ranked penny stocks to a JSON file
+        with open("json/stocks-list/list/highest-revenue.json", 'wb') as file:
+            file.write(orjson.dumps(res_list))
+
+async def get_highest_income_tax():
+    with sqlite3.connect('stocks.db') as con:
+        cursor = con.cursor()
+        cursor.execute("PRAGMA journal_mode = wal")
+        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%' AND symbol NOT LIKE '%-%'")
+        symbols = [row[0] for row in cursor.fetchall()]
+
+    res_list = []
+    for symbol in symbols:
+        try:
+            # Load quote data from JSON file
+            income_tax = stock_screener_data_dict[symbol].get('incomeTaxExpense',0)
+            country = stock_screener_data_dict[symbol].get('country',None)
+            if income_tax > 10E6 and country == 'United States':
+                quote_data = await get_quote_data(symbol)
+                # Assign price and volume, and check if they meet the penny stock criteria
+                if quote_data:
+                    price = round(quote_data.get('price',None), 2)
+                    changesPercentage = round(quote_data.get('changesPercentage'), 2)
+                    marketCap = quote_data.get('marketCap')
+                    name = quote_data.get('name')
+
+                    # Append stock data to res_list if it meets the criteria
+                    res_list.append({
+                        'symbol': symbol,
+                        'name': name,
+                        'price': price,
+                        'changesPercentage': changesPercentage,
+                        'marketCap': marketCap,
+                        'incomeTaxExpense': income_tax
+                    })
+        except:
+            pass
+
+    if res_list:
+        # Sort by market cap in descending order
+        res_list = sorted(res_list, key=lambda x: x['incomeTaxExpense'], reverse=True)[:100]
+        
+        # Assign rank to each stock
+        for rank, item in enumerate(res_list, start=1):
+            item['rank'] = rank
+
+        # Write the filtered and ranked penny stocks to a JSON file
+        with open("json/stocks-list/list/highest-income-tax.json", 'wb') as file:
+            file.write(orjson.dumps(res_list))
+
+async def get_most_employees():
+    with sqlite3.connect('stocks.db') as con:
+        cursor = con.cursor()
+        cursor.execute("PRAGMA journal_mode = wal")
+        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
+        symbols = [row[0] for row in cursor.fetchall()]
+
+    res_list = []
+    for symbol in symbols:
+        try:
+            # Load quote data from JSON file
+            employees = stock_screener_data_dict[symbol].get('employees',None)
+            country = stock_screener_data_dict[symbol].get('country',None)
+            if employees > 10_000 and country == 'United States':
+                quote_data = await get_quote_data(symbol)
+                # Assign price and volume, and check if they meet the penny stock criteria
+                if quote_data:
+                    price = round(quote_data.get('price',None), 2)
+                    changesPercentage = round(quote_data.get('changesPercentage'), 2)
+                    marketCap = quote_data.get('marketCap')
+                    name = quote_data.get('name')
+
+                    # Append stock data to res_list if it meets the criteria
+                    res_list.append({
+                        'symbol': symbol,
+                        'name': name,
+                        'price': price,
+                        'changesPercentage': changesPercentage,
+                        'marketCap': marketCap,
+                        'employees': employees
+                    })
+        except:
+            pass
+
+    if res_list:
+        # Sort by market cap in descending order
+        res_list = sorted(res_list, key=lambda x: x['employees'], reverse=True)[:100]
+        
+        # Assign rank to each stock
+        for rank, item in enumerate(res_list, start=1):
+            item['rank'] = rank
+
+        # Write the filtered and ranked penny stocks to a JSON file
+        with open("json/stocks-list/list/most-employees.json", 'wb') as file:
+            file.write(orjson.dumps(res_list))
 
 
 async def etf_bitcoin_list():
@@ -632,6 +818,10 @@ async def run():
         get_penny_stocks(),
         get_oversold_stocks(),
         get_overbought_stocks(),
+        get_top_dividend_stocks(),
+        get_highest_revenue(),
+        get_highest_income_tax(),
+        get_most_employees(),
     )
 
 
