@@ -8,7 +8,6 @@ module.exports = function (fastify, opts, done) {
     fastify.post('/get-price-alert', async (request, reply) => {
         const data = request.body;
         const userId = data?.userId;
-
         let output;
 
         try {
