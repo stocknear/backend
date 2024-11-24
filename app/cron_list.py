@@ -174,9 +174,9 @@ async def get_etf_provider(etf_con):
             if sorted_res:
                 with open(f"json/etf/provider/{provider}.json", 'wb') as file:
                     file.write(orjson.dumps(sorted_res))
-        except:
+        except Exception as e:
+            print(e)
             pass
-
     cursor.close()
 
 
@@ -205,8 +205,8 @@ async def get_magnificent_seven():
                     'changesPercentage': changesPercentage, 'marketCap': marketCap, \
                     'revenue': revenue})
 
-        except:
-            pass
+        except Exception as e:
+            print(e)
 
     if res_list:
         res_list = sorted(res_list, key=lambda x: x['marketCap'], reverse=True)
@@ -241,8 +241,8 @@ async def get_faang():
                     'changesPercentage': changesPercentage, 'marketCap': marketCap, \
                     'revenue': revenue})
 
-        except:
-            pass
+        except Exception as e:
+            print(e)
 
     if res_list:
         res_list = sorted(res_list, key=lambda x: x['marketCap'], reverse=True)
@@ -286,8 +286,8 @@ async def get_penny_stocks():
                         'volume': volume
                     })
 
-        except:
-            pass
+        except Exception as e:
+            print(e)
 
     if res_list:
         # Sort by market cap in descending order
@@ -336,8 +336,8 @@ async def get_oversold_stocks():
                             'rsi': rsi
                         })
 
-        except:
-            pass
+        except Exception as e:
+            print(e)
 
     if res_list:
         # Sort by market cap in descending order
@@ -386,8 +386,8 @@ async def get_overbought_stocks():
                             'rsi': rsi
                         })
 
-        except:
-            pass
+        except Exception as e:
+            print(e)
 
     if res_list:
         # Sort by market cap in descending order
@@ -417,8 +417,8 @@ async def get_top_dividend_stocks():
             analyst_counter = stock_screener_data_dict[symbol].get('analystCounter',0)
             dividend_yield = stock_screener_data_dict[symbol].get('dividendYield',0)
             payout_ratio = stock_screener_data_dict[symbol].get('payoutRatio',100)
-
-            if analyst_rating in ['Buy','Strong Buy'] and analyst_counter >= 10 and dividend_yield > 2 and payout_ratio < 60:
+            country = stock_screener_data_dict[symbol].get('country',None)
+            if country == 'United States' and analyst_rating in ['Buy','Strong Buy'] and analyst_counter >= 10 and dividend_yield >=2 and payout_ratio < 60:
                 quote_data = await get_quote_data(symbol)
 
                 # Assign price and volume, and check if they meet the penny stock criteria
@@ -437,8 +437,7 @@ async def get_top_dividend_stocks():
                         'marketCap': marketCap,
                         'dividendYield': dividend_yield
                     })
-        except Exception as e:
-            print(e)
+        except:
             pass
 
     if res_list:
