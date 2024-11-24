@@ -759,15 +759,14 @@ async def get_stock_screener(con):
             with open(f"json/dividends/companies/{symbol}.json", 'r') as file:
                 res = orjson.loads(file.read())
                 item['annualDividend'] = round(res['annualDividend'],2)
-                item['dividendYield'] = round(res['dividendYield'],2)
-                item['payoutRatio'] = round(res['payoutRatio'],2)
                 item['dividendGrowth'] = round(res['dividendGrowth'],2)
         except:
             item['annualDividend'] = None
-            item['dividendYield'] = None
-            item['payoutRatio'] = None
             item['dividendGrowth'] = None
 
+        #data is from financialdata
+        item['dividendYield'] = round(item['dividendYield'] * 100, 2) if item['dividendYield'] is not None else item['dividendYield']
+        item['payoutRatio'] = round(item['payoutRatio'] * 100, 2) if item['payoutRatio'] is not None else item['payoutRatio']
 
 
         try:
