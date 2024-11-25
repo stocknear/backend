@@ -280,7 +280,7 @@ async def get_analyst_report():
         with sqlite3.connect('stocks.db') as con:
             cursor = con.cursor()
             cursor.execute("PRAGMA journal_mode = wal")
-            cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%' AND symbol NOT LIKE '%-%' AND marketCap > 1e10")
+            cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%' AND symbol NOT LIKE '%-%' AND marketCap > 50E9")
             symbols = {row[0] for row in cursor.fetchall()}  # Use a set for fast lookups
 
         # Define the directory path
@@ -315,6 +315,7 @@ async def get_analyst_report():
                     # Merge the summary data into the latest data dictionary
                     latest_data.update({
                         'symbol': latest_symbol,
+                        'numOfAnalyst': summary_data.get('numOfAnalyst'),
                         'consensusRating': summary_data.get('consensusRating'),
                         'medianPriceTarget': summary_data.get('medianPriceTarget'),
                         'avgPriceTarget': summary_data.get('avgPriceTarget'),
@@ -344,11 +345,11 @@ async def get_analyst_report():
                 #print(f"The latest report for symbol {latest_symbol}:", latest_data)
 
         # Return the latest data found
-        return latest_data if latest_data else []
+        return latest_data if latest_data else {}
 
     except Exception as e:
         print(f"An error occurred: {e}")
-        return []
+        return {}
 
 async def run():
 	async with aiohttp.ClientSession() as session:
