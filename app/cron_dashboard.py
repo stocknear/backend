@@ -6,6 +6,7 @@ import pandas as pd
 import asyncio
 import pytz
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 from datetime import datetime, timedelta, date
 import sqlite3
@@ -225,7 +226,7 @@ async def get_recent_earnings(session):
 	#res_list.sort(key=lambda x: (-parse_time(x['time']).timestamp(), -x['marketCap']))
 	res_list = [{k: v for k, v in d.items() if k != 'marketCap'} for d in res_list]
 	return res_list[0:10]
-
+'''
 async def get_recent_dividends(session):
 	url = "https://api.benzinga.com/api/v2.1/calendar/dividends"
 	importance_list = ["1","2","3","4","5"]
@@ -271,9 +272,83 @@ async def get_recent_dividends(session):
 	res_list.sort(key=lambda x: x['marketCap'], reverse=True)
 	res_list = [{k: v for k, v in d.items() if k != 'marketCap'} for d in res_list]
 	return res_list[0:5]
+'''
 
+async def get_analyst_report():
+    try:
+        # Connect to the database and retrieve symbols
+        with sqlite3.connect('stocks.db') as con:
+            cursor = con.cursor()
+            cursor.execute("PRAGMA journal_mode = wal")
+            cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%' AND symbol NOT LIKE '%-%' AND marketCap > 1e10")
+            symbols = {row[0] for row in cursor.fetchall()}  # Use a set for fast lookups
 
+        # Define the directory path
+        directory = Path("json/analyst/insight")
+        
+        # Track the latest data and symbol based on the "date" key in the JSON file
+        latest_data = None
+        latest_symbol = None
+        latest_date = datetime.min  # Initialize to the earliest possible date
+        
+        # Loop through all .json files in the directory
+        for file_path in directory.glob("*.json"):
+            symbol = file_path.stem  # Get the filename without extension
+            if symbol in symbols:
+                # Read each JSON file asynchronously
+                async with aiofiles.open(file_path, mode='r') as file:
+                    data = ujson.loads(await file.read())
+                    
+                    # Parse the "date" field and compare it to the latest_date
+                    data_date = datetime.strptime(data.get('date', ''), '%b %d, %Y')
+                    if data_date > latest_date:
+                        latest_date = data_date
+                        latest_data = data
+                        latest_symbol = symbol
 
+        # If the latest report and symbol are found, add additional data from the summary file
+        if latest_symbol and latest_data:
+            summary_path = Path(f"json/analyst/summary/{latest_symbol}.json")
+            if summary_path.is_file():  # Ensure the summary file exists
+                async with aiofiles.open(summary_path, mode='r') as file:
+                    summary_data = ujson.loads(await file.read())
+                    # Merge the summary data into the latest data dictionary
+                    latest_data.update({
+                        'symbol': latest_symbol,
+                        'consensusRating': summary_data.get('consensusRating'),
+                        'medianPriceTarget': summary_data.get('medianPriceTarget'),
+                        'avgPriceTarget': summary_data.get('avgPriceTarget'),
+                        'lowPriceTarget': summary_data.get('lowPriceTarget'),
+                        'highPriceTarget': summary_data.get('highPriceTarget')
+                    })
+
+            # Load the current price from the quote file
+            quote_path = Path(f"json/quote/{latest_symbol}.json")
+            if quote_path.is_file():
+                async with aiofiles.open(quote_path, mode='r') as file:
+                    quote_data = ujson.loads(await file.read())
+                    price = quote_data.get('price')
+
+                    if price:
+                        # Calculate the percentage change for each target relative to the current price
+                        def calculate_percentage_change(target):
+                            return round(((target - price) / price) * 100, 2) if target is not None else None
+
+                        latest_data.update({
+                            'medianPriceChange': calculate_percentage_change(latest_data.get('medianPriceTarget')),
+                            'avgPriceChange': calculate_percentage_change(latest_data.get('avgPriceTarget')),
+                            'lowPriceChange': calculate_percentage_change(latest_data.get('lowPriceTarget')),
+                            'highPriceChange': calculate_percentage_change(latest_data.get('highPriceTarget')),
+                        })
+
+                #print(f"The latest report for symbol {latest_symbol}:", latest_data)
+
+        # Return the latest data found
+        return latest_data if latest_data else []
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return []
 
 async def run():
 	async with aiohttp.ClientSession() as session:
@@ -289,7 +364,8 @@ async def run():
 		    upcoming_earnings = await get_upcoming_earnings(session, tomorrow, filter_today=True)
 
 			
-		recent_dividends = await get_recent_dividends(session)
+		#recent_dividends = await get_recent_dividends(session)
+		recent_analyst_report = await get_analyst_report()
 
 		#Avoid clashing of recent and upcoming earnings
 		upcoming_earnings = [item for item in upcoming_earnings if item['symbol'] not in [earning['symbol'] for earning in recent_earnings]]
@@ -365,7 +441,7 @@ async def run():
 		    'optionsFlow': options_flow,
 		    'recentEarnings': recent_earnings,
 		    'upcomingEarnings': upcoming_earnings,
-		    'recentDividends': recent_dividends,
+		    'analystReport': recent_analyst_report,
 		}
 
 		
