@@ -55,11 +55,6 @@ const corsMiddleware = (request, reply, done) => {
 fastify.addHook("onRequest", corsMiddleware);
 
 
-fastify.register(require("./get-price-alert/server"), { pb, fs, path });
-
-
-//fastify.register(require('./create-comment/server'), { pb });
-
 function wait(ms) {
   var start = new Date().getTime();
   var end = start;

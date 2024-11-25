@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 import orjson
 import aiohttp
+import aiofiles
 import redis
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
@@ -1209,6 +1210,8 @@ async def get_indicator(data: IndicatorListData, api_key: str = Security(get_api
         headers={"Content-Encoding": "gzip"}
     )
 
+
+
 @app.post("/get-watchlist")
 async def get_watchlist(data: GetWatchList, api_key: str = Security(get_api_key)):
     data = data.dict()
@@ -1280,6 +1283,48 @@ async def get_watchlist(data: GetWatchList, api_key: str = Security(get_api_key)
         media_type="application/json",
         headers={"Content-Encoding": "gzip"}
     )
+
+@app.post("/get-price-alert")
+async def get_price_alert(data: UserId, api_key: str = Security(get_api_key)):
+    user_id = data.dict()['userId']
+    
+    # Fetch all alerts for the user in a single database call
+    result = pb.collection("priceAlert").get_full_list(query_params={"filter": f"user='{user_id}' && triggered=false"})
+    
+    # Function to read JSON file asynchronously
+    async def fetch_quote_data(item):
+        try:
+            async with aiofiles.open(f"json/quote/{item.symbol}.json", mode='r') as file:
+                quote_data = orjson.loads(await file.read())
+                return {
+                    'symbol': item.symbol,
+                    'name': item.name,
+                    'assetType': item.asset_type,
+                    'targetPrice': item.target_price,
+                    'priceWhenCreated': item.price_when_created,
+                    'price': quote_data.get("price"),
+                    'changesPercentage': quote_data.get("changesPercentage"),
+                    'volume': quote_data.get("volume"),
+                }
+        except Exception as e:
+            print(f"Error processing {item.symbol}: {e}")
+            return None
+
+    # Run all fetch_quote_data tasks concurrently
+    tasks = [fetch_quote_data(item) for item in result]
+    res_list = [res for res in await asyncio.gather(*tasks) if res]
+
+    # Serialize and compress the response data
+    res = orjson.dumps(res_list)
+    compressed_data = gzip.compress(res)
+    
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
+    
+    
 
 
 def process_option_activity(item):
