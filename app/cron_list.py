@@ -456,7 +456,7 @@ async def get_highest_revenue():
     with sqlite3.connect('stocks.db') as con:
         cursor = con.cursor()
         cursor.execute("PRAGMA journal_mode = wal")
-        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
+        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%' AND symbol NOT LIKE '%-%'")
         symbols = [row[0] for row in cursor.fetchall()]
 
     res_list = []
@@ -548,7 +548,7 @@ async def get_most_employees():
     with sqlite3.connect('stocks.db') as con:
         cursor = con.cursor()
         cursor.execute("PRAGMA journal_mode = wal")
-        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
+        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%' AND symbol NOT LIKE '%-%'")
         symbols = [row[0] for row in cursor.fetchall()]
 
     res_list = []
