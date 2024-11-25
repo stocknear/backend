@@ -352,102 +352,129 @@ async def get_analyst_report():
         return {}
 
 async def run():
-	async with aiohttp.ClientSession() as session:
-		recent_earnings = await get_recent_earnings(session)
+    async with aiohttp.ClientSession() as session:
+        recent_earnings = await get_recent_earnings(session)
 
-		upcoming_earnings = await get_upcoming_earnings(session, today, filter_today=False)
-		# If results are less than 5, try without the time filter.
-		if len(upcoming_earnings) < 5:
-		    upcoming_earnings = await get_upcoming_earnings(session, today, filter_today=True)
+        upcoming_earnings = await get_upcoming_earnings(session, today, filter_today=False)
 
-		# If still less than 5 results, try fetching for tomorrow.
-		if len(upcoming_earnings) < 5:
-		    upcoming_earnings = await get_upcoming_earnings(session, tomorrow, filter_today=True)
+        upcoming_earnings = [
+            item for item in upcoming_earnings 
+            if item['symbol'] not in [earning['symbol'] for earning in recent_earnings]
+        ]
 
-			
-		#recent_dividends = await get_recent_dividends(session)
-		recent_analyst_report = await get_analyst_report()
+        if len(upcoming_earnings) < 5:
+            upcoming_earnings = await get_upcoming_earnings(session, today, filter_today=True)
 
-		#Avoid clashing of recent and upcoming earnings
-		upcoming_earnings = [item for item in upcoming_earnings if item['symbol'] not in [earning['symbol'] for earning in recent_earnings]]
+        if len(upcoming_earnings) < 5:
+            upcoming_earnings = await get_upcoming_earnings(session, tomorrow, filter_today=True)
 
-		try:
-			with open(f"json/retail-volume/data.json", 'r') as file:
-				retail_tracker = ujson.load(file)[0:5]
-		except:
-			retail_tracker = []
-		try:
-			with open(f"json/options-flow/feed/data.json", 'r') as file:
-				options_flow = ujson.load(file)
-				
-				# Filter the options_flow to include only items with ticker in total_symbol
-				options_flow = [item for item in options_flow if item['ticker'] in stock_symbols]
-				
-				highest_volume = sorted(options_flow, key=lambda x: int(x['volume']), reverse=True)
-				highest_volume = [{key: item[key] for key in ['cost_basis', 'ticker','underlying_type', 'date_expiration', 'put_call', 'volume', 'strike_price']} for item in highest_volume[0:4]]
+        recent_analyst_report = await get_analyst_report()
 
-				highest_premium = sorted(options_flow, key=lambda x: int(x['cost_basis']), reverse=True)
-				highest_premium = [{key: item[key] for key in ['cost_basis', 'ticker','underlying_type', 'date_expiration', 'put_call', 'volume', 'strike_price']} for item in highest_premium[0:4]]
-
-				highest_open_interest = sorted(options_flow, key=lambda x: int(x['open_interest']), reverse=True)
-				highest_open_interest = [{key: item[key] for key in ['cost_basis', 'ticker','underlying_type', 'date_expiration', 'put_call', 'open_interest', 'strike_price']} for item in highest_open_interest[0:4]]
-
-				options_flow = {'premium': highest_premium, 'volume': highest_volume, 'openInterest':highest_open_interest}
-		except Exception as e:
-			print(e)
-			options_flow = {}
+        upcoming_earnings = [
+            item for item in upcoming_earnings 
+            if item['symbol'] not in [earning['symbol'] for earning in recent_earnings]
+        ]
 
 
-		market_status = check_market_hours()
-		if market_status == 0:
-			try:
-				with open(f"json/market-movers/markethours/gainers.json", 'r') as file:
-					gainers = ujson.load(file)
-				with open(f"json/market-movers/markethours/losers.json", 'r') as file:
-					losers = ujson.load(file)
-				market_movers = {'gainers': gainers['1D'][:5], 'losers': losers['1D'][:5]}
-			except:
-				market_movers = {}
-		elif market_status == 1:
-			try:
-				with open(f"json/market-movers/premarket/gainers.json", 'r') as file:
-					data = ujson.load(file)
-					gainers = [{ 'symbol': item['symbol'], 'name': item['name'], 'price': item['price'], 'changesPercentage': item['changesPercentage'], 'marketCap': item['marketCap']} for item in data[:5]]
+        
+        try:
+            with open("json/options-flow/feed/data.json", 'r') as file:
+                options_flow = ujson.load(file)
+                
+                # Filter the options_flow to include only items with ticker in total_symbol
+                options_flow = [item for item in options_flow if item['ticker'] in stock_symbols]
+                
+                highest_volume = sorted(options_flow, key=lambda x: int(x['volume']), reverse=True)
+                highest_volume = [
+                    {key: item[key] for key in ['cost_basis', 'ticker', 'underlying_type', 'date_expiration', 'put_call', 'volume', 'strike_price']}
+                    for item in highest_volume[0:4]
+                ]
 
-				with open(f"json/market-movers/premarket/losers.json", 'r') as file:
-					data = ujson.load(file)
-					losers = [{ 'symbol': item['symbol'], 'name': item['name'], 'price': item['price'], 'changesPercentage': item['changesPercentage'], 'marketCap': item['marketCap']} for item in data[:5]]
-		
-				market_movers={'gainers': gainers, 'losers': losers}
-			except:
-				market_movers = {}
-		elif market_status == 2:
-			try:
-				with open(f"json/market-movers/afterhours/gainers.json", 'r') as file:
-					data = ujson.load(file)
-					gainers = [{ 'symbol': item['symbol'], 'name': item['name'], 'price': item['price'], 'changesPercentage': item['changesPercentage'], 'marketCap': item['marketCap']} for item in data[:5]]
+                highest_premium = sorted(options_flow, key=lambda x: int(x['cost_basis']), reverse=True)
+                highest_premium = [
+                    {key: item[key] for key in ['cost_basis', 'ticker', 'underlying_type', 'date_expiration', 'put_call', 'volume', 'strike_price']}
+                    for item in highest_premium[0:4]
+                ]
 
-				with open(f"json/market-movers/afterhours/losers.json", 'r') as file:
-					data = ujson.load(file)
-					losers = [{ 'symbol': item['symbol'], 'name': item['name'], 'price': item['price'], 'changesPercentage': item['changesPercentage'], 'marketCap': item['marketCap']} for item in data[:5]]
-	
-				market_movers={'gainers': gainers, 'losers': losers}
+                highest_open_interest = sorted(options_flow, key=lambda x: int(x['open_interest']), reverse=True)
+                highest_open_interest = [
+                    {key: item[key] for key in ['cost_basis', 'ticker', 'underlying_type', 'date_expiration', 'put_call', 'open_interest', 'strike_price']}
+                    for item in highest_open_interest[0:4]
+                ]
 
-			except:
-				market_movers = {}
+                options_flow = {
+                    'premium': highest_premium,
+                    'volume': highest_volume,
+                    'openInterest': highest_open_interest
+                }
+        except Exception as e:
+            print(e)
+            options_flow = {}
 
-		data = {
-		    'marketMovers': market_movers,
-		    'marketStatus': market_status,
-		    'optionsFlow': options_flow,
-		    'recentEarnings': recent_earnings,
-		    'upcomingEarnings': upcoming_earnings,
-		    'analystReport': recent_analyst_report,
-		}
+        market_status = check_market_hours()
+        if market_status == 0:
+            try:
+                with open("json/market-movers/markethours/gainers.json", 'r') as file:
+                    gainers = ujson.load(file)
+                with open("json/market-movers/markethours/losers.json", 'r') as file:
+                    losers = ujson.load(file)
+                market_movers = {'gainers': gainers['1D'][:5], 'losers': losers['1D'][:5]}
+            except:
+                market_movers = {}
+        elif market_status == 1:
+            try:
+                with open("json/market-movers/premarket/gainers.json", 'r') as file:
+                    data = ujson.load(file)
+                    gainers = [
+                        {'symbol': item['symbol'], 'name': item['name'], 'price': item['price'], 
+                         'changesPercentage': item['changesPercentage'], 'marketCap': item['marketCap']} 
+                        for item in data[:5]
+                    ]
 
-		
-		if len(data) > 0:
-			await save_json(data)
+                with open("json/market-movers/premarket/losers.json", 'r') as file:
+                    data = ujson.load(file)
+                    losers = [
+                        {'symbol': item['symbol'], 'name': item['name'], 'price': item['price'], 
+                         'changesPercentage': item['changesPercentage'], 'marketCap': item['marketCap']} 
+                        for item in data[:5]
+                    ]
+        
+                market_movers = {'gainers': gainers, 'losers': losers}
+            except:
+                market_movers = {}
+        elif market_status == 2:
+            try:
+                with open("json/market-movers/afterhours/gainers.json", 'r') as file:
+                    data = ujson.load(file)
+                    gainers = [
+                        {'symbol': item['symbol'], 'name': item['name'], 'price': item['price'], 
+                         'changesPercentage': item['changesPercentage'], 'marketCap': item['marketCap']} 
+                        for item in data[:5]
+                    ]
+
+                with open("json/market-movers/afterhours/losers.json", 'r') as file:
+                    data = ujson.load(file)
+                    losers = [
+                        {'symbol': item['symbol'], 'name': item['name'], 'price': item['price'], 
+                         'changesPercentage': item['changesPercentage'], 'marketCap': item['marketCap']} 
+                        for item in data[:5]
+                    ]
+    
+                market_movers = {'gainers': gainers, 'losers': losers}
+            except:
+                market_movers = {}
+
+        data = {
+            'marketMovers': market_movers,
+            'marketStatus': market_status,
+            'optionsFlow': options_flow,
+            'recentEarnings': recent_earnings,
+            'upcomingEarnings': upcoming_earnings,
+            'analystReport': recent_analyst_report,
+        }
+
+        if len(data) > 0:
+            await save_json(data)
 
 try:
 
