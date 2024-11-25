@@ -305,7 +305,7 @@ async def get_oversold_stocks():
     with sqlite3.connect('stocks.db') as con:
         cursor = con.cursor()
         cursor.execute("PRAGMA journal_mode = wal")
-        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
+        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%' AND symbol NOT LIKE '%-%'")
         symbols = [row[0] for row in cursor.fetchall()]
 
     res_list = []
@@ -324,8 +324,8 @@ async def get_oversold_stocks():
                     changesPercentage = round(quote_data.get('changesPercentage'), 2)
                     marketCap = quote_data.get('marketCap')
                     name = quote_data.get('name')
-
-                    if marketCap > 100_000 and changesPercentage != 0:
+                    volume = quote_data.get('volume')
+                    if marketCap > 100_000 and changesPercentage != 0 and volume > 10_000:
                         # Append stock data to res_list if it meets the criteria
                         res_list.append({
                             'symbol': symbol,
@@ -355,7 +355,7 @@ async def get_overbought_stocks():
     with sqlite3.connect('stocks.db') as con:
         cursor = con.cursor()
         cursor.execute("PRAGMA journal_mode = wal")
-        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
+        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%' AND symbol NOT LIKE '%-%'")
         symbols = [row[0] for row in cursor.fetchall()]
 
     res_list = []
@@ -374,8 +374,9 @@ async def get_overbought_stocks():
                     changesPercentage = round(quote_data.get('changesPercentage'), 2)
                     marketCap = quote_data.get('marketCap')
                     name = quote_data.get('name')
+                    volume = quote_data.get('volume')
 
-                    if marketCap > 100_000 and changesPercentage != 0:
+                    if marketCap > 100_000 and changesPercentage != 0 and volume > 10_000:
                         # Append stock data to res_list if it meets the criteria
                         res_list.append({
                             'symbol': symbol,
