@@ -373,20 +373,20 @@ fastify.register(async function (fastify) {
               
               // Only send data if conditions are met and data has changed
               if (
-                jsonData?.ap != null &&
+                jsonData?.lp != null &&
                 jsonData?.t != null &&
                 ["Q", "T"].includes(jsonData?.type) &&
                 connection.socket.readyState === WebSocket.OPEN
               ) {
                 // Check if the current data is different from the last sent data
-                const currentDataSignature = `${jsonData.ap}`;
+                const currentDataSignature = `${jsonData.lp}`;
                 const lastSentSignature = lastSentData[symbol];
                 
                 if (currentDataSignature !== lastSentSignature) {
                   // Collect data to send
                   dataToSend.push({
                     symbol, // Include the ticker symbol in the sent data
-                    ap: jsonData.ap,
+                    lp: jsonData.lp,
                   });
                   
                   // Update the last sent data for this ticker
@@ -404,6 +404,7 @@ fastify.register(async function (fastify) {
         // Send all collected data as a single message
         if (dataToSend.length > 0 && connection.socket.readyState === WebSocket.OPEN) {
           connection.socket.send(JSON.stringify(dataToSend));
+          //console.log(dataToSend)
         }
       };
       
