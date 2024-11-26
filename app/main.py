@@ -47,6 +47,48 @@ INSTITUTE_DB = 'institute'
 
 OPTIONS_WATCHLIST_DIR = Path("json/options-historical-data/watchlist")
 
+# Prioritization strategy dictionary
+PRIORITY_STRATEGIES = {
+    'exact_symbol_match': 0,
+    'symbol_prefix_match': 1,
+    'exact_name_match': 2,
+    'name_prefix_match': 3,
+    'symbol_contains': 4,
+    'name_contains': 5
+}
+
+def calculate_score(item: Dict) -> int:
+    name_lower = item['name'].lower()
+    symbol_lower = item['symbol'].lower()
+    
+    # Exact symbol match
+    if symbol_lower == query.lower():
+        return PRIORITY_STRATEGIES['exact_symbol_match']
+    
+    # Symbol prefix match
+    if symbol_lower.startswith(query.lower()):
+        return PRIORITY_STRATEGIES['symbol_prefix_match']
+    
+    # Exact name match
+    if name_lower == query.lower():
+        return PRIORITY_STRATEGIES['exact_name_match']
+    
+    # Name prefix match
+    if name_lower.startswith(query.lower()):
+        return PRIORITY_STRATEGIES['name_prefix_match']
+    
+    # Symbol contains query
+    if query.lower() in symbol_lower:
+        return PRIORITY_STRATEGIES['symbol_contains']
+    
+    # Name contains query
+    if query.lower() in name_lower:
+        return PRIORITY_STRATEGIES['name_contains']
+    
+    # Fallback
+    return len(PRIORITY_STRATEGIES)
+
+
 @contextmanager
 def db_connection(db_name):
   conn = sqlite3.connect(f'{db_name}.db')
@@ -1642,39 +1684,24 @@ async def get_all_hedge_funds_data(api_key: str = Security(get_api_key)):
 async def get_stock(
     query: str = Query(""),
     api_key: str = Security(get_api_key)
-):
-    # Return an empty list if query is empty
+) -> JSONResponse:
+    # Early return for empty query with minimal overhead
     if not query:
         return JSONResponse(content=[])
 
-    prioritize_without_dots_for_names = {"apple"}
-    normalized_search_query = query.lower()
-
-    # Create a generator for the filtered data to minimize memory usage
-    filtered_gen = (
-        {
-            "original": item,
-            "nameLower": item["name"].lower(),
-            "symbolLower": item["symbol"].lower()
-        }
-        for item in searchbar_data
-        if normalized_search_query in item["name"].lower() or normalized_search_query in item["symbol"].lower()
-    )
-
-    # Sort and limit to top 5 directly
-    top_results = sorted(
-        filtered_gen,
-        key=lambda item: (
-            item["symbolLower"] != normalized_search_query,
-            item["symbolLower"].find(normalized_search_query) + item["nameLower"].find(normalized_search_query),
-            item["symbolLower"].count('.') if normalized_search_query in prioritize_without_dots_for_names else 0
-        )
-    )[:5]
-
-    # Re-map to the original structure before returning
-    result = [item["original"] for item in top_results]
+    # Precompile case-insensitive regex for faster matching
+    search_pattern = re.compile(re.escape(query.lower()), re.IGNORECASE)
     
-    return JSONResponse(content=orjson.loads(orjson.dumps(result)))
+    # Optimized filtering and sorting
+    results = sorted(
+        (
+            item for item in searchbar_data 
+            if search_pattern.search(item['name']) or search_pattern.search(item['symbol'])
+        ),
+        key=calculate_score
+    )[:5]
+    print(results)
+    return JSONResponse(content=orjson.loads(orjson.dumps(results)))
 
 
 
