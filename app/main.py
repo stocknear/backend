@@ -57,32 +57,33 @@ PRIORITY_STRATEGIES = {
     'name_contains': 5
 }
 
-def calculate_score(item: Dict) -> int:
+def calculate_score(item: Dict, search_query: str) -> int:
     name_lower = item['name'].lower()
     symbol_lower = item['symbol'].lower()
+    query_lower = search_query.lower()
     
     # Exact symbol match
-    if symbol_lower == query.lower():
+    if symbol_lower == query_lower:
         return PRIORITY_STRATEGIES['exact_symbol_match']
     
     # Symbol prefix match
-    if symbol_lower.startswith(query.lower()):
+    if symbol_lower.startswith(query_lower):
         return PRIORITY_STRATEGIES['symbol_prefix_match']
     
     # Exact name match
-    if name_lower == query.lower():
+    if name_lower == query_lower:
         return PRIORITY_STRATEGIES['exact_name_match']
     
     # Name prefix match
-    if name_lower.startswith(query.lower()):
+    if name_lower.startswith(query_lower):
         return PRIORITY_STRATEGIES['name_prefix_match']
     
     # Symbol contains query
-    if query.lower() in symbol_lower:
+    if query_lower in symbol_lower:
         return PRIORITY_STRATEGIES['symbol_contains']
     
     # Name contains query
-    if query.lower() in name_lower:
+    if query_lower in name_lower:
         return PRIORITY_STRATEGIES['name_contains']
     
     # Fallback
@@ -1698,9 +1699,8 @@ async def get_stock(
             item for item in searchbar_data 
             if search_pattern.search(item['name']) or search_pattern.search(item['symbol'])
         ),
-        key=calculate_score
+        key=lambda item: calculate_score(item, query)
     )[:5]
-    print(results)
     return JSONResponse(content=orjson.loads(orjson.dumps(results)))
 
 
