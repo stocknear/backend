@@ -17,13 +17,13 @@ const path = require("path");
 
 //const mixpanel = Mixpanel.init(mixpanelAPIKey, { debug: false });
 
-const PocketBase = require("pocketbase/cjs");
-const pb = new PocketBase("http://127.0.0.1:8090");
+//const PocketBase = require("pocketbase/cjs");
+//const pb = new PocketBase("http://127.0.0.1:8090");
 
 // globally disable auto cancellation
 //See https://github.com/pocketbase/js-sdk#auto-cancellation
 //Bug happens that get-post gives an error of auto-cancellation. Hence set it to false;
-pb.autoCancellation(false);
+//pb.autoCancellation(false);
 
 const { serialize } = require("object-to-formdata");
 
@@ -153,7 +153,7 @@ fastify.register(async function (fastify) {
 
         // Start periodic data sending if not already started
         if (!sendInterval) {
-          sendInterval = setInterval(sendData, 5000);
+          sendInterval = setInterval(sendData, 1000);
         }
       });
 
@@ -422,7 +422,7 @@ fastify.register(async function (fastify) {
           
           // Start periodic data sending if not already started
           if (!sendInterval) {
-            sendInterval = setInterval(sendData, 5000);
+            sendInterval = setInterval(sendData, 1000);
           }
         } catch (err) {
           console.error("Failed to parse tickers from client message:", err);
@@ -462,8 +462,6 @@ fastify.register(async function (fastify) {
     }
   );
 });
-
-
 
 // Function to start the server
 function startServer() {
