@@ -327,7 +327,7 @@ schedule.every(10).minutes.do(run_threaded, run_earnings).tag('earnings_job')
 schedule.every(3).hours.do(run_threaded, run_options_net_flow).tag('options_net_flow_job')
 #schedule.every(4).hours.do(run_threaded, run_share_statistics).tag('share_statistics_job')
 
-schedule.every(3).hours.do(run_threaded, run_analyst_rating).tag('analyst_job')
+schedule.every(1).hours.do(run_threaded, run_analyst_rating).tag('analyst_job')
 
 
 schedule.every(2).minutes.do(run_threaded, run_dashboard).tag('dashboard_job')
