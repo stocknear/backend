@@ -369,24 +369,26 @@ fastify.register(async function (fastify) {
           try {
             if (fs.existsSync(filePath)) {
               const fileData = fs.readFileSync(filePath, "utf8");
-              const jsonData = JSON.parse(fileData);
-              
+              const jsonData = JSON?.parse(fileData);
               // Only send data if conditions are met and data has changed
               if (
                 jsonData?.lp != null &&
+                jsonData?.ap != null &&
+                jsonData?.bp != null &&
                 jsonData?.t != null &&
                 ["Q", "T"].includes(jsonData?.type) &&
                 connection.socket.readyState === WebSocket.OPEN
               ) {
+
                 // Check if the current data is different from the last sent data
-                const currentDataSignature = `${jsonData.lp}`;
+                const currentDataSignature = `${jsonData?.lp}`;
                 const lastSentSignature = lastSentData[symbol];
                 
                 if (currentDataSignature !== lastSentSignature) {
                   // Collect data to send
                   dataToSend.push({
                     symbol, // Include the ticker symbol in the sent data
-                    lp: jsonData.lp,
+                    ap: jsonData?.ap,
                   });
                   
                   // Update the last sent data for this ticker
