@@ -361,14 +361,14 @@ fastify.register(async function (fastify) {
         
         // Iterate over tickers and collect data
         for (const symbol of tickers) {
-          const filePath = path.join(
+          const filePath = path?.join(
             __dirname,
             `../app/json/websocket/companies/${symbol}.json`
           );
           
           try {
-            if (fs.existsSync(filePath)) {
-              const fileData = fs.readFileSync(filePath, "utf8");
+            if (fs?.existsSync(filePath)) {
+              const fileData = fs?.readFileSync(filePath, "utf8");
               const jsonData = JSON?.parse(fileData);
               // Only send data if conditions are met and data has changed
               if (
@@ -386,7 +386,7 @@ fastify.register(async function (fastify) {
                 
                 if (currentDataSignature !== lastSentSignature) {
                   // Collect data to send
-                  dataToSend.push({
+                  dataToSend?.push({
                     symbol, // Include the ticker symbol in the sent data
                     ap: jsonData?.ap,
                   });
@@ -396,7 +396,7 @@ fastify.register(async function (fastify) {
                 }
               }
             } else {
-              console.error("File not found for ticker:", symbol);
+              //console.error("File not found for ticker:", symbol);
             }
           } catch (err) {
             console.error("Error processing data for ticker:", symbol, err);

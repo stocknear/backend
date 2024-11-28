@@ -6,6 +6,7 @@ from datetime import datetime
 from GetStartEndDate import GetStartEndDate
 from dotenv import load_dotenv
 from benzinga import financial_data
+from utils.helper import check_market_hours
 
 # Load environment variables
 load_dotenv()
@@ -100,4 +101,8 @@ async def main():
 
 # Run the async event loop
 if __name__ == "__main__":
-    asyncio.run(main())
+    market_open = check_market_hours()
+    if market_open:
+        asyncio.run(main())
+    else:
+        print('market closed')
