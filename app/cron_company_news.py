@@ -55,7 +55,7 @@ async def get_data(session, chunk, rate_limiter):
     """
     await rate_limiter.acquire()
     company_tickers = ','.join(chunk)
-    url = f'https://financialmodelingprep.com/api/v3/stock_news?tickers={company_tickers}&page=0&limit=2000&apikey={api_key}'
+    url = f'https://financialmodelingprep.com/api/v3/stock_news?tickers={company_tickers}&page=0&limit=50&apikey={api_key}'
     
     async with session.get(url) as response:
         if response.status == 200:

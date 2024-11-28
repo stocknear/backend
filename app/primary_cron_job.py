@@ -112,7 +112,11 @@ def run_share_statistics():
 
 def run_cron_market_news():
     run_command(["python3", "cron_market_news.py"])
-    run_command(["python3", "cron_company_news.py"])
+
+def run_cron_company_news():
+    week = datetime.today().weekday()
+    if week <= 5:
+        run_command(["python3", "cron_company_news.py"])
 
 def run_cron_heatmap():
     run_command(["python3", "cron_heatmap.py"])
@@ -290,8 +294,8 @@ schedule.every().day.at("08:00").do(run_threaded, run_economy_indicator).tag('ec
 schedule.every().day.at("08:00").do(run_threaded, run_cron_insider_trading).tag('insider_trading_job')
 schedule.every().day.at("08:30").do(run_threaded, run_dividends).tag('dividends_job')
 schedule.every().day.at("10:00").do(run_threaded, run_shareholders).tag('shareholders_job')
-schedule.every().day.at("10:30").do(run_threaded, run_sec_filings).tag('sec_filings_job')
-schedule.every().day.at("11:00").do(run_threaded, run_executive).tag('executive_job')
+#schedule.every().day.at("10:30").do(run_threaded, run_sec_filings).tag('sec_filings_job')
+#schedule.every().day.at("11:00").do(run_threaded, run_executive).tag('executive_job')
 schedule.every().day.at("12:00").do(run_threaded, run_market_cap).tag('market_cap_josb')
 
 #schedule.every().day.at("05:00").do(run_threaded, run_implied_volatility).tag('implied_volatility_job')
@@ -305,13 +309,14 @@ schedule.every().day.at("14:00").do(run_threaded, run_cron_sector).tag('sector_j
 
 schedule.every(2).days.at("08:30").do(run_threaded, run_financial_score).tag('financial_score_job')
 schedule.every().saturday.at("05:00").do(run_threaded, run_ownership_stats).tag('ownership_stats_job')
-schedule.every().saturday.at("06:00").do(run_threaded, run_sentiment_analysis).tag('sentiment_analysis_job')
-schedule.every().saturday.at("10:00").do(run_threaded, run_price_analysis).tag('price_analysis_job')
+#schedule.every().saturday.at("06:00").do(run_threaded, run_sentiment_analysis).tag('sentiment_analysis_job')
+#schedule.every().saturday.at("10:00").do(run_threaded, run_price_analysis).tag('price_analysis_job')
 
 
 schedule.every(30).minutes.do(run_threaded, run_dividend_list).tag('dividend_list_job')
 schedule.every(3).hours.do(run_threaded, run_congress_trading).tag('congress_job')
-schedule.every(15).minutes.do(run_threaded, run_cron_market_news).tag('market_news_job')
+schedule.every(30).minutes.do(run_threaded, run_cron_market_news).tag('market_news_job')
+
 schedule.every(30).minutes.do(run_threaded, run_cron_industry).tag('industry_job')
 
 schedule.every(7).minutes.do(run_threaded, run_one_day_price).tag('one_day_price_job')
@@ -328,6 +333,7 @@ schedule.every(3).hours.do(run_threaded, run_options_net_flow).tag('options_net_
 #schedule.every(4).hours.do(run_threaded, run_share_statistics).tag('share_statistics_job')
 
 schedule.every(1).hours.do(run_threaded, run_analyst_rating).tag('analyst_job')
+schedule.every(1).hours.do(run_threaded, run_cron_company_news).tag('company_news_job')
 
 
 schedule.every(2).minutes.do(run_threaded, run_dashboard).tag('dashboard_job')

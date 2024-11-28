@@ -76,7 +76,7 @@ async def run():
     stock_symbols = [row[0] for row in cursor.fetchall()]
     print(len(stock_symbols))
     con.close()
-    limit = 200
+    limit = 100
     company_tickers = ','.join(stock_symbols)
     urls = [
         f'https://financialmodelingprep.com/api/v3/stock_news?tickers={company_tickers}&limit={limit}&apikey={api_key}',
