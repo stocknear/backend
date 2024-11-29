@@ -411,7 +411,7 @@ async def run():
             print(e)
             options_flow = {}
 
-        market_status = check_market_hours()
+        market_status = 0 #check_market_hours()
         if market_status == 0:
             try:
                 with open("json/market-movers/markethours/gainers.json", 'r') as file:
