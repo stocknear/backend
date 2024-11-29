@@ -1256,6 +1256,8 @@ async def get_indicator(data: IndicatorListData, api_key: str = Security(get_api
 
 
 
+from datetime import datetime
+
 async def process_watchlist_ticker(ticker, rule_of_list, quote_keys_to_include, screener_dict, etf_symbols, crypto_symbols):
     """Process a single ticker concurrently."""
     ticker = ticker.upper()
@@ -1298,11 +1300,14 @@ async def process_watchlist_ticker(ticker, rule_of_list, quote_keys_to_include, 
             for item in news_dict[:5]
         ]
 
-    # Prepare earnings with symbol
+    # Prepare earnings with symbol and sort by latest date
     if earnings_dict and symbol:
         earnings = {**earnings_dict, 'symbol': symbol}
+        
 
     return result, news, earnings
+
+
 
 
 @app.post("/get-watchlist")
@@ -1356,6 +1361,7 @@ async def get_watchlist(data: GetWatchList, api_key: str = Security(get_api_key)
     combined_results = [result for result, _, _ in results_and_extras if result]
     combined_news = [news_item for _, news, _ in results_and_extras for news_item in news]
     combined_earnings = [earnings for _, _, earnings in results_and_extras if earnings]
+ 
 
     # Prepare response
     res = {
@@ -1364,7 +1370,6 @@ async def get_watchlist(data: GetWatchList, api_key: str = Security(get_api_key)
         'earnings': combined_earnings
     }
 
-    print(combined_earnings)
     compressed_data = gzip.compress(orjson.dumps(res))
     
     return StreamingResponse(
