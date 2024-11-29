@@ -1280,7 +1280,7 @@ async def get_watchlist(data: GetWatchList, api_key: str = Security(get_api_key)
 
     # Categorize tickers and fetch data
     for ticker in map(str.upper, ticker_list):
-        ticker_type = 'stock'
+        ticker_type = 'stocks'
         if ticker in etf_symbols:
             ticker_type = 'etf'
         elif ticker in crypto_symbols:
@@ -1296,7 +1296,8 @@ async def get_watchlist(data: GetWatchList, api_key: str = Security(get_api_key)
         # Load news data
         news_dict = load_json(f"json/market-news/companies/{ticker}.json")
         if news_dict:
-            combined_news.append(news_dict[0])
+            combined_news.extend(news_dict[:2])
+
 
     try:
         # Filter out the keys that need to be fetched from the screener
