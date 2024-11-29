@@ -936,7 +936,7 @@ async def get_earnings_calendar(con, stock_symbols):
                                 time = datetime.strptime(item['time'], "%H:%M:%S").time()
                                 if time < datetime.strptime("09:30:00", "%H:%M:%S").time():
                                     release = "bmo"
-                                elif time > datetime.strptime("16:30:00", "%H:%M:%S").time():
+                                elif time > datetime.strptime("16:00:00", "%H:%M:%S").time():
                                     release = "amc"
                                 else:
                                     release = "during"
