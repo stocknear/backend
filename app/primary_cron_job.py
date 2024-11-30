@@ -60,12 +60,12 @@ def run_command(command):
 
 def run_cron_insider_trading():
     week = datetime.today().weekday()
-    if week <= 5:
+    if week <= 4:
         run_command(["python3", "cron_insider_trading.py"])
 
 def run_congress_trading():
     week = datetime.today().weekday()
-    if week <= 5:
+    if week <= 4:
         run_command(["python3", "cron_congress_trading.py"])
         run_command(["python3", "restart_json.py"])
 
@@ -81,41 +81,43 @@ def run_dividend_list():
 
 def run_cron_var():
     week = datetime.today().weekday()
-    if week <= 5:
+    if week <= 4:
         run_command(["python3", "cron_var.py"])
 
 def run_cron_sector():
     week = datetime.today().weekday()
-    if week <= 5:
+    if week <= 4:
         run_command(["python3", "cron_sector.py"])
 
 def run_cron_industry():
     week = datetime.today().weekday()
-    if week <= 5:
+    if week <= 4:
         run_command(["python3", "cron_industry.py"])
 
 def run_analyst_estimate():
     week = datetime.today().weekday()
-    if week <= 5:
+    if week <= 4:
         run_command(["python3", "cron_analyst_estimate.py"])
 
 def run_shareholders():
     week = datetime.today().weekday()
-    if week <= 5:
+    if week <= 4:
         run_command(["python3", "cron_shareholders.py"])
 
 def run_share_statistics():
     week = datetime.today().weekday()
-    if week <= 5:
+    if week <= 4:
         run_command(["python3", "cron_share_statistics.py"])
 
 
 def run_cron_market_news():
-    run_command(["python3", "cron_market_news.py"])
+    week = datetime.today().weekday()
+    if week <= 4:
+        run_command(["python3", "cron_market_news.py"])
 
 def run_cron_company_news():
     week = datetime.today().weekday()
-    if week <= 5:
+    if week <= 4:
         run_command(["python3", "cron_company_news.py"])
 
 def run_cron_heatmap():
@@ -134,18 +136,18 @@ def run_cron_options_flow():
         
 def run_ta_rating():
     week = datetime.today().weekday()
-    if week <= 5:
+    if week <= 4:
         run_command(["python3", "cron_ta_rating.py"])
 
 
 def run_similar_stocks():
     week = datetime.today().weekday()
-    if week <= 5:
+    if week <= 4:
         run_command(["python3", "cron_similar_stocks.py"])
 
 def run_historical_price():
     week = datetime.today().weekday()
-    if week <= 5:
+    if week <= 4:
         run_command(["python3", "cron_historical_price.py"])
 
 def run_one_day_price():
@@ -165,7 +167,7 @@ def run_executive():
 
 def run_options_bubble_ticker():
     week = datetime.today().weekday()
-    if week <= 5:
+    if week <= 4:
         run_command(["python3", "cron_options_bubble.py"])
 
 
@@ -176,7 +178,7 @@ def run_analyst_rating():
 
 def run_market_moods():
     week = datetime.today().weekday()
-    if week <= 5:
+    if week <= 4:
         run_command(["python3", "cron_bull_bear_say.py"])
         run_command(["python3", "cron_wiim.py"])
 
@@ -184,23 +186,27 @@ def run_market_moods():
 def run_db_schedule_job():
     #update db daily
     week = datetime.today().weekday()
-    if week <= 5:
+    if week <= 4:
         run_command(["bash", "run_universe.sh"])
 
 
 def run_ownership_stats():
     week = datetime.today().weekday()
-    if week <= 5:
+    if week <= 4:
         run_command(["python3", "cron_ownership_stats.py"])
 
 
 
 def run_options_net_flow():
-    run_command(["python3", "cron_options_net_flow.py"])
+    week = datetime.today().weekday()
+    if week <= 5:
+        run_command(["python3", "cron_options_net_flow.py"])
 
 def run_options_gex():
-    run_command(["python3", "cron_options_gex.py"])
-    run_command(["python3", "cron_options_historical_flow.py"])
+    week = datetime.today().weekday()
+    if week <= 5:
+        run_command(["python3", "cron_options_gex.py"])
+        run_command(["python3", "cron_options_historical_flow.py"])
     
 
 def run_hedge_fund():
@@ -208,7 +214,7 @@ def run_hedge_fund():
 
 def run_dashboard():
     week = datetime.today().weekday()
-    if week <= 5:
+    if week <= 4:
         run_command(["python3", "cron_quote.py"])
         run_command(["python3", "cron_market_movers.py"])
         run_command(["python3", "cron_dashboard.py"])
@@ -216,7 +222,7 @@ def run_dashboard():
 
 def run_export_price():
     week = datetime.today().weekday()
-    if week <= 5:
+    if week <= 4:
         run_command(["python3", "cron_export_price"])
 
 def run_tracker():
@@ -323,7 +329,7 @@ schedule.every(7).minutes.do(run_threaded, run_one_day_price).tag('one_day_price
 #schedule.every(15).minutes.do(run_threaded, run_cron_heatmap).tag('heatmap_job')
 
 
-schedule.every(10).minutes.do(run_threaded, run_tracker).tag('tracker_job')
+schedule.every(20).minutes.do(run_threaded, run_tracker).tag('tracker_job')
 
 
 schedule.every(15).minutes.do(run_threaded, run_market_moods).tag('market_moods_job')
@@ -339,6 +345,7 @@ schedule.every(1).hours.do(run_threaded, run_cron_company_news).tag('company_new
 schedule.every(2).minutes.do(run_threaded, run_dashboard).tag('dashboard_job')
 
 schedule.every(20).seconds.do(run_threaded, run_if_not_running(run_cron_options_flow, 'options_flow_job')).tag('options_flow_job')
+
 
 
 # Run the scheduled jobs indefinitelyp
