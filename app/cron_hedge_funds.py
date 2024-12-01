@@ -17,6 +17,22 @@ keys_to_keep = [
     "marketValue", "avgPricePaid", "putCallShare"
 ]
 
+quote_cache = {}
+
+
+def get_quote_data(symbol):
+    """Get quote data for a symbol from JSON file"""
+    if symbol in quote_cache:
+        return quote_cache[symbol]
+    else:
+        try:
+            with open(f"json/quote/{symbol}.json") as file:
+                quote_data = orjson.loads(file.read())
+                quote_cache[symbol] = quote_data  # Cache the loaded data
+                return quote_data
+        except:
+            return None
+
 def format_company_name(company_name):
     remove_strings = [', LLC','LLC', ',', 'LP', 'LTD', 'LTD.', 'INC.', 'INC', '.', '/DE/','/MD/','PLC']
     preserve_words = ['FMR','MCF']
@@ -125,7 +141,17 @@ def get_data(cik, stock_sectors):
     ]
 
     filtered_holdings = remove_stock_duplicates(filtered_holdings)
-
+    #add current price and changespercentage
+    for item in filtered_holdings:
+        try:
+            symbol = item['symbol']
+            quote_data = get_quote_data(symbol)
+            if quote_data:
+                item['price'] = quote_data.get('price',None)
+                item['changesPercentage'] = round(quote_data.get('changesPercentage'), 2) if quote_data.get('changesPercentage') is not None else None
+        except:
+            pass
+    #stock_screener_data_dict
     res['holdings'] = filtered_holdings
     for rank, item in enumerate(res['holdings'], 1):
         item['rank'] = rank
@@ -169,7 +195,8 @@ if __name__ == '__main__':
     cursor.execute("PRAGMA journal_mode = wal")
     cursor.execute("SELECT DISTINCT cik FROM institutes")
     cik_symbols = [row[0] for row in cursor.fetchall()]
-
+    #Test mode
+    #cik_symbols = ['0000102909']
     try:
         stock_cursor = stock_con.cursor()
         stock_cursor.execute("SELECT DISTINCT symbol, sector FROM stocks")
