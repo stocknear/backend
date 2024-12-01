@@ -612,10 +612,12 @@ async def get_most_ftd_shares():
                 if quote_data:
                     price = round(quote_data.get('price',None), 2)
                     changesPercentage = round(quote_data.get('changesPercentage'), 2)
+                    volume = round(quote_data.get('volume',None), 2)
+                    market_cap = round(quote_data.get('marketCap',None), 2)
                     name = quote_data.get('name')
 
                     # Append stock data to res_list if it meets the criteria
-                    if changesPercentage != 0:
+                    if changesPercentage != 0 and volume > 10_000 and market_cap > 50E6:
                         res_list.append({
                             'symbol': symbol,
                             'name': name,
@@ -629,7 +631,7 @@ async def get_most_ftd_shares():
 
     if res_list:
         # Sort by market cap in descending order
-        res_list = sorted(res_list, key=lambda x: x['relativeFTD'], reverse=True)[:100]
+        res_list = sorted(res_list, key=lambda x: x['relativeFTD'], reverse=True)[:50]
         
         # Assign rank to each stock
         for rank, item in enumerate(res_list, start=1):
