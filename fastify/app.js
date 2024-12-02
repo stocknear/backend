@@ -99,49 +99,59 @@ fastify.register(async function (fastify) {
 
      
       // Function to send data to the client
-      const sendData = async () => {
-        if (!symbol) return; // Check if symbol is defined
-        const filePath = path.join(__dirname, `../app/json/websocket/companies/${symbol}.json`);
+     const sendData = async () => {
+  if (!symbol) return; // Check if symbol is defined
+  const filePath = path.join(__dirname, `../app/json/websocket/companies/${symbol}.json`);
 
-        try {
-          if (fs.existsSync(filePath)) {
-            const fileData = fs.readFileSync(filePath, "utf8");
-            jsonData = JSON.parse(fileData);
-            
-            // Logic to send data if certain conditions are met
-            if (
-              jsonData?.lp != null &&
-              jsonData?.t != null &&
-              ["Q", "T"].includes(jsonData?.type) &&
-              connection.socket.readyState === WebSocket.OPEN &&
-              !isSend
-            ) {
-              connection.socket.send(
-                JSON.stringify({
-                  bp: jsonData?.bp,
-                  ap: jsonData?.ap,
-                  lp: jsonData?.lp?.toFixed(2),
-                  type: jsonData?.type,
-                  time: formatTimestampNewYork(jsonData?.t),
-                })
-              );
-              isSend = true;
-              setTimeout(() => {
-                isSend = false;
-              }, 500); // Reset isSend after 500ms
-            }
-          } else {
-            console.error("File not found:", filePath);
-            clearInterval(sendInterval);
-            connection.socket.close();
-            console.error("Connection closed");
-          }
-        } catch (err) {
-          console.error("Error sending data to client:", err);
-          clearInterval(sendInterval);
-          connection.socket.close();
-        }
-      };
+  try {
+    if (fs.existsSync(filePath)) {
+      const fileData = fs.readFileSync(filePath, "utf8");
+      jsonData = JSON.parse(fileData);
+
+      // Logic to send data if certain conditions are met
+      if (
+        jsonData?.lp != null &&
+        jsonData?.t != null &&
+        ["Q", "T"].includes(jsonData?.type) &&
+        connection.socket.readyState === WebSocket.OPEN &&
+        !isSend
+      ) {
+        // Calculate the average price
+        const avgPrice =
+          (parseFloat(jsonData.ap) +
+            parseFloat(jsonData.bp) +
+            parseFloat(jsonData.lp)) /
+          3;
+
+        connection.socket.send(
+          JSON.stringify({
+            bp: jsonData?.bp,
+            ap: jsonData?.ap,
+            lp: jsonData?.lp?.toFixed(2),
+            avgPrice: avgPrice?.toFixed(2), // Add the computed average price
+            type: jsonData?.type,
+            time: formatTimestampNewYork(jsonData?.t),
+          })
+        );
+
+        isSend = true;
+        setTimeout(() => {
+          isSend = false;
+        }, 500); // Reset isSend after 500ms
+      }
+    } else {
+      console.error("File not found:", filePath);
+      clearInterval(sendInterval);
+      connection.socket.close();
+      console.error("Connection closed");
+    }
+  } catch (err) {
+    console.error("Error sending data to client:", err);
+    clearInterval(sendInterval);
+    connection.socket.close();
+  }
+};
+
 
       // Start receiving messages from the client
       connection.socket.on("message", (message) => {
@@ -356,59 +366,69 @@ fastify.register(async function (fastify) {
       const lastSentData = {};
       
       // Function to send data for all tickers as a list
-      const sendData = async () => {
-        const dataToSend = [];
-        
-        // Iterate over tickers and collect data
-        for (const symbol of tickers) {
-          const filePath = path?.join(
-            __dirname,
-            `../app/json/websocket/companies/${symbol}.json`
-          );
-          
-          try {
-            if (fs?.existsSync(filePath)) {
-              const fileData = fs?.readFileSync(filePath, "utf8");
-              const jsonData = JSON?.parse(fileData);
-              // Only send data if conditions are met and data has changed
-              if (
-                jsonData?.lp != null &&
-                jsonData?.ap != null &&
-                jsonData?.bp != null &&
-                jsonData?.t != null &&
-                ["Q", "T"].includes(jsonData?.type) &&
-                connection.socket.readyState === WebSocket.OPEN
-              ) {
+    const sendData = async () => {
+  const dataToSend = [];
 
-                // Check if the current data is different from the last sent data
-                const currentDataSignature = `${jsonData?.lp}`;
-                const lastSentSignature = lastSentData[symbol];
-                
-                if (currentDataSignature !== lastSentSignature) {
-                  // Collect data to send
-                  dataToSend?.push({
-                    symbol, // Include the ticker symbol in the sent data
-                    ap: jsonData?.ap,
-                  });
-                  
-                  // Update the last sent data for this ticker
-                  lastSentData[symbol] = currentDataSignature;
-                }
-              }
-            } else {
-              //console.error("File not found for ticker:", symbol);
-            }
-          } catch (err) {
-            console.error("Error processing data for ticker:", symbol, err);
+  for (const symbol of tickers) {
+    const filePath = path?.join(
+      __dirname,
+      `../app/json/websocket/companies/${symbol}.json`
+    );
+
+    try {
+      if (fs?.existsSync(filePath)) {
+        const fileData = fs?.readFileSync(filePath, "utf8");
+        const jsonData = JSON?.parse(fileData);
+
+        // Only send data if conditions are met and data has changed
+        if (
+          jsonData?.lp != null &&
+          jsonData?.ap != null &&
+          jsonData?.bp != null &&
+          jsonData?.t != null &&
+          ["Q", "T"].includes(jsonData?.type) &&
+          connection.socket.readyState === WebSocket.OPEN
+        ) {
+          // Calculate the average price
+          const avgPrice =
+            ((parseFloat(jsonData.ap) +
+              parseFloat(jsonData.bp) +
+              parseFloat(jsonData.lp)) /
+            3);
+
+          // Check if the current data is different from the last sent data
+          const currentDataSignature = `${jsonData?.lp}`;
+          const lastSentSignature = lastSentData[symbol];
+
+          if (currentDataSignature !== lastSentSignature) {
+            // Collect data to send
+            dataToSend?.push({
+              symbol, // Include the ticker symbol in the sent data
+              ap: jsonData?.ap,
+              bp: jsonData?.bp,
+              lp: jsonData?.lp,
+              avgPrice: avgPrice, // Add the computed average price
+            });
+
+            // Update the last sent data for this ticker
+            lastSentData[symbol] = currentDataSignature;
           }
         }
-        
-        // Send all collected data as a single message
-        if (dataToSend.length > 0 && connection.socket.readyState === WebSocket.OPEN) {
-          connection.socket.send(JSON.stringify(dataToSend));
-          //console.log(dataToSend)
-        }
-      };
+      } else {
+        //console.error("File not found for ticker:", symbol);
+      }
+    } catch (err) {
+      console.error("Error processing data for ticker:", symbol, err);
+    }
+  }
+
+  // Send all collected data as a single message
+  if (dataToSend.length > 0 && connection.socket.readyState === WebSocket.OPEN) {
+    connection.socket.send(JSON.stringify(dataToSend));
+    //console.log(dataToSend);
+  }
+};
+
       
       // Start receiving messages from the client
       connection.socket.on("message", (message) => {
