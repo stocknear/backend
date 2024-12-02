@@ -13,7 +13,7 @@ from collections import Counter
 import aiohttp
 import asyncio
 import statistics
-
+import math
 
 load_dotenv()
 api_key = os.getenv('BENZINGA_API_KEY')
@@ -99,6 +99,19 @@ async def get_data(ticker_list, item):
     return item
 
 
+def smooth_scale(value, max_value=100, curve_factor=2):
+    """
+    Create a smooth, non-linear scaling that prevents extreme values
+    while allowing nuanced differentiation.
+    """
+    # Ensure inputs are valid
+    if max_value <= 0:
+        raise ValueError("max_value must be greater than 0")
+    
+    # Clamp the value to a non-negative range
+    normalized = max(min(value / max_value, 1), 0)
+    
+    return math.pow(normalized, curve_factor)
 
 
 def calculate_rating(data):
@@ -106,6 +119,8 @@ def calculate_rating(data):
     overall_success_rate = float(data['successRate'])
     total_ratings = int(data['totalRatings'])
     last_rating = data['lastRating']
+    average_return_percentile = float(data['avgReturnPercentile'])
+    total_ratings_percentile = float(data['totalRatingsPercentile'])
 
     try:
         last_rating_date = datetime.strptime(last_rating, "%Y-%m-%d")
@@ -117,49 +132,54 @@ def calculate_rating(data):
         return 0
     else:
         # Define weights for each factor
-        weight_return = 0.4
-        weight_success_rate = 0.3
-        weight_total_ratings = 0.1
-        weight_difference = 0.2  # Reduced weight for difference
+        weights = {
+            'return': 0.35,
+            'success_rate': 0.35,
+            'total_ratings': 0.1,
+            'recency': 0.1,
+            'returnPercentile': 0.05,
+            'ratingsPercentile': 0.05,
+        }
 
         # Calculate weighted sum
-        weighted_sum = (weight_return * overall_average_return +
-                        weight_success_rate * overall_success_rate +
-                        weight_total_ratings * total_ratings +
-                        weight_difference * (1 / (1 + difference)))  # Adjusted weight for difference
+        weighted_components = [
+            weights['return'] * smooth_scale(overall_average_return, max_value=50, curve_factor=1.8),
+            weights['success_rate'] * smooth_scale(overall_success_rate, max_value=100, curve_factor=1.5),
+            weights['total_ratings'] * smooth_scale(min(total_ratings, 100), max_value=100, curve_factor=1.3),
+            weights['recency'] * (1 / (1 + math.log1p(difference))),
+            weights['returnPercentile'] * smooth_scale(average_return_percentile),
+            weights['ratingsPercentile'] * smooth_scale(total_ratings_percentile),
+        ]
 
-        # Normalize the weighted sum to get a rating between 0 and 5
-        min_rating = 0
-        max_rating = 5
-        normalized_rating = min(max(weighted_sum / (weight_return + weight_success_rate + weight_total_ratings + weight_difference), min_rating), max_rating)
+        # Calculate base rating
+        base_rating = sum(weighted_components)
+        normalized_rating = min(max(base_rating / sum(weights.values()) * 5, 0), 5)
+        # Encourage higher ratings for sufficient data and good performance
+        if total_ratings > 50 and overall_success_rate > 60 and overall_average_return > 60:
+            normalized_rating += 1.0
 
-        # Apply additional conditions based on total ratings and average return
-        if normalized_rating >= 4:
-            if total_ratings < 10:
-                normalized_rating -= 2.4
-            elif total_ratings < 15:
-                normalized_rating -= 2.5
-            elif total_ratings < 20:
-                normalized_rating -= 0.75
-            elif total_ratings < 30:
-                normalized_rating -= 1
-            elif overall_average_return <= 10:
-                normalized_rating -= 1.1
+        elif total_ratings > 30 and overall_success_rate > 50 and overall_average_return > 50:
+            normalized_rating += 0.5
 
-        if overall_average_return <= 0:
-            normalized_rating = max(normalized_rating - 2, 0)
+        elif total_ratings > 20 and overall_success_rate >= 50 and overall_average_return >= 15:
+            normalized_rating += 0.3
 
-        # Cap the rating if the last rating is older than 30 days
-        if difference > 30:
-            normalized_rating = min(normalized_rating, 4.5)
+        # Apply additional conditions based on return and success rate thresholds
+        if overall_average_return <= 5:
+            normalized_rating = max(normalized_rating - 1.5, 0)
+        elif overall_average_return <= 10:
+            normalized_rating = max(normalized_rating - 1.0, 0)
 
         if overall_success_rate < 50:
-            normalized_rating = min(normalized_rating, 4.6)
+            normalized_rating = min(normalized_rating, 3.5)
 
-        if overall_average_return < 30:
-            normalized_rating = min(normalized_rating, 4.6)
+        # Cap the rating for older ratings
+        if difference > 30:
+            normalized_rating = min(normalized_rating, 4.8)
 
-        return round(normalized_rating, 2)
+        # Ensure final rating remains in valid bounds
+        #print(round(min(max(normalized_rating, 0), 5), 2))
+        return round(min(max(normalized_rating, 0), 5), 2)
 
 def get_top_stocks():
     with open(f"json/analyst/all-analyst-data.json", 'r') as file:
@@ -311,6 +331,8 @@ async def get_all_analyst_stats():
         'avgReturn': item['ratings_accuracy'].get('overall_average_return', 0),
         'successRate': item['ratings_accuracy'].get('overall_success_rate', 0),
         'totalRatings': item['ratings_accuracy'].get('total_ratings', 0),
+        'totalRatingsPercentile': item['ratings_accuracy'].get('total_ratings_percentile', 0),
+        'avgReturnPercentile': item['ratings_accuracy'].get('avg_return_percentile', 0),
     } for item in res_list]
 
     return final_list
@@ -399,7 +421,7 @@ async def process_analyst(item, con, session, start_date, end_date):
 
     # Calculate success rate
     if valid_ratings_count > 0:
-        item['successRate'] = round(success_count / valid_ratings_count * 100, 2)  # Success rate in percentage
+        item['successRate'] = round((success_count / valid_ratings_count) * 100, 2)  # Success rate in percentage
     else:
         item['successRate'] = 0
 
@@ -409,6 +431,8 @@ async def process_analyst(item, con, session, start_date, end_date):
         'successRate': item.get('successRate', 0),
         'totalRatings': item['totalRatings'],
         'lastRating': item['lastRating'],
+        'totalRatingsPercentile': item['totalRatingsPercentile'],
+        'avgReturnPercentile': item['avgReturnPercentile']
     }
 
     item['analystScore'] = calculate_rating(stats_dict)
