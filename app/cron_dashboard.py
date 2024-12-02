@@ -280,7 +280,7 @@ async def get_analyst_report():
         with sqlite3.connect('stocks.db') as con:
             cursor = con.cursor()
             cursor.execute("PRAGMA journal_mode = wal")
-            cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%' AND symbol NOT LIKE '%-%' AND marketCap > 100E9")
+            cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%' AND symbol NOT LIKE '%-%' AND marketCap > 50E9")
             symbols = {row[0] for row in cursor.fetchall()}  # Use a set for fast lookups
 
         # Define the directory path
@@ -411,7 +411,7 @@ async def run():
             print(e)
             options_flow = {}
 
-        market_status = check_market_hours()
+        market_status = 0 #check_market_hours()
         if market_status == 0:
             try:
                 with open("json/market-movers/markethours/gainers.json", 'r') as file:
