@@ -33,6 +33,7 @@ async def fetch_and_save_symbols_data(symbols, etf_symbols, crypto_symbols, sess
 async def get_historical_data(ticker, query_con, session):
     try:
         # Form API request URLs
+    
         url_1w = f"https://financialmodelingprep.com/api/v3/historical-chart/30min/{ticker}?from={start_date_1w}&to={end_date}&apikey={api_key}"
         url_1m = f"https://financialmodelingprep.com/api/v3/historical-chart/1hour/{ticker}?from={start_date_1m}&to={end_date}&apikey={api_key}"
         
@@ -59,6 +60,7 @@ async def get_historical_data(ticker, query_con, session):
             query = query_template.format(ticker=ticker)
             df_6m = pd.read_sql_query(query, query_con, params=(start_date_6m, end_date)).round(2).rename(columns={"date": "time"})
             df_1y = pd.read_sql_query(query, query_con, params=(start_date_1y, end_date)).round(2).rename(columns={"date": "time"})
+            df_5y = pd.read_sql_query(query, query_con, params=(start_date_5y, end_date)).round(2).rename(columns={"date": "time"})
             df_max = pd.read_sql_query(query, query_con, params=(start_date_max, end_date)).round(2).rename(columns={"date": "time"})
 
             async with aiofiles.open(f"json/historical-price/one-week/{ticker}.json", 'w') as file:
@@ -75,6 +77,10 @@ async def get_historical_data(ticker, query_con, session):
 
             async with aiofiles.open(f"json/historical-price/one-year/{ticker}.json", 'w') as file:
                 res = ujson.loads(df_1y.to_json(orient="records"))
+                await file.write(ujson.dumps(res))
+
+            async with aiofiles.open(f"json/historical-price/five-years/{ticker}.json", 'w') as file:
+                res = ujson.loads(df_5y.to_json(orient="records"))
                 await file.write(ujson.dumps(res))
 
             async with aiofiles.open(f"json/historical-price/max/{ticker}.json", 'w') as file:
@@ -130,6 +136,7 @@ try:
     start_date_1m = (end_date - timedelta(days=30)).strftime("%Y-%m-%d")
     start_date_6m = (end_date - timedelta(days=180)).strftime("%Y-%m-%d")
     start_date_1y = (end_date - timedelta(days=365)).strftime("%Y-%m-%d")
+    start_date_5y = (end_date - timedelta(days=365*5)).strftime("%Y-%m-%d")
     start_date_max = datetime(1970, 1, 1).strftime("%Y-%m-%d")
     end_date = end_date.strftime("%Y-%m-%d")
 
