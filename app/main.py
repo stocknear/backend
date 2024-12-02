@@ -3564,7 +3564,7 @@ async def get_reddit_tracker(api_key: str = Security(get_api_key)):
 
 @app.post("/historical-market-cap")
 async def get_historical_market_cap(data:TickerData, api_key: str = Security(get_api_key)):
-    ticker = data.ticker
+    ticker = data.ticker.upper()
     cache_key = f"historical-market-cap-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -3678,7 +3678,7 @@ async def get_sector_overview(api_key: str = Security(get_api_key)):
 
 @app.post("/industry-stocks")
 async def get_sector_overview(data: TickerData, api_key: str = Security(get_api_key)):
-    ticker = data.ticker
+    ticker = data.ticker.upper()
     cache_key = f"industry-stocks-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -3736,7 +3736,7 @@ async def get_industry_overview(api_key: str = Security(get_api_key)):
 
 @app.post("/next-earnings")
 async def get_next_earnings(data:TickerData, api_key: str = Security(get_api_key)):
-    ticker = data.ticker
+    ticker = data.ticker.upper()
     cache_key = f"next-earnings-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -3754,7 +3754,7 @@ async def get_next_earnings(data:TickerData, api_key: str = Security(get_api_key
 
 @app.post("/earnings-surprise")
 async def get_surprise_earnings(data:TickerData, api_key: str = Security(get_api_key)):
-    ticker = data.ticker
+    ticker = data.ticker.upper()
     cache_key = f"earnings-surprise-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -3772,7 +3772,7 @@ async def get_surprise_earnings(data:TickerData, api_key: str = Security(get_api
 
 @app.post("/dividend-announcement")
 async def get_dividend_announcement(data:TickerData, api_key: str = Security(get_api_key)):
-    ticker = data.ticker
+    ticker = data.ticker.upper()
     cache_key = f"dividend-announcement-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -3808,7 +3808,7 @@ async def get_info_text(data:InfoText, api_key: str = Security(get_api_key)):
 
 @app.post("/fomc-impact")
 async def get_fomc_impact(data: TickerData, api_key: str = Security(get_api_key)):
-    ticker = data.ticker
+    ticker = data.ticker.upper()
 
     cache_key = f"fomc-impact-{ticker}"
     cached_result = redis_client.get(cache_key)
@@ -3867,7 +3867,7 @@ async def get_fomc_impact(api_key: str = Security(get_api_key)):
 
 @app.post("/business-metrics")
 async def get_fomc_impact(data: TickerData, api_key: str = Security(get_api_key)):
-    ticker = data.ticker
+    ticker = data.ticker.upper()
     cache_key = f"business-metrics-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -3925,7 +3925,7 @@ async def get_insider_tracker(api_key: str = Security(get_api_key)):
 
 @app.post("/statistics")
 async def get_statistics(data: TickerData, api_key: str = Security(get_api_key)):
-    ticker = data.ticker
+    ticker = data.ticker.upper()
     cache_key = f"statistics-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
