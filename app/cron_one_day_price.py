@@ -116,6 +116,8 @@ async def run():
     crypto_con.close()
 
     total_symbols = stocks_symbols + etf_symbols + crypto_symbols
+    total_symbols = sorted(total_symbols, key=lambda x: '.' in x)
+
 
     market_open = check_market_hours()
     
