@@ -81,8 +81,6 @@ async def process_category(cursor, category, condition, category_type='market-ca
 
 
 async def get_etf_holding(etf_symbols, etf_con):
-    etf_symbols = ['AGG']
-
     for ticker in tqdm(etf_symbols):
         res = []
         df = pd.read_sql_query(query_etf_holding, etf_con, params=(ticker,))
@@ -99,30 +97,26 @@ async def get_etf_holding(etf_symbols, etf_con):
                     'sharesNumber': item.get('marketValue', None) if not item.get('asset') and item.get('sharesNumber') == 0 else item.get('sharesNumber', None)
                 }
                 for item in data
-                if item.get('marketValue', 0) >= 0  # Exclude items with a negative marketValue
+                if item.get('marketValue', 0) >= 0 and item.get('weightPercentage', 0) > 0  # Exclude items with negative marketValue or non-positive weightPercentage
             ]
 
             for item in res:
                 try:
                     symbol = item['symbol']
-                    
-                    # Check if the symbol data is already in the cache
-                    if symbol in quote_cache:
-                        quote_data = quote_cache[symbol]
-                    else:
-                        # Load the quote data from file if not in cache
-                        try:
-                            with open(f"json/quote/{symbol}.json") as file:
-                                quote_data = orjson.loads(file.read())
-                                quote_cache[symbol] = quote_data  # Cache the loaded data
-                                item['price'] = round(quote_data.get('price'), 2) if quote_data else None
-                                item['changesPercentage'] = round(quote_data.get('changesPercentage'), 2) if quote_data else None
-                                item['name'] = quote_data.get('name') if quote_data else None
-                        except:
-                            quote_data = None
+
+                    # Adjustments for ticker = 'IBIT'
+                    if ticker == 'IBIT' and symbol == 'BTC':
+                        item['symbol'] = 'BTCUSD'
+                        item['name'] = 'Bitcoin'
+
+                    quote_data = await get_quote_data(item['symbol'])
+                    item['price'] = round(quote_data.get('price'), 2) if quote_data else None
+                    item['changesPercentage'] = round(quote_data.get('changesPercentage'), 2) if quote_data else None
+                    item['name'] = quote_data.get('name') if quote_data else item['name']
+
                 except:
                     pass
-
+                
                 # Assign price and changesPercentage if available, otherwise set to None
                 item['weightPercentage'] = round(item.get('weightPercentage'), 2) if item['weightPercentage'] else None
 
@@ -136,6 +130,8 @@ async def get_etf_holding(etf_symbols, etf_con):
             with open(f"json/etf/holding/{ticker}.json", 'wb') as file:
                 final_res = {'lastUpdate': last_update, 'holdings': res}
                 file.write(orjson.dumps(final_res))
+
+
 
 
 async def get_etf_provider(etf_con):
