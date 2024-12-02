@@ -2,7 +2,7 @@
 
 
 
-# **Open Source Stock Analysis for Data Freaks**
+# **Stocknear: Open Source Stock Analysis Platform**
 
 <h3>
 
@@ -17,7 +17,8 @@
 
 
 # Techstack
-This is the codebase that powers [stocknear's](https://stocknear.com/) backend, which is an open-source stock analysis & community platform.
+
+This is the codebase that powers [stocknear's](https://stocknear.com/) backend, which is an open-source stock analysis research platform.
 
 Built with:
 - [FastAPI](https://fastapi.tiangolo.com/): Python Backend
@@ -25,54 +26,17 @@ Built with:
 - [Pocketbase](https://pocketbase.io/): Database
 - [Redis](https://redis.io/): Caching Data
 
-# Getting started
-Follow the instructions below to run stocknear locally on your machine.
-
-## Prerequisites & Resources
-
-* Python 3.x (Recommended: 3.10.12 or higher)
-* Pip (Python package installer)
-* PocketBase (Download and install from: https://pocketbase.io/
-
-* Download schemas, databases and configurations files:
-  * stocks.db [TODO - add link] 
-  * crypto.db [TODO - add link]
-  * institute.db [TODO - add link]
-  * json.zip folder [TODO - add link]
-  * pocketbase schema [TODO - add link]
-
-## Installation
-
-1. **Set up virtual env:**
-
-`python -m venv env`
-
-`source env/bin/activate`  # On macOS/Linux
-
-`.\env\Scripts\activate`   # On Windows
-
-2. **Install dependencies:**
-
-`pip install -r requirements.txt`
-
-## Run
-
-- Pocketbase: `./pocketbase serve`
-- Fastify: `npm start`
-- FastAPI: `uvicorn main:app --reload`
-
 # Contributing
-Stocknear is open-source software and you're welcome to contribute to its development.
+Stocknear is an open-source project, soley maintained by Muslem Rahimi.
 
-The core idea of stocknear shall always be: ***Fast*** & ***Simple***.
+We are not accepting pull requests. However, you are more than welcome to fork the project and customize it to suit your needs.
 
-If want to contribute to the codebase please follow these guidelines:
-- Refactoring slow code into fast code is a huge plus!
-- Reducing complexity and increasing simplicity/readability is a huge plus!
-- Anything you claim is a "speedup" must be benchmarked. In general, the goal is simplicity, so even if your PR makes things marginally faster, you have to consider the tradeoff with maintainablity and readablity.
-- If your PR looks "complex", is a big diff, or adds lots of lines, it won't be reviewed or merged. Consider breaking it up into smaller PRs that are individually clear wins. A common pattern I see is prerequisite refactors before adding new functionality. If you can (cleanly) refactor to the point that the feature is a 3 line change, this is great, and something easy for us to review.
+The core idea of stocknear shall always be: **_Fast_**, **_Simple_** & **_Efficient_**.
+
 
 # Support ❤️
+
 If you love the idea of stocknear and want to support our mission you can help us in two ways:
+
 - Become a [Pro Member](https://stocknear.com/pricing) of stocknear to get unlimited feature access to enjoy the platform to the fullest.
-- You can donate money via [Ko-fi](https://ko-fi.com/stocknear) to help us pay the servers & data providers to keep everything running! 
+- You can sponsor us via [Github](https://github.com/sponsors/stocknear) to help us pay the servers & data providers to keep everything running!
