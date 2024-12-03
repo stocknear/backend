@@ -34,9 +34,8 @@ aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
 
 berlin_tz = pytz.timezone('Europe/Berlin')
 pb = PocketBase('http://127.0.0.1:8090')
-admin_data = pb.admins.auth_with_password(pb_admin_email, pb_password)
-pb_admin_email = os.getenv('POCKETBASE_ADMIN_EMAIL')
-pb_password = os.getenv('POCKETBASE_PASSWORD')
+admin_data = pb.collection('_superusers').auth_with_password(pb_admin_email, pb_password)
+
 
 now = datetime.now()
 one_month_ago = now - timedelta(days=30)
@@ -92,7 +91,7 @@ def send_email(recipient):
 
 async def update_free_trial():
 
-    data =  pb.collection("users").get_full_list(query_params = {"filter": f'freeTrial = True'})
+    data = pb.collection("users").get_full_list(query_params = {"filter": f'freeTrial = True'})
 
     for item in data:
         created_date = item.created
@@ -109,4 +108,23 @@ async def update_free_trial():
                 print(e)
 
 
-asyncio.run(update_free_trial())
+async def downgrade_user():
+
+    user_data =  pb.collection('users').get_full_list()
+    for item in user_data:
+        if item.tier != 'Pro':
+            stock_screener_data = pb.collection("stockscreener").get_full_list(query_params = {"filter": f"user = '{item.id}'"})
+            for screener in stock_screener_data:
+                pb.collection('stockscreener').delete(screener.id);
+
+            options_watchlist_data = pb.collection("optionsWatchlist").get_full_list(query_params = {"filter": f"user = '{item.id}'"})
+            for watchlist in options_watchlist_data:
+                pb.collection('optionsWatchlist').delete(watchlist.id);
+
+
+async def run():
+
+    await update_free_trial()
+    await downgrade_user()
+
+asyncio.run(run())
