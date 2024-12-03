@@ -1396,6 +1396,7 @@ async def get_price_alert(data: UserId, api_key: str = Security(get_api_key)):
                 return {
                     'symbol': item.symbol,
                     'name': item.name,
+                    'id': item.id,
                     'assetType': item.asset_type,
                     'targetPrice': item.target_price,
                     'priceWhenCreated': item.price_when_created,
