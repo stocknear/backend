@@ -38,7 +38,8 @@ admin_data = pb.collection('_superusers').auth_with_password(pb_admin_email, pb_
 
 
 now = datetime.now()
-one_month_ago = now - timedelta(days=30)
+#one_month_ago = now - timedelta(days=30)
+time_threshold = now - timedelta(days=7)
 
 
 def send_email(recipient):
@@ -96,7 +97,7 @@ async def update_free_trial():
     for item in data:
         created_date = item.created
         # Check if the created date is more than N days ago
-        if created_date < one_month_ago:
+        if created_date < time_threshold:
             # Update the user record
             pb.collection("users").update(item.id, {
                 "tier": 'Free',
