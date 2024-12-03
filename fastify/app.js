@@ -256,7 +256,7 @@ fastify.register(async function (fastify) {
   for (const symbol of tickers) {
     const filePath = path?.join(
       __dirname,
-      `../app/json/websocket/companies/${symbol}.json`
+      `../app/json/websocket/companies/${symbol?.toUpperCase()}.json`
     );
 try {
       if (fs?.existsSync(filePath)) {

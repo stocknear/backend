@@ -351,7 +351,7 @@ async def fetch_tickers():
 db = StockDatabase('backup_db/stocks.db')
 loop = asyncio.get_event_loop()
 all_tickers = loop.run_until_complete(fetch_tickers())
-#all_tickers = [item for item in all_tickers if item['symbol'] == 'KRKNF']
+#all_tickers = [item for item in all_tickers if item['symbol'] == 'ZJK']
 '''
 existing_names = set()
 

@@ -32,6 +32,7 @@ def run_restart_cache():
     if week <= 5:
         subprocess.run(["pm2", "restart","fastapi"])
         subprocess.run(["pm2", "restart","fastify"])
+        subprocess.run(["pm2", "restart","websocket"])
 
         
 def run_json_job():
@@ -51,8 +52,9 @@ def run_threaded(job_func):
     job_thread.start()
 
 
-#schedule.every().day.at("06:30").do(run_threaded, run_pocketbase).tag('pocketbase_job')
-schedule.every().day.at("15:45").do(run_threaded, run_restart_cache)
+schedule.every().day.at("06:30").do(run_threaded, run_pocketbase).tag('pocketbase_job')
+schedule.every().day.at("15:31").do(run_threaded, run_restart_cache)
+schedule.every().day.at("23:00").do(run_threaded, run_restart_cache)
 schedule.every(2).hours.do(run_threaded, run_json_job).tag('json_job')
 schedule.every(1).minutes.do(run_threaded, run_cron_price_alert).tag('price_alert_job')
 
