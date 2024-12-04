@@ -2,6 +2,7 @@ import sqlite3
 import os
 import orjson
 import time
+from datetime import datetime
 from collections import Counter
 from tqdm import tqdm
 
@@ -19,6 +20,7 @@ keys_to_keep = [
 
 quote_cache = {}
 
+cutoff_date = datetime.strptime("2015-01-01", "%Y-%m-%d")
 
 def get_quote_data(symbol):
     """Get quote data for a symbol from JSON file"""
@@ -101,21 +103,32 @@ def all_hedge_funds(con):
 
 
 def get_data(cik, stock_sectors):
-    cursor.execute("SELECT cik, name, numberOfStocks, performancePercentage3year, performancePercentage5year, performanceSinceInceptionPercentage, averageHoldingPeriod, turnover, marketValue, winRate, holdings, summary FROM institutes WHERE cik = ?", (cik,))
+    cursor.execute("SELECT cik, name, numberOfStocks, performancePercentage3year, averageHoldingPeriod, marketValue, winRate, holdings FROM institutes WHERE cik = ?", (cik,))
     cik_data = cursor.fetchall()
     res = [{
         'cik': row[0],
         'name': row[1],
         'numberOfStocks': row[2],
         'performancePercentage3Year': row[3],
-        'averageHoldingPeriod': row[6],
-        'marketValue': row[8],
-        'winRate': row[9],
-        'holdings': orjson.loads(row[10]),
+        'averageHoldingPeriod': row[4],
+        'marketValue': row[5],
+        'winRate': row[6],
+        'holdings': orjson.loads(row[7]),
     } for row in cik_data]
 
     if not res:
         return None  # Exit if no data is found
+
+    '''
+    filtered_data = []
+    for item in res:
+        try:
+            filtered_data+=item['holdings']
+        except:
+            pass
+    filtered_data = [item for item in filtered_data if datetime.strptime(item['date'], "%Y-%m-%d") >= cutoff_date]
+    print(filtered_data)
+    '''
 
     res = res[0] #latest data
 
@@ -196,7 +209,7 @@ if __name__ == '__main__':
     cursor.execute("SELECT DISTINCT cik FROM institutes")
     cik_symbols = [row[0] for row in cursor.fetchall()]
     #Test mode
-    #cik_symbols = ['0000102909']
+    #cik_symbols = ['0001649339']
     try:
         stock_cursor = stock_con.cursor()
         stock_cursor.execute("SELECT DISTINCT symbol, sector FROM stocks")

@@ -9,6 +9,7 @@ import aiofiles
 import sqlite3
 import pandas as pd
 import numpy as np
+import math
 from collections import defaultdict
 from collections import Counter
 import re
@@ -193,7 +194,7 @@ def process_financial_data(file_path, key_list):
                         value = float(res[key])
                         if 'growth' in file_path or key in ['grossProfitMargin','netProfitMargin','pretaxProfitMargin','operatingProfitMargin','longTermDebtToCapitalization','totalDebtToCapitalization']:
                             value *= 100  # Multiply by 100 for percentage
-                        data[key] = round(value, 2)
+                        data[key] = round(value, 2) if value is not None else None
                     except (ValueError, TypeError):
                         # If there's an issue converting the value, leave it as None
                         data[key] = None
@@ -446,7 +447,6 @@ def get_financial_statements(item, symbol):
         item['operatingMargin'] = None
         item['ebitMargin'] = None
 
-    
 
     return item
 
@@ -818,6 +818,13 @@ async def get_stock_screener(con):
             item['epsGrowthYears'] = None
             item['netIncomeGrowthYears'] = None
             item['grossProfitGrowthYears'] = None
+
+    for item in stock_screener_data:
+        for key, value in item.items():
+            if isinstance(value, float):
+                if math.isnan(value) or math.isinf(value):
+                    item[key] = None
+                    print(key)
 
     return stock_screener_data
 
