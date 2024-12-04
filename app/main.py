@@ -3679,7 +3679,7 @@ async def get_sector_overview(api_key: str = Security(get_api_key)):
 
 @app.post("/industry-stocks")
 async def get_sector_overview(data: TickerData, api_key: str = Security(get_api_key)):
-    ticker = data.ticker.upper()
+    ticker = data.ticker.lower()
     cache_key = f"industry-stocks-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -3693,7 +3693,6 @@ async def get_sector_overview(data: TickerData, api_key: str = Security(get_api_
             res = orjson.loads(file.read())
     except:
         res = {}
-
     data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
 
