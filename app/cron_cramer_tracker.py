@@ -7,8 +7,22 @@ from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.options import Options
 from dotenv import load_dotenv
-import sqlite3
 from datetime import datetime
+
+quote_cache = {}
+
+def get_quote_data(symbol):
+    """Get quote data for a symbol from JSON file"""
+    if symbol in quote_cache:
+        return quote_cache[symbol]
+    else:
+        try:
+            with open(f"json/quote/{symbol}.json") as file:
+                quote_data = orjson.loads(file.read())
+                quote_cache[symbol] = quote_data  # Cache the loaded data
+                return quote_data
+        except:
+            return None
 
 def load_json(file_path):
     """Load existing JSON data from file."""
@@ -55,14 +69,7 @@ def save_latest_ratings(combined_data, json_file_path, limit=700):
     except Exception as e:
         print(f"An error occurred: {e}")
 
-query_template = """
-    SELECT 
-        name
-    FROM 
-        stocks 
-    WHERE
-        symbol = ?
-"""
+
 
 SENTIMENT_MAP = {
     "Bullish": "Strong Buy",
@@ -108,7 +115,6 @@ def format_date(date_str):
 
 def main():
     # Load environment variables
-    con = sqlite3.connect('stocks.db')
     load_dotenv()
     url = os.getenv('CRAMER_WEBSITE')
 
@@ -160,13 +166,15 @@ def main():
                 if not item['date']:
                     continue  # Skip if date parsing fails
                 
-                # Check if the data is already in the file
-                if (item['ticker'], item['date']) not in existing_keys:
-                    db_data = pd.read_sql_query(query_template, con, params=(symbol,))
-                    res.append({
-                        **item,
-                        'name': db_data['name'].iloc[0]
-                    })
+                quote_data = get_quote_data(symbol)
+                if quote_data:
+                    res.append({**item,
+                        'name': quote_data('name'),
+                        'price': round(quote_data.get('price'), 2) if quote_data.get('price') is not None else None,
+                        'changesPercentage': round(quote_data.get('changesPercentage'), 2) if quote_data.get('changesPercentage') is not None else None,
+                        })
+                      
+
             except Exception as e:
                 print(f"Error processing {symbol}: {e}")
 
@@ -181,7 +189,6 @@ def main():
     finally:
         # Ensure the WebDriver is closed
         driver.quit()
-        con.close()
 
 if __name__ == '__main__':
     main()
