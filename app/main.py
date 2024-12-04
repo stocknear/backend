@@ -3678,9 +3678,9 @@ async def get_sector_overview(api_key: str = Security(get_api_key)):
 
 
 @app.post("/industry-stocks")
-async def get_sector_overview(data: TickerData, api_key: str = Security(get_api_key)):
-    ticker = data.ticker.lower()
-    cache_key = f"industry-stocks-{ticker}"
+async def get_sector_overview(data: FilterStockList, api_key: str = Security(get_api_key)):
+    filter_list = data.filterList.lower()
+    cache_key = f"industry-stocks-{filter_list}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
         return StreamingResponse(
@@ -3689,7 +3689,7 @@ async def get_sector_overview(data: TickerData, api_key: str = Security(get_api_
             headers={"Content-Encoding": "gzip"}
         )
     try:
-        with open(f"json/industry/industries/{ticker}.json", 'rb') as file:
+        with open(f"json/industry/industries/{filter_list}.json", 'rb') as file:
             res = orjson.loads(file.read())
     except:
         res = {}
