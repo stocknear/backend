@@ -1,13 +1,16 @@
 import os
 import pandas as pd
 import ujson
+import orjson
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.options import Options
 from dotenv import load_dotenv
+import sqlite3
 from datetime import datetime
+
 
 quote_cache = {}
 
@@ -69,7 +72,14 @@ def save_latest_ratings(combined_data, json_file_path, limit=700):
     except Exception as e:
         print(f"An error occurred: {e}")
 
-
+query_template = """
+    SELECT 
+        name
+    FROM 
+        stocks 
+    WHERE
+        symbol = ?
+"""
 
 SENTIMENT_MAP = {
     "Bullish": "Strong Buy",
@@ -115,6 +125,11 @@ def format_date(date_str):
 
 def main():
     # Load environment variables
+    con = sqlite3.connect('stocks.db')
+    cursor = con.cursor()
+    cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
+    stock_symbols = [row[0] for row in cursor.fetchall()]
+
     load_dotenv()
     url = os.getenv('CRAMER_WEBSITE')
 
@@ -159,36 +174,64 @@ def main():
         res = []
         for item in data:
             symbol = item['ticker']
-            try:
-                # Convert 'Return Since' to float and round it
-                item['returnSince'] = round(float(item['returnSince'].replace('%', '')), 2)
+            if symbol.lower() == 'brk.b':
+                item['ticker'] = 'BRK-B'
+                symbol = item['ticker']
+            if symbol.lower() == 'brk.a':
+                item['ticker'] = 'BRK-A'
+                symbol = item['ticker']
 
-                if not item['date']:
-                    continue  # Skip if date parsing fails
-                
-                quote_data = get_quote_data(symbol)
-                if quote_data:
-                    res.append({**item,
-                        'name': quote_data('name'),
-                        'price': round(quote_data.get('price'), 2) if quote_data.get('price') is not None else None,
-                        'changesPercentage': round(quote_data.get('changesPercentage'), 2) if quote_data.get('changesPercentage') is not None else None,
+            if symbol in stock_symbols:
+                try:
+                    # Convert 'Return Since' to float and round it
+                    item['returnSince'] = round(float(item['returnSince'].replace('%', '')), 2)
+
+                    if not item['date']:
+                        continue  # Skip if date parsing fails
+                    
+                    # Check if the data is already in the file
+                    if (item['ticker'], item['date']) not in existing_keys:
+                        db_data = pd.read_sql_query(query_template, con, params=(symbol,))
+                        res.append({
+                            **item,
+                            'name': db_data['name'].iloc[0] if not db_data.empty else None
                         })
-                      
+                except Exception as e:
+                    print(f"Error processing {symbol}: {e}")
 
-            except Exception as e:
-                print(f"Error processing {symbol}: {e}")
-
-        # Append new data to existing data and save
+        # Append new data to existing data and combine
         combined_data = existing_data + res
         updated_data = replace_sentiments_in_data(combined_data)
-        for item in combined_data:
+
+        # Ensure dates are properly formatted
+        for item in updated_data:
             item['date'] = format_date(item['date'])
-        save_latest_ratings(combined_data, json_file_path)
-        
-    
+
+        # Sort by ticker and date (descending)
+        updated_data.sort(key=lambda x: (x['ticker'], datetime.strptime(x['date'], '%Y-%m-%d')), reverse=True)
+
+        # Find the latest entry for each ticker
+        latest_entries = {}
+        for item in updated_data:
+            ticker = item['ticker']
+            if ticker not in latest_entries:
+                latest_entries[ticker] = item
+
+        # Add price and changesPercentage only for the latest entries
+        for ticker, latest_item in latest_entries.items():
+            quote_data = get_quote_data(ticker)
+            if quote_data:
+                latest_item['price'] = round(quote_data.get('price'), 2) if quote_data.get('price') is not None else None
+                latest_item['changesPercentage'] = round(quote_data.get('changesPercentage'), 2) if quote_data.get('changesPercentage') is not None else None
+
+        # Save the updated data
+        save_latest_ratings(updated_data, json_file_path)
+
     finally:
         # Ensure the WebDriver is closed
         driver.quit()
+        con.close()
+
 
 if __name__ == '__main__':
     main()
