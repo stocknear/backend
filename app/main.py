@@ -1431,7 +1431,7 @@ async def get_price_alert(data: dict, api_key: str = Security(get_api_key)):
                 'symbol': item.symbol,
                 'name': getattr(item, 'name', ''),
                 'id': item.id,
-                'assetType': getattr(item, 'asset_type', ''),
+                'type': getattr(item, 'asset_type', '').lower().replace("stock", "stocks"),
                 'targetPrice': getattr(item, 'target_price', None),
                 'condition': getattr(item, 'condition', '').capitalize(),
                 'priceWhenCreated': getattr(item, 'price_when_created', None),
@@ -1469,7 +1469,7 @@ async def get_price_alert(data: dict, api_key: str = Security(get_api_key)):
         # Serialize and compress the response data
         res_serialized = orjson.dumps(res)
         compressed_data = gzip.compress(res_serialized)
-        print(combined_earnings)
+
         return StreamingResponse(
             io.BytesIO(compressed_data),
             media_type="application/json",
@@ -1478,6 +1478,8 @@ async def get_price_alert(data: dict, api_key: str = Security(get_api_key)):
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
 
 def process_option_activity(item):
     item['put_call'] = 'Calls' if item['put_call'] == 'CALL' else 'Puts'
