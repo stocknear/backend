@@ -4,6 +4,15 @@ from datetime import datetime
 import os
 from dotenv import load_dotenv
 import time
+import ujson
+import argparse
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='Market Status')
+    parser.add_argument('--market_status', choices=[0, 1, 2], type=int, default=0,
+                        help='Market status: 0 for Open (default), 1 for Premarket, 2 for Afterhours')
+    return parser.parse_args()
 
 
 def format_time(time_str):
@@ -141,49 +150,159 @@ def format_recent_earnings_data(earnings_data):
     
     return "".join(formatted_items)
 
-def format_upcoming_dividends_data(dividends_data):
-    """Format dividends data into Reddit-friendly markdown with nested bullet points."""
-    formatted_items = []
+def format_afterhour_market():
+    try:
+        # Load gainers data
+        with open("json/market-movers/afterhours/gainers.json", 'r') as file:
+            data = ujson.load(file)
+            gainers = [
+                {'symbol': item['symbol'], 'name': item['name'], 'price': item['price'], 
+                 'changesPercentage': item['changesPercentage'], 'marketCap': item['marketCap']} 
+                for item in data[:5]
+            ]
+        
+        # Load losers data
+        with open("json/market-movers/afterhours/losers.json", 'r') as file:
+            data = ujson.load(file)
+            losers = [
+                {'symbol': item['symbol'], 'name': item['name'], 'price': item['price'], 
+                 'changesPercentage': item['changesPercentage'], 'marketCap': item['marketCap']} 
+                for item in data[:5]
+            ]
+        
+        market_movers = {'gainers': gainers, 'losers': losers}
     
-    for item in dividends_data:
-        symbol = item.get('symbol', None)
-        if symbol is not None:
-            name = item.get('name', 'Unknown')
-            dividend = item.get('dividend', 0)
-            dividend_prior = item.get('dividendPrior', 1)
-            dividend_yoy = calculate_yoy_change(dividend, dividend_prior)
-            dividend_yield = item.get('dividendYield', 0)
-            ex_dividend_date = item.get('exDividendDate')
-            payable_date = item.get('payableDate')
-            record_date = item.get('recordDate')
-            
-            # Create hyperlink for symbol
-            symbol_link = f"[{symbol}](https://stocknear.com/stocks/{symbol})"
-            
-            # Format the entry text with nested bullet points
-            entry = (
-                f"**{name}** ({symbol_link}) has announced its upcoming dividend details:\n\n"
-                f"* **Dividend:** ${dividend:.2f} per share "
-                f"({dividend_yoy:+.2f}% YoY)\n"
-                f"* **Dividend Yield:** {dividend_yield:.2f}%\n"
-                f"* **Ex-Dividend Date:** {datetime.fromisoformat(ex_dividend_date).strftime('%b %d, %Y')}\n"
-                f"* **Payable Date:** {datetime.fromisoformat(payable_date).strftime('%b %d, %Y')}\n"
-                f"* **Record Date:** {datetime.fromisoformat(record_date).strftime('%b %d, %Y')}\n\n"
-            )
-            formatted_items.append(entry)
+    except Exception as e:
+        print(f"Error loading market data: {e}")
+        market_movers = {'gainers': [], 'losers': []}
     
-    return "".join(formatted_items)
+    # Create Gainers Table
+    gainers_table = "| Symbol | Name | Price | Change (%) | Market Cap |\n"
+    gainers_table += "|:------:|:-----|------:|-----------:|-----------:|\n"
+    for gainer in market_movers["gainers"]:
+        gainers_table += (
+            f"| [{gainer['symbol']}](https://stocknear.com/stocks/{gainer['symbol']}) | {gainer['name'][:30]} | "
+            f"{gainer['price']:.2f} | +{gainer['changesPercentage']:.2f}% | "
+            f"{format_number(gainer['marketCap'])} |\n"
+        )
+
+    # Create Losers Table
+    losers_table = "| Symbol | Name | Price | Change (%) | Market Cap |\n"
+    losers_table += "|:------:|:-----|------:|-----------:|-----------:|\n"
+    for loser in market_movers["losers"]:
+        losers_table += (
+            f"| [{loser['symbol']}](https://stocknear.com/stocks/{loser['symbol']}) | {loser['name'][:30]} | "
+            f"{loser['price']:.2f} | {loser['changesPercentage']:.2f}% | "
+            f"{format_number(loser['marketCap'])} |\n"
+        )
+    # Construct final markdown text
+    return f"""
+
+Here's a summary of today's After-Hours Gainers and Losers, showcasing stocks that stood out after the market closed.
+
+### 📈 After-Hours Gainers
+
+{gainers_table}
+
+### 📉 After-Hours Losers
+
+{losers_table}
+
+More info can be found here: [After-Hours Gainers and Losers](https://stocknear.com/market-mover/afterhours/gainers)
+"""
+
+def format_premarket_market():
+    try:
+        # Load gainers data
+        with open("json/market-movers/premarket/gainers.json", 'r') as file:
+            data = ujson.load(file)
+            gainers = [
+                {'symbol': item['symbol'], 'name': item['name'], 'price': item['price'], 
+                 'changesPercentage': item['changesPercentage'], 'marketCap': item['marketCap']} 
+                for item in data[:5]
+            ]
+        
+        # Load losers data
+        with open("json/market-movers/premarket/losers.json", 'r') as file:
+            data = ujson.load(file)
+            losers = [
+                {'symbol': item['symbol'], 'name': item['name'], 'price': item['price'], 
+                 'changesPercentage': item['changesPercentage'], 'marketCap': item['marketCap']} 
+                for item in data[:5]
+            ]
+        
+        market_movers = {'gainers': gainers, 'losers': losers}
+    
+    except Exception as e:
+        print(f"Error loading market data: {e}")
+        market_movers = {'gainers': [], 'losers': []}
+    
+    # Create Gainers Table
+    gainers_table = "| Symbol | Name | Price | Change (%) | Market Cap |\n"
+    gainers_table += "|:------:|:-----|------:|-----------:|-----------:|\n"
+    for gainer in market_movers["gainers"]:
+        gainers_table += (
+            f"| [{gainer['symbol']}](https://stocknear.com/stocks/{gainer['symbol']}) | {gainer['name'][:30]} | "
+            f"{gainer['price']:.2f} | +{gainer['changesPercentage']:.2f}% | "
+            f"{format_number(gainer['marketCap'])} |\n"
+        )
+
+    # Create Losers Table
+    losers_table = "| Symbol | Name | Price | Change (%) | Market Cap |\n"
+    losers_table += "|:------:|:-----|------:|-----------:|-----------:|\n"
+    for loser in market_movers["losers"]:
+        losers_table += (
+            f"| [{loser['symbol']}](https://stocknear.com/stocks/{loser['symbol']}) | {loser['name'][:30]} | "
+            f"{loser['price']:.2f} | {loser['changesPercentage']:.2f}% | "
+            f"{format_number(loser['marketCap'])} |\n"
+        )
+    # Construct final markdown text
+    return f"""
+
+Here's a summary of today's Premarket Gainers and Losers, showcasing stocks that stood out before the market opened.
+
+### 📈 Premarket Gainers
+
+{gainers_table}
+
+### 📉 Premarket Losers
+
+{losers_table}
+
+More info can be found here: [Premarket Gainers and Losers](https://stocknear.com/market-mover/premarket/gainers)
+"""
 
 
-import os
-from datetime import datetime
-import orjson
-import praw
-from dotenv import load_dotenv
+
 
 def post_to_reddit():
     # Load environment variables
     load_dotenv()
+    args = parse_args()
+    market_status = args.market_status
+    
+
+    # Initialize Reddit instance
+    reddit = praw.Reddit(
+        client_id=os.getenv('REDDIT_BOT_API_KEY'),
+        client_secret=os.getenv('REDDIT_BOT_API_SECRET'),
+        username=os.getenv('REDDIT_USERNAME'),
+        password=os.getenv('REDDIT_PASSWORD'),
+        user_agent=os.getenv('REDDIT_USER_AGENT', 'script:my_bot:v1.0 (by /u/username)')
+    )
+    
+    # Define the subreddit
+    subreddit = reddit.subreddit("stocknear")
+
+    flair_choices = subreddit.flair.link_templates  # Get submission flair templates
+
+    # Print all submission flairs
+    '''
+    print("Submission Flairs:")
+    for flair in flair_choices:
+        print(f"ID: {flair['id']} | Text: {flair['text']} | CSS Class: {flair['css_class']} | Mod Only: {flair['mod_only']}")
+    '''
+
     
     # Get current date with formatting
     today = datetime.now()
@@ -211,45 +330,47 @@ def post_to_reddit():
             "title": f"Recent Earnings for {formatted_date}",
             "flair_id": "b9f76638-772e-11ef-96c1-0afbf26bd890"
         },
-        {
-            "data_key": "recentDividends",
-            "format_func": format_upcoming_dividends_data,
-            "title": f"Upcoming Dividend Announcements for {formatted_date}",
-            "flair_id": "27d56764-9bc8-11ef-9264-322a4c2c1b46"
-        }
     ]
     
-    try:
-        # Initialize Reddit instance
-        reddit = praw.Reddit(
-            client_id=os.getenv('REDDIT_BOT_API_KEY'),
-            client_secret=os.getenv('REDDIT_BOT_API_SECRET'),
-            username=os.getenv('REDDIT_USERNAME'),
-            password=os.getenv('REDDIT_PASSWORD'),
-            user_agent=os.getenv('REDDIT_USER_AGENT', 'script:my_bot:v1.0 (by /u/username)')
-        )
+    if market_status == 0:
+        try:
+            # Loop through post configurations to submit each post
+            for config in post_configs:
+                formatted_text = config["format_func"](data.get(config["data_key"], []))
+                title = config["title"]
+                flair_id = config["flair_id"]
+                
+                # Submit the post
+                post = subreddit.submit(
+                    title=title,
+                    selftext=formatted_text,
+                    flair_id=flair_id
+                )
+                print(f"Post created successfully: {post.url}")
         
-        # Define the subreddit
-        subreddit = reddit.subreddit("stocknear")
-        
-        # Loop through post configurations to submit each post
-        for config in post_configs:
-            formatted_text = config["format_func"](data.get(config["data_key"], []))
-            title = config["title"]
-            flair_id = config["flair_id"]
-            
-            # Submit the post
-            post = subreddit.submit(
-                title=title,
-                selftext=formatted_text,
-                flair_id=flair_id
-            )
-            print(f"Post created successfully: {post.url}")
+        except praw.exceptions.PRAWException as e:
+            print(f"Error posting to Reddit: {str(e)}")
+        except Exception as e:
+            print(f"Unexpected error: {str(e)}")
+
+    elif market_status == 1: #premarket
+        try:
+            formatted_content = format_premarket_market()
+            title = "Premarket Gainers and Losers for Today 🚀📉"
+            post = subreddit.submit(title, selftext=formatted_content, flair_id="b348676c-e451-11ee-8572-328509439585")
+            print(f"Post created successfully")
+        except Exception as e:
+            print(f"Error posting to Reddit: {str(e)}")
+
+    elif market_status == 2: #aftermarket
+        try:
+            formatted_content = format_afterhour_market()
+            title = "Afterhours Gainers and Losers for Today 🚀📉"
+            post = subreddit.submit(title, selftext=formatted_content, flair_id="b348676c-e451-11ee-8572-328509439585")
+            print(f"Post created successfully")
+        except Exception as e:
+            print(f"Error posting to Reddit: {str(e)}")
     
-    except praw.exceptions.PRAWException as e:
-        print(f"Error posting to Reddit: {str(e)}")
-    except Exception as e:
-        print(f"Unexpected error: {str(e)}")
 
 if __name__ == "__main__":
     post_to_reddit()
