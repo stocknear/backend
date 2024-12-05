@@ -97,7 +97,7 @@ def options_bubble_data(chunk):
         df['open_interest'] = pd.to_numeric(df['open_interest'], errors='coerce')
         
         df['days_to_expiration'] = (df['date_expiration'] - df['date']).dt.days
-        df_30d = df[(df['days_to_expiration'] >= 40) & (df['days_to_expiration'] <= 80)]
+        df_30d = df[(df['days_to_expiration'] >= 0) & (df['days_to_expiration'] <= 1000)]
         # Calculate implied volatility for options in the 30-day range
         iv_data = []
         for _, option in df_30d.iterrows():
