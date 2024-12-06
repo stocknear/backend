@@ -79,7 +79,7 @@ async def get_endpoint(session, symbol, con):
                 start_date = start_date_obj_utc.strftime("%Y-%m-%d")
                 end_date = new_date_obj_utc.strftime("%Y-%m-%d")
 
-                new_date_str = new_date_obj_utc.strftime("%b %d, %Y")
+                new_date_str = new_date_obj_utc.strftime("%Y-%m-%d %H:%M:%S")
                 query = query_template.format(symbol=symbol)
         
                 try:
