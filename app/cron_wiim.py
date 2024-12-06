@@ -10,6 +10,8 @@ import os
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
 from tqdm import tqdm
+import pytz
+
 
 date_format = "%a, %d %b %Y %H:%M:%S %z"
 
@@ -17,6 +19,8 @@ load_dotenv()
 api_key = os.getenv('BENZINGA_API_KEY')
 
 headers = {"accept": "application/json"}
+
+N_weeks_ago = datetime.now(pytz.UTC) - timedelta(weeks=2)
 
 query_template = """
     SELECT
@@ -64,45 +68,101 @@ def correct_weekday(selected_date):
 REQUEST_LIMIT = 500
 PAUSE_TIME = 10
 
+def check_existing_file(symbol):
+    file_path = f"json/wiim/company/{symbol}.json"
+    if os.path.exists(file_path):
+        try:
+            with open(file_path, 'r') as file:
+                existing_data = ujson.load(file)
+
+
+            # Filter out elements older than two weeks
+            updated_data = []
+            for item in existing_data:
+                try:
+                    # Parse the date
+                    date_obj = datetime.strptime(item['date'], "%Y-%m-%d %H:%M:%S")
+                    if date_obj.tzinfo is None:
+                        date_obj = date_obj.replace(tzinfo=pytz.UTC)
+
+                    if date_obj >= N_weeks_ago:
+                        updated_data.append(item)
+                except Exception as e:
+                    print(f"Error processing existing item: {e}")
+
+            # Write back the filtered data
+            if updated_data:
+                with open(file_path, 'w') as file:
+                    ujson.dump(updated_data, file)
+                print(f"Updated existing file for {symbol}, removed old entries.")
+            else:
+                os.remove(file_path)
+                print(f"Deleted file for {symbol} as all entries were older than two weeks.")
+        except Exception as e:
+            print(f"Error processing existing file for {symbol}: {e}")
+
 async def get_endpoint(session, symbol, con, semaphore):
     async with semaphore:
         url = "https://api.benzinga.com/api/v2/news"
-        querystring = {"token": api_key, "tickers": symbol, "channels":"WIIM", "pageSize":"20", "displayOutput":"full"}
+        querystring = {
+            "token": api_key,
+            "tickers": symbol,
+            "channels": "WIIM",
+            "pageSize": "20",
+            "displayOutput": "full"
+        }
         
         try:
             async with session.get(url, params=querystring, headers=headers) as response:
                 res_list = []
                 res = ujson.loads(await response.text())
+                
+                # Create a timezone-aware datetime for two weeks ago in UTC
+                
                 for item in res:
                     try:
+                        # Parse the date and ensure timezone-awareness
                         date_obj = datetime.strptime(item['created'], date_format)
-                        new_date_obj_utc = date_obj
-                    
+                        if date_obj.tzinfo is None:
+                            date_obj = date_obj.replace(tzinfo=pytz.UTC)
+                        
+                        # Skip items older than two weeks
+                        if date_obj < N_weeks_ago:
+                            continue
+                        
                         start_date_obj_utc = correct_weekday(date_obj)
-
                         start_date = start_date_obj_utc.strftime("%Y-%m-%d")
-                        end_date = new_date_obj_utc.strftime("%Y-%m-%d")
-
-                        new_date_str = new_date_obj_utc.strftime("%Y-%m-%d %H:%M:%S")
+                        end_date = date_obj.strftime("%Y-%m-%d")
+                        new_date_str = date_obj.strftime("%Y-%m-%d %H:%M:%S")
+                        
                         query = query_template.format(symbol=symbol)
-
+                        
                         try:
                             df = pd.read_sql_query(query, con, params=(start_date, end_date))
                             if not df.empty:
-                                change_percent = round((df['close'].iloc[1]/df['close'].iloc[0] -1)*100,2)
+                                change_percent = round((df['close'].iloc[1] / df['close'].iloc[0] - 1) * 100, 2)
                             else:
                                 change_percent = '-'
                         except Exception as e:
+                            print(f"Error fetching stock data for {symbol}: {e}")
                             change_percent = '-'
-                        res_list.append({'date': new_date_str, 'text': item['title'], 'changesPercentage': change_percent, 'url': item['url']})
+                        
+                        res_list.append({
+                            'date': new_date_str,
+                            'text': item['title'],
+                            'changesPercentage': change_percent,
+                            'url': item['url']
+                        })
                     except Exception as e:
                         print(f"Error processing item for {symbol}: {e}")
-
-                if len(res_list) > 0:
-                    print("Done", symbol)
+                
+                if res_list:
+                    print(f"Done processing {symbol}")
                     with open(f"json/wiim/company/{symbol}.json", 'w') as file:
                         ujson.dump(res_list, file)
-        
+                else:
+                    check_existing_file(symbol)
+                    
         except Exception as e:
             print(f"Error fetching data for {symbol}: {e}")
 
@@ -137,7 +197,7 @@ async def run():
     cursor.execute("PRAGMA journal_mode = wal")
     cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
     stock_symbols = [row[0] for row in cursor.fetchall()]
-    #stock_symbols = ['GME']
+    #stock_symbols = ['AMD']
 
     etf_con = sqlite3.connect('etf.db')
 
