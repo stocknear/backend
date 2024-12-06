@@ -90,7 +90,7 @@ async def get_endpoint(session, symbol, con):
                         change_percent = '-'
                 except Exception as e:
                     change_percent = '-'
-                res_list.append({'date': new_date_str, 'text': item['title'], 'changesPercentage': change_percent})
+                res_list.append({'date': new_date_str, 'text': item['title'], 'changesPercentage': change_percent, 'url': item['url']})
             except:
                 pass
 
@@ -142,7 +142,7 @@ async def run():
 
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
-    cursor.execute("SELECT DISTINCT symbol FROM stocks")
+    cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
     stock_symbols = [row[0] for row in cursor.fetchall()]
 
     etf_con = sqlite3.connect('etf.db')
