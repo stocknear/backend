@@ -275,15 +275,17 @@ Here's a summary of today's Premarket Gainers and Losers, showcasing stocks that
 More info can be found here: [Premarket Gainers and Losers](https://stocknear.com/market-mover/premarket/gainers)
 """
 
-def create_post(data_type, info_text):
+def create_post(post_data):
     include_rsi = False
+    include_volume = post_data['data_type'] == 'penny-stocks'
+
     try:
         # Use the parameter passed to the function
-        with open(f"json/stocks-list/list/{data_type}.json", 'r') as file:
+        with open(f"json/stocks-list/list/{post_data['data_type']}.json", 'r') as file:
             data = ujson.load(file)
         
         # Limit to first 5 items and select specific fields
-        include_rsi = data_type in ["overbought-stocks", "oversold-stocks"]
+        include_rsi = post_data['data_type'] in ["overbought-stocks", "oversold-stocks"]
         data = [
             {
                 'rank': item['rank'],
@@ -291,7 +293,8 @@ def create_post(data_type, info_text):
                 'price': item['price'], 
                 'changesPercentage': item['changesPercentage'], 
                 'marketCap': item['marketCap'],
-                'rsi': item.get('rsi') if include_rsi else None
+                'rsi': item.get('rsi') if include_rsi else None,
+                'volume': item.get('volume') if include_volume else None
             } 
             for item in data[:5]
         ]
@@ -304,6 +307,9 @@ def create_post(data_type, info_text):
     if include_rsi:
         data_table = "| Rank | Symbol | RSI | Price | Change (%) | Market Cap |\n"
         data_table += "|:----:|:------|----:|------:|-----------:|-----------:|\n"
+    elif include_volume:
+        data_table = "| Rank | Symbol | Price | Change (%) | Volume | Market Cap |\n"
+        data_table += "|:----:|:------|------:|-----------:|-------:|-----------:|\n"
     else:
         data_table = "| Rank | Symbol | Price | Change (%) | Market Cap |\n"
         data_table += "|:----:|:------|------:|-----------:|-----------:|\n"
@@ -315,6 +321,12 @@ def create_post(data_type, info_text):
                 f"| {item['rank']} | [{item['symbol']}](https://stocknear.com/stocks/{item['symbol']}) | "
                 f"{item['rsi']:.2f} | {item['price']:.2f} | {'+' if item['changesPercentage'] > 0 else ''}{item['changesPercentage']:.2f}% | "
                 f"{format_number(item['marketCap'])} |\n"
+            )
+        elif include_volume:
+            data_table += (
+                f"| {item['rank']} | [{item['symbol']}](https://stocknear.com/stocks/{item['symbol']}) | "
+                f"{item['price']:.2f} | {'+' if item['changesPercentage'] > 0 else ''}{item['changesPercentage']:.2f}% | "
+                f"{format_number(item['volume'])} | {format_number(item['marketCap'])} |\n"
             )
         else:
             data_table += (
@@ -329,9 +341,9 @@ def create_post(data_type, info_text):
 
 {data_table}
 
-The complete list can be found [here](https://stocknear.com/list/penny-stocks)
+The complete list can be found [here]({post_data['url']})
 
-*{info_text}*
+*{post_data['info_text']}*
 
 *PS: If you find this post valuable please leave an upvote. Would love to hear what you guys think.*
 """
@@ -384,28 +396,31 @@ def post_to_reddit():
     post_configs = [
         {
             "data_type": "penny-stocks",
-            "title": f"Top 5 Actively Traded Penny Stocks by Volume 🚀",
+            "title": f"Top 5 Actively Traded Penny Stocks by Volume 🚀 as of today",
+            "url": "https://stocknear.com/list/penny-stocks",
             "info_text": "Penny stocks are generally defined as stocks trading below $5 per share. This list is filtered to show only stocks with a volume over 10K.",
             "flair_id": "b348676c-e451-11ee-8572-328509439585"
         },
         {
             "data_type": "overbought-stocks",
-            "title": f"Top 5 Most Overbought Companies 📉",
+            "title": f"Top 5 Most Overbought Companies 📉 as of today",
+            "url": "https://stocknear.com/list/overbought-stocks",
             'info_text': "I’ve compiled a list of the top 5 most overbought companies based on RSI (Relative Strength Index) data. For those who don’t know, RSI is a popular indicator that ranges from 0 to 100, with values above 70 typically indicating that a stock is overbought.",
             "flair_id": "b348676c-e451-11ee-8572-328509439585"
         },
         {
             "data_type": "oversold-stocks",
-            "title": f"Top 5 Most Oversold Companies 📈",
+            "title": f"Top 5 Most Oversold Companies 📈 as of today",
+            "url": "https://stocknear.com/list/oversold-stocks",
             'info_text': "I’ve compiled a list of the top 5 most oversold companies based on RSI (Relative Strength Index) data. For those who don’t know, RSI is a popular indicator that ranges from 0 to 100, with values below 30 typically indicating that a stock is oversold.",
             "flair_id": "b348676c-e451-11ee-8572-328509439585"
         },
     ]
 
-    for post in post_configs:
-        formatted_text = create_post(post['data_type'], post['info_text'])
-        title = post["title"]
-        flair_id = post["flair_id"]
+    for item in post_configs:
+        formatted_text = create_post(item)
+        title = item["title"]
+        flair_id = item["flair_id"]
         
         # Submit the post
         post = subreddit.submit(
@@ -413,6 +428,7 @@ def post_to_reddit():
             selftext=formatted_text,
             flair_id=flair_id
         )
+        
 
     '''
     # Define the post configurations
