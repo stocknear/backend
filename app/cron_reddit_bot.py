@@ -404,8 +404,8 @@ def post_to_reddit():
 
     for post in post_configs:
         formatted_text = create_post(post['data_type'], post['info_text'])
-        title = config["title"]
-        flair_id = config["flair_id"]
+        title = post["title"]
+        flair_id = post["flair_id"]
         
         # Submit the post
         post = subreddit.submit(
