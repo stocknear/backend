@@ -14,6 +14,9 @@ def parse_args():
                         help='Market status: 0 for Open (default), 1 for Premarket, 2 for Afterhours')
     return parser.parse_args()
 
+def get_current_weekday():
+    """Return the current weekday name."""
+    return datetime.now().strftime("%A")
 
 def format_time(time_str):
     """Format time string to AM/PM format"""
@@ -39,10 +42,10 @@ def format_time(time_str):
 def format_number(num):
     """Abbreviate large numbers with B/M suffix"""
     if num >= 1_000_000_000:
-        return f"${num / 1_000_000_000:.2f}B"
+        return f"{num / 1_000_000_000:.2f}B"
     elif num >= 1_000_000:
-        return f"${num / 1_000_000:.2f}M"
-    return f"${num:,.0f}"
+        return f"{num / 1_000_000:.2f}M"
+    return f"{num:,.0f}"
 
 def calculate_yoy_change(current, prior):
     """Calculate year-over-year percentage change"""
@@ -272,6 +275,67 @@ Here's a summary of today's Premarket Gainers and Losers, showcasing stocks that
 More info can be found here: [Premarket Gainers and Losers](https://stocknear.com/market-mover/premarket/gainers)
 """
 
+def create_post(data_type, info_text):
+    include_rsi = False
+    try:
+        # Use the parameter passed to the function
+        with open(f"json/stocks-list/list/{data_type}.json", 'r') as file:
+            data = ujson.load(file)
+        
+        # Limit to first 5 items and select specific fields
+        include_rsi = data_type in ["overbought-stocks", "oversold-stocks"]
+        data = [
+            {
+                'rank': item['rank'],
+                'symbol': item['symbol'], 
+                'price': item['price'], 
+                'changesPercentage': item['changesPercentage'], 
+                'marketCap': item['marketCap'],
+                'rsi': item.get('rsi') if include_rsi else None
+            } 
+            for item in data[:5]
+        ]
+    
+    except Exception as e:
+        print(f"Error loading data: {e}")
+        data = []
+    
+    # Create Markdown table headers
+    if include_rsi:
+        data_table = "| Rank | Symbol | RSI | Price | Change (%) | Market Cap |\n"
+        data_table += "|:----:|:------|----:|------:|-----------:|-----------:|\n"
+    else:
+        data_table = "| Rank | Symbol | Price | Change (%) | Market Cap |\n"
+        data_table += "|:----:|:------|------:|-----------:|-----------:|\n"
+    
+    # Generate table rows
+    for item in data:
+        if include_rsi:
+            data_table += (
+                f"| {item['rank']} | [{item['symbol']}](https://stocknear.com/stocks/{item['symbol']}) | "
+                f"{item['rsi']:.2f} | {item['price']:.2f} | {'+' if item['changesPercentage'] > 0 else ''}{item['changesPercentage']:.2f}% | "
+                f"{format_number(item['marketCap'])} |\n"
+            )
+        else:
+            data_table += (
+                f"| {item['rank']} | [{item['symbol']}](https://stocknear.com/stocks/{item['symbol']}) | "
+                f"{item['price']:.2f} | {'+' if item['changesPercentage'] > 0 else ''}{item['changesPercentage']:.2f}% | "
+                f"{format_number(item['marketCap'])} |\n"
+            )
+    
+    # Return the Markdown string
+    return f"""
+
+
+{data_table}
+
+The complete list can be found [here](https://stocknear.com/list/penny-stocks)
+
+*{info_text}*
+
+*PS: If you find this post valuable please leave an upvote. Would love to hear what you guys think.*
+"""
+
 
 
 
@@ -316,6 +380,41 @@ def post_to_reddit():
     with open("json/dashboard/data.json", "rb") as file:
         data = orjson.loads(file.read())
     
+    
+    post_configs = [
+        {
+            "data_type": "penny-stocks",
+            "title": f"Top 5 Actively Traded Penny Stocks by Volume 🚀",
+            "info_text": "Penny stocks are generally defined as stocks trading below $5 per share. This list is filtered to show only stocks with a volume over 10K.",
+            "flair_id": "b348676c-e451-11ee-8572-328509439585"
+        },
+        {
+            "data_type": "overbought-stocks",
+            "title": f"Top 5 Most Overbought Companies 📉",
+            'info_text': "I’ve compiled a list of the top 5 most overbought companies based on RSI (Relative Strength Index) data. For those who don’t know, RSI is a popular indicator that ranges from 0 to 100, with values above 70 typically indicating that a stock is overbought.",
+            "flair_id": "b348676c-e451-11ee-8572-328509439585"
+        },
+        {
+            "data_type": "oversold-stocks",
+            "title": f"Top 5 Most Oversold Companies 📈",
+            'info_text': "I’ve compiled a list of the top 5 most oversold companies based on RSI (Relative Strength Index) data. For those who don’t know, RSI is a popular indicator that ranges from 0 to 100, with values below 30 typically indicating that a stock is oversold.",
+            "flair_id": "b348676c-e451-11ee-8572-328509439585"
+        },
+    ]
+
+    for post in post_configs:
+        formatted_text = create_post(post['data_type'], post['info_text'])
+        title = config["title"]
+        flair_id = config["flair_id"]
+        
+        # Submit the post
+        post = subreddit.submit(
+            title=title,
+            selftext=formatted_text,
+            flair_id=flair_id
+        )
+
+    '''
     # Define the post configurations
     post_configs = [
         {
@@ -370,7 +469,7 @@ def post_to_reddit():
             print(f"Post created successfully")
         except Exception as e:
             print(f"Error posting to Reddit: {str(e)}")
-    
+    '''
 
 if __name__ == "__main__":
     post_to_reddit()
