@@ -28,6 +28,32 @@ def delete_files_in_directory(directory):
         except Exception as e:
             print(f"Failed to delete {file_path}. Reason: {e}")
 
+
+def check_existing_file(ticker, folder_name):
+    file_path = f"json/earnings/{folder_name}/{ticker}.json"
+    still_new = False
+    if os.path.exists(file_path):
+        try:
+            with open(file_path, 'r') as file:
+                existing_data = ujson.load(file)
+                date_obj = datetime.strptime(existing_data['date'], "%Y-%m-%d")
+                if date_obj.tzinfo is None:
+                    date_obj = date_obj.replace(tzinfo=pytz.UTC)
+
+                if folder_name == 'surprise':
+                    if date_obj >= N_days_ago:
+                        still_new = True
+                elif folder_name == 'next':
+                    if date_obj >= today:
+                        still_new = True
+
+            if still_new == False:
+                os.remove(file_path)
+                print(f"Deleted file for {ticker}.")
+        except Exception as e:
+            print(f"Error processing existing file for {ticker}: {e}")
+
+
 async def save_json(data, symbol, dir_path):
     file_path = os.path.join(dir_path, f"{symbol}.json")
     async with aiofiles.open(file_path, 'w') as file:
@@ -37,34 +63,35 @@ async def get_data(session, ticker):
     querystring = {"token": api_key, "parameters[tickers]": ticker}
     try:
         async with session.get(url, params=querystring, headers=headers) as response:
-            if response.status == 200:
-                data = ujson.loads(await response.text())['earnings']
+            data = ujson.loads(await response.text())['earnings']
 
-                # Filter for future earnings
-                future_dates = [item for item in data if ny_tz.localize(datetime.strptime(item["date"], "%Y-%m-%d")) >= today]
-                if future_dates:
-                    nearest_future = min(future_dates, key=lambda x: datetime.strptime(x["date"], "%Y-%m-%d"))
-                    try:
-                        symbol = nearest_future['ticker']
-                        time = nearest_future['time']
-                        date = nearest_future['date']
-                        eps_prior = float(nearest_future['eps_prior']) if nearest_future['eps_prior'] else 0
-                        eps_est = float(nearest_future['eps_est']) if nearest_future['eps_est'] else 0
-                        revenue_est = float(nearest_future['revenue_est']) if nearest_future['revenue_est'] else 0
-                        revenue_prior = float(nearest_future['revenue_prior']) if nearest_future['revenue_prior'] else 0
-                        if revenue_est and revenue_prior and eps_prior and eps_est:
-                            res_list = {
-                                'date': date,
-                                'time': time,
-                                'epsPrior': eps_prior,
-                                'epsEst': eps_est,
-                                'revenuePrior': revenue_prior,
-                                'revenueEst': revenue_est
-                            }
-                            await save_json(res_list, symbol, 'json/earnings/next')
-                    except Exception as e:
-                        #print(e)
-                        pass
+            # Filter for future earnings
+            future_dates = [item for item in data if ny_tz.localize(datetime.strptime(item["date"], "%Y-%m-%d")) >= today]
+            if future_dates:
+                nearest_future = min(future_dates, key=lambda x: datetime.strptime(x["date"], "%Y-%m-%d"))
+                try:
+                    symbol = nearest_future['ticker']
+                    time = nearest_future['time']
+                    date = nearest_future['date']
+                    eps_prior = float(nearest_future['eps_prior']) if nearest_future['eps_prior'] else 0
+                    eps_est = float(nearest_future['eps_est']) if nearest_future['eps_est'] else 0
+                    revenue_est = float(nearest_future['revenue_est']) if nearest_future['revenue_est'] else 0
+                    revenue_prior = float(nearest_future['revenue_prior']) if nearest_future['revenue_prior'] else 0
+                    if revenue_est and revenue_prior and eps_prior and eps_est:
+                        res_list = {
+                            'date': date,
+                            'time': time,
+                            'epsPrior': eps_prior,
+                            'epsEst': eps_est,
+                            'revenuePrior': revenue_prior,
+                            'revenueEst': revenue_est
+                        }
+                        await save_json(res_list, symbol, 'json/earnings/next')
+                except Exception as e:
+                    print(e)
+                    pass
+                else:
+                    check_existing_file(ticker, "next")
 
                 # Filter for past earnings within the last 20 days
                 recent_dates = [item for item in data if N_days_ago <= ny_tz.localize(datetime.strptime(item["date"], "%Y-%m-%d")) <= today]
@@ -89,11 +116,13 @@ async def get_data(session, ticker):
                                 'date': date,
                                 }
                             await save_json(res_list, symbol, 'json/earnings/surprise')
-                    except:
-                        pass
+                    except Exception as e:
+                        print(e)
+                else:
+                    check_existing_file(ticker, "surprise")
     except Exception as e:
-        #print(e)
-        pass
+        print(e)
+        #pass
 
 async def run(stock_symbols):
     async with aiohttp.ClientSession() as session:
@@ -102,14 +131,11 @@ async def run(stock_symbols):
             await f
 
 try:
-    # Delete old files in the directories
-    delete_files_in_directory("json/earnings/next")
-    delete_files_in_directory("json/earnings/surprise")
     
     con = sqlite3.connect('stocks.db')
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
-    cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
+    cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%' AND symbol NOT LIKE '%-%'")
     stock_symbols = [row[0] for row in cursor.fetchall()]
     con.close()
     asyncio.run(run(stock_symbols))
