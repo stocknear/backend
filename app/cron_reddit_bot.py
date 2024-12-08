@@ -396,21 +396,21 @@ def post_to_reddit():
     post_configs = [
         {
             "data_type": "penny-stocks",
-            "title": f"Top 5 Actively Traded Penny Stocks by Volume 🚀 as of today",
+            "title": f"Top 5 Actively Traded Penny Stocks by Volume 🚀",
             "url": "https://stocknear.com/list/penny-stocks",
             "info_text": "Penny stocks are generally defined as stocks trading below $5 per share. This list is filtered to show only stocks with a volume over 10K.",
             "flair_id": "b348676c-e451-11ee-8572-328509439585"
         },
         {
             "data_type": "overbought-stocks",
-            "title": f"Top 5 Most Overbought Companies 📉 as of today",
+            "title": f"Top 5 Most Overbought Companies 📉",
             "url": "https://stocknear.com/list/overbought-stocks",
             'info_text': "I’ve compiled a list of the top 5 most overbought companies based on RSI (Relative Strength Index) data. For those who don’t know, RSI is a popular indicator that ranges from 0 to 100, with values above 70 typically indicating that a stock is overbought.",
             "flair_id": "b348676c-e451-11ee-8572-328509439585"
         },
         {
             "data_type": "oversold-stocks",
-            "title": f"Top 5 Most Oversold Companies 📈 as of today",
+            "title": f"Top 5 Most Oversold Companies 📈",
             "url": "https://stocknear.com/list/oversold-stocks",
             'info_text': "I’ve compiled a list of the top 5 most oversold companies based on RSI (Relative Strength Index) data. For those who don’t know, RSI is a popular indicator that ranges from 0 to 100, with values below 30 typically indicating that a stock is oversold.",
             "flair_id": "b348676c-e451-11ee-8572-328509439585"

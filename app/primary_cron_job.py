@@ -172,9 +172,11 @@ def run_options_bubble_ticker():
 
 
 def run_analyst_rating():
-    run_command(["python3", "cron_analyst_insight.py"])
-    run_command(["python3", "cron_analyst_db.py"])
-    run_command(["python3", "cron_analyst_ticker.py"])
+    week = datetime.today().weekday()
+    if week <= 4:
+        run_command(["python3", "cron_analyst_insight.py"])
+        run_command(["python3", "cron_analyst_db.py"])
+        run_command(["python3", "cron_analyst_ticker.py"])
 
 def run_market_moods():
     week = datetime.today().weekday()
@@ -210,7 +212,9 @@ def run_options_gex():
     
 
 def run_hedge_fund():
-    run_command(["python3", "cron_hedge_funds.py"])
+    week = datetime.today().weekday()
+    if week <= 4:
+        run_command(["python3", "cron_hedge_funds.py"])
 
 def run_dashboard():
     week = datetime.today().weekday()
@@ -226,49 +230,59 @@ def run_export_price():
         run_command(["python3", "cron_export_price"])
 
 def run_tracker():
-    # Run Python scripts
+
     scripts = [
         "cron_reddit_tracker.py",
         "cron_reddit_statistics.py",
-        "cron_cramer_tracker.py",
-        "cron_lobbying_tracker.py",
-        "cron_sentiment_tracker.py",
-        "cron_insider_tracker.py",
-        "cron_list.py",
     ]
     for script in scripts:
         run_command(["python3", script])
 
+    week = datetime.today().weekday()
+    if week <= 4:
+        scripts = [
+            "cron_cramer_tracker.py",
+            "cron_lobbying_tracker.py",
+            "cron_sentiment_tracker.py",
+            "cron_insider_tracker.py",
+            "cron_list.py",
+        ]
+        for script in scripts:
+            run_command(["python3", script])
+
 def run_financial_statements():
-    run_command(["python3", "cron_financial_statements.py"])
+    week = datetime.today().weekday()
+    if week <= 4:
+        run_command(["python3", "cron_financial_statements.py"])
 
 def run_financial_score():
-    run_command(["python3", "cron_financial_score.py"])
+    week = datetime.today().weekday()
+    if week <= 4:
+        run_command(["python3", "cron_financial_score.py"])
  
 
 def run_market_cap():
-    run_command(["python3", "cron_market_cap.py"])
+    week = datetime.today().weekday()
+    if week <= 4:
+        run_command(["python3", "cron_market_cap.py"])
 
 
 def run_dividends():
-    run_command(["python3", "cron_dividends.py"])
+    week = datetime.today().weekday()
+    if week <= 4:
+        run_command(["python3", "cron_dividends.py"])
 
 
 def run_earnings():
-    run_command(["python3", "cron_earnings.py"])
+    week = datetime.today().weekday()
+    if week <= 4:
+        run_command(["python3", "cron_earnings.py"])
 
 
 def run_economy_indicator():
-    run_command(["python3", "cron_economic_indicator.py"])
-
-
-
-def run_sentiment_analysis():
-    run_command(["python3", "cron_sentiment_analysis.py"])
-
-
-def run_price_analysis():
-    run_command(["python3", "cron_price_analysis.py"])
+    week = datetime.today().weekday()
+    if week <= 4:
+        run_command(["python3", "cron_economic_indicator.py"])
 
 
 def run_ai_score():
