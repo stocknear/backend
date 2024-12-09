@@ -18,16 +18,6 @@ ny_tz = pytz.timezone('America/New_York')
 today = datetime.now(ny_tz).replace(hour=0, minute=0, second=0, microsecond=0)
 N_days_ago = today - timedelta(days=10)
 
-# Function to delete all files in a directory
-def delete_files_in_directory(directory):
-    for filename in os.listdir(directory):
-        file_path = os.path.join(directory, filename)
-        try:
-            if os.path.isfile(file_path):
-                os.remove(file_path)
-        except Exception as e:
-            print(f"Failed to delete {file_path}. Reason: {e}")
-
 
 def check_existing_file(ticker, folder_name):
     file_path = f"json/earnings/{folder_name}/{ticker}.json"
@@ -41,10 +31,10 @@ def check_existing_file(ticker, folder_name):
                     date_obj = date_obj.replace(tzinfo=pytz.UTC)
 
                 if folder_name == 'surprise':
-                    if date_obj >= N_days_ago:
+                    if date_obj+timedelta(1) >= N_days_ago:
                         still_new = True
                 elif folder_name == 'next':
-                    if date_obj >= today:
+                    if date_obj+timedelta(1) >= today:
                         still_new = True
 
             if still_new == False:
@@ -64,7 +54,6 @@ async def get_data(session, ticker):
     try:
         async with session.get(url, params=querystring, headers=headers) as response:
             data = ujson.loads(await response.text())['earnings']
-
             # Filter for future earnings
             future_dates = [item for item in data if ny_tz.localize(datetime.strptime(item["date"], "%Y-%m-%d")) >= today]
             if future_dates:
@@ -77,7 +66,7 @@ async def get_data(session, ticker):
                     eps_est = float(nearest_future['eps_est']) if nearest_future['eps_est'] else 0
                     revenue_est = float(nearest_future['revenue_est']) if nearest_future['revenue_est'] else 0
                     revenue_prior = float(nearest_future['revenue_prior']) if nearest_future['revenue_prior'] else 0
-                    if revenue_est and revenue_prior and eps_prior and eps_est:
+                    if revenue_est is not None and revenue_prior is not None and eps_prior is not None and eps_est is not None:
                         res_list = {
                             'date': date,
                             'time': time,
