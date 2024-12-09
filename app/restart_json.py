@@ -194,6 +194,7 @@ def process_financial_data(file_path, key_list):
                         value = float(res[key])
                         if 'growth' in file_path or key in ['grossProfitMargin','netProfitMargin','pretaxProfitMargin','operatingProfitMargin','longTermDebtToCapitalization','totalDebtToCapitalization']:
                             value *= 100  # Multiply by 100 for percentage
+
                         data[key] = round(value, 2) if value is not None else None
                     except (ValueError, TypeError):
                         # If there's an issue converting the value, leave it as None
