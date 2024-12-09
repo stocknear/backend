@@ -72,7 +72,8 @@ def clean_and_filter_data(res_list):
                     'option_activity_type': item['option_activity_type'].capitalize(),
                     'sentiment': item['sentiment'].capitalize(),
                     'execution_estimate': item['execution_estimate'].replace('_', ' ').title(),
-                    'tradeCount': item.get('trade_count', 0)
+                    'tradeCount': item.get('trade_count', 0),
+                    'size': int(float(item['cost_basis'])/(float(item['price'])*100))
                 })
 
                 filtered_list.append({key: value for key, value in item.items() if key not in ['description_extended', 'updated']})
