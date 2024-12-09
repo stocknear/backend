@@ -102,6 +102,7 @@ def process_day(date_str):
                 item['sentiment'] = item['sentiment'].capitalize()
                 item['execution_estimate'] = item['execution_estimate'].replace('_', ' ').title()
                 item['tradeCount'] = item['trade_count']
+                item['size'] = int(float(item['cost_basis'])/(float(item['price'])*100))
 
                 filtered_list.append(item)
         except:
