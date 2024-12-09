@@ -8,11 +8,15 @@ import ujson
 import argparse
 
 
+import argparse
+
 def parse_args():
-    parser = argparse.ArgumentParser(description='Market Status')
-    parser.add_argument('--market_status', choices=[0, 1, 2], type=int, default=0,
-                        help='Market status: 0 for Open (default), 1 for Premarket, 2 for Afterhours')
+    parser = argparse.ArgumentParser(description='Post Type')
+    parser.add_argument('--post_type', choices=['earnings', 'stock-list', 'premarket', 'aftermarket'], 
+                        type=str, default='earnings',
+                        help='Post type: "earnings" (default), "stock-list", "premarket", or "aftermarket"')
     return parser.parse_args()
+
 
 def get_current_weekday():
     """Return the current weekday name."""
@@ -355,7 +359,7 @@ def post_to_reddit():
     # Load environment variables
     load_dotenv()
     args = parse_args()
-    market_status = args.market_status
+    post_type = args.post_type
     
 
     # Initialize Reddit instance
@@ -392,83 +396,83 @@ def post_to_reddit():
     with open("json/dashboard/data.json", "rb") as file:
         data = orjson.loads(file.read())
     
-    '''
-    post_configs = [
-        {
-            "data_type": "penny-stocks",
-            "title": f"Top 5 Actively Traded Penny Stocks by Volume 🚀",
-            "url": "https://stocknear.com/list/penny-stocks",
-            "info_text": "Penny stocks are generally defined as stocks trading below $5 per share. This list is filtered to show only stocks with a volume over 10K.",
-            "flair_id": "b348676c-e451-11ee-8572-328509439585"
-        },
-        {
-            "data_type": "overbought-stocks",
-            "title": f"Top 5 Most Overbought Companies 📉",
-            "url": "https://stocknear.com/list/overbought-stocks",
-            'info_text': "I’ve compiled a list of the top 5 most overbought companies based on RSI (Relative Strength Index) data. For those who don’t know, RSI is a popular indicator that ranges from 0 to 100, with values above 70 typically indicating that a stock is overbought.",
-            "flair_id": "b348676c-e451-11ee-8572-328509439585"
-        },
-        {
-            "data_type": "oversold-stocks",
-            "title": f"Top 5 Most Oversold Companies 📈",
-            "url": "https://stocknear.com/list/oversold-stocks",
-            'info_text': "I’ve compiled a list of the top 5 most oversold companies based on RSI (Relative Strength Index) data. For those who don’t know, RSI is a popular indicator that ranges from 0 to 100, with values below 30 typically indicating that a stock is oversold.",
-            "flair_id": "b348676c-e451-11ee-8572-328509439585"
-        },
-    ]
+    if post_type == 'stock-list':
+        post_configs = [
+            {
+                "data_type": "penny-stocks",
+                "title": f"Top 5 Actively Traded Penny Stocks by Volume 🚀",
+                "url": "https://stocknear.com/list/penny-stocks",
+                "info_text": "Penny stocks are generally defined as stocks trading below $5 per share. This list is filtered to show only stocks with a volume over 10K.",
+                "flair_id": "b348676c-e451-11ee-8572-328509439585"
+            },
+            {
+                "data_type": "overbought-stocks",
+                "title": f"Top 5 Most Overbought Companies 📉",
+                "url": "https://stocknear.com/list/overbought-stocks",
+                'info_text': "I’ve compiled a list of the top 5 most overbought companies based on RSI (Relative Strength Index) data. For those who don’t know, RSI is a popular indicator that ranges from 0 to 100, with values above 70 typically indicating that a stock is overbought.",
+                "flair_id": "b348676c-e451-11ee-8572-328509439585"
+            },
+            {
+                "data_type": "oversold-stocks",
+                "title": f"Top 5 Most Oversold Companies 📈",
+                "url": "https://stocknear.com/list/oversold-stocks",
+                'info_text': "I’ve compiled a list of the top 5 most oversold companies based on RSI (Relative Strength Index) data. For those who don’t know, RSI is a popular indicator that ranges from 0 to 100, with values below 30 typically indicating that a stock is oversold.",
+                "flair_id": "b348676c-e451-11ee-8572-328509439585"
+            },
+        ]
 
-    for item in post_configs:
-        formatted_text = create_post(item)
-        title = item["title"]
-        flair_id = item["flair_id"]
-        
-        # Submit the post
-        post = subreddit.submit(
-            title=title,
-            selftext=formatted_text,
-            flair_id=flair_id
-        )
+        for item in post_configs:
+            formatted_text = create_post(item)
+            title = item["title"]
+            flair_id = item["flair_id"]
+            
+            # Submit the post
+            post = subreddit.submit(
+                title=title,
+                selftext=formatted_text,
+                flair_id=flair_id
+            )
         
 
-    '''
-    # Define the post configurations
-    post_configs = [
-        {
-            "data_key": "upcomingEarnings",
-            "format_func": format_upcoming_earnings_data,
-            "title": f"Upcoming Earnings for {formatted_date}",
-            "flair_id": "b9f76638-772e-11ef-96c1-0afbf26bd890"
-        },
-        {
-            "data_key": "recentEarnings",
-            "format_func": format_recent_earnings_data,
-            "title": f"Recent Earnings for {formatted_date}",
-            "flair_id": "b9f76638-772e-11ef-96c1-0afbf26bd890"
-        },
-    ]
+    if post_type == 'earnings':
+        # Define the post configurations
+        post_configs = [
+            {
+                "data_key": "upcomingEarnings",
+                "format_func": format_upcoming_earnings_data,
+                "title": f"Upcoming Earnings for {formatted_date}",
+                "flair_id": "b9f76638-772e-11ef-96c1-0afbf26bd890"
+            },
+            {
+                "data_key": "recentEarnings",
+                "format_func": format_recent_earnings_data,
+                "title": f"Recent Earnings for {formatted_date}",
+                "flair_id": "b9f76638-772e-11ef-96c1-0afbf26bd890"
+            },
+        ]
     
-    if market_status == 0:
         try:
             # Loop through post configurations to submit each post
             for config in post_configs:
-                formatted_text = config["format_func"](data.get(config["data_key"], []))
-                title = config["title"]
-                flair_id = config["flair_id"]
-                
-                # Submit the post
-                post = subreddit.submit(
-                    title=title,
-                    selftext=formatted_text,
-                    flair_id=flair_id
-                )
-                print(f"Post created successfully: {post.url}")
+                if len(data.get(config["data_key"], [])) > 0:
+                    formatted_text = config["format_func"](data.get(config["data_key"], []))
+                    title = config["title"]
+                    flair_id = config["flair_id"]
+                    
+                    # Submit the post
+                    post = subreddit.submit(
+                        title=title,
+                        selftext=formatted_text,
+                        flair_id=flair_id
+                    )
+                    print(f"Post created successfully")
         
         except praw.exceptions.PRAWException as e:
             print(f"Error posting to Reddit: {str(e)}")
         except Exception as e:
             print(f"Unexpected error: {str(e)}")
 
-    elif market_status == 1: #premarket
+    if post_type == 'premarket':
         try:
             formatted_content = format_premarket_market()
             title = "Premarket Gainers and Losers for Today 🚀📉"
@@ -477,7 +481,7 @@ def post_to_reddit():
         except Exception as e:
             print(f"Error posting to Reddit: {str(e)}")
 
-    elif market_status == 2: #aftermarket
+    if post_type == 'aftermarket':
         try:
             formatted_content = format_afterhour_market()
             title = "Afterhours Gainers and Losers for Today 🚀📉"
