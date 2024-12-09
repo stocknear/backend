@@ -392,7 +392,7 @@ def post_to_reddit():
     with open("json/dashboard/data.json", "rb") as file:
         data = orjson.loads(file.read())
     
-    
+    '''
     post_configs = [
         {
             "data_type": "penny-stocks",
@@ -485,7 +485,7 @@ def post_to_reddit():
             print(f"Post created successfully")
         except Exception as e:
             print(f"Error posting to Reddit: {str(e)}")
-    '''
+    
 
 if __name__ == "__main__":
     post_to_reddit()
