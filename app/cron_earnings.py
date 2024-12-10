@@ -94,7 +94,7 @@ async def get_data(session, ticker):
                         revenue_prior = float(nearest_recent['revenue_prior']) if nearest_recent['revenue_prior'] != '' else 0
                         revenue_surprise = float(nearest_recent['revenue_surprise']) if nearest_recent['revenue_surprise'] != '' else 0
                         revenue = float(nearest_recent['revenue']) if nearest_recent['revenue'] != '' else 0
-                        if revenue is not None and revenue_prior is not None and eps_prior is not None and eps is not None and revenue_surprise is not None and eps_surprise is not None:
+                        if revenue !=0 and revenue_prior != 0 and eps_prior is not None and eps != 0 and revenue_surprise != 0 and eps_surprise is not None:
                             res_list = {
                                 'epsPrior':eps_prior,
                                 'epsSurprise': eps_surprise,
