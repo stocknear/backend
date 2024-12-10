@@ -282,7 +282,7 @@ try {
           jsonData?.ap != null &&
           jsonData?.bp != null &&
           jsonData?.t != null &&
-          ["Q", "T"].includes(jsonData?.type) &&
+          ["Q","T"]?.includes(jsonData?.type) &&
           connection.socket.readyState === WebSocket.OPEN
         ) {
           const avgPrice = (
