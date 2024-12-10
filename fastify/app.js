@@ -272,8 +272,8 @@ const sendData = async () => {
         try {
           jsonData = JSON?.parse(fileData);
         } catch (parseError) {
-          console.error(`Invalid JSON format for ticker: ${symbol}`, parseError);
-          console.error(`File content: ${fileData}`);
+          //console.error(`Invalid JSON format for ticker: ${symbol}`, parseError);
+          //console.error(`File content: ${fileData}`);
           continue;
         }
 
@@ -338,7 +338,7 @@ const sendData = async () => {
         try {
           // Parse message as JSON to get tickers array
           tickers = JSON.parse(message.toString("utf-8"));
-          console.log("Received tickers from client:", tickers);
+          //console.log("Received tickers from client:", tickers);
           
           // Reset last sent data for new tickers
           tickers?.forEach((ticker) => {

@@ -490,7 +490,6 @@ async def get_stock(data: HistoricalPrice, api_key: str = Security(get_api_key))
 async def get_stock(data: HistoricalPrice, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     time_period = data.timePeriod
-    print(time_period)
     cache_key = f"export-price-data-{ticker}-{time_period}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -1205,7 +1204,6 @@ async def get_analyst_ticke_history(data: TickerData, api_key: str = Security(ge
 @app.post("/indicator-data")
 async def get_indicator(data: IndicatorListData, api_key: str = Security(get_api_key)):
     rule_of_list = data.ruleOfList or ['volume', 'marketCap', 'changesPercentage', 'price', 'symbol', 'name']
-    
     # Ensure 'symbol' and 'name' are always included in the rule_of_list
     if 'symbol' not in rule_of_list:
         rule_of_list.append('symbol')
@@ -1224,15 +1222,14 @@ async def get_indicator(data: IndicatorListData, api_key: str = Security(get_api
     for ticker, quote in quote_dict.items():
         # Determine the ticker type based on the sets
         ticker_type = (
-            'etf' if ticker in etf_symbols else 
-            'crypto' if ticker in crypto_symbols else 
+            'etf' if ticker in etf_set else 
+            'crypto' if ticker in crypto_set else 
             'stock'
         )
 
         # Filter the quote based on keys in rule_of_list (use data only from quote.json for these)
         filtered_quote = {key: quote.get(key) for key in rule_of_list if key in quote}
         filtered_quote['type'] = ticker_type
-
         # Add the result to combined_results
         combined_results.append(filtered_quote)
 
@@ -1247,7 +1244,6 @@ async def get_indicator(data: IndicatorListData, api_key: str = Security(get_api
                 result.update(screener_dict[symbol])
 
             
-
     # Serialize and compress the response
     res = orjson.dumps(combined_results)
     compressed_data = gzip.compress(res)

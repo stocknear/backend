@@ -81,7 +81,7 @@ async def process_category(cursor, category, condition, category_type='market-ca
 
 
 async def get_etf_holding(etf_symbols, etf_con):
-    for ticker in tqdm(etf_symbols):
+    for ticker in ['SPY']: #tqdm(etf_symbols):
         res = []
         df = pd.read_sql_query(query_etf_holding, etf_con, params=(ticker,))
         try:
@@ -115,6 +115,7 @@ async def get_etf_holding(etf_symbols, etf_con):
                 except:
                     pass
                 
+                
                 # Assign price and changesPercentage if available, otherwise set to None
                 item['weightPercentage'] = round(item.get('weightPercentage'), 2) if item['weightPercentage'] else None
 
@@ -128,7 +129,6 @@ async def get_etf_holding(etf_symbols, etf_con):
             with open(f"json/etf/holding/{ticker}.json", 'wb') as file:
                 final_res = {'lastUpdate': last_update, 'holdings': res}
                 file.write(orjson.dumps(final_res))
-
 
 
 
@@ -209,7 +209,6 @@ async def get_magnificent_seven():
                 
         with open(f"json/stocks-list/list/magnificent-seven.json", 'wb') as file:
             file.write(orjson.dumps(res_list))
-            print(res_list)
 
 async def get_faang():
   
