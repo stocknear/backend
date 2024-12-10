@@ -317,10 +317,10 @@ const sendData = async () => {
           }
         }
       } else {
-        console.error("File not found for ticker:", symbol);
+        //console.error("File not found for ticker:", symbol);
       }
     } catch (err) {
-      console.error("Error processing data for ticker:", symbol, err);
+      //console.error("Error processing data for ticker:", symbol, err);
     }
   }
 

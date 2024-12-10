@@ -96,9 +96,7 @@ async def get_etf_holding(etf_symbols, etf_con):
                     'weightPercentage': item.get('weightPercentage', None),
                     'sharesNumber': item.get('marketValue', None) if not item.get('asset') and item.get('sharesNumber') == 0 else item.get('sharesNumber', None)
                 }
-                for item in data
-                if item.get('marketValue', 0) >= 0 and item.get('weightPercentage', 0) > 0  # Exclude items with negative marketValue or non-positive weightPercentage
-            ]
+                for item in data if item.get('marketValue', 0) >= 0 and item.get('weightPercentage', 0) > 0]
 
             for item in res:
                 try:
@@ -211,6 +209,7 @@ async def get_magnificent_seven():
                 
         with open(f"json/stocks-list/list/magnificent-seven.json", 'wb') as file:
             file.write(orjson.dumps(res_list))
+            print(res_list)
 
 async def get_faang():
   
