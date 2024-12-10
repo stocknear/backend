@@ -250,7 +250,7 @@ fastify.register(async function (fastify) {
       const lastSentData = {};
       
       // Function to send data for all tickers as a list
-    const sendData = async () => {
+const sendData = async () => {
   const dataToSend = [];
 
   for (const symbol of tickers) {
@@ -258,7 +258,8 @@ fastify.register(async function (fastify) {
       __dirname,
       `../app/json/websocket/companies/${symbol?.toUpperCase()}.json`
     );
-try {
+
+    try {
       if (fs?.existsSync(filePath)) {
         const fileData = fs?.readFileSync(filePath, "utf8");
 
@@ -282,7 +283,7 @@ try {
           jsonData?.ap != null &&
           jsonData?.bp != null &&
           jsonData?.t != null &&
-          ["Q","T"]?.includes(jsonData?.type) &&
+          ["Q", "T"]?.includes(jsonData?.type) &&
           connection.socket.readyState === WebSocket.OPEN
         ) {
           const avgPrice = (
@@ -295,21 +296,24 @@ try {
             ? jsonData.bp 
             : avgPrice;
 
-          const currentDataSignature = `${jsonData?.bp}`;
-          const lastSentSignature = lastSentData[symbol];
+          // Check if finalPrice is equal to avgPrice before sending data
+          if (finalPrice - avgPrice === 0) {
+            const currentDataSignature = `${finalPrice}`;
+            const lastSentSignature = lastSentData[symbol];
 
-          if (currentDataSignature !== lastSentSignature) {
-            dataToSend?.push({
-              symbol,
-              ap: jsonData?.ap,
-              bp: jsonData?.bp,
-              lp: jsonData?.lp,
-              avgPrice: finalPrice,
-              type: jsonData?.type,
-              time: formatTimestampNewYork(jsonData?.t),
-            });
+            if (currentDataSignature !== lastSentSignature) {
+              dataToSend?.push({
+                symbol,
+                ap: jsonData?.ap,
+                bp: jsonData?.bp,
+                lp: jsonData?.lp,
+                avgPrice: finalPrice,
+                type: jsonData?.type,
+                time: formatTimestampNewYork(jsonData?.t),
+              });
 
-            lastSentData[symbol] = currentDataSignature;
+              lastSentData[symbol] = currentDataSignature;
+            }
           }
         }
       } else {
@@ -323,9 +327,10 @@ try {
   // Send all collected data as a single message
   if (dataToSend.length > 0 && connection.socket.readyState === WebSocket.OPEN) {
     connection.socket.send(JSON.stringify(dataToSend));
-    //console.log(dataToSend);
+    // console.log(dataToSend);
   }
 };
+
 
       
       // Start receiving messages from the client
