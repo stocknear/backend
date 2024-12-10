@@ -298,6 +298,7 @@ def run_threaded(job_func):
 
 # Schedule the job to run
 
+
 schedule.every().day.at("01:00").do(run_threaded, run_options_bubble_ticker).tag('options_ticker_job')
 schedule.every().day.at("02:00").do(run_threaded, run_db_schedule_job)
 schedule.every().day.at("05:00").do(run_threaded, run_options_gex).tag('options_gex_job')
@@ -359,7 +360,7 @@ schedule.every(1).hours.do(run_threaded, run_cron_company_news).tag('company_new
 schedule.every(2).minutes.do(run_threaded, run_dashboard).tag('dashboard_job')
 
 
-schedule.every(10).seconds.do(run_threaded, run_if_not_running(run_cron_options_flow, 'options_flow_job')).tag('options_flow_job')
+schedule.every(20).seconds.do(run_threaded, run_if_not_running(run_cron_options_flow, 'options_flow_job')).tag('options_flow_job')
 
 
 

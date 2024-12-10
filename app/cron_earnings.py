@@ -88,13 +88,13 @@ async def get_data(session, ticker):
                     nearest_recent = min(recent_dates, key=lambda x: datetime.strptime(x["date"], "%Y-%m-%d"))
                     try:
                         date = nearest_recent['date']
-                        eps_prior = float(nearest_recent['eps_prior']) if nearest_recent['eps_prior'] != '' else 0
-                        eps_surprise = float(nearest_recent['eps_surprise']) if nearest_recent['eps_surprise'] != '' else 0
-                        eps = float(nearest_recent['eps']) if nearest_recent['eps'] != '' else 0
-                        revenue_prior = float(nearest_recent['revenue_prior']) if nearest_recent['revenue_prior'] != '' else 0
-                        revenue_surprise = float(nearest_recent['revenue_surprise']) if nearest_recent['revenue_surprise'] != '' else 0
-                        revenue = float(nearest_recent['revenue']) if nearest_recent['revenue'] != '' else 0
-                        if revenue !=0 and revenue_prior != 0 and eps_prior != 0 and eps != 0 and revenue_surprise != 0 and eps_surprise != 0:
+                        eps_prior = float(nearest_recent['eps_prior']) if nearest_recent['eps_prior'] != '' else None
+                        eps_surprise = float(nearest_recent['eps_surprise']) if nearest_recent['eps_surprise'] != '' else None
+                        eps = float(nearest_recent['eps']) if nearest_recent['eps'] != '' else None
+                        revenue_prior = float(nearest_recent['revenue_prior']) if nearest_recent['revenue_prior'] != '' else None
+                        revenue_surprise = float(nearest_recent['revenue_surprise']) if nearest_recent['revenue_surprise'] != '' else None
+                        revenue = float(nearest_recent['revenue']) if nearest_recent['revenue'] != '' else None
+                        if revenue is not None and revenue_prior is not None and eps_prior is not None and eps is not None and revenue_surprise is not None and eps_surprise is not None:
                             res_list = {
                                 'epsPrior':eps_prior,
                                 'epsSurprise': eps_surprise,
