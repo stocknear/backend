@@ -147,7 +147,7 @@ async def get_upcoming_earnings(session, end_date, filter_today=True):
                         revenue_est = float(item['revenue_est']) if item['revenue_est'] != '' else 0
                         revenue_prior = float(item['revenue_prior']) if item['revenue_prior'] != '' else 0
 
-                        if symbol in stock_symbols and revenue_est and revenue_prior and eps_prior and eps_est:
+                        if symbol in stock_symbols and revenue_est is not None and revenue_prior is not None and eps_prior is not None and eps_est is not None:
                             df = pd.read_sql_query(query_template, con, params=(symbol,))
                             market_cap = float(df['marketCap'].iloc[0]) if df['marketCap'].iloc[0] != '' else 0
                             res_list.append({
