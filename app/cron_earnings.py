@@ -62,10 +62,10 @@ async def get_data(session, ticker):
                     symbol = nearest_future['ticker']
                     time = nearest_future['time']
                     date = nearest_future['date']
-                    eps_prior = float(nearest_future['eps_prior']) if nearest_future['eps_prior'] else 0
-                    eps_est = float(nearest_future['eps_est']) if nearest_future['eps_est'] else 0
-                    revenue_est = float(nearest_future['revenue_est']) if nearest_future['revenue_est'] else 0
-                    revenue_prior = float(nearest_future['revenue_prior']) if nearest_future['revenue_prior'] else 0
+                    eps_prior = float(nearest_future['eps_prior']) if nearest_future['eps_prior'] else None
+                    eps_est = float(nearest_future['eps_est']) if nearest_future['eps_est'] else None
+                    revenue_est = float(nearest_future['revenue_est']) if nearest_future['revenue_est'] else None
+                    revenue_prior = float(nearest_future['revenue_prior']) if nearest_future['revenue_prior'] else None
                     if revenue_est is not None and revenue_prior is not None and eps_prior is not None and eps_est is not None:
                         res_list = {
                             'date': date,
