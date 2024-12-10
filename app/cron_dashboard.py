@@ -178,54 +178,78 @@ async def get_upcoming_earnings(session, end_date, filter_today=True):
 
 
 async def get_recent_earnings(session):
-	url = "https://api.benzinga.com/api/v2.1/calendar/earnings"
-	res_list = []
+    url = "https://api.benzinga.com/api/v2.1/calendar/earnings"
+    res_list = []
+    importance_list = ["1","2","3","4","5"]
+    
+    for importance in importance_list:
+        querystring = {
+            "token": benzinga_api_key,
+            "parameters[importance]": importance, 
+            "parameters[date_from]": yesterday,
+            "parameters[date_to]": today,
+            "parameters[date_sort]": "date"
+        }
+        try:
+            async with session.get(url, params=querystring, headers=headers) as response:
+                res = ujson.loads(await response.text())['earnings']
+                for item in res:
+                    try:
+                        symbol = item['ticker']
+                        name = item['name']
+                        time = item['time']
+                        updated = int(item['updated'])  # Convert to integer for proper comparison
+                        
+                        # Convert numeric fields, handling empty strings
+                        eps_prior = float(item['eps_prior']) if item['eps_prior'] != '' else None
+                        eps_surprise = float(item['eps_surprise']) if item['eps_surprise'] != '' else None
+                        eps = float(item['eps']) if item['eps'] != '' else 0
+                        revenue_prior = float(item['revenue_prior']) if item['revenue_prior'] != '' else None
+                        revenue_surprise = float(item['revenue_surprise']) if item['revenue_surprise'] != '' else None
+                        revenue = float(item['revenue']) if item['revenue'] != '' else None
+                        
+                        if (symbol in stock_symbols and 
+                            revenue is not None and 
+                            revenue_prior is not None and 
+                            eps_prior is not None and 
+                            eps is not None and 
+                            revenue_surprise is not None and 
+                            eps_surprise is not None):
+                            
+                            df = pd.read_sql_query(query_template, con, params=(symbol,))
+                            market_cap = float(df['marketCap'].iloc[0]) if df['marketCap'].iloc[0] != '' else 0
+                            
+                            res_list.append({
+                                'symbol': symbol,
+                                'name': name,
+                                'time': time,
+                                'marketCap': market_cap,
+                                'epsPrior': eps_prior,
+                                'epsSurprise': eps_surprise,
+                                'eps': eps,
+                                'revenuePrior': revenue_prior,
+                                'revenueSurprise': revenue_surprise,
+                                'revenue': revenue,
+                                'updated': updated
+                            })
+                    except Exception as e:
+                        print('Recent Earnings:', e)
+                        pass
+        except Exception as e:
+            print('API Request Error:', e)
+            pass
+    
+    # Remove duplicates
+    res_list = remove_duplicates(res_list)
+    
+    # Sort first by the most recent 'updated' timestamp, then by market cap
+    res_list.sort(key=lambda x: (-x['updated'], -x['marketCap']))
+    
+    # Remove market cap before returning and limit to top 10
+    res_list = [{k: v for k, v in d.items() if k not in ['marketCap', 'updated']} for d in res_list]
+    
+    return res_list[:10]
 
-	importance_list = ["1","2","3","4","5"]
-	res_list = []
-	for importance in importance_list:
-
-		querystring = {"token": benzinga_api_key,"parameters[importance]":importance, "parameters[date_from]":yesterday,"parameters[date_to]":today,"parameters[date_sort]":"date"}
-		try:
-			async with session.get(url, params=querystring, headers=headers) as response:
-				res = ujson.loads(await response.text())['earnings']
-				for item in res:
-					try:
-						symbol = item['ticker']
-						name = item['name']
-						time = item['time']
-						eps_prior = float(item['eps_prior']) if item['eps_prior'] != '' else 0
-						eps_surprise = float(item['eps_surprise']) if item['eps_surprise'] != '' else 0
-						eps = float(item['eps']) if item['eps'] != '' else 0
-						revenue_prior = float(item['revenue_prior']) if item['revenue_prior'] != '' else 0
-						revenue_surprise = float(item['revenue_surprise']) if item['revenue_surprise'] != '' else 0
-						revenue = float(item['revenue']) if item['revenue'] != '' else 0
-						if symbol in stock_symbols and revenue != 0 and revenue_prior != 0 and eps_prior != 0 and eps != 0 and revenue_surprise != 0 and eps_surprise != 0:
-							df = pd.read_sql_query(query_template, con, params=(symbol,))
-							market_cap = float(df['marketCap'].iloc[0]) if df['marketCap'].iloc[0] != '' else 0
-							res_list.append({
-								'symbol': symbol,
-								'name': name,
-								'time': time,
-								'marketCap': market_cap,
-								'epsPrior':eps_prior,
-								'epsSurprise': eps_surprise,
-								'eps': eps,
-								'revenuePrior': revenue_prior,
-								'revenueSurprise': revenue_surprise,
-								'revenue': revenue
-								})
-					except Exception as e:
-						print('Recent Earnings:', e)
-						pass
-		except Exception as e:
-			pass
-
-	res_list = remove_duplicates(res_list)
-	res_list.sort(key=lambda x: x['marketCap'], reverse=True)
-	#res_list.sort(key=lambda x: (-parse_time(x['time']).timestamp(), -x['marketCap']))
-	res_list = [{k: v for k, v in d.items() if k != 'marketCap'} for d in res_list]
-	return res_list[0:10]
 '''
 async def get_recent_dividends(session):
 	url = "https://api.benzinga.com/api/v2.1/calendar/dividends"
