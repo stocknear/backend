@@ -1292,11 +1292,22 @@ async def process_watchlist_ticker(ticker, rule_of_list, quote_keys_to_include, 
 
         # Merge with screener data, but only for fields not in quote_dict
         symbol = filtered_quote.get('symbol')
-        if symbol and symbol in screener_dict:
-            # Exclude price, volume, and changesPercentage from screener_dict update
+        if symbol:
+            # Ensure symbol exists in screener_dict, create if not
+            screener_dict.setdefault(symbol, {})
+
+            # Exclude 'price', 'volume', and 'changesPercentage' from screener_dict update
             for key in ['price', 'volume', 'changesPercentage']:
                 screener_dict[symbol].pop(key, None)
-            filtered_quote.update(screener_dict[symbol])
+
+            # Update filtered_quote with screener_dict data or set to None if key is missing
+            for key, value in screener_dict[symbol].items():
+                filtered_quote[key] = value
+
+            # Ensure keys in screener_dict are present in filtered_quote, set to None if missing
+            for key in screener_dict.get(symbol, {}):
+                filtered_quote.setdefault(key, None)
+
         
         result = filtered_quote
 
@@ -1381,7 +1392,7 @@ async def get_watchlist(data: GetWatchList, api_key: str = Security(get_api_key)
     }
 
     compressed_data = gzip.compress(orjson.dumps(res))
-    
+
     return StreamingResponse(
         io.BytesIO(compressed_data),
         media_type="application/json",
