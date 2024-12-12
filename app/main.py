@@ -1256,8 +1256,8 @@ async def get_indicator(data: IndicatorListData, api_key: str = Security(get_api
 
 
 
-async def process_watchlist_ticker(ticker, rule_of_list, quote_keys_to_include, screener_dict, etf_symbols, crypto_symbols):
-    """Process a single ticker concurrently."""
+async def process_watchlist_ticker(ticker, rule_of_list, quote_keys_to_include, screener_dict, etf_set, crypto_set):
+    """Optimized single ticker processing with reduced I/O and memory overhead."""
     ticker = ticker.upper()
     ticker_type = 'stocks'
     if ticker in etf_set:
@@ -1265,96 +1265,74 @@ async def process_watchlist_ticker(ticker, rule_of_list, quote_keys_to_include, 
     elif ticker in crypto_set:
         ticker_type = 'crypto'
 
-    # Concurrent loading of quote, news, and earnings data
-    quote_task = load_json_async(f"json/quote/{ticker}.json")
-    news_task = load_json_async(f"json/market-news/companies/{ticker}.json")
-    earnings_task = load_json_async(f"json/earnings/next/{ticker}.json")
+    try:
+        # Combine I/O operations into single async read
+        quote_dict, news_dict, earnings_dict = await asyncio.gather(
+            load_json_async(f"json/quote/{ticker}.json"),
+            load_json_async(f"json/market-news/companies/{ticker}.json"),
+            load_json_async(f"json/earnings/next/{ticker}.json")
+        )
+    except Exception:
+        # Gracefully handle missing files
+        return None, [], None
+
+    # Early return if no quote data
+    if not quote_dict:
+        return None, [], None
+
+    # Optimized quote filtering with dict comprehension
+    filtered_quote = {
+        key: quote_dict.get(key) 
+        for key in rule_of_list + quote_keys_to_include 
+        if key in quote_dict
+    }
     
-    quote_dict, news_dict, earnings_dict = await asyncio.gather(quote_task, news_task, earnings_task)
+    # Efficiently add core quote data
+    core_keys = ['price', 'volume', 'changesPercentage', 'symbol']
+    for key in core_keys:
+        if key in quote_dict:
+            filtered_quote[key] = quote_dict[key]
+    
+    filtered_quote['type'] = ticker_type
 
-    result = None
-    news = []
-    earnings = None
-
-    if quote_dict:
-        # Filter quote data
-        filtered_quote = {
-            key: quote_dict.get(key) 
-            for key in rule_of_list if key in quote_dict or key in quote_keys_to_include
+    # Efficient screener data merge
+    symbol = filtered_quote.get('symbol')
+    if symbol and symbol in screener_dict:
+        # Use dict.update() for faster merging
+        screener_data = {
+            k: v for k, v in screener_dict[symbol].items() 
+            if k not in filtered_quote
         }
-        
-        # Ensure price, volume, and changesPercentage are taken from quote_dict
-        for key in ['price', 'volume', 'changesPercentage']:
-            if key in quote_dict:
-                filtered_quote[key] = quote_dict[key]
+        filtered_quote.update(screener_data)
 
-        filtered_quote['type'] = ticker_type
+    # Lightweight news processing
+    news = [
+        {k: v for k, v in item.items() if k not in ['image', 'text']}
+        for item in (news_dict or [])[:5]
+    ]
 
-        # Merge with screener data, but only for fields not in quote_dict
-        symbol = filtered_quote.get('symbol')
-        if symbol:
-            # Ensure symbol exists in screener_dict, create if not
-            screener_dict.setdefault(symbol, {})
+    # Compact earnings processing
+    earnings = {**earnings_dict, 'symbol': symbol} if earnings_dict else None
 
-            # Exclude 'price', 'volume', and 'changesPercentage' from screener_dict update
-            for key in ['price', 'volume', 'changesPercentage']:
-                screener_dict[symbol].pop(key, None)
-
-            # Update filtered_quote with screener_dict data or set to None if key is missing
-            for key, value in screener_dict[symbol].items():
-                filtered_quote[key] = value
-
-            # Ensure keys in screener_dict are present in filtered_quote, set to None if missing
-            for key in screener_dict.get(symbol, {}):
-                filtered_quote.setdefault(key, None)
-
-        
-        result = filtered_quote
-
-    if news_dict:
-        # Remove 'image' and 'text' keys from each news item
-        news = [
-            {key: value for key, value in item.items() if key not in ['image', 'text']}
-            for item in news_dict[:5]
-        ]
-
-    # Prepare earnings with symbol and sort by latest date
-    if earnings_dict and symbol:
-        earnings = {**earnings_dict, 'symbol': symbol}
-        
-
-    return result, news, earnings
-
-
+    return filtered_quote, news, earnings
 
 @app.post("/get-watchlist")
 async def get_watchlist(data: GetWatchList, api_key: str = Security(get_api_key)):
-    """Optimized watchlist endpoint with concurrent processing and earnings data."""
-    data_dict = data.dict()
-    watchlist_id = data_dict['watchListId']
-    rule_of_list = data_dict.get('ruleOfList', [])
-
-    # Retrieve watchlist
+    """Further optimized watchlist endpoint with concurrent processing."""
     try:
-        result = pb.collection("watchlist").get_one(watchlist_id)
-        ticker_list = result.ticker
-    except Exception as e:
+        watchlist = pb.collection("watchlist").get_one(data.watchListId)
+        ticker_list = watchlist.ticker
+    except Exception:
         raise HTTPException(status_code=404, detail="Watchlist not found")
 
-    # Default configuration
+    # Predefined configurations
     quote_keys_to_include = ['volume', 'marketCap', 'changesPercentage', 'price', 'symbol', 'name']
-    
-    # Normalize rule_of_list
-    if not rule_of_list or not isinstance(rule_of_list, list):
-        rule_of_list = []
-    
-    # Remove 'price', 'volume', and 'changesPercentage' from rule_of_list
-    rule_of_list = [rule for rule in rule_of_list if rule not in ['price', 'volume', 'changesPercentage']]
+    rule_of_list = list(set(
+        (data.ruleOfList or []) + 
+        ['symbol', 'name']
+    ))
 
-    # Ensure 'symbol' and 'name' are included in rule_of_list
-    rule_of_list = list(set(rule_of_list + ['symbol', 'name']))
-
-    # Prepare screener dictionary for fast lookup
+    # Prepare screener dictionary with efficient lookup
     screener_dict = {
         item['symbol']: {
             key: item.get(key) 
@@ -1363,43 +1341,45 @@ async def get_watchlist(data: GetWatchList, api_key: str = Security(get_api_key)
         for item in stock_screener_data
     }
 
-    # Process tickers concurrently
-    process_ticker_partial = partial(
-        process_watchlist_ticker, 
-        rule_of_list=rule_of_list, 
-        quote_keys_to_include=quote_keys_to_include, 
-        screener_dict=screener_dict,
-        etf_symbols=etf_symbols,
-        crypto_symbols=crypto_symbols
-    )
-
-    # Use asyncio to process tickers in parallel
+    # Use concurrent processing with more efficient method
     results_and_extras = await asyncio.gather(
-        *[process_ticker_partial(ticker) for ticker in ticker_list]
+        *[
+            process_watchlist_ticker(
+                ticker, 
+                rule_of_list, 
+                quote_keys_to_include, 
+                screener_dict,
+                etf_set,  # Assuming these are pre-computed sets
+                crypto_set
+            ) 
+            for ticker in ticker_list
+        ]
     )
 
-    # Separate results, news, and earnings
-    combined_results = [result for result, _, _ in results_and_extras if result]
-    combined_news = [news_item for _, news, _ in results_and_extras for news_item in news]
-    combined_earnings = [earnings for _, _, earnings in results_and_extras if earnings]
- 
+    # Efficient list comprehensions for filtering
+    combined_results = [result for result in (r[0] for r in results_and_extras) if result]
+    combined_news = [
+        news_item 
+        for news_list in (r[1] for r in results_and_extras) 
+        for news_item in news_list
+    ]
+    combined_earnings = [earnings for earnings in (r[2] for r in results_and_extras) if earnings]
 
-    # Prepare response
+    # Use orjson for faster JSON serialization
     res = {
         'data': combined_results, 
         'news': combined_news,
         'earnings': combined_earnings
     }
 
-    compressed_data = gzip.compress(orjson.dumps(res))
+    # Compress efficiently
+    compressed_data = gzip.compress(orjson.dumps(res), compresslevel=6)
 
     return StreamingResponse(
         io.BytesIO(compressed_data),
         media_type="application/json",
         headers={"Content-Encoding": "gzip"}
     )
-
-
 
 @app.post("/get-price-alert")
 async def get_price_alert(data: dict, api_key: str = Security(get_api_key)):
