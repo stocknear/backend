@@ -20,7 +20,7 @@ api_key = os.getenv('BENZINGA_API_KEY')
 
 headers = {"accept": "application/json"}
 
-N_weeks_ago = datetime.now(pytz.UTC) - timedelta(weeks=2)
+N_weeks_ago = datetime.now(pytz.UTC) - timedelta(weeks=50)
 
 query_template = """
     SELECT
