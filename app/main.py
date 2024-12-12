@@ -490,6 +490,7 @@ async def get_stock(data: HistoricalPrice, api_key: str = Security(get_api_key))
 async def get_stock(data: HistoricalPrice, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     time_period = data.timePeriod
+    print(time_period)
     cache_key = f"export-price-data-{ticker}-{time_period}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -1204,6 +1205,7 @@ async def get_analyst_ticke_history(data: TickerData, api_key: str = Security(ge
 @app.post("/indicator-data")
 async def get_indicator(data: IndicatorListData, api_key: str = Security(get_api_key)):
     rule_of_list = data.ruleOfList or ['volume', 'marketCap', 'changesPercentage', 'price', 'symbol', 'name']
+    
     # Ensure 'symbol' and 'name' are always included in the rule_of_list
     if 'symbol' not in rule_of_list:
         rule_of_list.append('symbol')
@@ -1213,7 +1215,6 @@ async def get_indicator(data: IndicatorListData, api_key: str = Security(get_api
     ticker_list = [t.upper() for t in data.tickerList if t is not None]
 
     combined_results = []
-    
     # Load quote data in parallel
     quote_data = await asyncio.gather(*[load_json_async(f"json/quote/{ticker}.json") for ticker in ticker_list])
     quote_dict = {ticker: data for ticker, data in zip(ticker_list, quote_data) if data}
@@ -1222,28 +1223,28 @@ async def get_indicator(data: IndicatorListData, api_key: str = Security(get_api
     for ticker, quote in quote_dict.items():
         # Determine the ticker type based on the sets
         ticker_type = (
-            'etf' if ticker in etf_set else 
-            'crypto' if ticker in crypto_set else 
+            'etf' if ticker in etf_symbols else 
+            'crypto' if ticker in crypto_symbols else 
             'stock'
         )
 
-        # Filter the quote based on keys in rule_of_list (use data only from quote.json for these)
+        # Filter the quote based on keys in rule_of_list
         filtered_quote = {key: quote.get(key) for key in rule_of_list if key in quote}
         filtered_quote['type'] = ticker_type
+
         # Add the result to combined_results
         combined_results.append(filtered_quote)
 
-    # Fetch and merge data from stock_screener_data, but exclude price, volume, and changesPercentage
+
+    # Fetch and merge data from stock_screener_data
     screener_keys = [key for key in rule_of_list if key not in ['volume', 'marketCap', 'changesPercentage', 'price', 'symbol', 'name']]
     if screener_keys:
         screener_dict = {item['symbol']: {k: v for k, v in item.items() if k in screener_keys} for item in stock_screener_data}
         for result in combined_results:
             symbol = result.get('symbol')
             if symbol in screener_dict:
-                # Only merge screener data for keys that are not price, volume, or changesPercentage
                 result.update(screener_dict[symbol])
 
-            
     # Serialize and compress the response
     res = orjson.dumps(combined_results)
     compressed_data = gzip.compress(res)
@@ -1260,9 +1261,9 @@ async def process_watchlist_ticker(ticker, rule_of_list, quote_keys_to_include, 
     """Process a single ticker concurrently."""
     ticker = ticker.upper()
     ticker_type = 'stocks'
-    if ticker in etf_set:
+    if ticker in etf_symbols:
         ticker_type = 'etf'
-    elif ticker in crypto_set:
+    elif ticker in crypto_symbols:
         ticker_type = 'crypto'
 
     # Concurrent loading of quote, news, and earnings data
@@ -1282,20 +1283,11 @@ async def process_watchlist_ticker(ticker, rule_of_list, quote_keys_to_include, 
             key: quote_dict.get(key) 
             for key in rule_of_list if key in quote_dict or key in quote_keys_to_include
         }
-        
-        # Ensure price, volume, and changesPercentage are taken from quote_dict
-        for key in ['price', 'volume', 'changesPercentage']:
-            if key in quote_dict:
-                filtered_quote[key] = quote_dict[key]
-
         filtered_quote['type'] = ticker_type
 
-        # Merge with screener data, but only for fields not in quote_dict
+        # Merge with screener data
         symbol = filtered_quote.get('symbol')
         if symbol and symbol in screener_dict:
-            # Exclude price, volume, and changesPercentage from screener_dict update
-            for key in ['price', 'volume', 'changesPercentage']:
-                screener_dict[symbol].pop(key, None)
             filtered_quote.update(screener_dict[symbol])
         
         result = filtered_quote
@@ -1313,6 +1305,7 @@ async def process_watchlist_ticker(ticker, rule_of_list, quote_keys_to_include, 
         
 
     return result, news, earnings
+
 
 
 
@@ -1335,12 +1328,8 @@ async def get_watchlist(data: GetWatchList, api_key: str = Security(get_api_key)
     
     # Normalize rule_of_list
     if not rule_of_list or not isinstance(rule_of_list, list):
-        rule_of_list = []
+        rule_of_list = quote_keys_to_include
     
-    # Remove 'price', 'volume', and 'changesPercentage' from rule_of_list
-    rule_of_list = [rule for rule in rule_of_list if rule not in ['price', 'volume', 'changesPercentage']]
-
-    # Ensure 'symbol' and 'name' are included in rule_of_list
     rule_of_list = list(set(rule_of_list + ['symbol', 'name']))
 
     # Prepare screener dictionary for fast lookup
@@ -1387,6 +1376,7 @@ async def get_watchlist(data: GetWatchList, api_key: str = Security(get_api_key)
         media_type="application/json",
         headers={"Content-Encoding": "gzip"}
     )
+
 
 
 
@@ -4065,7 +4055,6 @@ async def get_statistics(data: FilterStockList, api_key: str = Security(get_api_
     except:
         res = []
     data = orjson.dumps(res)
-    print(res)
     compressed_data = gzip.compress(data)
 
     redis_client.set(cache_key, compressed_data)
