@@ -409,7 +409,7 @@ async def load_json_async(file_path):
 
 
 @app.get("/")
-async def hello_world(api_key: str = Security(get_api_key)):
+async def hello_world():
     return {"stocknear api"}
 
 
