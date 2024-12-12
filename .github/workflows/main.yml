@@ -21,22 +21,6 @@ jobs:
     needs: build-and-test
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: SSH and Restart EU Server
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.EU_IP_ADDRESS }}
-          username: ${{ secrets.EU_USERNAME }}
-          key: ${{ secrets.SSH_KEY }}
-          script: |
-            cd backend/
-            git reset --hard
-            git pull https://${{ secrets.GIT_PASSWORD }}:x-oauth-basic@github.com/stocknear/backend.git
-            pm2 restart fastapi
-            pm2 restart fastify
-
       - name: SSH and Restart USEast Server
         uses: appleboy/ssh-action@v1.0.0
         with:
