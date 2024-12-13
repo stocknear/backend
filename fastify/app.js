@@ -180,7 +180,6 @@ fastify.register(async function (fastify) {
 
 fastify.register(async function (fastify) {
   fastify.get("/options-flow-reader", { websocket: true }, (connection, req) => {
-    let jsonData;
     let sendInterval;
     let lastSentData = [];
    

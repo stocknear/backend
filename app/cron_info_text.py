@@ -548,7 +548,51 @@ data = {
     "interestCoverage": {
         "text": "The interest coverage ratio is a measure of the ability of a company to pay its interest expenses. It is calculated by dividing the company's Earnings Before Interest and Taxes (EBIT) by its interest expenses.",
         "equation": "Interest Coverage Ratio = EBIT / Interest Expense"
+    },
+    "date_expiration": {
+        "text": "The expiration date indicates how long the option remains valid for exercise. This is particularly important when large investors (whales) are involved in short-term or long-term trades."
+    },
+    "execution_estimate": {
+        "text": "Select the execution price relative to the bid and ask. The options are: 'Above Ask' (bullish), 'Below Bid' (bearish), 'At Ask' (neutral), 'At Bid' (neutral), and 'At Midpoint' (neutral)."
+    },
+    "moneyness": {
+        "text": "Select the moneyness of the option. The options are: 'In the Money' (ITM) and 'Out of the Money' (OTM). ITM options have intrinsic value and OTM options are not yet profitable."
+    },
+    "cost_basis": {
+        "text": "It is the price at which the option was purchased and represents the total investment required to acquire the option. Large premiums (whale activity) can signal significant trading strategies, such as large bets on price movement or hedging strategies."
+    },
+    "put_call": {
+        "text": "The contract type refers to whether the option is a 'Put' (betting on price decline) or a 'Call' (betting on price rise). This determines the direction of the trade."
+    },
+    "sentiment": {
+        "text": "Sentiment is determined by the aggressor index. A value of 0.6 or higher indicates a bullish sentiment, below 0.5 indicates a bearish sentiment and 0.5 is considered neutral."
+    },
+    "volume": {
+        "text": "Volume represents the number of option contracts traded during a specific period. Higher volume typically indicates increased market activity and interest in the option."
+    },
+    "open_interest": {
+        "text": "Open interest refers to the total number of outstanding option contracts that have not been settled. A rising open interest suggests growing market interest, while a decline may indicate reduced interest or closing positions."
+    },
+    "size": {
+        "text": "Size refers to the number of contracts in a single trade or order. Larger sizes often indicate significant market activity and can be linked to institutional or whale trading."
+    },
+    "volumeOIRatio": {
+        "text": "The Volume / Open Interest ratio compares the current trading volume to the total open interest. A higher ratio suggests increased market activity and potential short-term price movement, while a lower ratio indicates less activity relative to outstanding contracts."
+    },
+    "sizeOIRatio": {
+        "text": "The Size / Open Interest Ratio compares the size of a single trade to the total open interest. A higher ratio may indicate that a large position is being taken relative to the existing contracts, suggesting significant market interest or potential for price movement."
+    },
+    "flowType": {
+        "text": "Different Flow types such as Repeated flow, which identifies option trades that occur multiple times with the same characteristics (ticker, put/call, strike price, expiration). If the same trade appears more than three times, it's flagged as a repeated flow, indicating significant recurring interest in that specific option."
+    },
+    "option_activity_type": {
+        "text": "The option activity type indicates the nature of the trade. A 'Sweep' occurs when an order is split across multiple exchanges to quickly execute, often signaling urgency. A 'Trade' refers to a standard option transaction executed on a single exchange."
+    },
+    "underlying_type": {
+        "text": "The underlying type refers to the asset upon which the option is based. It can be an 'ETF' (Exchange-Traded Fund), which tracks a basket of assets, or a 'Stock,' which represents shares of a single company."
     }
+
+
 }
 
 

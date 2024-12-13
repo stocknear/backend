@@ -1,5 +1,5 @@
 import asyncio
-import ujson
+import orjson
 import sqlite3
 import os
 from datetime import datetime
@@ -36,7 +36,7 @@ end_date = end_date_1d.strftime("%Y-%m-%d")
 async def fetch_options_activity(page):
     try:
         data = await asyncio.to_thread(fin.options_activity, date_from=start_date, date_to=end_date, page=page, pagesize=1000)
-        return ujson.loads(fin.output(data))['option_activity']
+        return orjson.loads(fin.output(data))['option_activity']
     except Exception as e:
         print(f"Exception on page {page}: {e}")
         return []
@@ -95,8 +95,9 @@ async def main():
 
     # Write the final data to a JSON file
     output_file = "json/options-flow/feed/data.json"
-    with open(output_file, 'w') as file:
-        ujson.dump(sorted_data, file)
+    if len(sorted_data) > 0:
+        with open(output_file, 'w') as file:
+            file.write(orjson.dumps(sorted_data).decode("utf-8"))
 
     print(f"Data successfully written to {output_file}")
 
