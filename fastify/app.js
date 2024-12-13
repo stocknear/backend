@@ -212,7 +212,7 @@ fastify.register(async function (fastify) {
       sendData();
 
       // Start sending data periodically
-      sendInterval = setInterval(sendData, 5000);
+      sendInterval = setInterval(sendData, 1000);
 
       // Handle client disconnect
       connection.socket.on("close", () => {

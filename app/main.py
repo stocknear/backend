@@ -2076,7 +2076,6 @@ async def get_congress_rss_feed(api_key: str = Security(get_api_key)):
 @app.post("/historical-sector-price")
 async def historical_sector_price(data:FilterStockList, api_key: str = Security(get_api_key)):
     data = data.dict()
-    print(data)
     sector = data['filterList']
     cache_key = f"history-price-sector-{sector}"
     cached_result = redis_client.get(cache_key)
@@ -2647,7 +2646,7 @@ async def get_raw_options_flow_ticker(data:OptionsFlowData, request: Request, ap
     pagesize = data.pagesize
     page = data.page
     cache_key = f"raw-options-flow-{ticker}-{start_date}-{end_date}-{pagesize}-{page}"
-    print(ticker, start_date, end_date, pagesize, page)
+    #print(ticker, start_date, end_date, pagesize, page)
     cached_result = redis_client.get(cache_key)
     if cached_result:
         return StreamingResponse(
@@ -2828,7 +2827,6 @@ async def get_options_chain(data:TransactionId, api_key: str = Security(get_api_
 @app.post("/options-historical-flow")
 async def get_options_chain(data:HistoricalDate, api_key: str = Security(get_api_key)):
     selected_date = data.date
-    print(selected_date)
     cache_key = f"options-historical-flow-{selected_date}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -4056,7 +4054,6 @@ async def get_statistics(data: FilterStockList, api_key: str = Security(get_api_
     except:
         res = []
     data = orjson.dumps(res)
-    print(res)
     compressed_data = gzip.compress(data)
 
     redis_client.set(cache_key, compressed_data)
@@ -4092,6 +4089,37 @@ async def get_statistics(data: ParamsData, api_key: str = Security(get_api_key))
 
     redis_client.set(cache_key, compressed_data)
     redis_client.expire(cache_key,60*15)
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
+
+
+@app.post("/profile")
+async def get_statistics(data: TickerData, api_key: str = Security(get_api_key)):
+    ticker = data.ticker.upper()
+    cache_key = f"profile-{ticker}"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
+
+    try:
+        with open(f"json/profile/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
+    except:
+        res = {}
+        
+    data = orjson.dumps(res)
+    compressed_data = gzip.compress(data)
+
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key,3600*3600)
 
     return StreamingResponse(
         io.BytesIO(compressed_data),

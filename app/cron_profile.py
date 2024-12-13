@@ -15,6 +15,15 @@ import re
 load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
 
+query_template = """
+    SELECT 
+        profile
+    FROM 
+        stocks 
+    WHERE
+        symbol = ?
+"""
+
 MONTH_MAP = {
     '01': 'January', '02': 'February', '03': 'March', '04': 'April',
     '05': 'May', '06': 'June', '07': 'July', '08': 'August',
@@ -34,46 +43,11 @@ STATE_MAP = {
     'VA': 'Virginia', 'WA': 'Washington', 'WV': 'West Virginia', 'WI': 'Wisconsin', 'WY': 'Wyoming'
 }
 
-def extract_phone_and_state(business_address):
-    """Extracts phone number and state from the business address string."""
-    # Regular expression to match phone numbers, including those with parentheses
-    phone_match = re.search(r'\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}', business_address)
-    phone = phone_match.group(0) if phone_match else ''
-
-    # Remove the phone number and extract the state and zip code
-    address_without_phone = re.sub(r'\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}', '', business_address).strip(', ')
-    parts = address_without_phone.split(',')
-    state_zip = parts[-1].strip() if len(parts) > 1 else ''
-
-    # Replace state abbreviation with full state name
-    state_zip_parts = state_zip.split()
-    if state_zip_parts:
-        city = state_zip_parts[0]
-        state_abbr = state_zip_parts[1]
-        zip_code = state_zip_parts[2] if len(state_zip_parts) > 2 else ''
-        
-        # Capitalize the city properly (if needed)
-        city = city.title()
-
-        # Map state abbreviation to full state name
-        full_state_name = STATE_MAP.get(state_abbr, state_abbr)
-        
-        # Format the final state string
-        state_formatted = f"{city} {full_state_name} {zip_code}".strip()
-    else:
-        state_formatted = state_zip
-
-    return phone, state_formatted
 
 
-def format_address(address):
-    """Formats the address string to proper capitalization."""
-    if not address:
-        return ''
-    
-    # Replace multiple commas with a single comma and split by comma
-    parts = [part.strip().title() for part in address.replace(',,', ',').split(',')]
-    return ', '.join(parts)
+async def save_json(symbol, data):
+    with open(f"json/profile/{symbol}.json", 'w') as file:
+        file.write(orjson.dumps(data).decode('utf-8'))
 
 def custom_sort(entry):
     title_lower = entry['position'].lower()
@@ -181,21 +155,34 @@ async def fetch_company_core_information(session, symbol):
 
         company_info['fiscalYearRange'] = f"{month_name_start} - {month_name_end}"
 
-    # Format the mailing address
-    if 'mailingAddress' in company_info:
-        company_info['mailingAddress'] = format_address(company_info['mailingAddress'])
 
-    # Extract phone number and state from businessAddress
-    business_address = company_info.get('businessAddress')
-    if business_address:
-        phone, state = extract_phone_and_state(business_address)
-        company_info['phone'] = phone
-        company_info['state'] = state
+    keys_to_remove = ['businessAddress', 'mailingAddress','sicDescription', 'registrantName', 'stateOfIncorporation', 'fiscalYearEnd']
+
+    # Creating a new dictionary without the unwanted keys
+    company_info = {key: value for key, value in company_info.items() if key not in keys_to_remove}
 
     return company_info
 
-async def get_data(session, symbol):
+async def get_data(session, symbol, con):
     try:
+        df = pd.read_sql_query(query_template, con, params=(symbol,))
+        if df.empty:
+            return
+
+        data= df.to_dict(orient='records')[0]
+        company_profile =  orjson.loads(data['profile'])[0]
+        if company_profile['state'] in STATE_MAP:
+            company_profile['state'] = STATE_MAP[company_profile['state']]
+
+
+
+        company_profile['ceo'] = company_profile['ceo'].replace("Ms.","").replace("Mr.","").replace("Mrs.","").replace("Ms","").replace("Mr","").strip()
+
+        keys_to_keep = ['currency', 'country', 'description', 'isin', 'cusip', 'sector','industry', 'ceo','website','fullTimeEmployees','address','city','state','ipoDate']
+
+        # Creating a new dictionary without the unwanted keys
+        company_profile = {key: value for key, value in company_profile.items() if key in keys_to_keep}
+
         # Fetch SEC filings
         filings = await fetch_sec_filings(session, symbol)
         
@@ -207,7 +194,11 @@ async def get_data(session, symbol):
         
         #print(filings)
         #print(executives)
-        print(core_info)
+        res = {**company_profile,**core_info, 'executives': executives, 'filings': filings}
+        
+        if len(res) > 0:
+            await save_json(symbol, res)
+
     except Exception as e:
         print(f"Error processing {symbol}: {e}")
 
@@ -216,20 +207,17 @@ async def run():
     con = sqlite3.connect('stocks.db')
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
-    cursor.execute("SELECT DISTINCT symbol FROM stocks")
+    cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
     symbols = [row[0] for row in cursor.fetchall()]
     
-    # For testing, limit to AAPL
-    symbols = ['AAPL']
-    con.close()
-    
+   
     async with aiohttp.ClientSession() as session:
         tasks = []
         for i, symbol in enumerate(tqdm(symbols), 1):
-            tasks.append(get_data(session, symbol))
+            tasks.append(get_data(session, symbol, con))
             
             # Batch processing and rate limiting
-            if i % 300 == 0:
+            if i % 100 == 0:
                 await asyncio.gather(*tasks)
                 tasks = []
                 print(f'Processed {i} symbols, sleeping...')
@@ -239,6 +227,7 @@ async def run():
         if tasks:
             await asyncio.gather(*tasks)
 
+    con.close()
 
 def main():
     """
