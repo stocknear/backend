@@ -177,66 +177,82 @@ fastify.register(async function (fastify) {
   );
 });
 
+
 fastify.register(async function (fastify) {
-  fastify.get(
-    "/options-flow-reader",
-    { websocket: true },
-    (connection, req) => {
-      let jsonData;
-      let sendInterval;
+  fastify.get("/options-flow-reader", { websocket: true }, (connection, req) => {
+    let jsonData;
+    let sendInterval;
+    let lastSentData = [];
+   
+    // Function to send data to the client
+    const sendData = async () => {
+  const filePath = path.join(__dirname, "../app/json/options-flow/feed/data.json");
+  
+  try {
+    if (fs.existsSync(filePath)) {
+      const fileData = fs.readFileSync(filePath, "utf8").trim();
 
-      // Function to send data to the client
-      const sendData = async () => {
-        const filePath = path.join(
-          __dirname,
-          "../app/json/options-flow/feed/data.json"
-        );
-        try {
-          if (fs.existsSync(filePath)) {
-            const fileData = fs.readFileSync(filePath, "utf8");
-            jsonData = JSON.parse(fileData);
-            connection.socket.send(JSON.stringify(jsonData));
-          } else {
-            console.error("File not found:", filePath);
-            clearInterval(sendInterval);
-            connection?.socket?.close();
-            console.error("Connection closed");
-            throw new Error("This is an intentional uncaught exception!");
-          }
-        } catch (err) {
-          console.error("Error sending data to client:", err);
-        }
-      };
+      if (!fileData) {
+        console.error("File is empty:", filePath);
+        setTimeout(sendData, 2000);
+        return;
+      }
 
-      // Send data to the client initially
-      sendData();
+      let parsedData;
+      try {
+        parsedData = JSON.parse(fileData);
+      } catch (jsonErr) {
+        console.error("Invalid JSON format:", jsonErr);
+        setTimeout(sendData, 2000);
+        return;
+      }
 
-      // Start sending data periodically
-      sendInterval = setInterval(sendData, 1000);
-
-      // Handle client disconnect
-      connection.socket.on("close", () => {
-        console.log("Client disconnected");
-        clearInterval(sendInterval);
-      });
-
-      // Handle server crash cleanup
-      const closeHandler = () => {
-        console.log("Server is closing. Cleaning up resources...");
-        clearInterval(sendInterval);
-        connection.socket.close();
-      };
-
-      // Add close handler to process event
-      process.on("exit", closeHandler);
-      process.on("SIGINT", closeHandler);
-      process.on("SIGTERM", closeHandler);
-      process.on("uncaughtException", closeHandler);
-      process.on("unhandledRejection", closeHandler);
+      // Send data only if the length has increased since the last send
+      if (parsedData.length > lastSentData.length) {
+        connection.socket.send(JSON.stringify(parsedData));
+        console.log("Options data sent: Length", parsedData.length);
+        lastSentData = parsedData;
+      }
+    } else {
+      console.error("File not found:", filePath);
+      setTimeout(sendData, 2000);
     }
-  );
-});
+  } catch (err) {
+    console.error("Error sending data to client:", err);
+    setTimeout(sendData, 2000);
+  }
+};
 
+
+    // Send data to the client initially
+    sendData();
+    
+    // Start sending data periodically
+    sendInterval = setInterval(sendData, 500);
+    
+    // Handle client disconnect
+    connection.socket.on("close", () => {
+      console.log("Client disconnected");
+      clearInterval(sendInterval);
+    });
+
+    // Handle server crash cleanup
+    const closeHandler = () => {
+      console.log("Server is closing. Cleaning up resources...");
+      clearInterval(sendInterval);
+      if (connection.socket.readyState === connection.socket.OPEN) {
+        connection.socket.close();
+      }
+    };
+    
+    // Add close handler to process events
+    process.on("exit", closeHandler);
+    process.on("SIGINT", closeHandler);
+    process.on("SIGTERM", closeHandler);
+    process.on("uncaughtException", closeHandler);
+    process.on("unhandledRejection", closeHandler);
+  });
+});
 
 
 fastify.register(async function (fastify) {
