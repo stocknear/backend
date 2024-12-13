@@ -21,7 +21,7 @@ async def fetch_sec_filings(session, symbol, filing_type):
     url = f"https://financialmodelingprep.com/api/v3/sec_filings/{symbol}?type={filing_type}&page=0&apikey={api_key}"
     async with session.get(url) as response:
         data = await response.json()
-    return [{'date': entry['fillingDate'], 'link': entry['finalLink']} for entry in data]
+    return [{'date': entry['fillingDate'], 'type': entry['type'],'link': entry['finalLink']} for entry in data]
 
 async def save_sec_filings(session, symbol):
     tasks = [
