@@ -124,6 +124,7 @@ def replace_representative(office):
         'Michael F. Q. San Nicolas': 'Michael San Nicolas',
         'Barbara J Honorable Comstock': 'Barbara Comstock',
         'Darin McKay LaHood': 'Darin LaHood',
+        'Harold Dallas Rogers': 'Hal Rogers',
         'Mr ': '',
         'Mr. ': '',
         'Dr ': '',
