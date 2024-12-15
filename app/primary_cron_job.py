@@ -120,10 +120,15 @@ def run_cron_market_news():
     if week <= 4:
         run_command(["python3", "cron_market_news.py"])
 
-def run_cron_company_news():
+def run_company_news():
     week = datetime.today().weekday()
     if week <= 4:
         run_command(["python3", "cron_company_news.py"])
+
+def run_press_releases():
+    week = datetime.today().weekday()
+    if week <= 4:
+        run_command(["python3", "cron_press_releases.py"])
 
 def run_cron_heatmap():
     run_command(["python3", "cron_heatmap.py"])
@@ -360,7 +365,9 @@ schedule.every(3).hours.do(run_threaded, run_options_net_flow).tag('options_net_
 #schedule.every(4).hours.do(run_threaded, run_share_statistics).tag('share_statistics_job')
 
 schedule.every(1).hours.do(run_threaded, run_analyst_rating).tag('analyst_job')
-schedule.every(1).hours.do(run_threaded, run_cron_company_news).tag('company_news_job')
+schedule.every(1).hours.do(run_threaded, run_company_news).tag('company_news_job')
+schedule.every(3).hours.do(run_threaded, run_press_releases).tag('press_release_job')
+
 
 
 schedule.every(2).minutes.do(run_threaded, run_dashboard).tag('dashboard_job')

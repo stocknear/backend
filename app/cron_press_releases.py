@@ -25,28 +25,13 @@ class RateLimiter:
                 await asyncio.sleep(self.sleep_time)
                 self.request_count = 0
 
-async def filter_and_deduplicate(data, excluded_domains=None, deduplicate_key='title'):
-    """
-    Filter out items with specified domains in their URL and remove duplicates based on a specified key.
-    """
-    if excluded_domains is None:
-        excluded_domains = ['prnewswire.com', 'globenewswire.com', 'accesswire.com']
-    seen_keys = set()
-    filtered_data = []
-    for item in data:
-        if not any(domain in item['url'] for domain in excluded_domains):
-            key = item.get(deduplicate_key)
-            if key and key not in seen_keys:
-                filtered_data.append(item)
-                seen_keys.add(key)
-    return filtered_data
 
 async def save_json(symbol, data):
     """
     Save data as JSON in a batch to reduce disk I/O
     """
     async with asyncio.Lock():  # Ensure thread-safe writes
-        with open(f"json/market-news/companies/{symbol}.json", 'w') as file:
+        with open(f"json/market-news/press-releases/{symbol}.json", 'w') as file:
             ujson.dump(data, file)
 
 async def get_data(session, chunk, rate_limiter):
@@ -55,7 +40,7 @@ async def get_data(session, chunk, rate_limiter):
     """
     await rate_limiter.acquire()
     company_tickers = ','.join(chunk)
-    url = f'https://financialmodelingprep.com/stable/news/stock?symbols={company_tickers}&limit=100&apikey={api_key}'
+    url = f'https://financialmodelingprep.com/stable/news/press-releases?symbols={company_tickers}&limit=50&apikey={api_key}'
     
     async with session.get(url) as response:
         if response.status == 200:
@@ -81,7 +66,6 @@ async def process_chunk(session, chunk, rate_limiter):
     for symbol in chunk:
         try:
             filtered_data = [item for item in data if item['symbol'] == symbol]
-            filtered_data = await filter_and_deduplicate(filtered_data)
             if filtered_data:
                 tasks.append(save_json(symbol, filtered_data))
         except Exception as e:
@@ -93,10 +77,7 @@ async def main():
     """
     Main function to coordinate fetching and processing
     """
-    stock_symbols = get_symbols('stocks.db', 'stocks')
-    etf_symbols = get_symbols('etf.db', 'etfs')
-    crypto_symbols = get_symbols('crypto.db', 'cryptos')
-    total_symbols = stock_symbols + etf_symbols + crypto_symbols
+    total_symbols = get_symbols('stocks.db', 'stocks')
     #total_symbols = ['AAPL']
     # Dynamically adjust chunk size
     chunk_size = 1  # Adjust based on your needs
