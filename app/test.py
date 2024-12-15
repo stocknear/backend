@@ -1,5 +1,8 @@
 import requests
+from bs4 import BeautifulSoup
 
-url = "https://api.stocktwits.com/api/2/streams/symbol/AAPL.json?filter=top"
+url = "https://twitter.com/search?q=%24AAPL&src=typed_query"
 response = requests.get(url)
-print(response)
+soup = BeautifulSoup(response.content, 'html.parser')
+
+print(soup)

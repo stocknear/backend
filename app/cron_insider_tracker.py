@@ -61,7 +61,7 @@ def format_name(name):
 
     # Join the parts to form the final name
     return " ".join(formatted_parts)
-    
+
 
 def aggregate_transactions(transactions, min_value=100_000):
 
@@ -111,7 +111,7 @@ def aggregate_transactions(transactions, min_value=100_000):
 
 async def get_data(session, symbols):
     res_list = []
-    for page in range(0, 20):  # Adjust the number of pages as needed
+    for page in range(0, 100):  # Adjust the number of pages as needed
         url = f"https://financialmodelingprep.com/stable/insider-trading/latest?page={page}&apikey={api_key}"
         async with session.get(url) as response:
             try:
