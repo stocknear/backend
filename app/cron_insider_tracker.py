@@ -33,36 +33,35 @@ def remove_outliers(group, tolerance=0.5):
 
 
 def format_name(name):
-    """
-    Formats a name from "LASTNAME MIDDLE FIRSTNAME" format to "Firstname Middle Lastname"
-    
-    Args:
-        name (str): Name in uppercase format (e.g., "SINGLETON J MATTHEW")
-    
-    Returns:
-        str: Formatted name (e.g., "Matthew J Singleton")
-    """
     # Split the name into parts
     parts = name.strip().split()
-    
+
     # Handle empty string or single word
     if not parts:
         return ""
     if len(parts) == 1:
         return parts[0].capitalize()
+
+    # Remove the first part if it's a single letter
+    if len(parts[0]) == 1:
+        parts = parts[1:]
+
+    # Remove the last part if it's a single letter or ends with a dot
+    if len(parts[-1]) == 1 or parts[-1].endswith("."):
+        parts = parts[:-1]
+
+    # Define abbreviations to be fully capitalized
+    abbreviations = {"llc", "inc", "ltd", "corp", "co"}
+
+    # Capitalize each part, handle abbreviations, and preserve numbers
+    formatted_parts = [
+        part.upper() if part.lower().strip(",.") in abbreviations else part.capitalize()
+        for part in parts
+    ]
+
+    # Join the parts to form the final name
+    return " ".join(formatted_parts)
     
-    # The first part is the last name
-    lastname = parts[0].capitalize()
-    
-    # The remaining parts are in reverse order
-    other_parts = parts[1:]
-    other_parts.reverse()
-    
-    # Capitalize each part
-    other_parts = [part.capitalize() for part in other_parts]
-    
-    # Join all parts
-    return " ".join(other_parts + [lastname])
 
 def aggregate_transactions(transactions, min_value=100_000):
 
@@ -90,9 +89,10 @@ def aggregate_transactions(transactions, min_value=100_000):
         if avg_value >= min_value:
             # Find latest filing date
             latest_date = max(
-                datetime.strptime(t['filingDate'], '%Y-%m-%d %H:%M:%S')
+                #datetime.strptime(t['filingDate'], '%Y-%m-%d %H:%M:%S')
+                datetime.strptime(t['filingDate'], '%Y-%m-%d')
                 for t in group_list
-            ).strftime('%Y-%m-%d %H:%M:%S')
+            ).strftime('%Y-%m-%d')
             
             # Create aggregated transaction with formatted name and total shares
             result.append({
@@ -112,13 +112,13 @@ def aggregate_transactions(transactions, min_value=100_000):
 async def get_data(session, symbols):
     res_list = []
     for page in range(0, 20):  # Adjust the number of pages as needed
-        url = f"https://financialmodelingprep.com/api/v4/insider-trading?page={page}&apikey={api_key}"
+        url = f"https://financialmodelingprep.com/stable/insider-trading/latest?page={page}&apikey={api_key}"
         async with session.get(url) as response:
             try:
                 if response.status == 200:
                     data = await response.json()
                     
-                    # Filter and adjust transactionType based on acquistionOrDisposition
+                    # Filter and adjust transactionType based on acquisitionOrDisposition
                     filtered_data = [
                         {
                             "reportingName": item.get("reportingName"),
@@ -127,14 +127,13 @@ async def get_data(session, symbols):
                             "shares": item.get("securitiesTransacted"),
                             "value": round(item.get("securitiesTransacted",0) * item.get("price",0),2),
                             "price": item.get("price",0),
-                            "transactionType": "Buy" if item.get("acquistionOrDisposition") == "A" 
-                                                else "Sell" if item.get("acquistionOrDisposition") == "D" 
+                            "transactionType": "Buy" if item.get("acquisitionOrDisposition") == "A" 
+                                                else "Sell" if item.get("acquisitionOrDisposition") == "D" 
                                                 else None,  # None if neither "A" nor "D"
                         }
                         for item in data
-                        if item.get("acquistionOrDisposition") in ["A", "D"] and item.get('price') > 0 and item.get("securitiesTransacted") > 0  # Filter out if not "A" or "D"
+                        if item.get("acquisitionOrDisposition") in ["A", "D"] and item.get('price') > 0 and item.get("securitiesTransacted") > 0  # Filter out if not "A" or "D"
                     ]
-                    
                     res_list += filtered_data
                 else:
                     print(f"Failed to fetch data. Status code: {response.status}")
@@ -155,6 +154,7 @@ async def get_data(session, symbols):
             symbol = item['symbol']
             with open(f"json/quote/{symbol}.json") as file:
                 stock_data = ujson.load(file)
+                item['name'] = stock_data['name']
                 item['marketCap'] = stock_data['marketCap']
                 item['price'] = round(stock_data['price'],2)
                 item['changesPercentage'] = round(stock_data['changesPercentage'],2)
