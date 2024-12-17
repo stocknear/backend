@@ -142,10 +142,10 @@ async def get_upcoming_earnings(session, end_date, filter_today=True):
                         name = item['name']
                         time = item['time']
                         is_today = item['date'] == today
-                        eps_prior = float(item['eps_prior']) if item['eps_prior'] != '' else 0
-                        eps_est = float(item['eps_est']) if item['eps_est'] != '' else 0
-                        revenue_est = float(item['revenue_est']) if item['revenue_est'] != '' else 0
-                        revenue_prior = float(item['revenue_prior']) if item['revenue_prior'] != '' else 0
+                        eps_prior = float(item['eps_prior']) if item['eps_prior'] != '' else None
+                        eps_est = float(item['eps_est']) if item['eps_est'] != '' else None
+                        revenue_est = float(item['revenue_est']) if item['revenue_est'] != '' else None
+                        revenue_prior = float(item['revenue_prior']) if item['revenue_prior'] != '' else None
 
                         if symbol in stock_symbols and revenue_est is not None and revenue_prior is not None and eps_prior is not None and eps_est is not None:
                             df = pd.read_sql_query(query_template, con, params=(symbol,))
