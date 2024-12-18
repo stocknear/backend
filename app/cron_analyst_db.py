@@ -185,36 +185,62 @@ def get_top_stocks():
     with open(f"json/analyst/all-analyst-data.json", 'r') as file:
         analyst_stats_list = orjson.loads(file.read())
 
+    # Filter analysts with a score >= 4
     filtered_data = [item for item in analyst_stats_list if item['analystScore'] >= 4]
 
-    res_list = []
     # Define the date range for the past 12 months
     end_date = datetime.now().date()
     start_date = end_date - timedelta(days=365)
 
+    # Track unique analyst-stock pairs and get the latest Strong Buy for each pair
     res_list = []
-    for item in filtered_data:
-        ticker_list = item['ratingsList']
-        # Filter by 'Strong Buy' and ensure the rating is within the last 12 months
-        ticker_list = [{'ticker': i['ticker'], 'adjusted_pt_current': i['adjusted_pt_current'], 'date': i['date']} 
-                       for i in ticker_list 
-                       if i['rating_current'] == 'Strong Buy' 
-                       and start_date <= datetime.strptime(i['date'], '%Y-%m-%d').date() <= end_date]
-        if len(ticker_list) > 0:
-            res_list += ticker_list
+    
+    for analyst in filtered_data:
+        analyst_id = analyst['analystId']
+        ticker_ratings = {}
+
+        for rating in analyst['ratingsList']:
+            rating_date = datetime.strptime(rating['date'], '%Y-%m-%d').date()
+            ticker = rating['ticker']
+            
+            if (
+                rating['rating_current'] == 'Strong Buy' and
+                start_date <= rating_date <= end_date
+            ):
+                # Keep the latest rating for each stock by this analyst
+                if ticker not in ticker_ratings or rating_date > ticker_ratings[ticker]['date']:
+                    ticker_ratings[ticker] = {
+                        'ticker': ticker,
+                        'adjusted_pt_current': rating['adjusted_pt_current'],
+                        'date': rating_date,
+                        'analystId': analyst_id
+                    }
+
+        # Add the latest ratings to the result list
+        res_list.extend(ticker_ratings.values())
 
     # Create a dictionary to store ticker occurrences and corresponding pt_current values
     ticker_data = {}
     for item in res_list:
         ticker = item['ticker']
         pt_current_str = item['adjusted_pt_current']
+        analyst_id = item['analystId']
+
         if pt_current_str:  # Skip empty strings
             pt_current = float(pt_current_str)
-            if ticker in ticker_data:
-                ticker_data[ticker]['pt_list'].append(pt_current)
-            else:
-                ticker_data[ticker] = {'pt_list': [pt_current]}
 
+            if ticker not in ticker_data:
+                ticker_data[ticker] = {
+                    'pt_list': [],
+                    'analyst_ids': set()
+                }
+
+            # Only count unique analysts per ticker
+            if analyst_id not in ticker_data[ticker]['analyst_ids']:
+                ticker_data[ticker]['pt_list'].append(pt_current)
+                ticker_data[ticker]['analyst_ids'].add(analyst_id)
+
+    # Fetch additional data (price, name, marketCap) for each ticker
     for ticker, info in ticker_data.items():
         try:
             with open(f"json/quote/{ticker}.json", 'r') as file:
@@ -223,7 +249,6 @@ def get_top_stocks():
             info['name'] = res.get('name', None)
             info['marketCap'] = res.get('marketCap', None)
         except:
-            info['price'] = None
             info['name'] = None
             info['marketCap'] = None
 
@@ -231,26 +256,35 @@ def get_top_stocks():
     for ticker, info in ticker_data.items():
         if info['pt_list']:
             info['median'] = round(statistics.median(info['pt_list']), 2)
-    
+
     # Convert the dictionary back to a list format
-    result = [{'symbol': ticker, 
-               'upside': round((info['median']/info.get('price')-1)*100, 2) if info.get('price') else None, 
-               'priceTarget': info['median'], 
-               'price': info['price'], 
-               'counter': len(info['pt_list']), 
-               'name': info['name']} 
-              for ticker, info in ticker_data.items()]
-    
-    result = [item for item in result if item['upside'] is not None and item['upside'] >= 20 and item['upside'] <= 250]  # Filter outliers
+    result = [
+        {
+            'symbol': ticker,
+            'upside': round((info['median'] / info.get('price') - 1) * 100, 2) if info.get('price') else None,
+            'priceTarget': info['median'],
+            'analystCounter': len(info['analyst_ids']),
+            'analystRating': "Strong Buy",
+            'marketCap': info['marketCap'],
+            'name': info['name']
+        }
+        for ticker, info in ticker_data.items()
+    ]
 
-    result_sorted = sorted(result, key=lambda x: x['counter'] if x['counter'] is not None else float('-inf'), reverse=True)
-    
-    #top 100 stocks
-    result_sorted = result_sorted[:100]
+    # Filter outliers with upside between 20% and 250%
+    result = [item for item in result if item['upside'] is not None and 10 <= item['upside'] <= 250]
 
+    # Sort results by the number of unique analysts (analystCounter) in descending order
+    result_sorted = sorted(result, key=lambda x: x['analystCounter'] if x['analystCounter'] is not None else float('-inf'), reverse=True)
+
+    # Top 50 stocks
+    result_sorted = result_sorted[:50]
+
+    # Add rank to each item
     for rank, item in enumerate(result_sorted):
         item['rank'] = rank + 1
 
+    # Save results to a JSON file
     with open(f"json/analyst/top-stocks.json", 'w') as file:
         file.write(orjson.dumps(result_sorted).decode('utf-8'))
 
