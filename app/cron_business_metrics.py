@@ -227,7 +227,7 @@ async def run():
     cursor.execute("PRAGMA journal_mode = wal")
     cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
     total_symbols = [row[0] for row in cursor.fetchall()]
-    total_symbols = ['TSLA']  # For testing purposes
+    #total_symbols = ['TSLA']  # For testing purposes
     con.close()
     
     async with aiohttp.ClientSession() as session:
