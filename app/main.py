@@ -3847,17 +3847,35 @@ async def get_next_earnings(data:TickerData, api_key: str = Security(get_api_key
     cache_key = f"next-earnings-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return orjson.loads(cached_result)
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
     try:
         with open(f"json/earnings/next/{ticker}.json", 'rb') as file:
             res = orjson.loads(file.read())
     except:
         res = {}
 
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key,5*60)
+    try:
+        with open(f"json/earnings/past/{ticker}.json", 'rb') as file:
+            past_earnings = orjson.loads(file.read())
+    except:
+        past_earnings = []
 
-    return res
+    final_res = {'next': res, 'past': past_earnings}
+    data = orjson.dumps(final_res)
+    compressed_data = gzip.compress(data)
+
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key,15*60)
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
 
 @app.post("/earnings-surprise")
 async def get_surprise_earnings(data:TickerData, api_key: str = Security(get_api_key)):
@@ -3865,35 +3883,28 @@ async def get_surprise_earnings(data:TickerData, api_key: str = Security(get_api
     cache_key = f"earnings-surprise-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return orjson.loads(cached_result)
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
     try:
         with open(f"json/earnings/surprise/{ticker}.json", 'rb') as file:
             res = orjson.loads(file.read())
     except:
         res = {}
 
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key,5*60)
+    data = orjson.dumps(res)
+    compressed_data = gzip.compress(data)
 
-    return res
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key,15*60)
 
-@app.post("/dividend-announcement")
-async def get_dividend_announcement(data:TickerData, api_key: str = Security(get_api_key)):
-    ticker = data.ticker.upper()
-    cache_key = f"dividend-announcement-{ticker}"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return orjson.loads(cached_result)
-    try:
-        with open(f"json/dividends/announcement/{ticker}.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = {}
-
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key,3600*3600)
-
-    return res
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
 
 @app.post("/info-text")
 async def get_info_text(data:InfoText, api_key: str = Security(get_api_key)):

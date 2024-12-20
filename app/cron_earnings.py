@@ -1,8 +1,10 @@
 import aiohttp
 import aiofiles
 import ujson
+import orjson
 import sqlite3
 import asyncio
+import pandas as pd
 import os
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
@@ -16,7 +18,14 @@ api_key = os.getenv('BENZINGA_API_KEY')
 
 ny_tz = pytz.timezone('America/New_York')
 today = datetime.now(ny_tz).replace(hour=0, minute=0, second=0, microsecond=0)
+min_date = ny_tz.localize(datetime.strptime("2015-01-01", "%Y-%m-%d"))
 N_days_ago = today - timedelta(days=10)
+
+query_template = """
+    SELECT date, open, high, low, close
+    FROM "{ticker}"
+    WHERE date >= ?
+"""
 
 
 def check_existing_file(ticker, folder_name):
@@ -49,11 +58,87 @@ async def save_json(data, symbol, dir_path):
     async with aiofiles.open(file_path, 'w') as file:
         await file.write(ujson.dumps(data))
 
-async def get_data(session, ticker):
+async def get_past_data(data, ticker, con):
+    # Filter data based on date constraints
+    filtered_data = []
+    for item in data:
+        try:
+            item_date = ny_tz.localize(datetime.strptime(item["date"], "%Y-%m-%d"))
+            if min_date <= item_date <= today:
+                filtered_data.append(
+                    {   
+                        'revenue': float(item['revenue']),
+                        'revenueEst': float(item['revenue_est']),
+                        'revenueSurprisePercent': round(float(item['revenue_surprise_percent'])*100, 2),
+                        'eps': round(float(item['eps']), 2),
+                        'epsEst': round(float(item['eps_est']), 2),
+                        'epsSurprisePercent': round(float(item['eps_surprise_percent'])*100, 2),
+                        'year': item['period_year'],
+                        'quarter': item['period'],
+                        'date': item['date']
+                    }
+                )
+        except:
+            pass
+
+    # Sort the filtered data by date
+    if len(filtered_data) > 0:
+        filtered_data.sort(key=lambda x: x['date'], reverse=True)
+
+        try:
+            # Load the price history data
+            with open(f"json/historical-price/max/{ticker}.json") as file:
+                price_history = orjson.loads(file.read())
+
+            # Convert price_history dates to datetime objects for easy comparison
+            price_history_dict = {
+                datetime.strptime(item['time'], "%Y-%m-%d"): item for item in price_history
+            }
+
+            # Calculate volatility for each earnings release
+            for entry in filtered_data:
+                earnings_date = datetime.strptime(entry['date'], "%Y-%m-%d")
+                volatility_prices = []
+
+                # Collect prices from (X-2) to (X+1)
+                for i in range(-2, 2):
+                    current_date = earnings_date + timedelta(days=i)
+                    if current_date in price_history_dict:
+                        volatility_prices.append(price_history_dict[current_date])
+
+                # Calculate volatility if we have at least one price entry
+                if volatility_prices:
+                    high_prices = [day['high'] for day in volatility_prices]
+                    low_prices = [day['low'] for day in volatility_prices]
+                    close_prices = [day['close'] for day in volatility_prices]
+
+                    max_high = max(high_prices)
+                    min_low = min(low_prices)
+                    avg_close = sum(close_prices) / len(close_prices)
+
+                    # Volatility percentage calculation
+                    volatility = round(((max_high - min_low) / avg_close) * 100, 2)
+                else:
+                    volatility = None  # No data available for volatility calculation
+
+                # Add the volatility to the entry
+                entry['volatility'] = volatility
+
+            # Save the updated filtered_data
+            await save_json(filtered_data, ticker, 'json/earnings/past')
+
+        except:
+            pass
+
+
+async def get_data(session, ticker, con):
     querystring = {"token": api_key, "parameters[tickers]": ticker}
     try:
         async with session.get(url, params=querystring, headers=headers) as response:
             data = ujson.loads(await response.text())['earnings']
+            
+            await get_past_data(data, ticker, con)
+
             # Filter for future earnings
             future_dates = [item for item in data if ny_tz.localize(datetime.strptime(item["date"], "%Y-%m-%d")) >= today]
             if future_dates:
@@ -113,9 +198,9 @@ async def get_data(session, ticker):
         print(e)
         #pass
 
-async def run(stock_symbols):
+async def run(stock_symbols, con):
     async with aiohttp.ClientSession() as session:
-        tasks = [get_data(session, symbol) for symbol in stock_symbols]
+        tasks = [get_data(session, symbol, con) for symbol in stock_symbols]
         for f in tqdm(asyncio.as_completed(tasks), total=len(stock_symbols)):
             await f
 
@@ -126,8 +211,11 @@ try:
     cursor.execute("PRAGMA journal_mode = wal")
     cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%' AND symbol NOT LIKE '%-%'")
     stock_symbols = [row[0] for row in cursor.fetchall()]
-    con.close()
-    asyncio.run(run(stock_symbols))
+    #stock_symbols = ['TSLA']
 
+    asyncio.run(run(stock_symbols, con))
+    
 except Exception as e:
     print(e)
+finally:
+    con.close()
