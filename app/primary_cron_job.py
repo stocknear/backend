@@ -364,7 +364,7 @@ schedule.every(10).minutes.do(run_threaded, run_earnings).tag('earnings_job')
 schedule.every(3).hours.do(run_threaded, run_options_net_flow).tag('options_net_flow_job')
 #schedule.every(4).hours.do(run_threaded, run_share_statistics).tag('share_statistics_job')
 
-schedule.every(1).hours.do(run_threaded, run_analyst_rating).tag('analyst_job')
+schedule.every(2).hours.do(run_threaded, run_analyst_rating).tag('analyst_job')
 schedule.every(1).hours.do(run_threaded, run_company_news).tag('company_news_job')
 schedule.every(3).hours.do(run_threaded, run_press_releases).tag('press_release_job')
 
