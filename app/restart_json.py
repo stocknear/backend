@@ -60,6 +60,8 @@ time_frames = {
     'change3Y': (datetime.now() - timedelta(days=365 * 3)).strftime('%Y-%m-%d'),
 }
 
+one_year_ago = datetime.now() - timedelta(days=365)
+
 def calculate_price_changes(symbol, item, con):
     try:
         # Loop through each time frame to calculate the change
@@ -202,12 +204,7 @@ def filter_latest_analyst_unique_rating(data):
 
 def process_top_analyst_data(data, current_price):
     data = [item for item in data if item.get('analystScore', 0) >= 4] if data else []
-    if symbol == 'AMD':
-        print(data)
     data = filter_latest_analyst_unique_rating(data)
-
-    one_year_ago = datetime.now() - timedelta(days=365)
-
     # Filter recent data from the last 12 months
     recent_data = [
         item for item in data
@@ -257,7 +254,7 @@ def process_top_analyst_data(data, current_price):
 
         # Calculate average rating score
         average_rating_score = (
-            total_rating_score / filtered_analyst_count
+            round(total_rating_score / filtered_analyst_count,2)
             if filtered_analyst_count > 0 else 0
         )
 
@@ -270,8 +267,10 @@ def process_top_analyst_data(data, current_price):
             consensus_rating = "Hold"
         elif average_rating_score >= 1.5:
             consensus_rating = "Sell"
-        else:
+        elif average_rating_score >= 1.0:
             consensus_rating = "Strong Sell"
+        else:
+            consensus_rating = None
 
         return {
             "topAnalystCounter": filtered_analyst_count,

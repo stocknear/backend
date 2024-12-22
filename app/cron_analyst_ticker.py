@@ -323,8 +323,7 @@ try:
     with open(f"json/analyst/all-analyst-data.json", 'r') as file:
     	analyst_stats_list = ujson.load(file)
 
-    chunk_size = len(stock_symbols) // 100  # Divide the list into N chunks
-
+    chunk_size = len(stock_symbols) // 300  # Divide the list into N chunks
     chunks = [stock_symbols[i:i + chunk_size] for i in range(0, len(stock_symbols), chunk_size)]
     #chunks = [['NVDA']]
     for chunk in chunks:

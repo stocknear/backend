@@ -187,9 +187,8 @@ def get_top_stocks():
 
     # Filter analysts with a score >= 4
     filtered_data = [item for item in analyst_stats_list if item['analystScore'] >= 4]
-
-    # Define the date range for the past 12 months
     end_date = datetime.now().date()
+    # Define the date range for the past 12 months
     start_date = end_date - timedelta(days=365)
 
     # Track unique analyst-stock pairs and get the latest Strong Buy for each pair
@@ -203,10 +202,7 @@ def get_top_stocks():
             rating_date = datetime.strptime(rating['date'], '%Y-%m-%d').date()
             ticker = rating['ticker']
             
-            if (
-                rating['rating_current'] == 'Strong Buy' and
-                start_date <= rating_date <= end_date
-            ):
+            if rating['rating_current'] == 'Strong Buy' and start_date <= rating_date:
                 # Keep the latest rating for each stock by this analyst
                 if ticker not in ticker_ratings or rating_date > ticker_ratings[ticker]['date']:
                     ticker_ratings[ticker] = {
@@ -264,7 +260,7 @@ def get_top_stocks():
             'topAnalystUpside': round((info['median'] / info.get('price') - 1) * 100, 2) if info.get('price') else None,
             'topAnalystPriceTarget': info['median'],
             'topAnalystCounter': len(info['analyst_ids']),
-            'analystRating': "Strong Buy",
+            'topAnalystRating': "Strong Buy",
             'marketCap': info['marketCap'],
             'name': info['name']
         }
