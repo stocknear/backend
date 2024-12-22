@@ -261,9 +261,9 @@ def get_top_stocks():
     result = [
         {
             'symbol': ticker,
-            'upside': round((info['median'] / info.get('price') - 1) * 100, 2) if info.get('price') else None,
-            'priceTarget': info['median'],
-            'analystCounter': len(info['analyst_ids']),
+            'topAnalystUpside': round((info['median'] / info.get('price') - 1) * 100, 2) if info.get('price') else None,
+            'topAnalystPriceTarget': info['median'],
+            'topAnalystCounter': len(info['analyst_ids']),
             'analystRating': "Strong Buy",
             'marketCap': info['marketCap'],
             'name': info['name']
@@ -272,10 +272,10 @@ def get_top_stocks():
     ]
 
     # Filter outliers with upside between 20% and 250%
-    result = [item for item in result if item['upside'] is not None and 10 <= item['upside'] <= 250]
+    result = [item for item in result if item['topAnalystUpside'] is not None and 10 <= item['topAnalystUpside'] <= 250]
 
     # Sort results by the number of unique analysts (analystCounter) in descending order
-    result_sorted = sorted(result, key=lambda x: x['analystCounter'] if x['analystCounter'] is not None else float('-inf'), reverse=True)
+    result_sorted = sorted(result, key=lambda x: x['topAnalystCounter'] if x['topAnalystCounter'] is not None else float('-inf'), reverse=True)
 
     # Top 50 stocks
     result_sorted = result_sorted[:50]
