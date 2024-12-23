@@ -437,6 +437,9 @@ data = {
     'analystRating': {
         'text': 'The average rating of analysts for the stock.',
     },
+    'topAnalystRating': {
+        'text': 'The average rating of top analysts for the stock.',
+    },
     'sector': {
         'text': 'The primary sector that the company operates in.',
     },
@@ -475,11 +478,20 @@ data = {
     "analystCounter": { 
         "text": "The number of analysts that have provided price targets and ratings for this stock."
     },
+    "topAnalystCounter": { 
+        "text": "The number of top analysts that have provided price targets and ratings for this stock."
+    },
     "priceTarget": { 
-        "text": "The average 12-month price target forecast predicted by stock analysts."
+        "text": "The average 12-month price target forecast predicted by wallstreet analysts."
+    },
+    "topAnalystPriceTarget": { 
+        "text": "The average 12-month price target forecast predicted by top wallstreet analysts."
     },
     "upside": { 
         "text": "The difference between the price target forecast and the current price, expressed as a percentage."
+    },
+    "topAnalystUpside": { 
+        "text": "The difference between the price target forecast by top analyst and the current price, expressed as a percentage."
     },
     "halalStocks": { 
         "text": "Halal-compliant stocks are identified by ensuring that a company's debt, interest income, and liquidity each remain below 30%. Additionally, companies involved in industries like alcohol, tobacco, gambling, and weapons are excluded to ensure adherence to Islamic principles."
