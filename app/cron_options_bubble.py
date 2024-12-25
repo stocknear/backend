@@ -13,8 +13,6 @@ from scipy.stats import norm
 from scipy.optimize import brentq
 
 
-
-
 load_dotenv()
 api_key = os.getenv('BENZINGA_API_KEY')
 
@@ -24,12 +22,20 @@ fin = financial_data.Benzinga(api_key)
 risk_free_rate = 0.05
 
 def black_scholes_price(S, K, T, r, sigma, option_type="CALL"):
+    if T <= 0:
+        raise ValueError("Time to maturity (T) must be greater than 0.")
+    if sigma <= 0:
+        raise ValueError("Volatility (sigma) must be greater than 0.")
+    
     d1 = (math.log(S / K) + (r + 0.5 * sigma ** 2) * T) / (sigma * math.sqrt(T))
     d2 = d1 - sigma * math.sqrt(T)
+    
     if option_type == "CALL":
         return S * norm.cdf(d1) - K * math.exp(-r * T) * norm.cdf(d2)
     elif option_type == "PUT":
         return K * math.exp(-r * T) * norm.cdf(-d2) - S * norm.cdf(-d1)
+    else:
+        raise ValueError("Invalid option_type. Use 'CALL' or 'PUT'.")
 
 # Implied volatility function
 def implied_volatility(S, K, T, r, market_price, option_type="CALL"):
@@ -177,14 +183,14 @@ def options_bubble_data(chunk):
                     with open(f"json/options-flow/company/{ticker}.json", 'w') as file:
                         ujson.dump(result_list, file)
             except Exception as e:
-                print(e)
+                print(f"Error found: {e}")
                 pass
 
 
 
         #Save bubble data for each ticker for overview page
+        '''
         for ticker in chunk:
-
             bubble_data = {}
             for time_period, days in {'oneDay': 1, 'oneWeek': 7, 'oneMonth': 30, 'threeMonth': 90, 'sixMonth': 180, 'oneYear': 252}.items():
                 start_date = end_date - timedelta(days=days) #end_date is today
@@ -202,11 +208,12 @@ def options_bubble_data(chunk):
             else:
                 with open(f"json/options-bubble/{ticker}.json", 'w') as file:
                     ujson.dump(bubble_data, file)
+        '''
 
     except ValueError as ve:
         print(ve)
     except Exception as e:
-        print(e)
+        print(f"Error found in the process: {e}")
 
 
 async def main():
@@ -227,11 +234,10 @@ async def main():
         total_symbols = stock_symbols + etf_symbols
         total_symbols = [item.replace("BRK-B", "BRK.B") for item in total_symbols]
 
-        print(len(total_symbols))
 
         chunk_size = 1 #len(total_symbols) // 2000  # Divide the list into N chunks
         chunks = [total_symbols[i:i + chunk_size] for i in range(0, len(total_symbols), chunk_size)]
-        #chunks = [['NVDA']]
+        #chunks = [['U']]
         loop = asyncio.get_running_loop()
         with ThreadPoolExecutor(max_workers=4) as executor:
             tasks = [loop.run_in_executor(executor, options_bubble_data, chunk) for chunk in chunks]

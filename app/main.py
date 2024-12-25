@@ -64,25 +64,30 @@ def calculate_score(item: Dict, search_query: str) -> int:
     symbol_lower = item['symbol'].lower()
     query_lower = search_query.lower()
 
-    # Base priority calculations
-    if symbol_lower == query_lower:
-        base_score = PRIORITY_STRATEGIES['exact_symbol_match']
-    elif symbol_lower.startswith(query_lower):
-        base_score = PRIORITY_STRATEGIES['symbol_prefix_match']
-    elif name_lower == query_lower:
-        base_score = PRIORITY_STRATEGIES['exact_name_match']
-    elif name_lower.startswith(query_lower):
-        base_score = PRIORITY_STRATEGIES['name_prefix_match']
-    elif query_lower in symbol_lower:
-        base_score = PRIORITY_STRATEGIES['symbol_contains']
-    elif query_lower in name_lower:
-        base_score = PRIORITY_STRATEGIES['name_contains']
+    if len(query_lower) == 1:
+        if symbol_lower == query_lower:
+            base_score = PRIORITY_STRATEGIES['exact_symbol_match']
+        elif name_lower == query_lower:
+            base_score = PRIORITY_STRATEGIES['exact_name_match']
+        else:
+            base_score = len(PRIORITY_STRATEGIES)
     else:
-        base_score = len(PRIORITY_STRATEGIES)
+        if symbol_lower == query_lower:
+            base_score = PRIORITY_STRATEGIES['exact_symbol_match']
+        elif symbol_lower.startswith(query_lower):
+            base_score = PRIORITY_STRATEGIES['symbol_prefix_match']
+        elif name_lower == query_lower:
+            base_score = PRIORITY_STRATEGIES['exact_name_match']
+        elif name_lower.startswith(query_lower):
+            base_score = PRIORITY_STRATEGIES['name_prefix_match']
+        elif query_lower in symbol_lower:
+            base_score = PRIORITY_STRATEGIES['symbol_contains']
+        elif query_lower in name_lower:
+            base_score = PRIORITY_STRATEGIES['name_contains']
+        else:
+            base_score = len(PRIORITY_STRATEGIES)
 
-    # Apply penalty if the symbol contains a dot
     dot_penalty = 1 if '.' in symbol_lower else 0
-
     return base_score + dot_penalty
 
 
