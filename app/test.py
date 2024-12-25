@@ -1,8 +1,20 @@
 import requests
-from bs4 import BeautifulSoup
+from dotenv import load_dotenv
+import os
 
-url = "https://twitter.com/search?q=%24AAPL&src=typed_query"
-response = requests.get(url)
-soup = BeautifulSoup(response.content, 'html.parser')
+load_dotenv()
+api_key = os.getenv('UNUSUAL_WHALES_API_KEY')
 
-print(soup)
+querystring = {"limit":"200"}
+
+url = "https://api.unusualwhales.com/api/darkpool/recent"
+
+headers = {
+    "Accept": "application/json, text/plain",
+    "Authorization": api_key
+}
+
+response = requests.get(url, headers=headers, params=querystring)
+
+print(len(response.json()['data']))
+print(response.json()['data'][0])
