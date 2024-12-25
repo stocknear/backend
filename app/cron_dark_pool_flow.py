@@ -127,13 +127,13 @@ def main():
                     try:
                         sector = stock_screener_data_dict[symbol].get('sector', None)
                     except:
-                        sector = None
+                        sector = ""
 
                     volume = float(item['volume'])
                     size = float(item['size'])
 
-                    daily_volume_percentage = round((size / volume) * 100, 2)
-                    avg_volume_percentage = round((size / quote_data.get('avgVolume', 1)) * 100, 2)
+                    size_volume_ratio = round((size / volume) * 100, 2)
+                    size_avg_volume_ratio = round((size / quote_data.get('avgVolume', 1)) * 100, 2)
                     res.append({
                         'ticker': item['ticker'],
                         'date': item['executed_at'],
@@ -143,8 +143,8 @@ def main():
                         'premium': item['premium'],
                         'sector': sector,
                         'assetType': asset_type,
-                        'dailyVolumePercentage': daily_volume_percentage,
-                        'avgVolumePercentage': avg_volume_percentage,
+                        'sizeVolRatio': size_volume_ratio,
+                        'sizeAvgVolRatio': size_avg_volume_ratio,
                         'trackingID': item['tracking_id']
                     })
             except Exception as e:
