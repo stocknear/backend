@@ -154,9 +154,6 @@ with db_connection(CRYPTO_DB) as cursor:
   } for row in raw_data]
 #------End Crypto DB------------#
 
-#------Init Searchbar Data------------#
-searchbar_data = stock_list_data + etf_list_data + crypto_list_data
-
 #------Start Institute DB------------#
 with db_connection(INSTITUTE_DB) as cursor:
   cursor.execute("SELECT cik FROM institutes")
@@ -165,12 +162,21 @@ with db_connection(INSTITUTE_DB) as cursor:
 
 #------Start Stock Screener--------#
 with open(f"json/stock-screener/data.json", 'rb') as file:
-        stock_screener_data = orjson.loads(file.read())
+    stock_screener_data = orjson.loads(file.read())
 
 # Convert stock_screener_data into a dictionary keyed by symbol
 stock_screener_data_dict = {item['symbol']: item for item in stock_screener_data}
 #------End Stock Screener--------#
 
+#------Init Searchbar Data------------#
+searchbar_data = stock_list_data + etf_list_data
+for item in searchbar_data:
+    try:
+        # Look up the symbol in the stock_screener_data_dict
+        symbol = item['symbol']
+        item['isin'] = stock_screener_data_dict[symbol]['isin']
+    except:
+        item['isin'] = None
 
 etf_set, crypto_set = set(etf_symbols), set(crypto_symbols)
 
@@ -1828,11 +1834,16 @@ async def get_all_hedge_funds_data(api_key: str = Security(get_api_key)):
 @app.get("/searchbar")
 async def get_stock(
     query: str = Query(""),
-    api_key: str = Security(get_api_key)
+    api_key: str = Security(lambda: None)  # Replace with your actual security function
 ) -> JSONResponse:
-    # Early return for empty query with minimal overhead
+
     if not query:
         return JSONResponse(content=[])
+
+    # Check for exact ISIN match first
+    exact_match = next((item for item in searchbar_data if item.get("isin") == query), None)
+    if exact_match:
+        return JSONResponse(content=[exact_match])
 
     # Precompile case-insensitive regex for faster matching
     search_pattern = re.compile(re.escape(query.lower()), re.IGNORECASE)

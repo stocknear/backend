@@ -689,6 +689,13 @@ async def get_stock_screener(con):
             item['industry'] = None
 
         try:
+            with open(f"json/profile/{symbol}.json", 'r') as file:
+                res = orjson.loads(file.read())
+                item['isin'] = res['isin']
+        except:
+            item['isin'] = None
+
+        try:
             with open(f"json/stockdeck/{symbol}.json", 'r') as file:
                 res = orjson.loads(file.read())
                 data = res['stockSplits'][0]
