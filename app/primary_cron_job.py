@@ -57,6 +57,15 @@ def run_command(command):
         logger.error("Error:\n" + stderr)
     '''
 
+def run_dark_pool_flow():
+    week = datetime.today().weekday()
+    if week <= 4:
+        run_command(["python3", "cron_dark_pool_flow.py"])
+
+def run_fda_calendar():
+    week = datetime.today().weekday()
+    if week <= 4:
+        run_command(["python3", "cron_fda_calendar.py"])
 
 def run_cron_insider_trading():
     week = datetime.today().weekday()
@@ -368,9 +377,13 @@ schedule.every(2).hours.do(run_threaded, run_analyst_rating).tag('analyst_job')
 schedule.every(1).hours.do(run_threaded, run_company_news).tag('company_news_job')
 schedule.every(3).hours.do(run_threaded, run_press_releases).tag('press_release_job')
 
+schedule.every(1).hours.do(run_threaded, run_fda_calendar).tag('fda_calendar_job')
 
+schedule.every(1).minutes.do(run_threaded, run_dark_pool_flow).tag('dark_pool_flow_job')
 
 schedule.every(2).minutes.do(run_threaded, run_dashboard).tag('dashboard_job')
+
+
 
 
 schedule.every(10).seconds.do(run_threaded, run_if_not_running(run_cron_options_flow, 'options_flow_job')).tag('options_flow_job')
