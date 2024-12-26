@@ -3469,7 +3469,7 @@ async def get_market_maker(api_key: str = Security(get_api_key)):
         res = []
 
     redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
+    redis_client.expire(cache_key, 60*15)  # Set cache expiration time to 1 day
     return res
 
 
