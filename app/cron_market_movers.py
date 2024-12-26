@@ -345,7 +345,7 @@ async def get_pre_after_market_movers(symbols):
                             # Filter out entries where 'close' is None
                             filtered_prices = [price for price in one_day_price if price['close'] is not None]
 
-                        if price and changes_percentage and len(filtered_prices) > 300:
+                        if price and changes_percentage and len(filtered_prices) > 100: #300
                             res_list.append({
                                 "symbol": symbol,
                                 "name": name,
