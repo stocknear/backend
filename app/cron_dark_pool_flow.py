@@ -40,19 +40,37 @@ def get_quote_data(symbol):
 
 
 def save_to_daily_file(data, directory):
-    """Save data to a daily JSON file."""
     try:
+        # Create a set to track unique entries based on a combination of 'ticker' and 'date'
+        seen = set()
+        unique_data = []
+
+        for item in data:
+            identifier = f"{item['trackingID']}"
+            if identifier not in seen:
+                seen.add(identifier)
+                unique_data.append(item)
+
+        # Sort the data by date
+        latest_data = sorted(unique_data, key=lambda x: datetime.fromisoformat(x['date'].replace('Z', '+00:00')), reverse=True)
+
+
+        # Get today's date
+        today = datetime.now().strftime('%Y-%m-%d')
+        json_file_path = os.path.join(directory, f"{today}.json")
+
         # Ensure the directory exists
         os.makedirs(directory, exist_ok=True)
-        # Generate filename based on today's date
-        date_str = datetime.now().strftime('%Y-%m-%d')
-        file_path = os.path.join(directory, f"{date_str}.json")
-        # Save data to the file
-        with open(file_path, 'wb') as file:
-            file.write(orjson.dumps(data))
-        print(f"{len(data)} datapoints successfully saved to {file_path}")
+
+        # Save the data to the dated JSON file
+        with open(json_file_path, 'wb') as file:
+            file.write(orjson.dumps(latest_data))
+
+        print(f"Saved {len(latest_data)} unique and latest ratings to {json_file_path}.")
     except Exception as e:
-        print(f"Error saving data to file: {e}")
+        print(f"An error occurred while saving data: {e}")
+
+
 
 def get_data():
     try:
