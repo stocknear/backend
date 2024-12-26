@@ -1,4 +1,6 @@
 from datetime import datetime, timedelta, time
+import os
+import orjson
 import pytz
 
 def check_market_hours():
@@ -28,3 +30,30 @@ def check_market_hours():
         return True #"Market hours."
     else:
         return False #"Market is closed."
+
+
+def load_latest_json(directory: str):
+    """Load the latest JSON file from a directory based on the filename (assumed to be a date)."""
+    try:
+        latest_file = None
+        latest_date = None
+        
+        # Iterate over files in the directory
+        for filename in os.listdir(directory):
+            if filename.endswith('.json'):
+                # Extract date from filename (assumed format 'YYYY-MM-DD.json')
+                file_date = filename.split('.')[0]
+                
+                if latest_date is None or file_date > latest_date:
+                    latest_date = file_date
+                    latest_file = filename
+        
+        if not latest_file:
+            return []  # No files found
+        
+        latest_file_path = os.path.join(directory, latest_file)
+        with open(latest_file_path, 'rb') as file:
+            return orjson.loads(file.read())
+    except Exception as e:
+        print(f"Error loading latest JSON file: {e}")
+        return []

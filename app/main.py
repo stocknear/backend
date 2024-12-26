@@ -39,6 +39,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from functools import partial
 from datetime import datetime
+from utils.helper import load_latest_json
 
 # DB constants & context manager
 
@@ -2940,13 +2941,12 @@ async def get_options_flow_feed(api_key: str = Security(get_api_key)):
         headers={"Content-Encoding": "gzip"}
     )
 
+
 @app.get("/dark-pool-flow-feed")
 async def get_dark_pool_feed(api_key: str = Security(get_api_key)):
-    try:
-        with open(f"json/dark-pool/feed/data.json", 'rb') as file:
-            res_list = orjson.loads(file.read())
-    except:
-        res_list = []
+    directory = "json/dark-pool/historical-flow"
+    res_list = load_latest_json(directory)
+
     data = orjson.dumps(res_list)
     compressed_data = gzip.compress(data)
     return StreamingResponse(
