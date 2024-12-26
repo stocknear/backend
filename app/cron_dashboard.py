@@ -464,7 +464,7 @@ async def run():
                     ]
         
                 market_movers = {'gainers': gainers, 'losers': losers}
-            except:
+            except Exception as e:
                 market_movers = {}
         elif market_status == 2:
             try:
