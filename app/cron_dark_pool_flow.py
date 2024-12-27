@@ -95,8 +95,6 @@ def main():
     # Fetch new data from the API
     data = get_data()
 
-    print(data[0])
-
     res = []
     for item in data:
         symbol = item['ticker']

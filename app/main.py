@@ -2954,16 +2954,35 @@ async def get_options_flow_feed(api_key: str = Security(get_api_key)):
 
 @app.get("/dark-pool-flow-feed")
 async def get_dark_pool_feed(api_key: str = Security(get_api_key)):
-    directory = "json/dark-pool/historical-flow"
-    res_list = load_latest_json(directory)
+    cache_key = f"dark-pooll-flow-feed"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
 
+    try:
+        directory = "json/dark-pool/historical-flow"
+        res_list = load_latest_json(directory)
+        res_list = res_list[0:1000]
+    except Ex:
+        res_list = []
+        
     data = orjson.dumps(res_list)
     compressed_data = gzip.compress(data)
+
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key,60)
+
     return StreamingResponse(
         io.BytesIO(compressed_data),
         media_type="application/json",
         headers={"Content-Encoding": "gzip"}
     )
+
+
 
 @app.get("/options-zero-dte")
 async def get_options_flow_feed(api_key: str = Security(get_api_key)):
@@ -4193,6 +4212,35 @@ async def get_statistics(data: TickerData, api_key: str = Security(get_api_key))
 
     redis_client.set(cache_key, compressed_data)
     redis_client.expire(cache_key,3600*3600)
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
+
+@app.get("/sector-flow")
+async def get_sector_flow(api_key: str = Security(get_api_key)):
+    cache_key = f"sector-flow"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
+
+    try:
+        with open(f"json/sector-flow/data.json", 'rb') as file:
+            res = orjson.loads(file.read())
+    except:
+        res = {}
+        
+    data = orjson.dumps(res)
+    compressed_data = gzip.compress(data)
+
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key,5*60)
 
     return StreamingResponse(
         io.BytesIO(compressed_data),
