@@ -1863,7 +1863,6 @@ async def get_stock(
             0 if item.get('marketCap') is None else -item['marketCap']
         )
     )[:5]
-
     return JSONResponse(content=orjson.loads(orjson.dumps(results)))
 
 
