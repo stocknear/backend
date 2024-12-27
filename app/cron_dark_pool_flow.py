@@ -75,7 +75,6 @@ def save_to_daily_file(data, directory):
 
 
 
-
 def get_data():
     try:
         response = requests.get(url, headers=headers, params=querystring)

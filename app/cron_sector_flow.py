@@ -53,6 +53,15 @@ def calculate_neutral_premium(data_item):
     
     return safe_round(neutral_premium)
 
+def generate_time_intervals(start_time, end_time):
+    """Generate 1-minute intervals from start_time to end_time."""
+    intervals = []
+    current_time = start_time
+    while current_time <= end_time:
+        intervals.append(current_time.strftime('%Y-%m-%d %H:%M:%S'))
+        current_time += timedelta(minutes=1)
+    return intervals
+
 def get_sector_data():
     try:
         url = "https://api.unusualwhales.com/api/market/sector-etfs"
@@ -60,6 +69,7 @@ def get_sector_data():
         data = response.json().get('data', [])
         res_list = []
         processed_data = []
+
         
         for item in data:
             symbol = item['ticker']
@@ -98,6 +108,13 @@ def get_sector_data():
                 new_item['price'] = round(quote_data.get('price', 0), 2)
                 new_item['changesPercentage'] = round(quote_data.get('changesPercentage', 0), 2)
 
+            #get prem tick data:
+            if symbol != 'SPY':
+                prem_tick_history = get_net_prem_ticks(symbol)
+                #if symbol == 'XLB':
+                #    print(prem_tick_history[10])
+
+                new_item['premTickHistory'] = prem_tick_history
             processed_data.append(new_item)
 
         return processed_data
@@ -105,22 +122,12 @@ def get_sector_data():
         print(e)
         return []
 
-
-def generate_time_intervals(start_time, end_time):
-    """Generate 1-minute intervals from start_time to end_time."""
-    intervals = []
-    current_time = start_time
-    while current_time <= end_time:
-        intervals.append(current_time.strftime('%Y-%m-%d %H:%M:%S'))
-        current_time += timedelta(minutes=1)
-    return intervals
-
 def get_net_prem_ticks(symbol):
     # Fetch data from the API
     url = f"https://api.unusualwhales.com/api/stock/{symbol}/net-prem-ticks"
     response = requests.get(url, headers=headers)
     data = response.json().get('data', [])
-    
+    print(data[0])
     # Sort data by date in descending order
     data = sorted(data, key=lambda x: datetime.fromisoformat(x['date'].replace('Z', '+00:00')), reverse=True)
     
@@ -144,22 +151,41 @@ def get_net_prem_ticks(symbol):
     # Create a dictionary for fast lookups of existing tape_time
     data_dict = {entry['tape_time']: entry for entry in data}
     
-    # Populate data with 1-minute intervals
-    populated_data = []
+    # Initialize aggregated data with cumulative sums
+    aggregated_data = {time: {
+        'net_call_premium': 0,
+        'net_put_premium': 0,
+        'net_call_volume': 0,
+        'net_put_volume': 0,
+        'tape_time': time,
+        'close': None
+    } for time in intervals}
+    
+    # Variable to track cumulative sums
+    cumulative_net_call_premium = 0
+    cumulative_net_put_premium = 0
+    cumulative_net_call_volume = 0
+    cumulative_net_put_volume = 0
+    
+    # Aggregate data for each minute, cumulatively adding values
     for time in intervals:
         if time in data_dict:
-            populated_data.append(data_dict[time])
-        else:
-            populated_data.append({
-                'date': time.split(' ')[0],
-                'net_call_premium': None,
-                'net_call_volume': None,
-                'net_put_premium': None,
-                'net_put_volume': None,
-                'tape_time': time,
-                'close': None
-            })
-    
+            entry = data_dict[time]
+            # Add current values to cumulative sums
+            cumulative_net_call_premium += float(entry.get('net_call_premium', 0))
+            cumulative_net_put_premium += float(entry.get('net_put_premium', 0))
+            cumulative_net_call_volume += float(entry.get('net_call_volume', 0))
+            cumulative_net_put_volume += float(entry.get('net_put_volume', 0))
+        
+        # Set the aggregated values for this minute
+        aggregated_data[time]['net_call_premium'] = cumulative_net_call_premium
+        aggregated_data[time]['net_put_premium'] = cumulative_net_put_premium
+        aggregated_data[time]['net_call_volume'] = cumulative_net_call_volume
+        aggregated_data[time]['net_put_volume'] = cumulative_net_put_volume
+
+    # Populate data with aggregated results
+    populated_data = list(aggregated_data.values())
+
     # Add 'close' values if matches found in price_list
     matched = False
     for entry in populated_data:
@@ -168,18 +194,17 @@ def get_net_prem_ticks(symbol):
                 entry['close'] = price['close']
                 matched = True
                 break  # Exit inner loop once a match is found
+    
 
-    # Return the populated data if matches exist; otherwise, return an empty list
-    print(populated_data)
     return populated_data if matched else []
-
 def main():
-    #sector_data = get_sector_data()
-    sector_data = []
-    net_premium_tick_data = get_net_prem_ticks('XLC')
-
+    '''
+    sector_data = get_sector_data()
     if len(sector_data) > 0:
         save_json(sector_data)
+    '''
+    get_net_prem_ticks('XLB')
+
 
 if __name__ == '__main__':
     main()

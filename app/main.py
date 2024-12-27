@@ -175,8 +175,10 @@ for item in searchbar_data:
         # Look up the symbol in the stock_screener_data_dict
         symbol = item['symbol']
         item['isin'] = stock_screener_data_dict[symbol]['isin']
-    except:
+
+    except Exception as e:
         item['isin'] = None
+
 
 etf_set, crypto_set = set(etf_symbols), set(crypto_symbols)
 
@@ -1841,7 +1843,7 @@ async def get_stock(
         return JSONResponse(content=[])
 
     # Check for exact ISIN match first
-    exact_match = next((item for item in searchbar_data if item.get("isin") == query), None)
+    exact_match = next((item for item in searchbar_data if item.get("isin",None) == query), None)
     if exact_match:
         return JSONResponse(content=[exact_match])
 
