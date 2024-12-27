@@ -6,7 +6,7 @@ import subprocess
 import threading  # Import threading module for parallel execution
 #import logging  # Import logging module
 #from logging.handlers import RotatingFileHandler
-
+from pytz import timezone
 
 from dotenv import load_dotenv
 import os
@@ -17,6 +17,7 @@ job_status = {
     'options_flow_job': {'running': False},
 }
 
+ny_tz = timezone('America/New_York')
 
 # Setup logging
 '''
@@ -58,13 +59,17 @@ def run_command(command):
     '''
 
 def run_dark_pool_flow():
-    week = datetime.today().weekday()
-    if week <= 4:
+    now = datetime.now(ny_tz)
+    week = now.weekday()
+    hour = now.hour
+    if week <= 4 and 8 <= hour < 20:
         run_command(["python3", "cron_dark_pool_flow.py"])
 
 def run_fda_calendar():
-    week = datetime.today().weekday()
-    if week <= 4:
+    now = datetime.now(ny_tz)
+    week = now.weekday()
+    hour = now.hour
+    if week <= 4 and 8 <= hour < 20:
         run_command(["python3", "cron_fda_calendar.py"])
 
 def run_cron_insider_trading():

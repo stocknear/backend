@@ -41,7 +41,7 @@ def get_quote_data(symbol):
 
 def save_to_daily_file(data, directory):
     try:
-        # Create a set to track unique entries based on a combination of 'ticker' and 'date'
+        # Create a set to track unique entries based on a combination of 'ticker' and 'trackingID'
         seen = set()
         unique_data = []
 
@@ -54,10 +54,13 @@ def save_to_daily_file(data, directory):
         # Sort the data by date
         latest_data = sorted(unique_data, key=lambda x: datetime.fromisoformat(x['date'].replace('Z', '+00:00')), reverse=True)
 
+        # Use the date from the first element of sorted data
+        if latest_data:
+            first_date = datetime.fromisoformat(latest_data[0]['date'].replace('Z', '+00:00')).strftime('%Y-%m-%d')
+        else:
+            first_date = datetime.now().strftime('%Y-%m-%d')  # Fallback in case data is empty
 
-        # Get today's date
-        today = datetime.now().strftime('%Y-%m-%d')
-        json_file_path = os.path.join(directory, f"{today}.json")
+        json_file_path = os.path.join(directory, f"{first_date}.json")
 
         # Ensure the directory exists
         os.makedirs(directory, exist_ok=True)
@@ -69,6 +72,7 @@ def save_to_daily_file(data, directory):
         print(f"Saved {len(latest_data)} unique and latest ratings to {json_file_path}.")
     except Exception as e:
         print(f"An error occurred while saving data: {e}")
+
 
 
 
@@ -90,6 +94,9 @@ def main():
 
     # Fetch new data from the API
     data = get_data()
+
+    print(data[0])
+
     res = []
     for item in data:
         symbol = item['ticker']
