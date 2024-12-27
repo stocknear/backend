@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta, time, date
 import os
 import orjson
 import pytz
@@ -33,27 +33,29 @@ def check_market_hours():
 
 
 def load_latest_json(directory: str):
-    """Load the latest JSON file from a directory based on the filename (assumed to be a date)."""
+    """Load the JSON file corresponding to today's date (New York time) or the last Friday if today is a weekend."""
     try:
-        latest_file = None
-        latest_date = None
-        
-        # Iterate over files in the directory
-        for filename in os.listdir(directory):
-            if filename.endswith('.json'):
-                # Extract date from filename (assumed format 'YYYY-MM-DD.json')
-                file_date = filename.split('.')[0]
-                
-                if latest_date is None or file_date > latest_date:
-                    latest_date = file_date
-                    latest_file = filename
-        
-        if not latest_file:
-            return []  # No files found
-        
-        latest_file_path = os.path.join(directory, latest_file)
-        with open(latest_file_path, 'rb') as file:
-            return orjson.loads(file.read())
+        # Get today's date in New York timezone
+        ny_tz = pytz.timezone("America/New_York")
+        today_ny = datetime.now(ny_tz).date()
+
+        # Adjust to Friday if today is Saturday or Sunday
+        if today_ny.weekday() == 5:  # Saturday
+            today_ny -= timedelta(days=1)
+        elif today_ny.weekday() == 6:  # Sunday
+            today_ny -= timedelta(days=2)
+
+        # Construct the filename based on the adjusted date
+        target_filename = f"{today_ny}.json"
+        target_file_path = os.path.join(directory, target_filename)
+
+        # Check if the file exists and load it
+        if os.path.exists(target_file_path):
+            with open(target_file_path, 'rb') as file:
+                return orjson.loads(file.read())
+        else:
+            print(f"No JSON file found for the target date: {target_filename}")
+            return []  # File for the target date not found
     except Exception as e:
-        print(f"Error loading latest JSON file: {e}")
+        print(f"Error loading JSON file for the target date: {e}")
         return []
