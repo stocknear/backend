@@ -18,7 +18,7 @@ ny_tz = pytz.timezone('America/New_York')
 
 
 def save_json(data):
-    directory = "json/sector-flow"
+    directory = "json/market-flow"
     os.makedirs(directory, exist_ok=True)  # Ensure the directory exists
     with open(f"{directory}/data.json", 'wb') as file:  # Use binary mode for orjson
         file.write(orjson.dumps(data))
