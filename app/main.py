@@ -4221,9 +4221,9 @@ async def get_statistics(data: TickerData, api_key: str = Security(get_api_key))
         headers={"Content-Encoding": "gzip"}
     )
 
-@app.get("/sector-flow")
-async def get_sector_flow(api_key: str = Security(get_api_key)):
-    cache_key = f"sector-flow"
+@app.get("/market-flow")
+async def get_market_flow(api_key: str = Security(get_api_key)):
+    cache_key = f"market-flow"
     cached_result = redis_client.get(cache_key)
     if cached_result:
         return StreamingResponse(
@@ -4233,7 +4233,7 @@ async def get_sector_flow(api_key: str = Security(get_api_key)):
         )
 
     try:
-        with open(f"json/sector-flow/data.json", 'rb') as file:
+        with open(f"json/market-flow/data.json", 'rb') as file:
             res = orjson.loads(file.read())
     except:
         res = {}
