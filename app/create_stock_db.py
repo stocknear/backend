@@ -351,26 +351,8 @@ async def fetch_tickers():
 db = StockDatabase('backup_db/stocks.db')
 loop = asyncio.get_event_loop()
 all_tickers = loop.run_until_complete(fetch_tickers())
-
 all_tickers = [item for item in all_tickers if '-' not in item['symbol'] or item['symbol'] in ['BRK-A', 'BRK-B']]
-#all_tickers = [item for item in all_tickers if item['symbol'] == 'ZJK']
-'''
-existing_names = set()
 
-filtered_data = []
-for item in all_tickers:
-    if '.' not in item['symbol'] and item['name'] not in existing_names:
-        filtered_data.append(item)
-        existing_names.add(item['name'])
-
-print(len(filtered_data))
-
-for item in filtered_data:
-    if 'RHM.DE' in item['symbol']:
-        print(item)
-
-time.sleep(1000)
-'''
 
 loop.run_until_complete(db.save_stocks(all_tickers))
 db.close_connection()

@@ -109,12 +109,15 @@ def get_sector_data():
                 new_item['changesPercentage'] = round(quote_data.get('changesPercentage', 0), 2)
 
             #get prem tick data:
+            '''
             if symbol != 'SPY':
                 prem_tick_history = get_net_prem_ticks(symbol)
                 #if symbol == 'XLB':
                 #    print(prem_tick_history[10])
 
                 new_item['premTickHistory'] = prem_tick_history
+            '''
+
             processed_data.append(new_item)
 
         return processed_data
@@ -197,13 +200,82 @@ def get_net_prem_ticks(symbol):
     
 
     return populated_data if matched else []
+
+def get_top_sector_tickers():
+    keep_elements = ['price', 'ticker', 'name', 'changesPercentage','netPremium','netCallPremium','netPutPremium','gexRatio','gexNetChange','ivRank']
+    sector_list = [
+        "Basic Materials",
+        "Communication Services",
+        "Consumer Cyclical",
+        "Consumer Defensive",
+        "Energy",
+        "Financial Services",
+        "Healthcare",
+        "Industrials",
+        "Real Estate",
+        "Technology",
+        "Utilities",
+    ]
+    headers = {
+        "Accept": "application/json, text/plain",
+        "Authorization": api_key
+    }
+    url = "https://api.unusualwhales.com/api/screener/stocks"
+
+    res_list = {}
+
+    for sector in sector_list:
+        querystring = {
+            'order': 'net_premium',
+            'order_direction': 'desc',
+            'sectors[]': sector
+        }
+
+        response = requests.get(url, headers=headers, params=querystring)
+        data = response.json().get('data', [])
+
+        updated_data = []
+        for item in data[:10]:
+            try:
+                new_item = {key: safe_round(value) for key, value in item.items()}
+                with open(f"json/quote/{item['ticker']}.json") as file:
+                    quote_data = orjson.loads(file.read())
+                    new_item['name'] = quote_data['name']
+                    new_item['price'] = round(float(quote_data['price']), 2)
+                    new_item['changesPercentage'] = round(float(quote_data['changesPercentage']), 2)
+                    
+                    new_item['ivRank'] = int(new_item['iv_rank'])
+                    new_item['gexRatio'] = new_item['gex_ratio']
+                    new_item['gexNetChange'] = new_item['gex_net_change']
+                    new_item['netCallPremium'] = new_item['net_call_premium']
+                    new_item['netPutPremium'] = new_item['net_put_premium']
+
+                    new_item['netPremium'] = abs(new_item['netCallPremium'] - new_item['netPutPremium'])
+                # Filter new_item to keep only specified elements
+                filtered_item = {key: new_item[key] for key in keep_elements if key in new_item}
+                updated_data.append(filtered_item)
+            except Exception as e:
+                print(f"Error processing ticker {item.get('ticker', 'unknown')}: {e}")
+
+        # Add rank to each item
+        for rank, item in enumerate(updated_data, 1):
+            item['rank'] = rank
+        res_list[sector] = updated_data
+
+    return res_list
+
+
+
 def main():
-    '''
+    
     sector_data = get_sector_data()
-    if len(sector_data) > 0:
-        save_json(sector_data)
-    '''
-    get_net_prem_ticks('XLB')
+    top_sector_tickers = get_top_sector_tickers()
+    data = {'sectorData': sector_data, 'topSectorTickers': top_sector_tickers}
+    if len(data) > 0:
+        save_json(data)
+    
+
+    #get_net_prem_ticks('XLB')
 
 
 if __name__ == '__main__':

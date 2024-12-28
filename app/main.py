@@ -170,12 +170,12 @@ stock_screener_data_dict = {item['symbol']: item for item in stock_screener_data
 
 #------Init Searchbar Data------------#
 searchbar_data = stock_list_data + etf_list_data
+
 for item in searchbar_data:
     try:
         # Look up the symbol in the stock_screener_data_dict
         symbol = item['symbol']
         item['isin'] = stock_screener_data_dict[symbol]['isin']
-
     except Exception as e:
         item['isin'] = None
 
