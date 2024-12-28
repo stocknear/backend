@@ -14,7 +14,7 @@ headers = {
     "Accept": "application/json, text/plain",
     "Authorization": api_key
 }
-
+ny_tz = pytz.timezone('America/New_York')
 
 
 def save_json(data):
@@ -23,13 +23,27 @@ def save_json(data):
     with open(f"{directory}/data.json", 'wb') as file:  # Use binary mode for orjson
         file.write(orjson.dumps(data))
 
-def convert_tape_time(data_list):
+# Function to convert and match timestamps
+def add_close_to_data(price_list, data):
+    for entry in data:
+        # Convert timestamp to New York time and desired format
+        timestamp = datetime.fromisoformat(entry['timestamp']).astimezone(ny_tz)
+        formatted_time = timestamp.strftime('%Y-%m-%d %H:%M:%S')
+        
+        # Match with price_list
+        for price in price_list:
+            if price['time'] == formatted_time:
+                entry['close'] = price['close']
+                break  # Match found, no need to continue searching
+    return data
+
+def convert_time(data_list):
     # Iterate through the list and update the 'tape_time' field for each dictionary
     for item in data_list:
-        utc_time = datetime.strptime(item['tape_time'], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=pytz.UTC)
+        utc_time = datetime.strptime(item['timestamp'], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=pytz.UTC)
         new_york_tz = pytz.timezone("America/New_York")
         ny_time = utc_time.astimezone(new_york_tz)
-        item['tape_time'] = ny_time.strftime("%Y-%m-%d %H:%M:%S")
+        item['timestamp'] = ny_time.strftime("%Y-%m-%d %H:%M:%S")
     return data_list
 
 
@@ -111,7 +125,7 @@ def get_sector_data():
             #get prem tick data:
             '''
             if symbol != 'SPY':
-                prem_tick_history = get_net_prem_ticks(symbol)
+                prem_tick_history = get_etf_tide(symbol)
                 #if symbol == 'XLB':
                 #    print(prem_tick_history[10])
 
@@ -125,81 +139,20 @@ def get_sector_data():
         print(e)
         return []
 
-def get_net_prem_ticks(symbol):
+def get_market_tide():
     # Fetch data from the API
-    url = f"https://api.unusualwhales.com/api/stock/{symbol}/net-prem-ticks"
-    response = requests.get(url, headers=headers)
+    querystring = {"interval_5m":"false"}
+    url = f"https://api.unusualwhales.com/api/market/market-tide"
+    response = requests.get(url, headers=headers, params=querystring)
     data = response.json().get('data', [])
-    print(data[0])
-    # Sort data by date in descending order
-    data = sorted(data, key=lambda x: datetime.fromisoformat(x['date'].replace('Z', '+00:00')), reverse=True)
-    
-    # Convert tape_time if necessary
-    data = convert_tape_time(data)
-    
-    # Load price list
-    with open(f"json/one-day-price/{symbol}.json") as file:
+
+    with open(f"json/one-day-price/SPY.json") as file:
         price_list = orjson.loads(file.read())
-    
-    # Get the start time from the earliest tape_time in data
-    if not data:
-        return []
 
-    start_time = datetime.strptime(data[0]['tape_time'], '%Y-%m-%d %H:%M:%S')
-    end_time = datetime.combine(start_time.date(), datetime.strptime('22:00:00', '%H:%M:%S').time())
-    
-    # Generate 1-minute intervals
-    intervals = generate_time_intervals(start_time, end_time)
-    
-    # Create a dictionary for fast lookups of existing tape_time
-    data_dict = {entry['tape_time']: entry for entry in data}
-    
-    # Initialize aggregated data with cumulative sums
-    aggregated_data = {time: {
-        'net_call_premium': 0,
-        'net_put_premium': 0,
-        'net_call_volume': 0,
-        'net_put_volume': 0,
-        'tape_time': time,
-        'close': None
-    } for time in intervals}
-    
-    # Variable to track cumulative sums
-    cumulative_net_call_premium = 0
-    cumulative_net_put_premium = 0
-    cumulative_net_call_volume = 0
-    cumulative_net_put_volume = 0
-    
-    # Aggregate data for each minute, cumulatively adding values
-    for time in intervals:
-        if time in data_dict:
-            entry = data_dict[time]
-            # Add current values to cumulative sums
-            cumulative_net_call_premium += float(entry.get('net_call_premium', 0))
-            cumulative_net_put_premium += float(entry.get('net_put_premium', 0))
-            cumulative_net_call_volume += float(entry.get('net_call_volume', 0))
-            cumulative_net_put_volume += float(entry.get('net_put_volume', 0))
-        
-        # Set the aggregated values for this minute
-        aggregated_data[time]['net_call_premium'] = cumulative_net_call_premium
-        aggregated_data[time]['net_put_premium'] = cumulative_net_put_premium
-        aggregated_data[time]['net_call_volume'] = cumulative_net_call_volume
-        aggregated_data[time]['net_put_volume'] = cumulative_net_put_volume
+    data = add_close_to_data(price_list, data)
 
-    # Populate data with aggregated results
-    populated_data = list(aggregated_data.values())
-
-    # Add 'close' values if matches found in price_list
-    matched = False
-    for entry in populated_data:
-        for price in price_list:
-            if entry['tape_time'] == price['time']:
-                entry['close'] = price['close']
-                matched = True
-                break  # Exit inner loop once a match is found
-    
-
-    return populated_data if matched else []
+    return data
+  
 
 def get_top_sector_tickers():
     keep_elements = ['price', 'ticker', 'name', 'changesPercentage','netPremium','netCallPremium','netPutPremium','gexRatio','gexNetChange','ivRank']
@@ -267,15 +220,13 @@ def get_top_sector_tickers():
 
 
 def main():
-    
+    market_tide = get_market_tide()
     sector_data = get_sector_data()
     top_sector_tickers = get_top_sector_tickers()
-    data = {'sectorData': sector_data, 'topSectorTickers': top_sector_tickers}
+    data = {'sectorData': sector_data, 'topSectorTickers': top_sector_tickers, 'marketTide': market_tide}
     if len(data) > 0:
         save_json(data)
     
-
-    #get_net_prem_ticks('XLB')
 
 
 if __name__ == '__main__':
