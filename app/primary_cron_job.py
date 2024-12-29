@@ -65,6 +65,19 @@ def run_dark_pool_flow():
     if week <= 4 and 8 <= hour < 20:
         run_command(["python3", "cron_dark_pool_flow.py"])
 
+def run_dark_pool_level():
+    now = datetime.now(ny_tz)
+    week = now.weekday()
+    hour = now.hour
+    if week <= 4 and 8 <= hour < 20:
+        run_command(["python3", "cron_dark_pool_level.py"])
+
+def run_dark_pool_ticker():
+    now = datetime.now(ny_tz)
+    week = now.weekday()
+    if week <= 5:
+        run_command(["python3", "cron_dark_pool_ticker.py"])
+
 def run_fda_calendar():
     now = datetime.now(ny_tz)
     week = now.weekday()
@@ -329,10 +342,10 @@ schedule.every().day.at("05:00").do(run_threaded, run_options_gex).tag('options_
 schedule.every().day.at("05:00").do(run_threaded, run_export_price).tag('export_price_job')
 
 schedule.every().day.at("06:00").do(run_threaded, run_historical_price).tag('historical_job')
-
 schedule.every().day.at("06:30").do(run_threaded, run_ai_score).tag('ai_score_job')
 
 schedule.every().day.at("07:00").do(run_threaded, run_ta_rating).tag('ta_rating_job')
+schedule.every().day.at("08:00").do(run_threaded, run_dark_pool_ticker).tag('dark_pool_ticker_job')
 schedule.every().day.at("09:00").do(run_threaded, run_hedge_fund).tag('hedge_fund_job')
 schedule.every().day.at("07:30").do(run_threaded, run_financial_statements).tag('financial_statements_job')
 schedule.every().day.at("08:00").do(run_threaded, run_economy_indicator).tag('economy_indicator_job')
@@ -384,6 +397,7 @@ schedule.every(3).hours.do(run_threaded, run_press_releases).tag('press_release_
 
 schedule.every(1).hours.do(run_threaded, run_fda_calendar).tag('fda_calendar_job')
 
+schedule.every(5).minutes.do(run_threaded, run_dark_pool_level).tag('dark_pool_level_job')
 schedule.every(10).seconds.do(run_threaded, run_dark_pool_flow).tag('dark_pool_flow_job')
 
 schedule.every(2).minutes.do(run_threaded, run_dashboard).tag('dashboard_job')
