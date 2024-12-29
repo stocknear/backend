@@ -3359,57 +3359,63 @@ async def get_most_shorted_stocks(api_key: str = Security(get_api_key)):
     redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
     return res
 
-@app.get("/most-retail-volume")
-async def get_most_retail_volume(api_key: str = Security(get_api_key)):
-    cache_key = f"most-retail-volume"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return orjson.loads(cached_result)
-    try:
-        with open(f"json/retail-volume/data.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = []
 
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
-    return res
-
-
-@app.post("/retail-volume")
-async def get_retail_volume(data:TickerData, api_key: str = Security(get_api_key)):
-    ticker = data.ticker.upper()
-    cache_key = f"retail-volume-{ticker}"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return orjson.loads(cached_result)
-    try:
-        with open(f"json/retail-volume/companies/{ticker}.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = {}
-
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
-    return res
-
-@app.post("/dark-pool")
+@app.post("/historical-dark-pool")
 async def get_dark_pool(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
-    cache_key = f"dark-pool-{ticker}"
+    cache_key = f"historical-dark-pool-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return orjson.loads(cached_result)
+        return StreamingResponse(
+        io.BytesIO(cached_result),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"})
+
     try:
         with open(f"json/dark-pool/companies/{ticker}.json", 'rb') as file:
             res = orjson.loads(file.read())
     except:
         res = []
 
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
-    return res
+    data = orjson.dumps(res)
+    compressed_data = gzip.compress(data)
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 3600*60)
 
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
+
+
+@app.post("/dark-pool-level")
+async def get_dark_pool(data:TickerData, api_key: str = Security(get_api_key)):
+    ticker = data.ticker.upper()
+    cache_key = f"dark-pool-level-{ticker}"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+        io.BytesIO(cached_result),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"})
+
+    try:
+        with open(f"json/dark-pool/price-level/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
+    except:
+        res = []
+
+    data = orjson.dumps(res)
+    compressed_data = gzip.compress(data)
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 60*5)
+    
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
 
 @app.get("/dark-pool-flow")
 async def get_dark_pool_flow(api_key: str = Security(get_api_key)):
