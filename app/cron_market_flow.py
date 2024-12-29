@@ -197,7 +197,7 @@ def get_top_sector_tickers():
                     new_item['price'] = round(float(quote_data['price']), 2)
                     new_item['changesPercentage'] = round(float(quote_data['changesPercentage']), 2)
                     
-                    new_item['ivRank'] = int(new_item['iv_rank'])
+                    new_item['ivRank'] = round(float(new_item['iv_rank']),2)
                     new_item['gexRatio'] = new_item['gex_ratio']
                     new_item['gexNetChange'] = new_item['gex_net_change']
                     new_item['netCallPremium'] = new_item['net_call_premium']
