@@ -105,7 +105,6 @@ def run():
     etf_con.close()
 
     total_symbols = stocks_symbols+ etf_symbols
-    total_symbols = ['CCLD']
     data = []
     weekdays = get_last_7_weekdays()
     for date in weekdays:
