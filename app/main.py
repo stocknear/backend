@@ -3406,6 +3406,7 @@ async def get_dark_pool(data:TickerData, api_key: str = Security(get_api_key)):
     except:
         res = []
 
+    print(res)
     data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
     redis_client.set(cache_key, compressed_data)

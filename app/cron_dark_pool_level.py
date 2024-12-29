@@ -93,7 +93,7 @@ def run():
 
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
-    cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 1E9 AND symbol NOT LIKE '%.%'")
+    cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
     stocks_symbols = [row[0] for row in cursor.fetchall()]
 
     etf_cursor = etf_con.cursor()
@@ -105,6 +105,7 @@ def run():
     etf_con.close()
 
     total_symbols = stocks_symbols+ etf_symbols
+    total_symbols = ['CCLD']
     data = []
     weekdays = get_last_7_weekdays()
     for date in weekdays:
@@ -114,10 +115,9 @@ def run():
             data +=raw_data
         except:
             pass
-
     for symbol in tqdm(total_symbols):
         try:
-            res_list = [item for item in data if isinstance(item, dict) and item.get('ticker', None) == symbol]
+            res_list = [item for item in data if isinstance(item, dict) and item['ticker'] == symbol]
             dark_pool_levels = analyze_dark_pool_levels(
                 trades=res_list,
                 size_threshold=0.8,  # Look for levels with volume in top 20%

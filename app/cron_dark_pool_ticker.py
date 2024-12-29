@@ -80,7 +80,7 @@ async def run():
 
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
-    cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 1E9 AND symbol NOT LIKE '%.%'")
+    cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
     stocks_symbols = [row[0] for row in cursor.fetchall()]
 
     etf_cursor = etf_con.cursor()
