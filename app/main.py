@@ -2968,8 +2968,9 @@ async def get_dark_pool_feed(api_key: str = Security(get_api_key)):
     try:
         directory = "json/dark-pool/historical-flow"
         res_list = load_latest_json(directory)
-        res_list = res_list[0:1000]
-    except Ex:
+        res_list = [item for item in res_list if float(item['premium']) > 500_000]
+
+    except:
         res_list = []
         
     data = orjson.dumps(res_list)
@@ -3417,32 +3418,6 @@ async def get_dark_pool(data:TickerData, api_key: str = Security(get_api_key)):
         headers={"Content-Encoding": "gzip"}
     )
 
-@app.get("/dark-pool-flow")
-async def get_dark_pool_flow(api_key: str = Security(get_api_key)):
-    cache_key = f"dark-flow-flow"
-
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return StreamingResponse(
-        io.BytesIO(cached_result),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"})
-    try:
-        with open(f"json/dark-pool/flow/data.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = []
-
-    data = orjson.dumps(res)
-    compressed_data = gzip.compress(data)
-    redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 60*15)  # Set cache expiration time to 15 min
-
-    return StreamingResponse(
-        io.BytesIO(compressed_data),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"}
-    )
 
 
 @app.post("/market-maker")
