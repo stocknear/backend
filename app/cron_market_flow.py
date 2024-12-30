@@ -4,12 +4,16 @@ import orjson
 from dotenv import load_dotenv
 import sqlite3
 from datetime import datetime, timedelta
+from GetStartEndDate import GetStartEndDate
+import asyncio
+import aiohttp
 import pytz
 import requests  # Add missing import
 
 
 load_dotenv()
 api_key = os.getenv('UNUSUAL_WHALES_API_KEY')
+fmp_api_key = os.getenv('FMP_API_KEY')
 headers = {
     "Accept": "application/json, text/plain",
     "Authorization": api_key
@@ -32,18 +36,22 @@ def add_close_to_data(price_list, data):
         
         # Match with price_list
         for price in price_list:
-            if price['time'] == formatted_time:
+            if price['date'] == formatted_time:
                 entry['close'] = price['close']
                 break  # Match found, no need to continue searching
     return data
 
-def convert_time(data_list):
-    # Iterate through the list and update the 'tape_time' field for each dictionary
+def convert_timestamps(data_list):
+    ny_tz = pytz.timezone('America/New_York')
+    
     for item in data_list:
-        utc_time = datetime.strptime(item['timestamp'], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=pytz.UTC)
-        new_york_tz = pytz.timezone("America/New_York")
-        ny_time = utc_time.astimezone(new_york_tz)
-        item['timestamp'] = ny_time.strftime("%Y-%m-%d %H:%M:%S")
+        # Parse the timestamp and convert to NY timezone
+        dt = datetime.fromisoformat(item['timestamp'])
+        ny_time = dt.astimezone(ny_tz)
+        
+        # Format in desired format
+        item['timestamp'] = ny_time.strftime('%Y-%m-%d %H:%M:%S')
+    
     return data_list
 
 
@@ -139,20 +147,50 @@ def get_sector_data():
         print(e)
         return []
 
+async def get_spy_chart_data():
+    start_date_1d, end_date_1d = GetStartEndDate().run()
+    start_date = start_date_1d.strftime("%Y-%m-%d")
+    end_date = end_date_1d.strftime("%Y-%m-%d")
+
+    url = f"https://financialmodelingprep.com/api/v3/historical-chart/1min/SPY?from={start_date}&to={end_date}&apikey={fmp_api_key}"
+
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            if response.status == 200:
+                data = await response.json()
+                data = sorted(data, key=lambda x: x['date'])
+                return data
+            else:
+                raise Exception(f"Error fetching SPY chart data: {response.status}")
+
+
 def get_market_tide():
-    # Fetch data from the API
-    querystring = {"interval_5m":"false"}
+
+    # Fetch SPY chart data
+    price_list = asyncio.run(get_spy_chart_data())
+
+    # Fetch market tide data
+    querystring = {"interval_5m": "false"}
     url = f"https://api.unusualwhales.com/api/market/market-tide"
     response = requests.get(url, headers=headers, params=querystring)
-    data = response.json().get('data', [])
+    if response.status_code == 200:
+        data = response.json().get('data', [])
+    else:
+        raise Exception(f"Error fetching market tide data: {response.status_code}")
 
+    # Combine SPY data and market tide data
+    data = add_close_to_data(price_list, data)
+    data = convert_timestamps(data)
+    print(data)
+
+    '''
     with open(f"json/one-day-price/SPY.json") as file:
         price_list = orjson.loads(file.read())
-
-    data = add_close_to_data(price_list, data)
+    '''
 
     return data
   
+
 
 def get_top_sector_tickers():
     keep_elements = ['price', 'ticker', 'name', 'changesPercentage','netPremium','netCallPremium','netPutPremium','gexRatio','gexNetChange','ivRank']
