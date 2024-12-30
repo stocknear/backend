@@ -181,7 +181,6 @@ def get_market_tide():
     # Combine SPY data and market tide data
     data = add_close_to_data(price_list, data)
     data = convert_timestamps(data)
-    print(data)
 
     '''
     with open(f"json/one-day-price/SPY.json") as file:
