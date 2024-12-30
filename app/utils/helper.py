@@ -32,10 +32,11 @@ def check_market_hours():
         return False #"Market is closed."
 
 
-def load_latest_json(directory: str):
+def load_latest_json(directory: str, find=True):
     """
     Load the JSON file corresponding to today's date (New York time) or the last Friday if today is a weekend.
-    If the file is not found, try going back one day up to 10 times.
+    If `find` is True, try going back one day up to 10 times until a JSON file is found.
+    If `find` is False, only check the current date (or adjusted Friday for weekends).
     """
     try:
         # Get today's date in New York timezone
@@ -48,9 +49,10 @@ def load_latest_json(directory: str):
         elif today_ny.weekday() == 6:  # Sunday
             today_ny -= timedelta(days=2)
 
-        # Attempt to find the file for up to 10 days
         attempts = 0
-        while attempts < 10:
+
+        # Loop to find the JSON file
+        while True:
             # Construct the filename based on the adjusted date
             target_filename = f"{today_ny}.json"
             target_file_path = os.path.join(directory, target_filename)
@@ -58,18 +60,24 @@ def load_latest_json(directory: str):
             # Check if the file exists and load it
             if os.path.exists(target_file_path):
                 with open(target_file_path, 'rb') as file:
-                    print(today_ny)
+                    print(f"JSON file found for date: {today_ny}")
                     return orjson.loads(file.read())
 
-            # If the file is not found, go one day back
-            print(f"No JSON file found for date: {today_ny}. Trying the previous day...")
-            today_ny -= timedelta(days=1)
-            attempts += 1
+            # If find is False, only check the current date and exit
+            if not find:
+                print(f"No JSON file found for date: {today_ny}. Exiting as `find` is set to False.")
+                break
 
-        # If no file is found after 10 attempts, return an empty list
-        #print("No JSON file found after 10 attempts.")
+            # Increment attempts and move to the previous day
+            attempts += 1
+            if attempts >= 10:
+                print("No JSON file found after 10 attempts.")
+                break
+            today_ny -= timedelta(days=1)
+
+        # Return an empty list if no file is found
         return []
 
     except Exception as e:
-        #print(f"Error loading JSON file: {e}")
+        print(f"Error loading JSON file: {e}")
         return []

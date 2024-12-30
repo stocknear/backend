@@ -88,7 +88,7 @@ def main():
     historical_directory = 'json/dark-pool/historical-flow'
 
     # Load the latest JSON file from the directory
-    existing_data = load_latest_json(historical_directory)
+    existing_data = load_latest_json(historical_directory, find=False)
     existing_keys = {item.get('trackingID', None) for item in existing_data}
 
     # Fetch new data from the API
