@@ -602,8 +602,37 @@ data = {
     },
     "underlying_type": {
         "text": "The underlying type refers to the asset upon which the option is based. It can be an 'ETF' (Exchange-Traded Fund), which tracks a basket of assets, or a 'Stock,' which represents shares of a single company."
-    }
-
+    },
+    "callVolume": {
+        "text": "Call volume refers to the total number of call option contracts traded during a given period. It indicates the level of interest or activity in call options, which grant the holder the right to buy the underlying asset at a specified price before expiration."
+    },
+    "putVolume": {
+        "text": "Put volume refers to the total number of put option contracts traded during a given period. It indicates the level of interest or activity in put options, which grant the holder the right to sell the underlying asset at a specified price before expiration."
+    },
+    "gexRatio": {
+        "text": "The GEX ratio or Gamma Exposure ratio, measures the sensitivity of the options market to changes in the price of the underlying asset. It is calculated by comparing the net gamma exposure of call and put options, providing insight into potential price stability or volatility."
+    },
+    "ivRank": {
+        "text": "Implied Volatility (IV) Rank, measures the current level of implied volatility relative to its range over a specific period. It is expressed as a percentage, helping traders assess whether options are relatively expensive or cheap compared to their historical levels."
+    },
+    "iv30d": {
+        "text": "IV30d refers to the Implied Volatility over the past 30 days. It represents the market's expectations of the underlying asset's volatility over the next 30 days, as implied by the pricing of options, and is often used to gauge short-term market sentiment."
+    },
+    "totalOI": {
+        "text": "Total Open Interest (OI), represents the total number of outstanding options contracts (both calls and puts) that have not been settled or exercised. It provides insight into the overall activity and liquidity in the options market for a particular asset."
+    },
+    "changeOI": {
+        "text": "Change in Open Interest (Change OI) refers to the difference in the number of outstanding options contracts from one trading session to the next. A positive change indicates new positions are being opened, while a negative change suggests positions are being closed."
+    },
+    "netCallPrem": {
+        "text": "Net Call Premium (Net Call Prem) represents the net amount of premium paid for call options, calculated by subtracting the premium received from the premium paid. It provides insight into market sentiment and the demand for call options on the underlying asset."
+    },
+    "netPutPrem": {
+        "text": "Net Put Premium (Net Put Prem) represents the net amount of premium paid for put options, calculated by subtracting the premium received from the premium paid. It indicates the demand for put options and can signal bearish market sentiment for the underlying asset."
+    },
+    "pcRatio": {
+        "text": "The Put/Call Ratio (P/C Ratio) measures the volume of put options traded relative to call options. A higher ratio suggests more bearish sentiment, while a lower ratio indicates more bullish sentiment, helping traders gauge market outlook and investor sentiment."
+    },
 
 }
 

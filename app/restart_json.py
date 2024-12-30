@@ -901,8 +901,6 @@ async def get_stock_screener(con):
             item['payoutRatio'] = None
             item['dividendGrowth'] = None
 
-
-
         try:
             with open(f"json/share-statistics/{symbol}.json", 'r') as file:
                 res = orjson.loads(file.read())
@@ -915,6 +913,31 @@ async def get_stock_screener(con):
             item['shortRatio'] = None
             item['shortOutStandingPercent'] = None
             item['shortFloatPercent'] = None
+
+        try:
+            with open(f"json/options-stats/companies/{symbol}.json", "r") as file:
+                res = orjson.loads(file.read())
+                item['gexRatio'] = res['gex_ratio']
+                item['ivRank'] = res['iv_rank']
+                item['iv30d'] = res['iv30d']
+                item['totalOI'] = res['total_open_interest']
+                item['changeOI'] = res['open_interest_change']
+                item['netCallPrem'] = res['net_call_premium']
+                item['netPutPrem'] = res['net_put_premium']
+                item['callVolume'] = res['call_volume']
+                item['putVolume'] = res['put_volume']
+                item['pcRatio'] = res['put_call_ratio']
+        except:
+            item['gexRatio'] = None
+            item['ivRank'] = None
+            item['iv30d'] = None
+            item['totalOI'] = None
+            item['changeOI'] = None
+            item['netCallPrem'] = None
+            item['netPutPrem'] = None
+            item['callVolume'] = None
+            item['putVolume'] = None
+            item['pcRatio'] = None
 
 
         try:
@@ -951,6 +974,8 @@ async def get_stock_screener(con):
             item['epsGrowthYears'] = None
             item['netIncomeGrowthYears'] = None
             item['grossProfitGrowthYears'] = None
+
+
 
     for item in stock_screener_data:
         for key, value in item.items():
