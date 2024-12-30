@@ -93,9 +93,7 @@ chunk_counter = 0  # To keep track of how many chunks have been processed
 
 for chunk in chunks:
     try:
-        chunk_str = ",".join(chunk)
-        print(chunk_str)
-        
+        chunk_str = ",".join(chunk)        
         url = "https://api.unusualwhales.com/api/screener/stocks"
         querystring = {"ticker": chunk_str}
         

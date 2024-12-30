@@ -975,8 +975,6 @@ async def get_stock_screener(con):
             item['netIncomeGrowthYears'] = None
             item['grossProfitGrowthYears'] = None
 
-
-
     for item in stock_screener_data:
         for key, value in item.items():
             if isinstance(value, float):
