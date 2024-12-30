@@ -65,6 +65,12 @@ def run_dark_pool_flow():
     if week <= 4 and 8 <= hour < 20:
         run_command(["python3", "cron_dark_pool_flow.py"])
 
+def run_market_flow():
+    now = datetime.now(ny_tz)
+    week = now.weekday()
+    if week <= 4:
+        run_command(["python3", "cron_market_flow.py"])
+
 def run_dark_pool_level():
     now = datetime.now(ny_tz)
     week = now.weekday()
@@ -77,6 +83,7 @@ def run_dark_pool_ticker():
     week = now.weekday()
     if week <= 5:
         run_command(["python3", "cron_dark_pool_ticker.py"])
+
 
 def run_fda_calendar():
     now = datetime.now(ny_tz)
@@ -397,6 +404,7 @@ schedule.every(3).hours.do(run_threaded, run_press_releases).tag('press_release_
 
 schedule.every(1).hours.do(run_threaded, run_fda_calendar).tag('fda_calendar_job')
 
+schedule.every(5).minutes.do(run_threaded, run_market_flow).tag('market_flow_job')
 schedule.every(5).minutes.do(run_threaded, run_dark_pool_level).tag('dark_pool_level_job')
 schedule.every(10).seconds.do(run_threaded, run_dark_pool_flow).tag('dark_pool_flow_job')
 
