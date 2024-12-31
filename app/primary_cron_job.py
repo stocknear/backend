@@ -231,9 +231,7 @@ def run_analyst_rating():
 def run_market_moods():
     week = datetime.today().weekday()
     if week <= 4:
-        run_command(["python3", "cron_bull_bear_say.py"])
         run_command(["python3", "cron_wiim.py"])
-
 
 def run_db_schedule_job():
     #update db daily
@@ -247,12 +245,6 @@ def run_ownership_stats():
     if week <= 4:
         run_command(["python3", "cron_ownership_stats.py"])
 
-
-
-def run_options_net_flow():
-    week = datetime.today().weekday()
-    if week <= 5:
-        run_command(["python3", "cron_options_net_flow.py"])
 
 def run_options_gex():
     week = datetime.today().weekday()
@@ -404,7 +396,6 @@ schedule.every(20).minutes.do(run_threaded, run_tracker).tag('tracker_job')
 schedule.every(15).minutes.do(run_threaded, run_market_moods).tag('market_moods_job')
 schedule.every(10).minutes.do(run_threaded, run_earnings).tag('earnings_job')
 
-schedule.every(3).hours.do(run_threaded, run_options_net_flow).tag('options_net_flow_job')
 #schedule.every(4).hours.do(run_threaded, run_share_statistics).tag('share_statistics_job')
 
 schedule.every(2).hours.do(run_threaded, run_analyst_rating).tag('analyst_job')
@@ -418,8 +409,6 @@ schedule.every(5).minutes.do(run_threaded, run_dark_pool_level).tag('dark_pool_l
 schedule.every(10).seconds.do(run_threaded, run_dark_pool_flow).tag('dark_pool_flow_job')
 
 schedule.every(2).minutes.do(run_threaded, run_dashboard).tag('dashboard_job')
-
-
 
 
 schedule.every(10).seconds.do(run_threaded, run_if_not_running(run_cron_options_flow, 'options_flow_job')).tag('options_flow_job')

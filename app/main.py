@@ -3488,7 +3488,7 @@ async def get_fail_to_deliver(data:TickerData, api_key: str = Security(get_api_k
             media_type="application/json",
             headers={"Content-Encoding": "gzip"}
         )
-        
+
     try:
         with open(f"json/fail-to-deliver/companies/{ticker}.json", 'rb') as file:
             res = orjson.loads(file.read())
@@ -3508,23 +3508,6 @@ async def get_fail_to_deliver(data:TickerData, api_key: str = Security(get_api_k
         media_type="application/json",
         headers={"Content-Encoding": "gzip"}
     )
-
-@app.post("/borrowed-share")
-async def get_borrowed_share(data:TickerData, api_key: str = Security(get_api_key)):
-    ticker = data.ticker.upper()
-    cache_key = f"borrowed-share-{ticker}"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return orjson.loads(cached_result)
-    try:
-        with open(f"json/borrowed-share/companies/{ticker}.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = []
-
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
-    return res
 
 
 @app.post("/analyst-insight")
@@ -3575,10 +3558,10 @@ async def get_clinical_trial(data:TickerData, api_key: str = Security(get_api_ke
         headers={"Content-Encoding": "gzip"}
     )
 
-@app.post("/swap-ticker")
-async def get_swap_data(data:TickerData, api_key: str = Security(get_api_key)):
+@app.post("/hottest-contracts")
+async def get_data(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
-    cache_key = f"swap-{ticker}"
+    cache_key = f"hottest-contracts-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
         return StreamingResponse(
@@ -3588,7 +3571,7 @@ async def get_swap_data(data:TickerData, api_key: str = Security(get_api_key)):
         )
 
     try:
-        with open(f"json/swap/companies/{ticker}.json", 'rb') as file:
+        with open(f"json/hottest-contracts/companies/{ticker}.json", 'rb') as file:
             res = orjson.loads(file.read())
     except:
         res = []
@@ -3597,7 +3580,7 @@ async def get_swap_data(data:TickerData, api_key: str = Security(get_api_key)):
     compressed_data = gzip.compress(data)
 
     redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 3600*3600)
+    redis_client.expire(cache_key, 60*10)
 
     return StreamingResponse(
         io.BytesIO(compressed_data),
