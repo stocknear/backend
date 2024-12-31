@@ -2630,25 +2630,6 @@ async def get_pre_post_quote(data:TickerData, api_key: str = Security(get_api_ke
     redis_client.expire(cache_key, 60)  # Set cache expiration time to 1 day
     return res
 
-@app.post("/bull-bear-say")
-async def get_bull_bear_say(data:TickerData, api_key: str = Security(get_api_key)):
-    ticker = data.ticker.upper()
-
-    cache_key = f"bull-bear-say-{ticker}"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return orjson.loads(cached_result)
-
-    try:
-        with open(f"json/bull_bear_say/{ticker}.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = {}
-
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
-    return res
-
 
 @app.post("/options-net-flow-ticker")
 async def get_options_net_flow(data:TickerData, api_key: str = Security(get_api_key)):
@@ -2667,6 +2648,33 @@ async def get_options_net_flow(data:TickerData, api_key: str = Security(get_api_
     redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, caching_time)
     return res
+
+@app.post("/options-stats-ticker")
+async def get_options_stats_ticker(data:TickerData, api_key: str = Security(get_api_key)):
+    ticker = data.ticker.upper()
+    cache_key = f"options-stats-{ticker}"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+        io.BytesIO(cached_result),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"})
+
+    try:
+        with open(f"json/options-stats/companies/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
+    except:
+        res = {}
+
+    data = orjson.dumps(res)
+    compressed_data = gzip.compress(data)
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 60*60)
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
 
 @app.post("/options-plot-ticker")
 async def get_options_plot_ticker(data:TickerData, api_key: str = Security(get_api_key)):
