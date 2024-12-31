@@ -3,7 +3,7 @@ import pandas as pd
 import orjson
 from dotenv import load_dotenv
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 import pytz
 import requests  # Add missing import
 from dateutil.parser import isoparse
@@ -95,6 +95,8 @@ def main():
     data = get_data()
 
     res = []
+    today_date = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+
     for item in data:
         symbol = item['ticker']
         if symbol.lower() == 'brk.b':
@@ -102,7 +104,8 @@ def main():
         if symbol.lower() == 'brk.a':
             item['ticker'] = 'BRK-A'
         try:
-            if item['tracking_id'] not in existing_keys:
+            executed_date = item['executed_at'][:10]  # Extract date in YYYY-MM-DD format
+            if item['tracking_id'] not in existing_keys and executed_date == today_date:
                 sector = stock_screener_data_dict.get(symbol, {}).get('sector', "")
                 volume = float(item['volume'])
                 size = float(item['size'])
@@ -127,9 +130,12 @@ def main():
 
     # Combine new data with existing data
     combined_data = existing_data + res
+    if combined_data:
+        # Save the combined data to a daily file
+        save_to_daily_file(combined_data, historical_directory)
 
-    # Save the combined data to a daily file
-    save_to_daily_file(combined_data, historical_directory)
+if __name__ == '__main__':
+    main()
 
 if __name__ == '__main__':
     main()
