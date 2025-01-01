@@ -681,7 +681,7 @@ async def get_most_shorted_stocks():
             file.write(orjson.dumps(res_list))
 
 
-async def get_hottest_contracts():
+async def get_highest_oi_change():
     with sqlite3.connect('stocks.db') as con:
         cursor = con.cursor()
         cursor.execute("PRAGMA journal_mode = wal")
@@ -726,7 +726,7 @@ async def get_hottest_contracts():
             item['rank'] = rank
 
         # Write the filtered and ranked penny stocks to a JSON file
-        with open("json/stocks-list/list/hottest-contracts.json", 'wb') as file:
+        with open("json/stocks-list/list/highest-open-interest-change.json", 'wb') as file:
             file.write(orjson.dumps(res_list))
 
 async def etf_bitcoin_list():
@@ -963,7 +963,7 @@ async def run():
         get_most_employees(),
         get_most_ftd_shares(),
         get_most_shorted_stocks(),
-        get_hottest_contracts(),
+        get_highest_oi_change(),
     )
 
 
