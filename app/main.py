@@ -4033,7 +4033,7 @@ async def get_statistics(data: FilterStockList, api_key: str = Security(get_api_
         category_type = 'sector'
     elif filter_list == 'reits':
         category_type = 'industry'
-    elif filter_list in ['most-shorted-stocks','most-ftd-shares','highest-income-tax','most-employees','highest-revenue','top-rated-dividend-stocks','penny-stocks','overbought-stocks','oversold-stocks','faang','magnificent-seven','ca','cn','de','gb','il','in','jp','nyse','nasdaq','amex','dowjones','sp500','nasdaq100','all-stock-tickers']:
+    elif filter_list in ['hottest-contracts','most-shorted-stocks','most-ftd-shares','highest-income-tax','most-employees','highest-revenue','top-rated-dividend-stocks','penny-stocks','overbought-stocks','oversold-stocks','faang','magnificent-seven','ca','cn','de','gb','il','in','jp','nyse','nasdaq','amex','dowjones','sp500','nasdaq100','all-stock-tickers']:
         category_type = 'stocks-list'
     elif filter_list in ['dividend-kings','dividend-aristocrats']:
         category_type = 'dividends'

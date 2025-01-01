@@ -90,6 +90,7 @@ def run_options_stats():
     week = now.weekday()
     if week <= 5:
         run_command(["python3", "cron_options_stats.py"])
+        run_command(["python3", "cron_options_historical_volume.py"])
 
 def run_fda_calendar():
     now = datetime.now(ny_tz)
@@ -346,7 +347,7 @@ schedule.every().day.at("02:00").do(run_threaded, run_db_schedule_job)
 #schedule.every().day.at("05:00").do(run_threaded, run_options_gex).tag('options_gex_job')
 schedule.every().day.at("05:00").do(run_threaded, run_export_price).tag('export_price_job')
 
-schedule.every().day.at("05:30").do(run_threaded, run_options_stats).tag('options_stats_job')
+schedule.every().day.at("03:30").do(run_threaded, run_options_stats).tag('options_stats_job')
 
 
 schedule.every().day.at("06:00").do(run_threaded, run_historical_price).tag('historical_job')
