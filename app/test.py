@@ -35,8 +35,7 @@ total_symbols = stocks_symbols + etf_symbols
 
 print(len(total_symbols))
 
-def save_json(data, symbol):
-    directory = "json/hottest-contracts/companies"
+def save_json(data, symbol,directory="json/hottest-contracts/companies"):
     os.makedirs(directory, exist_ok=True)  # Ensure the directory exists
     with open(f"{directory}/{symbol}.json", 'wb') as file:  # Use binary mode for orjson
         file.write(orjson.dumps(data))
@@ -66,10 +65,9 @@ def safe_round(value, decimals=2):
 
 
 def prepare_data(data, symbol):
-    highest_volume = sorted(data, key=lambda x: x['volume'], reverse=True)[:20]
 
     res_list = []
-    for item in highest_volume:
+    for item in data:
         if float(item['volume']) > 0:
             # Parse option_symbol
             date_expiration, option_type, strike_price = parse_option_symbol(item['option_symbol'])
@@ -93,7 +91,7 @@ def prepare_data(data, symbol):
             res_list.append(new_item)
 
     if res_list:
-        save_json(res_list, symbol)
+        save_json(res_list, symbol,"json/hottest-contracts/companies")
 
 
 counter = 0
