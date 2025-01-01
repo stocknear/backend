@@ -692,8 +692,9 @@ async def get_hottest_contracts():
     for symbol in symbols:
         try:
             # Load quote data from JSON file
-            change_oi = stock_screener_data_dict[symbol].get('changeOI',None)
-            if change_oi > 0:
+            change_oi = stock_screener_data_dict[symbol].get('changeOI',0)
+            total_oi = stock_screener_data_dict[symbol].get('totalOI',0)
+            if change_oi > 0 and total_oi > 0:
                 quote_data = await get_quote_data(symbol)
                 # Assign price and volume, and check if they meet the penny stock criteria
                 if quote_data:
@@ -710,6 +711,8 @@ async def get_hottest_contracts():
                             'price': price,
                             'changesPercentage': changesPercentage,
                             'changeOI': change_oi,
+                            'totalOI': total_oi,
+                            'marketCap': market_cap,
                         })
         except:
             pass

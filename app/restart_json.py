@@ -927,6 +927,7 @@ async def get_stock_screener(con):
                 item['callVolume'] = res['call_volume']
                 item['putVolume'] = res['put_volume']
                 item['pcRatio'] = res['put_call_ratio']
+                item['totalPrem'] = res['call_premium']+res['put_premium']
         except:
             item['gexRatio'] = None
             item['ivRank'] = None
@@ -938,6 +939,7 @@ async def get_stock_screener(con):
             item['callVolume'] = None
             item['putVolume'] = None
             item['pcRatio'] = None
+            item['totalPrem'] = None
 
 
         try:
