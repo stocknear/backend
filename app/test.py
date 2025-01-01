@@ -23,9 +23,9 @@ stocks_symbols = [row[0] for row in cursor.fetchall()]
 
 etf_cursor = etf_con.cursor()
 etf_cursor.execute("PRAGMA journal_mode = wal")
-etf_cursor.execute("SELECT DISTINCT symbol FROM etfs WHERE marketCap > 1E9")
+#etf_cursor.execute("SELECT DISTINCT symbol FROM etfs WHERE marketCap > 1E9")
 etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
-#etf_symbols = [row[0] for row in etf_cursor.fetchall()]
+etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
 con.close()
 etf_con.close()
@@ -113,9 +113,9 @@ for symbol in tqdm(total_symbols):
             prepare_data(data, symbol)
             counter +=1
         # If 50 chunks have been processed, sleep for 60 seconds
-        if counter == 200:
+        if counter == 100:
             print("Sleeping...")
-            time.sleep(45)  # Sleep for 60 seconds
+            time.sleep(30)  # Sleep for 60 seconds
             counter = 0
         
     except Exception as e:
