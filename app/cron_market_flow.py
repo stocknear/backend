@@ -161,13 +161,15 @@ async def get_spy_chart_data():
                 data = sorted(data, key=lambda x: x['date'])
                 return data
             else:
-                raise Exception(f"Error fetching SPY chart data: {response.status}")
-
+                return []
 
 def get_market_tide():
 
     # Fetch SPY chart data
     price_list = asyncio.run(get_spy_chart_data())
+    if len(price_list) == 0:
+        with open(f"json/one-day-price/SPY.json") as file:
+            price_list = orjson.loads(file.read())
 
     # Fetch market tide data
     querystring = {"interval_5m": "false"}
@@ -182,10 +184,7 @@ def get_market_tide():
     data = add_close_to_data(price_list, data)
     data = convert_timestamps(data)
 
-    '''
-    with open(f"json/one-day-price/SPY.json") as file:
-        price_list = orjson.loads(file.read())
-    '''
+   
 
     return data
   
