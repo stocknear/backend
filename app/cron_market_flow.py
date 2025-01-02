@@ -49,27 +49,30 @@ def convert_timestamps(data_list):
     
     for item in data_list:
         try:
-            # First, handle the microseconds by splitting on '.'
+            # Get the timestamp and split on '.'
             timestamp = item['timestamp']
             base_time = timestamp.split('.')[0]
             
-            # If there are microseconds, add them back in the correct format
+            # Handle microseconds if present
             if '.' in timestamp:
                 microseconds = timestamp.split('.')[1].replace('Z', '')
-                # Pad with zeros if needed
-                microseconds = microseconds.ljust(6, '0')
+                microseconds = microseconds.ljust(6, '0')  # Pad with zeros if needed
                 base_time = f"{base_time}.{microseconds}"
             
-            # Replace 'Z' with '+00:00' for UTC
+            # Replace 'Z' with '+00:00' (for UTC)
             base_time = base_time.replace('Z', '+00:00')
             
             # Parse the timestamp
             dt = datetime.fromisoformat(base_time)
             
-            # Convert to New York timezone
+            # Ensure the datetime is timezone-aware (assumed to be UTC initially)
+            if dt.tzinfo is None:
+                dt = pytz.utc.localize(dt)
+            
+            # Convert the time to New York timezone (automatically handles DST)
             ny_time = dt.astimezone(ny_tz)
             
-            # Format the timestamp
+            # Optionally, format to include date and time
             item['timestamp'] = ny_time.strftime('%Y-%m-%d %H:%M:%S')
             
         except ValueError as e:
@@ -340,8 +343,8 @@ def main():
     data = {'sectorData': sector_data, 'topSectorTickers': top_sector_tickers, 'marketTide': market_tide}
     if len(data) > 0:
         save_json(data)
-    
 
+    
 
 if __name__ == '__main__':
     main()
