@@ -10,7 +10,6 @@ class GetStartEndDate:
     def check_if_holiday(self):
         holiday_dates = {
             datetime(2025, 1, 1): 'new_year',
-            datetime(2025, 1, 2): 'new_year+1',
 
         }
 
@@ -44,7 +43,6 @@ class GetStartEndDate:
         if holiday:
             holiday_dates = {
                 'new_year': datetime(2024, 12, 31),
-                'new_year+1': datetime(2024, 12, 31),
             }
 
             if holiday in holiday_dates:
