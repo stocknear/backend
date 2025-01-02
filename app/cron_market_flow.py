@@ -254,11 +254,59 @@ def get_top_sector_tickers():
     return res_list
 
 
+def get_top_spy_tickers():
+    keep_elements = ['price', 'ticker', 'name', 'changesPercentage','netPremium','netCallPremium','netPutPremium','gexRatio','gexNetChange','ivRank']
+
+    headers = {
+        "Accept": "application/json, text/plain",
+        "Authorization": api_key
+    }
+    url = "https://api.unusualwhales.com/api/screener/stocks"
+
+    querystring = {"is_s_p_500":"true"}
+        
+
+    response = requests.get(url, headers=headers, params=querystring)
+    data = response.json().get('data', [])
+
+    updated_data = []
+    for item in data[:10]:
+        try:
+            new_item = {key: safe_round(value) for key, value in item.items()}
+            with open(f"json/quote/{item['ticker']}.json") as file:
+                quote_data = orjson.loads(file.read())
+                new_item['name'] = quote_data['name']
+                new_item['price'] = round(float(quote_data['price']), 2)
+                new_item['changesPercentage'] = round(float(quote_data['changesPercentage']), 2)
+                
+                new_item['ivRank'] = round(float(new_item['iv_rank']),2)
+                new_item['gexRatio'] = new_item['gex_ratio']
+                new_item['gexNetChange'] = new_item['gex_net_change']
+                new_item['netCallPremium'] = new_item['net_call_premium']
+                new_item['netPutPremium'] = new_item['net_put_premium']
+
+                new_item['netPremium'] = abs(new_item['netCallPremium'] - new_item['netPutPremium'])
+            # Filter new_item to keep only specified elements
+            filtered_item = {key: new_item[key] for key in keep_elements if key in new_item}
+            updated_data.append(filtered_item)
+        except Exception as e:
+            print(f"Error processing ticker {item.get('ticker', 'unknown')}: {e}")
+
+    # Add rank to each item
+    for rank, item in enumerate(updated_data, 1):
+        item['rank'] = rank
+
+    return updated_data
+
+
 
 def main():
+    
     market_tide = get_market_tide()
     sector_data = get_sector_data()
     top_sector_tickers = get_top_sector_tickers()
+    top_spy_tickers = get_top_spy_tickers()
+    top_sector_tickers['SPY'] = top_spy_tickers
     data = {'sectorData': sector_data, 'topSectorTickers': top_sector_tickers, 'marketTide': market_tide}
     if len(data) > 0:
         save_json(data)
