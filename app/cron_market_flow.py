@@ -30,8 +30,11 @@ def save_json(data):
 # Function to convert and match timestamps
 def add_close_to_data(price_list, data):
     for entry in data:
-        # Convert timestamp to New York time and desired format
-        timestamp = datetime.fromisoformat(entry['timestamp']).astimezone(ny_tz)
+        # Replace 'Z' with '+00:00' to make it a valid ISO format
+        iso_timestamp = entry['timestamp'].replace('Z', '+00:00')
+        
+        # Parse timestamp and convert to New York time
+        timestamp = datetime.fromisoformat(iso_timestamp).astimezone(ny_tz)
         formatted_time = timestamp.strftime('%Y-%m-%d %H:%M:%S')
         
         # Match with price_list
@@ -45,12 +48,34 @@ def convert_timestamps(data_list):
     ny_tz = pytz.timezone('America/New_York')
     
     for item in data_list:
-        # Parse the timestamp and convert to NY timezone
-        dt = datetime.fromisoformat(item['timestamp'])
-        ny_time = dt.astimezone(ny_tz)
-        
-        # Format in desired format
-        item['timestamp'] = ny_time.strftime('%Y-%m-%d %H:%M:%S')
+        try:
+            # First, handle the microseconds by splitting on '.'
+            timestamp = item['timestamp']
+            base_time = timestamp.split('.')[0]
+            
+            # If there are microseconds, add them back in the correct format
+            if '.' in timestamp:
+                microseconds = timestamp.split('.')[1].replace('Z', '')
+                # Pad with zeros if needed
+                microseconds = microseconds.ljust(6, '0')
+                base_time = f"{base_time}.{microseconds}"
+            
+            # Replace 'Z' with '+00:00' for UTC
+            base_time = base_time.replace('Z', '+00:00')
+            
+            # Parse the timestamp
+            dt = datetime.fromisoformat(base_time)
+            
+            # Convert to New York timezone
+            ny_time = dt.astimezone(ny_tz)
+            
+            # Format the timestamp
+            item['timestamp'] = ny_time.strftime('%Y-%m-%d %H:%M:%S')
+            
+        except ValueError as e:
+            raise ValueError(f"Invalid timestamp format: {item['timestamp']} - Error: {str(e)}")
+        except Exception as e:
+            raise Exception(f"Error processing timestamp: {item['timestamp']} - Error: {str(e)}")
     
     return data_list
 
@@ -147,12 +172,12 @@ def get_sector_data():
         print(e)
         return []
 
-async def get_spy_chart_data():
+async def get_stock_chart_data(ticker):
     start_date_1d, end_date_1d = GetStartEndDate().run()
     start_date = start_date_1d.strftime("%Y-%m-%d")
     end_date = end_date_1d.strftime("%Y-%m-%d")
 
-    url = f"https://financialmodelingprep.com/api/v3/historical-chart/1min/SPY?from={start_date}&to={end_date}&apikey={fmp_api_key}"
+    url = f"https://financialmodelingprep.com/api/v3/historical-chart/1min/{ticker}?from={start_date}&to={end_date}&apikey={fmp_api_key}"
 
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
@@ -164,29 +189,33 @@ async def get_spy_chart_data():
                 return []
 
 def get_market_tide():
+    ticker_list = ['SPY','XLB','XLC','XLE','XLF','XLI','XLK','XLP','XLRE','XLU','XLV','XLY']
+    res_list = {}
+    for ticker in ticker_list:
+        price_list = asyncio.run(get_stock_chart_data(ticker))
+        if len(price_list) == 0:
+            with open(f"json/one-day-price/{ticker}.json") as file:
+                price_list = orjson.loads(file.read())
 
-    # Fetch SPY chart data
-    price_list = asyncio.run(get_spy_chart_data())
-    if len(price_list) == 0:
-        with open(f"json/one-day-price/SPY.json") as file:
-            price_list = orjson.loads(file.read())
 
-    # Fetch market tide data
-    querystring = {"interval_5m": "false"}
-    url = f"https://api.unusualwhales.com/api/market/market-tide"
-    response = requests.get(url, headers=headers, params=querystring)
-    if response.status_code == 200:
-        data = response.json().get('data', [])
-    else:
-        raise Exception(f"Error fetching market tide data: {response.status_code}")
+        url = f"https://api.unusualwhales.com/api/market/{ticker}/etf-tide"
+        response = requests.get(url, headers=headers)
+        
+        if response.status_code == 200:
+            data = response.json().get('data', [])
+            data = [{k: v for k, v in item.items() if k != "date"} for item in data]
 
-    # Combine SPY data and market tide data
-    data = add_close_to_data(price_list, data)
-    data = convert_timestamps(data)
+        else:
+            raise Exception(f"Error fetching market tide data: {response.status_code}")
 
+        # Combine SPY data and market tide data
+        data = add_close_to_data(price_list, data)
+        data = convert_timestamps(data)
+
+        res_list[ticker] = data
    
 
-    return data
+    return res_list
   
 
 
@@ -303,6 +332,7 @@ def get_top_spy_tickers():
 def main():
     
     market_tide = get_market_tide()
+    
     sector_data = get_sector_data()
     top_sector_tickers = get_top_sector_tickers()
     top_spy_tickers = get_top_spy_tickers()
