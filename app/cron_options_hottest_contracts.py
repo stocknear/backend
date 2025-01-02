@@ -29,11 +29,35 @@ etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
 con.close()
 etf_con.close()
-
 # Combine the lists of stock and ETF symbols
 total_symbols = stocks_symbols + etf_symbols
 
-print(len(total_symbols))
+
+def get_tickers_from_directory(directory: str):
+    """
+    Retrieves all tickers from JSON filenames in the specified directory.
+
+    Args:
+        directory (str): Path to the directory containing JSON files.
+
+    Returns:
+        list: A list of tickers extracted from filenames.
+    """
+    try:
+        # Ensure the directory exists
+        if not os.path.exists(directory):
+            raise FileNotFoundError(f"The directory '{directory}' does not exist.")
+        
+        # Get all tickers from filenames
+        return [file.replace(".json", "") for file in os.listdir(directory) if file.endswith(".json")]
+    
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return []
+
+directory_path = "json/hottest-contracts/companies"
+total_symbols = get_tickers_from_directory(directory_path)
+
 
 def save_json(data, symbol,directory="json/hottest-contracts/companies"):
     os.makedirs(directory, exist_ok=True)  # Ensure the directory exists
