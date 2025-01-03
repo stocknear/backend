@@ -46,52 +46,48 @@ def convert_to_dict(data):
                 
     return result
 
-def prepare_expense_dataset(symbol):
-    # Define the list of key elements you want to track
-    expense_keys = [
-        'researchAndDevelopmentExpenses',
-        'generalAndAdministrativeExpenses',
-        'sellingAndMarketingExpenses',
-        'operatingExpenses',
-        'costOfRevenue'
-    ]
-    
-    # Open the financial statement data for the symbol
-    with open(f"json/financial-statements/income-statement/quarter/{symbol}.json", 'rb') as file:
-        data = orjson.loads(file.read())
-    # Convert the data into a dictionary
-    
-    # Initialize a dictionary to hold the history and growth for each key
-    expense_data = {}
-    
-    for key in expense_keys:
-        expense_data[key] = []
-        
-        # Prepare the data for the current key
-        for entry in data:
-            date = entry.get('date')
-            value = entry.get(key, 0)  # Default to 0 if the key is missing
-            expense_data[key].append({'date': date, 'value': value})
-        
-        # Sort the list by date
-        expense_data[key] = sorted(expense_data[key], key=lambda x: datetime.strptime(x['date'], '%Y-%m-%d'))
-        
-        # Initialize 'valueGrowth' as None for all entries
-        for item in expense_data[key]:
-            item['valueGrowth'] = None
+def prepare_expense_dataset(data):
+    data = convert_to_dict(data)
+    res_list = {}
+    operating_name_list = []
+    operating_history_list = []
+    index = 0
+    for date, info in data.items():
+        value_list = []
+        for name, val in info.items():
+            if index == 0:
+                operating_name_list.append(name)
+            if name in operating_name_list:
+                value_list.append(val)
+        if len(value_list) > 0:
+            operating_history_list.append({'date': date, 'value': value_list})
+        index +=1
 
-        # Calculate valueGrowth for each item based on the previous date value
-        for i in range(1, len(expense_data[key])):
+    operating_history_list = sorted(operating_history_list, key=lambda x: datetime.strptime(x['date'], '%Y-%m-%d'))
+
+    # Initialize 'valueGrowth' as None for all entries
+    for item in operating_history_list:
+        item['valueGrowth'] = [None] * len(item['value'])
+
+    # Calculate valueGrowth for each item based on the previous date value
+    for i in range(1, len(operating_history_list)):  # Start from the second item
+        current_item = operating_history_list[i]
+        prev_item = operating_history_list[i - 1]
+        
+        value_growth = []
+        for cur_value, prev_value in zip(current_item['value'], prev_item['value']):
             try:
-                current_item = expense_data[key][i]
-                prev_item = expense_data[key][i - 1]
-                growth = round(((current_item['value'] - prev_item['value']) / prev_item['value']) * 100, 2) if prev_item['value'] != 0 else None
-                current_item['valueGrowth'] = growth
+                growth = round(((cur_value - prev_value) / prev_value) * 100, 2)
             except:
-                current_item['valueGrowth'] = None
+                growth = None
+            value_growth.append(growth)
+        
+        current_item['valueGrowth'] = value_growth
 
-    # Return the results as a dictionary with all keys
-    return expense_data
+    operating_history_list = sorted(operating_history_list, key=lambda x: datetime.strptime(x['date'], '%Y-%m-%d'), reverse=True)
+
+    res_list = {'operatingExpenses': {'names': operating_name_list, 'history': operating_history_list}}
+    return res_list
 
 def prepare_geo_dataset(data):
     data = convert_to_dict(data)
@@ -137,7 +133,7 @@ def prepare_geo_dataset(data):
 
     return res_list
 
-def prepare_dataset(data, geo_data, symbol):
+def prepare_dataset(data, geo_data, income_data, symbol):
     data = convert_to_dict(data)
     res_list = {}
     revenue_name_list = []
@@ -180,11 +176,11 @@ def prepare_dataset(data, geo_data, symbol):
     res_list = {'revenue': {'names': revenue_name_list, 'history': revenue_history_list}}
 
     geo_data = prepare_geo_dataset(geo_data)
-    #operating_expense_data = prepare_expense_dataset(symbol)
+    operating_expense_data = prepare_expense_dataset(income_data)
 
 
     #res_list = {**res_list, **geo_data, 'expense': operating_expense_data}
-    res_list = {**res_list, **geo_data}
+    res_list = {**res_list, **geo_data, **operating_expense_data}
     return res_list
 
 async def get_data(session, total_symbols):
@@ -192,6 +188,37 @@ async def get_data(session, total_symbols):
     for i in tqdm(range(0, len(total_symbols), batch_size)):
         batch = total_symbols[i:i+batch_size]
         for symbol in batch:
+            try:
+                with open(f"json/financial-statements/income-statement/quarter/{symbol}.json",'r') as file:
+                    income_data = orjson.loads(file.read())
+
+                    include_selling_and_marketing = income_data[0].get('sellingAndMarketingExpenses', 0) > 0 if income_data else False
+                    # Process the income_data
+                    income_data = [
+                        {
+                            'date': entry['date'],
+                            'Selling, General, and Administrative': entry.get('sellingGeneralAndAdministrativeExpenses', 0),
+                            'Research and Development': entry.get('researchAndDevelopmentExpenses', 0),
+                            **({'Sales and Marketing': entry.get('sellingAndMarketingExpenses', 0)} if include_selling_and_marketing else {})
+                        }
+                        for entry in income_data
+                        if datetime.strptime(entry['date'], '%Y-%m-%d') > datetime(2015, 1, 1)
+                    ]
+
+                    income_data = [
+                        {
+                            entry['date']: {
+                                key: value
+                                for key, value in entry.items()
+                                if key != 'date'
+                            }
+                        }
+                        for entry in income_data
+                    ]
+            except:
+                income_data = []
+
+               
             product_data = []
             geo_data = []
 
@@ -213,7 +240,7 @@ async def get_data(session, total_symbols):
                     pass
 
             if len(product_data) > 0 and len(geo_data) > 0:
-                data = prepare_dataset(product_data, geo_data, symbol)
+                data = prepare_dataset(product_data, geo_data, income_data, symbol)
                 await save_json(data, symbol)
 
         # Wait 60 seconds after processing each batch of 300 symbols
@@ -230,6 +257,7 @@ async def run():
     #total_symbols = ['TSLA']  # For testing purposes
     con.close()
     
+
     async with aiohttp.ClientSession() as session:
         await get_data(session, total_symbols)
 
