@@ -1,6 +1,5 @@
 import os
 import ujson
-import orjson
 import asyncio
 import aiohttp
 import sqlite3
@@ -30,53 +29,57 @@ async def fetch_data(session, url, symbol, attempt=0):
 async def save_json(symbol, period, data_type, data):
     os.makedirs(f"json/financial-statements/{data_type}/{period}/", exist_ok=True)
     with open(f"json/financial-statements/{data_type}/{period}/{symbol}.json", 'w') as file:
-        ujson.dumps(data,file)
+        ujson.dump(data, file)
+
 
 async def calculate_margins(symbol):
     for period in ['annual', 'quarter']:
-        # Load income statement data
-        income_path = f"json/financial-statements/income-statement/{period}/{symbol}.json"
-        with open(income_path, "r") as file:
-            income_data = orjson.loads(file.read())
+        try:
+            # Load income statement data
+            income_path = f"json/financial-statements/income-statement/{period}/{symbol}.json"
+            with open(income_path, "r") as file:
+                income_data = ujson.load(file)
 
-        # Load cash flow statement data
-        cash_flow_path = f"json/financial-statements/cash-flow-statement/{period}/{symbol}.json"
-        with open(cash_flow_path, "r") as file:
-            cash_flow_data = orjson.loads(file.read())
+            # Load cash flow statement data
+            cash_flow_path = f"json/financial-statements/cash-flow-statement/{period}/{symbol}.json"
+            with open(cash_flow_path, "r") as file:
+                cash_flow_data = ujson.load(file)
 
-        # Load ratios data
-        ratios_path = f"json/financial-statements/ratios/{period}/{symbol}.json"
-        with open(ratios_path, "r") as file:
-            ratio_data = orjson.loads(file.read())
+            # Load ratios data
+            ratios_path = f"json/financial-statements/ratios/{period}/{symbol}.json"
+            with open(ratios_path, "r") as file:
+                ratio_data = ujson.load(file)
+            # Ensure all datasets are available and iterate through the items
+            if income_data and cash_flow_data and ratio_data:
+                for ratio_item, income_item, cash_flow_item in zip(ratio_data, income_data, cash_flow_data):
+                    # Extract required data
+                    revenue = income_item.get('revenue', 0)
+                    ebitda = income_item.get('ebitda',0)
+                    free_cash_flow = cash_flow_item.get('freeCashFlow', 0)
 
-        # Ensure all datasets are available and iterate through the items
-        if income_data and cash_flow_data and ratio_data:
-            for ratio_item, income_item, cash_flow_item in zip(ratio_data, income_data, cash_flow_data):
-                # Extract required data
-                revenue = income_item.get('revenue', 0)
-                ebitda = income_item.get('ebitda',0)
-                free_cash_flow = cash_flow_item.get('freeCashFlow', 0)
+                    # Calculate freeCashFlowMargin if data is valid
+                    if revenue != 0:  # Avoid division by zero
+                        ratio_item['freeCashFlowMargin'] = round((free_cash_flow / revenue) * 100, 2)
+                        ratio_item['ebitdaMargin'] = round((ebitda / revenue) * 100,2)
+                        ratio_item['grossProfitMargin'] = round(ratio_item['grossProfitMargin']*100,2)
+                        ratio_item['operatingProfitMargin'] = round(ratio_item['operatingProfitMargin']*100,2)
+                        ratio_item['pretaxProfitMargin'] = round(ratio_item['pretaxProfitMargin']*100,2)
+                        ratio_item['netProfitMargin'] = round(ratio_item['netProfitMargin']*100,2)
+                    else:
+                        ratio_item['freeCashFlowMargin'] = None  # Handle missing or zero revenue
+                        ratio_item['ebitdaMargin'] = None
+                        ratio_item['grossProfitMargin'] = None
+                        ratio_item['operatingProfitMargin'] = None
+                        ratio_item['pretaxProfitMargin'] = None
+                        ratio_item['netProfitMargin'] = None
 
-                # Calculate freeCashFlowMargin if data is valid
-                if revenue != 0:  # Avoid division by zero
-                    ratio_item['freeCashFlowMargin'] = round((free_cash_flow / revenue) * 100, 2)
-                    ratio_item['ebitdaMargin'] = round((ebitda / revenue) * 100,2)
-                    ratio_item['grossProfitMargin'] = round(ratio_item['grossProfitMargin']*100,2)
-                    ratio_item['operatingProfitMargin'] = round(ratio_item['operatingProfitMargin']*100,2)
-                    ratio_item['pretaxProfitMargin'] = round(ratio_item['pretaxProfitMargin']*100,2)
-                    ratio_item['netProfitMargin'] = round(ratio_item['netProfitMargin']*100,2)
-                else:
-                    ratio_item['freeCashFlowMargin'] = None  # Handle missing or zero revenue
-                    ratio_item['ebitdaMargin'] = None
-                    ratio_item['grossProfitMargin'] = None
-                    ratio_item['operatingProfitMargin'] = None
-                    ratio_item['pretaxProfitMargin'] = None
-                    ratio_item['netProfitMargin'] = None
+                # Save the updated ratios data back to the JSON file
 
-            # Save the updated ratios data back to the JSON file
-            with open(ratios_path, "wb") as file:
-                file.write(orjson.dumps(data,option=orjson.OPT_SERIALIZE_NUMPY).decode('utf-8'))
+                with open(ratios_path, "w") as file:
+                    ujson.dump(ratio_data,file)
 
+        except Exception as e:
+            print(e)
 
 async def get_financial_statements(session, symbol, semaphore, request_counter):
     base_url = "https://financialmodelingprep.com/api/v3"
@@ -122,12 +125,13 @@ async def get_financial_statements(session, symbol, semaphore, request_counter):
         if owner_earnings_data:
             await save_json(symbol, 'quarter', 'owner-earnings', owner_earnings_data)
 
+        await calculate_margins(symbol)
         request_counter[0] += 1  # Increment the request counter
         if request_counter[0] >= 500:
             await asyncio.sleep(60)  # Pause for 60 seconds
             request_counter[0] = 0  # Reset the request counter after the pause
-    
-    await calculate_margins(symbol)
+        
+
 
 async def run():
     con = sqlite3.connect('stocks.db')
