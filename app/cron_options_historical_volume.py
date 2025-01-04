@@ -159,11 +159,12 @@ for symbol in tqdm(total_symbols):
         if response.status_code == 200:
             data = response.json()['data']
             prepare_data(data, symbol)
-            counter +=1
+        
+        counter +=1
         # If 50 chunks have been processed, sleep for 60 seconds
-        if counter == 100:
+        if counter == 260:
             print("Sleeping...")
-            time.sleep(30)  # Sleep for 60 seconds
+            time.sleep(60)  # Sleep for 60 seconds
             counter = 0
         
     except Exception as e:

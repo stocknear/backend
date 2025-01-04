@@ -85,12 +85,17 @@ def run_dark_pool_ticker():
         run_command(["python3", "cron_dark_pool_ticker.py"])
 
 
-def run_options_stats():
+def run_options_jobs():
     now = datetime.now(ny_tz)
     week = now.weekday()
     if week <= 5:
         run_command(["python3", "cron_options_stats.py"])
+        time.sleep(60)
         run_command(["python3", "cron_options_historical_volume.py"])
+        time.sleep(60)
+        run_command(["python3", "cron_options_hottest_contracts.py"])
+        time.sleep(60)
+        run_command(["python3", "cron_options_single_contract.py"])
 
 def run_fda_calendar():
     now = datetime.now(ny_tz)
@@ -216,12 +221,6 @@ def run_executive():
     if week <= 4:
         run_command(["python3", "cron_executive.py"])
 
-def run_options_bubble_ticker():
-    week = datetime.today().weekday()
-    if week <= 4:
-        run_command(["python3", "cron_options_bubble.py"])
-
-
 def run_analyst_rating():
     week = datetime.today().weekday()
     if week <= 4:
@@ -341,13 +340,10 @@ def run_threaded(job_func):
 
 # Schedule the job to run
 
-
-schedule.every().day.at("01:00").do(run_threaded, run_options_bubble_ticker).tag('options_ticker_job')
+schedule.every().day.at("01:00").do(run_threaded, run_options_jobs).tag('options_job')
 schedule.every().day.at("02:00").do(run_threaded, run_db_schedule_job)
 #schedule.every().day.at("05:00").do(run_threaded, run_options_gex).tag('options_gex_job')
 schedule.every().day.at("05:00").do(run_threaded, run_export_price).tag('export_price_job')
-
-schedule.every().day.at("03:30").do(run_threaded, run_options_stats).tag('options_stats_job')
 
 
 schedule.every().day.at("06:00").do(run_threaded, run_historical_price).tag('historical_job')

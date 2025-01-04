@@ -7,6 +7,10 @@ import os
 import sqlite3
 import time
 from tqdm import tqdm
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
+import asyncio
+import aiohttp
 
 load_dotenv()
 
@@ -127,76 +131,19 @@ def get_hottest_contracts():
             if response.status_code == 200:
                 data = response.json()['data']
                 prepare_data(data, symbol)
-                counter +=1
+            
+            counter +=1
+            
             # If 50 chunks have been processed, sleep for 60 seconds
-            if counter == 100:
+            if counter == 260:
                 print("Sleeping...")
-                time.sleep(30)  # Sleep for 60 seconds
+                time.sleep(60)
                 counter = 0
             
         except Exception as e:
             print(f"Error for {symbol}:{e}")
 
 
-def get_single_contract_historical_data(contract_id):
-    keys_to_remove = {'high_price', 'low_price', 'iv_low', 'iv_high', 'last_tape_time'}
-
-    url = f"https://api.unusualwhales.com/api/option-contract/{contract_id}/historic"
-    response = requests.get(url, headers=headers)
-    data = response.json()['chains']
-    data = sorted(data, key=lambda x: datetime.strptime(x.get('date', ''), '%Y-%m-%d'))
-    res_list = []
-    for i, item in enumerate(data):
-        new_item = {
-            key: safe_round(value) if isinstance(value, (int, float, str)) else value
-            for key, value in item.items()
-        }
-        
-        # Compute open interest change and percent if not the first item
-        if i > 0:
-            previous_open_interest = safe_round(data[i-1].get('open_interest', 0))
-            open_interest = safe_round(item.get('open_interest', 0))
-
-            if previous_open_interest > 0:
-                new_item['open_interest_change'] = safe_round(open_interest - previous_open_interest)
-                new_item['open_interest_change_percent'] = safe_round((open_interest / previous_open_interest - 1) * 100)
-            else:
-                new_item['open_interest_change'] = 0
-                new_item['open_interest_change_percent'] = 0
-
-        res_list.append(new_item)
-
-    if res_list:
-        res_list = [{key: value for key, value in item.items() if key not in keys_to_remove} for item in res_list]
-        res_list = sorted(res_list, key=lambda x: datetime.strptime(x.get('date', ''), '%Y-%m-%d'), reverse=True)
-
-        save_json(res_list, contract_id,"json/hottest-contracts/contracts")
-
 
 if __name__ == '__main__':
     get_hottest_contracts()
-
-    '''
-    total_symbols = get_tickers_from_directory(directory_path)
-
-    contract_id_set = set()  # Use a set to ensure uniqueness
-    for symbol in total_symbols:
-        try:
-            with open(f"json/hottest-contracts/companies/{symbol}.json", "r") as file:
-                data = orjson.loads(file.read())
-                for item in data:
-                    try:
-                        contract_id_set.add(item['option_symbol'])  # Add to the set
-                    except KeyError:
-                        pass  # Handle missing 'option_symbol' keys gracefully
-        except FileNotFoundError:
-            pass  # Handle missing files gracefully
-
-    # Convert the set to a list if needed
-    contract_id_list = list(contract_id_set)
-    
-    print(len(contract_id_list))
-    print(contract_id_list[0])
-
-    get_single_contract_historical_data('GME250117C00125000')
-    '''
