@@ -237,7 +237,7 @@ def run_market_moods():
 def run_db_schedule_job():
     #update db daily
     week = datetime.today().weekday()
-    if week <= 4:
+    if week <= 5:
         run_command(["bash", "run_universe.sh"])
 
 
