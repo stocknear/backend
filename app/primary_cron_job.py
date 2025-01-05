@@ -223,7 +223,7 @@ def run_executive():
 
 def run_analyst_rating():
     week = datetime.today().weekday()
-    if week <= 4:
+    if week <= 5:
         run_command(["python3", "cron_analyst_insight.py"])
         run_command(["python3", "cron_analyst_db.py"])
         run_command(["python3", "cron_analyst_ticker.py"])

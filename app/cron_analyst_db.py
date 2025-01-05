@@ -482,6 +482,9 @@ async def run():
     analyst_list = await get_all_analyst_stats()
     print('Number of analysts:', len(analyst_list))
     
+    if len(analyst_list) < 4000:
+        return
+
     #Test Modes
     #analyst_list = [ item for item in analyst_list if item['analystId'] =='5a02da51efacff00010633d2']
 
