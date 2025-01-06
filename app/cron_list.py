@@ -719,15 +719,123 @@ async def get_highest_oi_change():
 
     if res_list:
         # Sort by market cap in descending order
-        res_list = sorted(res_list, key=lambda x: x['changeOI'], reverse=True)[:100]
+        highest_oi_change = sorted(res_list, key=lambda x: x['changeOI'], reverse=True)[:100]
+        highest_oi = sorted(res_list, key=lambda x: x['totalOI'], reverse=True)[:100]
+        
+        # Create independent lists with ranks
+        highest_oi_change_ranks = [
+            {**item, "rank": rank} for rank, item in enumerate(highest_oi_change, start=1)
+        ]
+        highest_oi_ranks = [
+            {**item, "rank": rank} for rank, item in enumerate(highest_oi, start=1)
+        ]
+
+        # Write the filtered and ranked stocks to JSON files
+        with open("json/stocks-list/list/highest-open-interest-change.json", 'wb') as file:
+            file.write(orjson.dumps(highest_oi_change_ranks))
+
+        with open("json/stocks-list/list/highest-open-interest.json", 'wb') as file:
+            file.write(orjson.dumps(highest_oi_ranks))
+
+
+async def get_highest_option_iv_rank():
+    with sqlite3.connect('stocks.db') as con:
+        cursor = con.cursor()
+        cursor.execute("PRAGMA journal_mode = wal")
+        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%' AND symbol NOT LIKE '%-%'")
+        symbols = [row[0] for row in cursor.fetchall()]
+
+    res_list = []
+    for symbol in symbols:
+        try:
+            # Load quote data from JSON file
+            total_oi = stock_screener_data_dict[symbol].get('totalOI',0)
+            iv_rank = stock_screener_data_dict[symbol].get('ivRank',0)
+
+            if total_oi > 1E6 and iv_rank > 0:
+                quote_data = await get_quote_data(symbol)
+                # Assign price and volume, and check if they meet the penny stock criteria
+                if quote_data:
+                    price = round(quote_data.get('price',None), 2)
+                    changesPercentage = round(quote_data.get('changesPercentage'), 2)
+                    market_cap = round(quote_data.get('marketCap',None), 2)
+                    name = quote_data.get('name')
+
+                    # Append stock data to res_list if it meets the criteria
+                    if changesPercentage != 0:
+                        res_list.append({
+                            'symbol': symbol,
+                            'name': name,
+                            'price': price,
+                            'changesPercentage': changesPercentage,
+                            'ivRank': iv_rank,
+                            'totalOI': total_oi,
+                            'marketCap': market_cap,
+                        })
+        except:
+            pass
+
+    if res_list:
+        # Sort by market cap in descending order
+        res_list = sorted(res_list, key=lambda x: x['ivRank'], reverse=True)[:50]
         
         # Assign rank to each stock
         for rank, item in enumerate(res_list, start=1):
             item['rank'] = rank
 
         # Write the filtered and ranked penny stocks to a JSON file
-        with open("json/stocks-list/list/highest-open-interest-change.json", 'wb') as file:
+        with open("json/stocks-list/list/highest-option-iv-rank.json", 'wb') as file:
             file.write(orjson.dumps(res_list))
+
+async def get_highest_option_premium():
+    with sqlite3.connect('stocks.db') as con:
+        cursor = con.cursor()
+        cursor.execute("PRAGMA journal_mode = wal")
+        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%' AND symbol NOT LIKE '%-%'")
+        symbols = [row[0] for row in cursor.fetchall()]
+
+    res_list = []
+    for symbol in symbols:
+        try:
+            # Load quote data from JSON file
+            iv_rank = stock_screener_data_dict[symbol].get('ivRank',0)
+            total_prem = stock_screener_data_dict[symbol].get('totalPrem',0)
+
+            if total_prem > 0 and iv_rank > 0:
+                quote_data = await get_quote_data(symbol)
+                # Assign price and volume, and check if they meet the penny stock criteria
+                if quote_data:
+                    price = round(quote_data.get('price',None), 2)
+                    changesPercentage = round(quote_data.get('changesPercentage'), 2)
+                    market_cap = round(quote_data.get('marketCap',None), 2)
+                    name = quote_data.get('name')
+
+                    # Append stock data to res_list if it meets the criteria
+                    if changesPercentage != 0:
+                        res_list.append({
+                            'symbol': symbol,
+                            'name': name,
+                            'price': price,
+                            'changesPercentage': changesPercentage,
+                            'ivRank': iv_rank,
+                            'totalPrem': total_prem,
+                            'marketCap': market_cap,
+                        })
+        except:
+            pass
+
+    if res_list:
+        # Sort by market cap in descending order
+        res_list = sorted(res_list, key=lambda x: x['totalPrem'], reverse=True)[:50]
+        
+        # Assign rank to each stock
+        for rank, item in enumerate(res_list, start=1):
+            item['rank'] = rank
+
+        # Write the filtered and ranked penny stocks to a JSON file
+        with open("json/stocks-list/list/highest-option-premium.json", 'wb') as file:
+            file.write(orjson.dumps(res_list))
+
 
 async def etf_bitcoin_list():
     try:
@@ -964,6 +1072,8 @@ async def run():
         get_most_ftd_shares(),
         get_most_shorted_stocks(),
         get_highest_oi_change(),
+        get_highest_option_iv_rank(),
+        get_highest_option_premium(),
     )
 
 
