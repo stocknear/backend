@@ -16,11 +16,7 @@ headers = {"accept": "application/json"}
 
 def check_market_hours():
 
-    holidays = [
-        "2024-01-01", "2024-01-15", "2024-02-19", "2024-03-29",
-        "2024-05-27", "2024-06-19", "2024-07-04", "2024-09-02",
-        "2024-11-28", "2024-12-25"
-    ]
+    holidays = ['2025-01-01', '2025-01-09','2025-01-20', '2025-02-17', '2025-04-18', '2025-05-26', '2025-06-19', '2025-07-04', '2025-09-01', '2025-11-27', '2025-12-25']
     
     # Get the current date and time in ET (Eastern Time)
     et_timezone = pytz.timezone('America/New_York')
@@ -402,38 +398,23 @@ async def run():
 
         
         try:
-            with open("json/options-flow/feed/data.json", 'r') as file:
-                options_flow = ujson.load(file)
-                
-                # Filter the options_flow to include only items with ticker in total_symbol
-                options_flow = [item for item in options_flow if item['ticker'] in stock_symbols]
-                
-                highest_volume = sorted(options_flow, key=lambda x: int(x['volume']), reverse=True)
-                highest_volume = [
-                    {key: item[key] for key in ['cost_basis', 'ticker', 'underlying_type', 'date_expiration', 'put_call', 'volume', 'strike_price']}
-                    for item in highest_volume[0:4]
-                ]
+            with open("json/stocks-list/list/highest-open-interest-change.json", 'r') as file:
+                highest_open_interest_change = ujson.load(file)[:3]
+            
+            with open("json/stocks-list/list/highest-option-iv-rank.json", 'r') as file:
+                highest_iv_rank = ujson.load(file)[:3]
 
-                highest_premium = sorted(options_flow, key=lambda x: int(x['cost_basis']), reverse=True)
-                highest_premium = [
-                    {key: item[key] for key in ['cost_basis', 'ticker', 'underlying_type', 'date_expiration', 'put_call', 'volume', 'strike_price']}
-                    for item in highest_premium[0:4]
-                ]
-
-                highest_open_interest = sorted(options_flow, key=lambda x: int(x['open_interest']), reverse=True)
-                highest_open_interest = [
-                    {key: item[key] for key in ['cost_basis', 'ticker', 'underlying_type', 'date_expiration', 'put_call', 'open_interest', 'strike_price']}
-                    for item in highest_open_interest[0:4]
-                ]
-
-                options_flow = {
+            with open("json/stocks-list/list/highest-option-premium.json", 'r') as file:
+                highest_premium = ujson.load(file)[:3]
+                optionsData = {
                     'premium': highest_premium,
-                    'volume': highest_volume,
-                    'openInterest': highest_open_interest
+                    'ivRank': highest_iv_rank,
+                    'openInterest': highest_open_interest_change
                 }
+            print(optionsData)
         except Exception as e:
             print(e)
-            options_flow = {}
+            optionsData = {}
 
         market_status = check_market_hours()
         if market_status == 0:
@@ -492,7 +473,7 @@ async def run():
         data = {
             'marketMovers': market_movers,
             'marketStatus': market_status,
-            'optionsFlow': options_flow,
+            'optionsData': optionsData,
             'recentEarnings': recent_earnings,
             'upcomingEarnings': upcoming_earnings,
             'analystReport': recent_analyst_report,

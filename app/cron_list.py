@@ -692,8 +692,11 @@ async def get_highest_oi_change():
     for symbol in symbols:
         try:
             # Load quote data from JSON file
-            change_oi = stock_screener_data_dict[symbol].get('changeOI',0)
+            iv_rank = stock_screener_data_dict[symbol].get('ivRank',0)
+            total_prem = stock_screener_data_dict[symbol].get('totalPrem',0)
             total_oi = stock_screener_data_dict[symbol].get('totalOI',0)
+            change_oi = stock_screener_data_dict[symbol].get('changeOI',0)
+
             if change_oi > 0 and total_oi > 0:
                 quote_data = await get_quote_data(symbol)
                 # Assign price and volume, and check if they meet the penny stock criteria
@@ -710,9 +713,10 @@ async def get_highest_oi_change():
                             'name': name,
                             'price': price,
                             'changesPercentage': changesPercentage,
-                            'changeOI': change_oi,
+                            'ivRank': iv_rank,
+                            'totalPrem': total_prem,
                             'totalOI': total_oi,
-                            'marketCap': market_cap,
+                            'changeOI': change_oi,
                         })
         except:
             pass
@@ -749,8 +753,10 @@ async def get_highest_option_iv_rank():
     for symbol in symbols:
         try:
             # Load quote data from JSON file
-            total_oi = stock_screener_data_dict[symbol].get('totalOI',0)
             iv_rank = stock_screener_data_dict[symbol].get('ivRank',0)
+            total_prem = stock_screener_data_dict[symbol].get('totalPrem',0)
+            total_oi = stock_screener_data_dict[symbol].get('totalOI',0)
+            change_oi = stock_screener_data_dict[symbol].get('changeOI',0)
 
             if total_oi > 1E6 and iv_rank > 0:
                 quote_data = await get_quote_data(symbol)
@@ -769,8 +775,9 @@ async def get_highest_option_iv_rank():
                             'price': price,
                             'changesPercentage': changesPercentage,
                             'ivRank': iv_rank,
+                            'totalPrem': total_prem,
                             'totalOI': total_oi,
-                            'marketCap': market_cap,
+                            'changeOI': change_oi,
                         })
         except:
             pass
@@ -800,6 +807,8 @@ async def get_highest_option_premium():
             # Load quote data from JSON file
             iv_rank = stock_screener_data_dict[symbol].get('ivRank',0)
             total_prem = stock_screener_data_dict[symbol].get('totalPrem',0)
+            total_oi = stock_screener_data_dict[symbol].get('totalOI',0)
+            change_oi = stock_screener_data_dict[symbol].get('changeOI',0)
 
             if total_prem > 0 and iv_rank > 0:
                 quote_data = await get_quote_data(symbol)
@@ -819,7 +828,8 @@ async def get_highest_option_premium():
                             'changesPercentage': changesPercentage,
                             'ivRank': iv_rank,
                             'totalPrem': total_prem,
-                            'marketCap': market_cap,
+                            'totalOI': total_oi,
+                            'changeOI': change_oi,
                         })
         except:
             pass
