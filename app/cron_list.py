@@ -58,15 +58,15 @@ async def process_category(cursor, category, condition, category_type='market-ca
                 'name': row[1],
                 'price': round(quote_data.get('price'), 2) if quote_data.get('price') is not None else None,
                 'changesPercentage': round(quote_data.get('changesPercentage'), 2) if quote_data.get('changesPercentage') is not None else None,
-                'marketCap': quote_data.get('marketCap', None),
-                'revenue': None,
+                'marketCap': quote_data.get('marketCap', 0),
+                'revenue': 0,
             }
             
             # Add screener data if available
             if symbol in stock_screener_data_dict:
-                item['revenue'] = stock_screener_data_dict[symbol].get('revenue')
+                item['revenue'] = stock_screener_data_dict[symbol].get('revenue',0)
             
-            if item['marketCap'] > 0:
+            if item['marketCap'] > 0 and item['revenue'] > 0:
                 res_list.append(item)
     
     # Sort by market cap and save
