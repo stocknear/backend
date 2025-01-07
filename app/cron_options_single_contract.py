@@ -96,7 +96,7 @@ if __name__ == '__main__':
                             contract_id_set.add(item['option_symbol'])  # Add to the set
                         except KeyError:
                             pass  # Handle missing 'option_symbol' keys gracefully
-        except FileNotFoundError:
+        except:
             pass  # Handle missing files gracefully
 
     # Convert the set to a list if needed
