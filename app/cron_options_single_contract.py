@@ -9,6 +9,8 @@ import asyncio
 import aiohttp
 from tqdm import tqdm
 
+today = datetime.today()
+
 load_dotenv()
 
 api_key = os.getenv('UNUSUAL_WHALES_API_KEY')
@@ -75,7 +77,6 @@ if __name__ == '__main__':
     directory_path = "json/hottest-contracts/companies"
 
     total_symbols = get_tickers_from_directory(directory_path)
-
     contract_id_set = set()  # Use a set to ensure uniqueness
     for symbol in total_symbols:
         try:
@@ -83,19 +84,26 @@ if __name__ == '__main__':
                 data = orjson.loads(file.read())
                 volume_list = data.get('volume',[])
                 open_interest_list = data.get('openInterest',[])
+                
                 if len(volume_list) > 0:
                     for item in volume_list:
                         try:
-                            contract_id_set.add(item['option_symbol'])  # Add to the set
-                        except KeyError:
-                            pass  # Handle missing 'option_symbol' keys gracefully
+                            date_expiration = item.get('date_expiration',None)
+                            if date_expiration != None and datetime.strptime(date_expiration, "%Y-%m-%d") >=today:
+                                contract_id_set.add(item['option_symbol'])  # Add to the set
+                        except Exception as e:
+                            print(e)
 
                 if len(open_interest_list) > 0:
                     for item in open_interest_list:
                         try:
-                            contract_id_set.add(item['option_symbol'])  # Add to the set
-                        except KeyError:
-                            pass  # Handle missing 'option_symbol' keys gracefully
+                            date_expiration = item.get('date_expiration',None)
+                            if date_expiration != None and datetime.strptime(date_expiration, "%Y-%m-%d") >=today:
+                                contract_id_set.add(item['option_symbol'])  # Add to the set
+                        except:
+                            pass
+        except KeyboardInterrupt:
+            print("\nProcess interrupted by user.")
         except:
             pass  # Handle missing files gracefully
 
