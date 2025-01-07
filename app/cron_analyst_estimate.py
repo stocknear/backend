@@ -9,7 +9,7 @@ from collections import defaultdict
 
 query_template = """
     SELECT 
-        analyst_estimates, income
+        analyst_estimates
     FROM 
         stocks
     WHERE
@@ -25,7 +25,9 @@ async def get_data(ticker, con):
     try:
         data = pd.read_sql_query(query_template, con, params=(ticker,))
         analyst_estimates = ujson.loads(data['analyst_estimates'].iloc[0])
-        income = ujson.loads(data['income'].iloc[0])
+        with open(f"json/financial-statements/income-statement/annual/{ticker}.json", "r") as file:
+            income = ujson.load(file)
+
         combined_data = defaultdict(dict)
         #Sum up quarter results
         eps_sums = {}
@@ -212,7 +214,7 @@ async def run():
     con = sqlite3.connect('stocks.db')
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
-    cursor.execute("SELECT DISTINCT symbol FROM stocks")
+    cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
     stock_symbols = [row[0] for row in cursor.fetchall()]
     for ticker in tqdm(stock_symbols):
         res = await get_data(ticker, con)
