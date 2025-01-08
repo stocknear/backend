@@ -68,7 +68,9 @@ def run_dark_pool_flow():
 def run_market_flow():
     now = datetime.now(ny_tz)
     week = now.weekday()
-    if week <= 4:
+    current_time = now.time()
+    hour = now.hour
+    if week <= 4 and 9 < hour < 20:
         run_command(["python3", "cron_market_flow.py"])
 
 def run_dark_pool_level():
