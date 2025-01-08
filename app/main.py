@@ -2659,9 +2659,11 @@ async def get_data(data:GeneralData, api_key: str = Security(get_api_key)):
     )
 
 @app.post("/options-gex-dex")
-async def get_data(data:TickerData, api_key: str = Security(get_api_key)):
-    ticker = data.ticker.upper()
-    cache_key = f"options-gex-dex-{ticker}"
+async def get_data(data:ParamsData, api_key: str = Security(get_api_key)):
+    ticker = data.params.upper()
+    category = data.category.lower()
+
+    cache_key = f"options-gex-dex-{ticker}-{category}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
         return StreamingResponse(
@@ -2670,7 +2672,7 @@ async def get_data(data:TickerData, api_key: str = Security(get_api_key)):
         headers={"Content-Encoding": "gzip"})
 
     try:
-        with open(f"json/gex-dex/{ticker}.json", 'rb') as file:
+        with open(f"json/gex-dex/{category}/{ticker}.json", 'rb') as file:
             res = orjson.loads(file.read())
     except:
         res = []

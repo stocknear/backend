@@ -402,7 +402,7 @@ schedule.every(3).hours.do(run_threaded, run_press_releases).tag('press_release_
 schedule.every(1).hours.do(run_threaded, run_fda_calendar).tag('fda_calendar_job')
 
 schedule.every(5).minutes.do(run_threaded, run_market_flow).tag('market_flow_job')
-schedule.every(5).minutes.do(run_threaded, run_dark_pool_level).tag('dark_pool_level_job')
+schedule.every(30).minutes.do(run_threaded, run_dark_pool_level).tag('dark_pool_level_job')
 schedule.every(10).seconds.do(run_threaded, run_dark_pool_flow).tag('dark_pool_flow_job')
 
 schedule.every(2).minutes.do(run_threaded, run_dashboard).tag('dashboard_job')

@@ -49,14 +49,10 @@ def get_tickers_from_directory(directory: str):
         print(f"An error occurred: {e}")
         return []
 
-directory_path = "json/gex-dex"
-total_symbols = get_tickers_from_directory(directory_path)
-
-if len(total_symbols) < 100:
-    total_symbols = stocks_symbols+etf_symbols
 
 
-def save_json(data, symbol):
+
+def save_json(data, symbol, directory_path):
     os.makedirs(directory_path, exist_ok=True)  # Ensure the directory exists
     with open(f"{directory_path}/{symbol}.json", 'wb') as file:  # Use binary mode for orjson
         file.write(orjson.dumps(data))
@@ -69,7 +65,7 @@ def safe_round(value, decimals=2):
         return value
 
 
-def prepare_data(data, symbol):
+def prepare_data(data, symbol, directory_path, sort_by = "date"):
     data = [{k: v for k, v in item.items() if "charm" not in k and "vanna" not in k} for item in data]
     res_list = []
     for item in data:
@@ -84,11 +80,16 @@ def prepare_data(data, symbol):
             pass
 
     if res_list:
-        res_list = sorted(res_list, key=lambda x: x['date'], reverse=True)
-        save_json(res_list, symbol)
+        res_list = sorted(res_list, key=lambda x: x[sort_by], reverse=True)
+        save_json(res_list, symbol, directory_path)
 
 
-def get_data():
+def get_overview_data():
+    directory_path = "json/gex-dex/overview"
+    total_symbols = get_tickers_from_directory(directory_path)
+    if len(total_symbols) < 100:
+        total_symbols = stocks_symbols+etf_symbols
+
     counter = 0
     total_symbols = ['GME']
     for symbol in tqdm(total_symbols):
@@ -98,7 +99,7 @@ def get_data():
             response = requests.get(url, headers=headers)
             if response.status_code == 200:
                 data = response.json()['data']
-                prepare_data(data, symbol)
+                prepare_data(data, symbol, directory_path)
             
             counter +=1
             
@@ -113,5 +114,65 @@ def get_data():
 
 
 
+def get_strike_data():
+    directory_path = "json/gex-dex/strike"
+    total_symbols = get_tickers_from_directory(directory_path)
+    if len(total_symbols) < 100:
+        total_symbols = stocks_symbols+etf_symbols
+
+    counter = 0
+    total_symbols = ['GME']
+    for symbol in tqdm(total_symbols):
+        try:
+            url = f"https://api.unusualwhales.com/api/stock/{symbol}/greek-exposure/strike"
+            
+            response = requests.get(url, headers=headers)
+            if response.status_code == 200:
+                data = response.json()['data']
+                prepare_data(data, symbol, directory_path, sort_by = 'strike')
+            
+            counter +=1
+            
+            # If 50 chunks have been processed, sleep for 60 seconds
+            if counter == 260:
+                print("Sleeping...")
+                time.sleep(60)
+                counter = 0
+            
+        except Exception as e:
+            print(f"Error for {symbol}:{e}")
+
+def get_expiry_data():
+    directory_path = "json/gex-dex/expiry"
+    total_symbols = get_tickers_from_directory(directory_path)
+    if len(total_symbols) < 100:
+        total_symbols = stocks_symbols+etf_symbols
+
+    counter = 0
+    total_symbols = ['GME']
+    for symbol in tqdm(total_symbols):
+        try:
+            url = f"https://api.unusualwhales.com/api/stock/{symbol}/greek-exposure/expiry"
+            
+            response = requests.get(url, headers=headers)
+            if response.status_code == 200:
+                data = response.json()['data']
+                prepare_data(data, symbol, directory_path)
+            
+            counter +=1
+            
+            # If 50 chunks have been processed, sleep for 60 seconds
+            if counter == 260:
+                print("Sleeping...")
+                time.sleep(60)
+                counter = 0
+            
+        except Exception as e:
+            print(f"Error for {symbol}:{e}")
+
+
 if __name__ == '__main__':
-    get_data()
+    #get_overview_data()
+    get_strike_data()
+    get_expiry_data()
+
