@@ -91,6 +91,8 @@ def run_options_jobs():
     now = datetime.now(ny_tz)
     week = now.weekday()
     if week <= 5:
+        run_command(["python3", "cron_options_gex_dex.py"])
+        time.sleep(60)
         run_command(["python3", "cron_options_stats.py"])
         time.sleep(60)
         run_command(["python3", "cron_options_historical_volume.py"])
@@ -342,7 +344,7 @@ def run_threaded(job_func):
 
 # Schedule the job to run
 
-schedule.every().day.at("03:00").do(run_threaded, run_options_jobs).tag('options_job')
+schedule.every().day.at("00:00").do(run_threaded, run_options_jobs).tag('options_job')
 schedule.every().day.at("01:00").do(run_threaded, run_db_schedule_job)
 #schedule.every().day.at("05:00").do(run_threaded, run_options_gex).tag('options_gex_job')
 schedule.every().day.at("05:00").do(run_threaded, run_export_price).tag('export_price_job')

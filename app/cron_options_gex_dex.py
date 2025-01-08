@@ -7,10 +7,6 @@ import os
 import sqlite3
 import time
 from tqdm import tqdm
-from concurrent.futures import ThreadPoolExecutor
-from functools import partial
-import asyncio
-import aiohttp
 
 load_dotenv()
 
@@ -92,7 +88,8 @@ def get_overview_data():
         total_symbols = stocks_symbols+etf_symbols
 
     counter = 0
-    total_symbols = ['GME']
+    #Test mode
+    #total_symbols = ['GME','SPY']
     for symbol in tqdm(total_symbols):
         try:
             url = f"https://api.unusualwhales.com/api/stock/{symbol}/greek-exposure"
@@ -123,7 +120,8 @@ def get_strike_data():
         total_symbols = stocks_symbols+etf_symbols
 
     counter = 0
-    total_symbols = ['GME']
+    #Test mode
+    #total_symbols = ['GME','SPY']
     for symbol in tqdm(total_symbols):
         try:
             url = f"https://api.unusualwhales.com/api/stock/{symbol}/greek-exposure/strike"
@@ -152,7 +150,8 @@ def get_expiry_data():
         total_symbols = stocks_symbols+etf_symbols
 
     counter = 0
-    total_symbols = ['GME']
+        #total_symbols = ['GME','SPY']
+    #total_symbols = ['GME','SPY']
     for symbol in tqdm(total_symbols):
         try:
             url = f"https://api.unusualwhales.com/api/stock/{symbol}/greek-exposure/expiry"
@@ -176,6 +175,8 @@ def get_expiry_data():
 
 if __name__ == '__main__':
     get_overview_data()
+    time.sleep(60)
     get_strike_data()
+    time.sleep(60)
     get_expiry_data()
 
