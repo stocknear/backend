@@ -27,7 +27,7 @@ def delete_files_in_directory(directory):
 async def get_quote_of_stocks(ticker_list):
     ticker_str = ','.join(ticker_list)
     async with aiohttp.ClientSession() as session:
-        url = f"https://financialmodelingprep.com/stable/batch-quote?symbols={ticker_str}&apikey={api_key}" 
+        url = f"https://financialmodelingprep.com/api/v3/quote/{ticker_str}?apikey={api_key}" 
         async with session.get(url) as response:
             if response.status == 200:
                 return await response.json()
