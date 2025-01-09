@@ -2017,33 +2017,36 @@ async def etf_holdings(data: TickerData, api_key: str = Security(get_api_key)):
     )
 
 
-@app.post("/etf-country-weighting")
+
+@app.post("/etf-sector-weighting")
 async def etf_holdings(data: TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
-    cache_key = f"etf-country-weighting-{ticker}"
-
+    cache_key = f"etf-sector-weighting-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return orjson.loads(cached_result)
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
 
-
-    query_template = f"SELECT country_weightings from etfs WHERE symbol = ?"
-    df = pd.read_sql_query(query_template, etf_con, params=(ticker,))
     try:
-        res = orjson.loads(df['country_weightings'].iloc[0])
-        for item in res:
-            if item["weightPercentage"] != 'NaN%':
-                item["weightPercentage"] = float(item["weightPercentage"].rstrip('%'))
-            else:
-                item["weightPercentage"] = 0
-
-        # Sort the list by weightPercentage in descending order
-        res = sorted(res, key=lambda x: x["weightPercentage"], reverse=True)
+        with open(f"json/etf-sector/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    redis_client.set(cache_key, orjson.dumps(res), 3600*3600)  # Set cache expiration time to 1 hour
-    return res
+    data = orjson.dumps(res)
+    compressed_data = gzip.compress(data)
+
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key,3600*3600)
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
 
 
 
