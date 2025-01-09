@@ -2564,32 +2564,40 @@ async def get_trending(api_key: str = Security(get_api_key)):
         headers={"Content-Encoding": "gzip"}
     )
 
-@app.post("/heatmaps")
-async def get_trending(data: HeatMapData, api_key: str = Security(get_api_key)):
-    index = data.index
-    cache_key = f"get-heatmaps-{index}"
+@app.get("/heatmap")
+async def get_heatmap(api_key: str = Security(get_api_key)):
+    cache_key = "heatmap"
     cached_result = redis_client.get(cache_key)
+    
     if cached_result:
         return StreamingResponse(
-        io.BytesIO(cached_result),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"})
-
+            io.BytesIO(cached_result),
+            media_type="text/html",
+            headers={"Content-Encoding": "gzip"}
+        )
+    
     try:
-        with open(f"json/heatmaps/{index}.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = []
-
-    data = orjson.dumps(res)
-    compressed_data = gzip.compress(data)
+        with open("json/heatmap/data.html", 'r', encoding='utf-8') as file:
+            html_content = file.read()
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Heatmap file not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error reading heatmap file: {str(e)}")
+    
+    # Compress the HTML content
+    compressed_data = gzip.compress(html_content.encode('utf-8'))
+    
+    # Cache the compressed HTML
     redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 60*5)  # Set cache expiration time to 5 min
-
+    redis_client.expire(cache_key, 60 * 5)  # Set cache expiration time to 5 min
+    
     return StreamingResponse(
         io.BytesIO(compressed_data),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"}
+        media_type="text/html",
+        headers={
+            "Content-Encoding": "gzip",
+            "Cache-Control": "public, max-age=300"  # 5 minutes cache
+        }
     )
 
 @app.post("/pre-post-quote")
