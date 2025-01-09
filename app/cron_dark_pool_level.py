@@ -22,13 +22,11 @@ def save_json(data, symbol):
     with open(f"{directory}/{symbol}.json", 'wb') as file:  # Use binary mode for orjson
         file.write(orjson.dumps(data, default=convert_numpy))
 
-# Function to get the last 7 weekdays
-def get_last_7_weekdays():
+def get_last_N_weekdays():
     today = datetime.today()
     weekdays = []
     
-    # Start from today and go back until we have 7 weekdays
-    while len(weekdays) < 7:
+    while len(weekdays) < 3:
         if today.weekday() < 5:  # Monday to Friday are weekdays (0-4)
             weekdays.append(today)
         today -= timedelta(days=1)
@@ -106,7 +104,7 @@ def run():
 
     total_symbols = stocks_symbols+ etf_symbols
     data = []
-    weekdays = get_last_7_weekdays()
+    weekdays = get_last_N_weekdays()
     for date in weekdays:
         try:
             with open(f"json/dark-pool/historical-flow/{date}.json", "r") as file:
