@@ -2702,6 +2702,35 @@ async def get_data(data:ParamsData, api_key: str = Security(get_api_key)):
         headers={"Content-Encoding": "gzip"}
     )
 
+
+@app.post("/options-oi")
+async def get_data(data:ParamsData, api_key: str = Security(get_api_key)):
+    ticker = data.params.upper()
+    category = data.category.lower()
+
+    cache_key = f"options-oi-{ticker}-{category}"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+        io.BytesIO(cached_result),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"})
+    try:
+        with open(f"json/oi/{category}/{ticker}.json", 'rb') as file:
+            data = orjson.loads(file.read())
+            
+    except:
+        data = []
+    data = orjson.dumps(data)
+    compressed_data = gzip.compress(data)
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 3600*60)
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
+
 @app.post("/options-stats-ticker")
 async def get_options_stats_ticker(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()

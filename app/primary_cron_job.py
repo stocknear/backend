@@ -93,6 +93,8 @@ def run_options_jobs():
     if week <= 5:
         run_command(["python3", "cron_options_gex_dex.py"])
         time.sleep(60)
+        run_command(["python3", "cron_options_oi.py"])
+        time.sleep(60)
         run_command(["python3", "cron_options_stats.py"])
         time.sleep(60)
         run_command(["python3", "cron_options_hottest_contracts.py"])
