@@ -2017,7 +2017,6 @@ async def etf_holdings(data: TickerData, api_key: str = Security(get_api_key)):
     )
 
 
-
 @app.post("/etf-sector-weighting")
 async def etf_holdings(data: TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
@@ -2684,10 +2683,16 @@ async def get_data(data:ParamsData, api_key: str = Security(get_api_key)):
 
     try:
         with open(f"json/gex-dex/{category}/{ticker}.json", 'rb') as file:
-            res = orjson.loads(file.read())
+            data = orjson.loads(file.read())
+            if category == 'strike':
+                key_element = 'gex'
+                val_sums = [item[f"call_{key_element}"] + item[f"put_{key_element}"] for item in data]
+                threshold = np.percentile(val_sums, 85)
+                data = [item for item in data if (item[f"call_{key_element}"] + item[f"put_{key_element}"]) >= threshold]
+
     except:
-        res = []
-    data = orjson.dumps(res)
+        data = []
+    data = orjson.dumps(data)
     compressed_data = gzip.compress(data)
     redis_client.set(cache_key, compressed_data)
     redis_client.expire(cache_key, 3600*60)
