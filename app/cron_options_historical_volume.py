@@ -41,12 +41,30 @@ query_template = """
     WHERE date BETWEEN ? AND ?
 """
 
+def get_tickers_from_directory(directory: str):
+    try:
+        # Ensure the directory exists
+        if not os.path.exists(directory):
+            raise FileNotFoundError(f"The directory '{directory}' does not exist.")
+        
+        # Get all tickers from filenames
+        return [file.replace(".json", "") for file in os.listdir(directory) if file.endswith(".json")]
+    
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return []
+
+directory_path = "json/options-historical-data/companies"
+total_symbols = get_tickers_from_directory(directory_path)
+
+if len(total_symbols) < 100:
+    total_symbols = stocks_symbols+etf_symbols
+
 print(len(total_symbols))
 
 def save_json(data, symbol):
-    directory="json/options-historical-data/companies"
-    os.makedirs(directory, exist_ok=True)  # Ensure the directory exists
-    with open(f"{directory}/{symbol}.json", 'wb') as file:  # Use binary mode for orjson
+    os.makedirs(directory_path, exist_ok=True)  # Ensure the directory exists
+    with open(f"{directory_path}/{symbol}.json", 'wb') as file:  # Use binary mode for orjson
         file.write(orjson.dumps(data))
 
 
