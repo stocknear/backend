@@ -270,11 +270,6 @@ def run_dashboard():
         run_command(["python3", "cron_dashboard.py"])
 
 
-def run_export_price():
-    week = datetime.today().weekday()
-    if week <= 4:
-        run_command(["python3", "cron_export_price"])
-
 def run_tracker():
 
     scripts = [
@@ -347,7 +342,6 @@ def run_threaded(job_func):
 schedule.every().day.at("00:00").do(run_threaded, run_options_jobs).tag('options_job')
 schedule.every().day.at("02:00").do(run_threaded, run_db_schedule_job)
 #schedule.every().day.at("05:00").do(run_threaded, run_options_gex).tag('options_gex_job')
-schedule.every().day.at("05:00").do(run_threaded, run_export_price).tag('export_price_job')
 
 
 schedule.every().day.at("06:00").do(run_threaded, run_historical_price).tag('historical_job')
