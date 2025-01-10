@@ -11,20 +11,17 @@ api_key = os.getenv('FMP_API_KEY')
 headers = {"accept": "application/json"}
 
 
-def filter_and_deduplicate(data, excluded_domains=None, deduplicate_key='title'):
+def filter_and_deduplicate(data,deduplicate_key='title'):
  
-    if excluded_domains is None:
-        excluded_domains = ['prnewswire.com', 'globenewswire.com', 'accesswire.com']
-    
+   
     seen_keys = set()
     filtered_data = []
     
     for item in data:
-        if not any(domain in item['url'] for domain in excluded_domains):
-            key = item.get(deduplicate_key)
-            if key and key not in seen_keys:
-                filtered_data.append(item)
-                seen_keys.add(key)
+        key = item.get(deduplicate_key)
+        if key and key not in seen_keys:
+            filtered_data.append(item)
+            seen_keys.add(key)
     
     return filtered_data
 
@@ -39,8 +36,8 @@ async def run():
     con.close()
     limit = 200
     urls = [
-        f'https://financialmodelingprep.com/stable/news/stock-latest?limit={limit}&apikey={api_key}',
-        f'https://financialmodelingprep.com/stable/news/general-latest?limit={limit}&apikey={api_key}',
+        f'https://financialmodelingprep.com/api/v3/stock_news?limit={limit}&apikey={api_key}',
+        f'https://financialmodelingprep.com/api/v4/general_news?limit={limit}&apikey={api_key}',
         f"https://financialmodelingprep.com/stable/news/press-releases-latest?limit={limit}&apikey={api_key}"
     ]
     for url in urls:
@@ -49,17 +46,15 @@ async def run():
                 async with session.get(url) as response:
                     data = await response.json()
                     
-                    if "stock-latest" in url or "press-releases-latest" in url:
+                    if "stock_news" in url or "press-releases-latest" in url:
                         data = [item for item in data if item['symbol'] in stock_symbols]
 
-            if "stock-latest" in url:
-                custom_domains = ['prnewswire.com', 'globenewswire.com', 'accesswire.com']
-                data = filter_and_deduplicate(data, excluded_domains=custom_domains)
+            if "stock_news" in url:
+                data = filter_and_deduplicate(data)
                 data_name = 'stock-news'
             
-            if "general-latest" in url:
-                custom_domains = ['prnewswire.com', 'globenewswire.com', 'accesswire.com']
-                data = filter_and_deduplicate(data, excluded_domains=custom_domains)
+            if "general_news" in url:
+                data = filter_and_deduplicate(data)
                 data_name = 'general-news'
             
             if "press-releases-latest" in url:
@@ -68,8 +63,8 @@ async def run():
             if len(data) > 0:
                 with open(f"json/market-news/{data_name}.json", 'w') as file:
                     ujson.dump(data, file)
-        except:
-            pass
+        except Exception as e:
+            print(e)
 
 try:
     asyncio.run(run())
