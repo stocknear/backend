@@ -32,11 +32,8 @@ query_template = """
 """
 
 # List of holidays when the stock market is closed
-holidays = [
-    "2024-01-01",
-    "2024-03-29",
-    "2024-12-25",
-]
+holidays = ['2025-01-01', '2025-01-09','2025-01-20', '2025-02-17', '2025-04-18', '2025-05-26', '2025-06-19', '2025-07-04', '2025-09-01', '2025-11-27', '2025-12-25']
+
 
 def is_holiday(date):
     """Check if the given date is a holiday"""
@@ -66,7 +63,7 @@ def correct_weekday(selected_date):
 
 # Create a semaphore to limit concurrent requests
 REQUEST_LIMIT = 500
-PAUSE_TIME = 10
+PAUSE_TIME = 60
 
 def check_existing_file(symbol):
     file_path = f"json/wiim/company/{symbol}.json"
@@ -109,7 +106,7 @@ async def get_endpoint(session, symbol, con, semaphore):
             "tickers": symbol,
             "channels": "WIIM",
             "pageSize": "20",
-            "displayOutput": "full"
+            "sort":"created:desc",
         }
         
         try:
@@ -117,7 +114,8 @@ async def get_endpoint(session, symbol, con, semaphore):
                 res_list = []
                 res = ujson.loads(await response.text())
                 
-                # Create a timezone-aware datetime for two weeks ago in UTC
+                # Define New York timezone
+                ny_tz = pytz.timezone("America/New_York")
                 
                 for item in res:
                     try:
@@ -129,11 +127,14 @@ async def get_endpoint(session, symbol, con, semaphore):
                         # Skip items older than two weeks
                         if date_obj < N_weeks_ago:
                             continue
+
+                        # Convert the date to New York timezone
+                        date_obj_ny = date_obj.astimezone(ny_tz)
                         
                         start_date_obj_utc = correct_weekday(date_obj)
                         start_date = start_date_obj_utc.strftime("%Y-%m-%d")
                         end_date = date_obj.strftime("%Y-%m-%d")
-                        new_date_str = date_obj.strftime("%Y-%m-%d %H:%M:%S")
+                        new_date_str = date_obj_ny.strftime("%Y-%m-%d %H:%M:%S")
                         
                         query = query_template.format(symbol=symbol)
                         
@@ -153,42 +154,19 @@ async def get_endpoint(session, symbol, con, semaphore):
                             'changesPercentage': change_percent,
                             'url': item['url']
                         })
-                    except Exception as e:
-                        print(f"Error processing item for {symbol}: {e}")
+                    except:
+                        pass
                 
                 if res_list:
                     print(f"Done processing {symbol}")
                     with open(f"json/wiim/company/{symbol}.json", 'w') as file:
                         ujson.dump(res_list, file)
+                        print(res_list)
                 else:
                     check_existing_file(symbol)
                     
         except Exception as e:
             print(f"Error fetching data for {symbol}: {e}")
-
-async def get_latest_wiim(session, stock_symbols, etf_symbols):
-    url = "https://api.benzinga.com/api/v2/news"
-    querystring = {"token": api_key, "channels":"WIIM", "pageSize":"5", "displayOutput":"full"}
-    
-    try:
-        async with session.get(url, params=querystring, headers=headers) as response:
-            res_list = []
-            res = ujson.loads(await response.text())
-            for item in res:
-                for el in item['stocks']:
-                    # Update the 'name' key to 'ticker'
-                    if 'name' in el:
-                        el['ticker'] = el.pop('name')
-                        if el['ticker'] in stock_symbols:
-                            el['assetType'] = 'stock'
-                        elif el['ticker'] in etf_symbols:
-                            el['assetType'] = 'etf'
-                res_list.append({'date': item['created'], 'text': item['title'], 'stocks': item['stocks']})
-            with open(f"json/wiim/rss-feed/data.json", 'w') as file:
-                    ujson.dump(res_list, file)
-
-    except Exception as e:
-        print(e)
 
 async def run():
     con = sqlite3.connect('stocks.db')
@@ -197,7 +175,6 @@ async def run():
     cursor.execute("PRAGMA journal_mode = wal")
     cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
     stock_symbols = [row[0] for row in cursor.fetchall()]
-    #stock_symbols = ['AMD']
 
     etf_con = sqlite3.connect('etf.db')
 
@@ -206,6 +183,9 @@ async def run():
     etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
     etf_symbols = [row[0] for row in etf_cursor.fetchall()]
     
+    #stock_symbols = ['DIS']
+    #etf_symbols = []
+
     # Create a semaphore to limit concurrent requests and implement rate limiting
     semaphore = asyncio.Semaphore(REQUEST_LIMIT)
     
