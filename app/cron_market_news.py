@@ -8,20 +8,18 @@ load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
 
 
-headers = {"accept": "application/json"}
-
 
 def filter_and_deduplicate(data,deduplicate_key='title'):
  
-   
     seen_keys = set()
     filtered_data = []
-    
+    excluded_domains = ['accesswire.com']
     for item in data:
-        key = item.get(deduplicate_key)
-        if key and key not in seen_keys:
-            filtered_data.append(item)
-            seen_keys.add(key)
+        if not any(domain in item['url'] for domain in excluded_domains):
+            key = item.get(deduplicate_key)
+            if key and key not in seen_keys:
+                filtered_data.append(item)
+                seen_keys.add(key)
     
     return filtered_data
 
