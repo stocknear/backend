@@ -2718,10 +2718,14 @@ async def get_data(data:ParamsData, api_key: str = Security(get_api_key)):
     try:
         with open(f"json/oi/{category}/{ticker}.json", 'rb') as file:
             data = orjson.loads(file.read())
-            
+            if category == 'strike':
+                val_sums = [item[f"call_oi"] + item[f"put_oi"] for item in data]
+                threshold = np.percentile(val_sums, 85)
+                data = [item for item in data if (item[f"call_oi"] + item[f"put_oi"]) >= threshold]     
     except:
         data = []
     data = orjson.dumps(data)
+
     compressed_data = gzip.compress(data)
     redis_client.set(cache_key, compressed_data)
     redis_client.expire(cache_key, 3600*60)
@@ -2759,7 +2763,6 @@ async def get_options_stats_ticker(data:TickerData, api_key: str = Security(get_
     )
 
 
-#api endpoint not for website but for user
 @app.post("/raw-options-flow-ticker")
 @limiter.limit("500/minute")
 async def get_raw_options_flow_ticker(data:OptionsFlowData, request: Request, api_key: str = Security(get_api_key)):
