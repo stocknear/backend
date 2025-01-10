@@ -161,7 +161,6 @@ async def get_endpoint(session, symbol, con, semaphore):
                     print(f"Done processing {symbol}")
                     with open(f"json/wiim/company/{symbol}.json", 'w') as file:
                         ujson.dump(res_list, file)
-                        print(res_list)
                 else:
                     check_existing_file(symbol)
                     

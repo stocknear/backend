@@ -284,7 +284,7 @@ def run_tracker():
     week = datetime.today().weekday()
     if week <= 4:
         scripts = [
-            "cron_cramer_tracker.py",
+            #"cron_cramer_tracker.py",
             #"cron_lobbying_tracker.py",
             #"cron_sentiment_tracker.py",
             "cron_insider_tracker.py",
@@ -390,7 +390,7 @@ schedule.every(7).minutes.do(run_threaded, run_one_day_price).tag('one_day_price
 schedule.every(20).minutes.do(run_threaded, run_tracker).tag('tracker_job')
 
 
-schedule.every(15).minutes.do(run_threaded, run_market_moods).tag('market_moods_job')
+schedule.every(30).minutes.do(run_threaded, run_market_moods).tag('market_moods_job')
 schedule.every(10).minutes.do(run_threaded, run_earnings).tag('earnings_job')
 
 #schedule.every(4).hours.do(run_threaded, run_share_statistics).tag('share_statistics_job')
