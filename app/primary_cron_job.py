@@ -285,8 +285,8 @@ def run_tracker():
     if week <= 4:
         scripts = [
             "cron_cramer_tracker.py",
-            "cron_lobbying_tracker.py",
-            "cron_sentiment_tracker.py",
+            #"cron_lobbying_tracker.py",
+            #"cron_sentiment_tracker.py",
             "cron_insider_tracker.py",
             "cron_list.py",
         ]
