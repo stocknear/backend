@@ -288,10 +288,16 @@ def run_tracker():
             #"cron_lobbying_tracker.py",
             #"cron_sentiment_tracker.py",
             "cron_insider_tracker.py",
-            "cron_list.py",
         ]
         for script in scripts:
             run_command(["python3", script])
+
+
+def run_list():
+    week = datetime.today().weekday()
+    if week <= 5:
+        run_command(["python3", "cron_list.py"])
+
 
 def run_financial_statements():
     week = datetime.today().weekday()
@@ -402,6 +408,10 @@ schedule.every(3).hours.do(run_threaded, run_press_releases).tag('press_release_
 schedule.every(1).hours.do(run_threaded, run_fda_calendar).tag('fda_calendar_job')
 
 schedule.every(5).minutes.do(run_threaded, run_market_flow).tag('market_flow_job')
+schedule.every(5).minutes.do(run_threaded, run_list).tag('stock_list_job')
+
+
+
 schedule.every(30).minutes.do(run_threaded, run_dark_pool_level).tag('dark_pool_level_job')
 schedule.every(10).seconds.do(run_threaded, run_dark_pool_flow).tag('dark_pool_flow_job')
 
