@@ -97,11 +97,11 @@ def run_options_jobs():
         time.sleep(60)
         run_command(["python3", "cron_options_stats.py"])
         time.sleep(60)
+        run_command(["python3", "cron_options_historical_volume.py"])
+        time.sleep(60)
         run_command(["python3", "cron_options_hottest_contracts.py"])
         time.sleep(60)
         run_command(["python3", "cron_options_single_contract.py"])
-        time.sleep(60)
-        run_command(["python3", "cron_options_historical_volume.py"])
 
 def run_fda_calendar():
     now = datetime.now(ny_tz)

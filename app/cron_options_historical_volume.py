@@ -62,6 +62,7 @@ if len(total_symbols) < 100:
 
 print(len(total_symbols))
 
+
 def save_json(data, symbol):
     os.makedirs(directory_path, exist_ok=True)  # Ensure the directory exists
     with open(f"{directory_path}/{symbol}.json", 'wb') as file:  # Use binary mode for orjson
