@@ -93,7 +93,6 @@ async def get_todays_data(ticker):
 async def run():
     con = sqlite3.connect('stocks.db')
     etf_con = sqlite3.connect('etf.db')
-    crypto_con = sqlite3.connect('crypto.db')
 
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
@@ -105,16 +104,10 @@ async def run():
     etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
     etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
-    crypto_cursor = crypto_con.cursor()
-    crypto_cursor.execute("PRAGMA journal_mode = wal")
-    crypto_cursor.execute("SELECT DISTINCT symbol FROM cryptos")
-    crypto_symbols = [row[0] for row in crypto_cursor.fetchall()]
-
     con.close()
     etf_con.close()
-    crypto_con.close()
 
-    total_symbols = stocks_symbols + etf_symbols + crypto_symbols
+    total_symbols = stocks_symbols + etf_symbols
     total_symbols = sorted(total_symbols, key=lambda x: '.' in x)
 
 

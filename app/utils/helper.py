@@ -23,7 +23,7 @@ def check_market_hours():
     # Determine the market status
     if is_weekend or is_holiday:
         return False #"Market is closed."
-    elif 9 <= current_hour < 16 or (current_hour == 17 and current_minute == 0):
+    elif 9 <= current_hour < 17 or (current_hour == 17 and current_minute == 0):
         return True #"Market hours."
     else:
         return False #"Market is closed."
