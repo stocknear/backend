@@ -3906,14 +3906,8 @@ async def get_next_earnings(data:TickerData, api_key: str = Security(get_api_key
     except:
         res = {}
 
-    try:
-        with open(f"json/earnings/past/{ticker}.json", 'rb') as file:
-            past_earnings = orjson.loads(file.read())
-    except:
-        past_earnings = []
-
-    final_res = {'next': res, 'past': past_earnings}
-    data = orjson.dumps(final_res)
+    
+    data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
 
     redis_client.set(cache_key, compressed_data)
@@ -3947,6 +3941,35 @@ async def get_surprise_earnings(data:TickerData, api_key: str = Security(get_api
 
     redis_client.set(cache_key, compressed_data)
     redis_client.expire(cache_key,15*60)
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
+
+@app.post("/price-action-earnings")
+async def get_data(data:TickerData, api_key: str = Security(get_api_key)):
+    ticker = data.ticker.upper()
+    cache_key = f"price-action-earnings-{ticker}"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
+    try:
+        with open(f"json/earnings/past/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
+    except:
+        res = []
+
+    data = orjson.dumps(res)
+    compressed_data = gzip.compress(data)
+
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key,3600*60)
 
     return StreamingResponse(
         io.BytesIO(compressed_data),

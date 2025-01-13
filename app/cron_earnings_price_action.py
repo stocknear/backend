@@ -9,6 +9,7 @@ import time
 import os
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
+from ta.momentum import *
 from tqdm import tqdm
 import pytz
 
@@ -35,65 +36,75 @@ import pytz
 
 ny_tz = pytz.timezone("America/New_York")
 
+async def compute_rsi(price_history, time_period=14):
+    df_price = pd.DataFrame(price_history)
+    df_price['rsi'] = rsi(df_price['close'], window=time_period)
+    result = df_price.to_dict(orient='records')
+    return result
+    
+
 async def calculate_price_reactions(filtered_data, price_history):
     # Ensure price_history is sorted by date
-    price_history.sort(key=lambda x: datetime.strptime(x['time'], "%Y-%m-%d"))
-
-    # Convert price history to a dictionary for quick lookup
-    price_dict = {entry['time']: entry for entry in price_history}
+    price_history.sort(key=lambda x: x['time'])
 
     results = []
 
-    for earnings in filtered_data:
-        report_date = earnings['date']
-        report_datetime = ny_tz.localize(datetime.strptime(report_date, "%Y-%m-%d"))
+    for item in filtered_data:
+        report_date = item['date']
+
+        # Find the index of the report date in the price history
+        report_index = next((i for i, entry in enumerate(price_history) if entry['time'] == report_date), None)
+        if report_index is None:
+            continue  # Skip if report date is not found in the price history
 
         # Initialize a dictionary for price reactions
-        price_reactions = {'date': report_date, 'quarter': earnings['quarter'], 'year': earnings['year']}
+        price_reactions = {
+            'date': report_date,
+            'quarter': item['quarter'],
+            'year': item['year'],
+            'time': item['time'],
+            'rsi': int(price_history[report_index]['rsi'])
+        }
 
-        for offset in [0,1,2]:  # Days around earnings
-            # Calculate initial target date with offset
-            target_date = report_datetime - timedelta(days=offset)
+        for offset in [-4,-3,-2,-1,0,1,2,3,4,6]:
+            target_index = report_index + offset
 
-            # Adjust target_date to the latest weekday if it falls on a weekend
-            if target_date.weekday() == 5:  # Saturday
-                target_date -= timedelta(days=1)  # Move to Friday
-            elif target_date.weekday() == 6:  # Sunday
-                target_date -= timedelta(days=2)  # Move to Friday
+            # Ensure the target index is within bounds
+            if 0 <= target_index < len(price_history):
+                target_price_data = price_history[target_index]
+                previous_index = target_index - 1
 
-            target_date_str = target_date.strftime("%Y-%m-%d")
-            while target_date_str not in price_dict:  # Ensure target_date exists in price_dict
-                target_date -= timedelta(days=1)
-                target_date_str = target_date.strftime("%Y-%m-%d")
+        
 
-            price_data = price_dict[target_date_str]
+                # Ensure the previous index is within bounds
+                if 0 <= previous_index < len(price_history):
+                    previous_price_data = price_history[previous_index]
 
-            # Find the previous day's price data
-            previous_date = target_date - timedelta(days=1)
-            if previous_date.weekday() == 5:  # Saturday
-                previous_date -= timedelta(days=1)  # Move to Friday
-            elif previous_date.weekday() == 6:  # Sunday
-                previous_date -= timedelta(days=2)  # Move to Friday
+                    # Calculate close price and percentage change
+                    direction = "forward" if offset >= 0 else "backward"
+                    days_key = f"{direction}_{abs(offset)}_days"
 
-            previous_date_str = previous_date.strftime("%Y-%m-%d")
-            while previous_date_str not in price_dict:  # Ensure previous_date exists in price_dict
-                previous_date -= timedelta(days=1)
-                previous_date_str = previous_date.strftime("%Y-%m-%d")
+                    if offset != 1:
+                        price_reactions[f"{days_key}_close"] = target_price_data['close']
+                        price_reactions[f"{days_key}_change_percent"] = round(
+                            (target_price_data['close'] / previous_price_data['close'] - 1) * 100, 2
+                        )
 
-            previous_price_data = price_dict[previous_date_str]
+                    if offset ==1:
+                        price_reactions['open'] = target_price_data['open']
+                        price_reactions['high'] = target_price_data['high']
+                        price_reactions['low'] = target_price_data['low']
+                        price_reactions['close'] = target_price_data['close']
 
-            # Calculate close price and percentage change
-            price_reactions[f"{offset+1}_days_close"] = price_data['close']
-            price_reactions[f"{offset+1}_days_change_percent"] = round(
-                (price_data['close'] / previous_price_data['close'] - 1) * 100, 2
-            )
+                        price_reactions[f"open_change_percent"] = round((target_price_data['open'] / previous_price_data['close'] - 1) * 100, 2)
+                        price_reactions[f"high_change_percent"] = round((target_price_data['high'] / previous_price_data['close'] - 1) * 100, 2)
+                        price_reactions[f"low_change_percent"] = round((target_price_data['low'] / previous_price_data['close'] - 1) * 100, 2)
+                        price_reactions[f"close_change_percent"] = round((target_price_data['close'] / previous_price_data['close'] - 1) * 100, 2)
 
-            print(target_date_str, previous_date_str)
+
         results.append(price_reactions)
 
     return results
-
-
 
 async def get_past_data(data, ticker, con):
     # Filter data based on date constraints
@@ -112,7 +123,8 @@ async def get_past_data(data, ticker, con):
                         'epsSurprisePercent': round(float(item['eps_surprise_percent'])*100, 2),
                         'year': item['period_year'],
                         'quarter': item['period'],
-                        'date': item['date']
+                        'date': item['date'],
+                        'time': item['time']
                     }
                 )
         except:
@@ -127,11 +139,10 @@ async def get_past_data(data, ticker, con):
             with open(f"json/historical-price/max/{ticker}.json") as file:
                 price_history = orjson.loads(file.read())
 
+            price_history = await compute_rsi(price_history)
             results = await calculate_price_reactions(filtered_data, price_history)
-            print(filtered_data[0])
-            print(results[1])
-            # Save the updated filtered_data
-            #await save_json(filtered_data, ticker, 'json/earnings/past')
+            #print(results[0])
+            await save_json(results, ticker, 'json/earnings/past')
             
         except:
             pass
@@ -162,7 +173,7 @@ try:
     cursor.execute("PRAGMA journal_mode = wal")
     cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%' AND symbol NOT LIKE '%-%'")
     stock_symbols = [row[0] for row in cursor.fetchall()]
-    stock_symbols = ['AMD']
+    #stock_symbols = ['AMD']
 
     asyncio.run(run(stock_symbols, con))
     

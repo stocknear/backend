@@ -32,7 +32,7 @@ etf_con.close()
 
 
 # Define start and end dates for historical data
-start_date = datetime.strptime('2023-01-01', '%Y-%m-%d')
+start_date = datetime.strptime('2025-01-01', '%Y-%m-%d')
 end_date = datetime.now()
 
 # Directory to save the JSON files
