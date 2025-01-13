@@ -3111,7 +3111,7 @@ async def get_wiim(data:TickerData, api_key: str = Security(get_api_key)):
         res = []
 
     redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 60*60*2)
+    redis_client.expire(cache_key, 60*5)
     return res
 
 @app.get("/dashboard-info")
