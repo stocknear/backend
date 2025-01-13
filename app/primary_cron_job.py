@@ -327,6 +327,12 @@ def run_earnings():
     if week <= 4:
         run_command(["python3", "cron_earnings.py"])
 
+def run_price_reaction():
+    week = datetime.today().weekday()
+    if week <= 5:
+        run_command(["python3", "cron_earnings_price_reaction.py"])
+
+
 
 def run_economy_indicator():
     week = datetime.today().weekday()
@@ -364,6 +370,8 @@ schedule.every().day.at("08:00").do(run_threaded, run_cron_insider_trading).tag(
 schedule.every().day.at("08:30").do(run_threaded, run_dividends).tag('dividends_job')
 schedule.every().day.at("09:00").do(run_threaded, run_shareholders).tag('shareholders_job')
 schedule.every().day.at("09:30").do(run_threaded, run_profile).tag('profile_job')
+schedule.every().day.at("09:30").do(run_threaded, run_price_reaction).tag('price_reaction_job')
+
 #schedule.every().day.at("10:30").do(run_threaded, run_sec_filings).tag('sec_filings_job')
 #schedule.every().day.at("11:00").do(run_threaded, run_executive).tag('executive_job')
 schedule.every().day.at("12:00").do(run_threaded, run_market_cap).tag('market_cap_josb')
