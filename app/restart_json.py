@@ -299,8 +299,8 @@ def process_financial_data(file_path, key_list):
                 if key in res:
                     try:
                         value = float(res[key])
-                        if 'growth' in file_path or key in ['grossProfitMargin','netProfitMargin','pretaxProfitMargin','operatingProfitMargin','longTermDebtToCapitalization','totalDebtToCapitalization']:
-                            value *= 100  # Multiply by 100 for percentage
+                        if 'growth' in file_path or key in ['longTermDebtToCapitalization','totalDebtToCapitalization']:
+                            value = value*100  # Multiply by 100 for percentage
 
                         data[key] = round(value, 2) if value is not None else None
                     except (ValueError, TypeError):
@@ -709,6 +709,7 @@ async def get_stock_screener(con):
 
         #Financial Statements
         item.update(get_financial_statements(item, symbol))
+ 
 
         try:
             with open(f"json/financial-statements/income-statement/annual/{symbol}.json", 'r') as file:
