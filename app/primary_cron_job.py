@@ -362,6 +362,7 @@ schedule.every().day.at("06:00").do(run_threaded, run_historical_price).tag('his
 schedule.every().day.at("06:30").do(run_threaded, run_ai_score).tag('ai_score_job')
 
 schedule.every().day.at("07:00").do(run_threaded, run_ta_rating).tag('ta_rating_job')
+schedule.every().day.at("08:00").do(run_threaded, run_price_reaction).tag('price_reaction_job')
 schedule.every().day.at("08:00").do(run_threaded, run_dark_pool_ticker).tag('dark_pool_ticker_job')
 schedule.every().day.at("09:00").do(run_threaded, run_hedge_fund).tag('hedge_fund_job')
 schedule.every().day.at("07:30").do(run_threaded, run_financial_statements).tag('financial_statements_job')
@@ -370,7 +371,6 @@ schedule.every().day.at("08:00").do(run_threaded, run_cron_insider_trading).tag(
 schedule.every().day.at("08:30").do(run_threaded, run_dividends).tag('dividends_job')
 schedule.every().day.at("09:00").do(run_threaded, run_shareholders).tag('shareholders_job')
 schedule.every().day.at("09:30").do(run_threaded, run_profile).tag('profile_job')
-schedule.every().day.at("09:30").do(run_threaded, run_price_reaction).tag('price_reaction_job')
 
 #schedule.every().day.at("10:30").do(run_threaded, run_sec_filings).tag('sec_filings_job')
 #schedule.every().day.at("11:00").do(run_threaded, run_executive).tag('executive_job')
