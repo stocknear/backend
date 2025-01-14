@@ -3556,7 +3556,7 @@ async def get_analyst_insight(data:TickerData, api_key: str = Security(get_api_k
 
 
 @app.post("/implied-volatility")
-async def get_clinical_trial(data:TickerData, api_key: str = Security(get_api_key)):
+async def get_data(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     cache_key = f"implied-volatility-{ticker}"
     cached_result = redis_client.get(cache_key)
@@ -3568,16 +3568,17 @@ async def get_clinical_trial(data:TickerData, api_key: str = Security(get_api_ke
         )
 
     try:
-        with open(f"json/implied-volatility/companies/{ticker}.json", 'rb') as file:
+        with open(f"json/implied-volatility/{ticker}.json", 'rb') as file:
             res = orjson.loads(file.read())
-    except:
+    except Exception as e:
+        print(e)
         res = []
 
     data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
 
     redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
+    redis_client.expire(cache_key, 60*60)  # Set cache expiration time to 1 day
 
     return StreamingResponse(
         io.BytesIO(compressed_data),

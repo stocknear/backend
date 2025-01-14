@@ -43,28 +43,40 @@ async def compute_rsi(price_history, time_period=14):
     return result
     
 
-async def calculate_price_reactions(filtered_data, price_history):
+async def calculate_price_reactions(ticker, filtered_data, price_history):
     # Ensure price_history is sorted by date
     price_history.sort(key=lambda x: x['time'])
 
     results = []
+
+    with open(f"json/implied-volatility/{ticker}.json",'r') as file:
+        iv_data = ujson.load(file)
 
     for item in filtered_data:
         report_date = item['date']
 
         # Find the index of the report date in the price history
         report_index = next((i for i, entry in enumerate(price_history) if entry['time'] == report_date), None)
+        
         if report_index is None:
             continue  # Skip if report date is not found in the price history
 
         # Initialize a dictionary for price reactions
+        iv_value = next((entry['implied_volatility'] for entry in iv_data if entry['date'] == report_date), None)
+
+        #if iv_value is None:
+        #    continue  # Skip if no matching iv_data is found for the report_date
+
         price_reactions = {
             'date': report_date,
             'quarter': item['quarter'],
             'year': item['year'],
             'time': item['time'],
-            'rsi': int(price_history[report_index]['rsi'])
+            'rsi': int(price_history[report_index]['rsi']),
+            'iv': iv_value,
         }
+
+        
 
         for offset in [-4,-3,-2,-1,0,1,2,3,4,6]:
             target_index = report_index + offset
@@ -140,7 +152,7 @@ async def get_past_data(data, ticker, con):
                 price_history = orjson.loads(file.read())
 
             price_history = await compute_rsi(price_history)
-            results = await calculate_price_reactions(filtered_data, price_history)
+            results = await calculate_price_reactions(ticker, filtered_data, price_history)
             #print(results[0])
             await save_json(results, ticker, 'json/earnings/past')
             
@@ -173,7 +185,7 @@ try:
     cursor.execute("PRAGMA journal_mode = wal")
     cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
     stock_symbols = [row[0] for row in cursor.fetchall()]
-    #stock_symbols = ['AMD']
+    stock_symbols = ['AMD']
 
     asyncio.run(run(stock_symbols, con))
     

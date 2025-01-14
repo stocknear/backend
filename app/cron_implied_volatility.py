@@ -60,6 +60,27 @@ def safe_round(value, decimals=2):
         return value
 
 
+def add_data(data, historical_data):
+    res_list = []
+    for item in data:
+        date = item['date']
+        for item2 in historical_data:
+            try:
+                if date == item2['date']:
+                   item['changesPercentage'] = item2['changesPercentage']
+                   item['putCallRatio'] = item2['putCallRatio']
+                   item['total_open_interest'] = item2['total_open_interest']
+                   item['changesPercentageOI'] = item2.get('changesPercentageOI',None)
+            except:
+                pass
+        
+        if 'changesPercentage' in item:
+            res_list.append(item)
+    
+    return res_list
+
+
+
 def prepare_data(data, symbol, directory_path, sort_by = "date"):
     res_list = []
     for item in data:
@@ -74,8 +95,14 @@ def prepare_data(data, symbol, directory_path, sort_by = "date"):
             pass
 
     if res_list:
-        res_list = sorted(res_list, key=lambda x: x[sort_by], reverse=True)
+        data = sorted(res_list, key=lambda x: x[sort_by], reverse=True)
+        with open(f"json/options-historical-data/companies/{symbol}.json", "r") as file:
+            historical_data = orjson.loads(file.read())
+        
+        res_list = add_data(data,historical_data)
+        
         save_json(res_list, symbol, directory_path)
+
 
 
 def get_iv_data():
@@ -86,7 +113,7 @@ def get_iv_data():
         total_symbols = stocks_symbols+etf_symbols
 
     counter = 0
-
+    total_symbols = ['AMZN']
     for symbol in tqdm(total_symbols):
         try:
             url = f"https://api.unusualwhales.com/api/stock/{symbol}/volatility/realized"
@@ -110,3 +137,4 @@ def get_iv_data():
 
 if __name__ == '__main__':
     get_iv_data()
+    
