@@ -113,7 +113,6 @@ def get_iv_data():
         total_symbols = stocks_symbols+etf_symbols
 
     counter = 0
-    total_symbols = ['AMZN']
     for symbol in tqdm(total_symbols):
         try:
             url = f"https://api.unusualwhales.com/api/stock/{symbol}/volatility/realized"
@@ -138,3 +137,23 @@ def get_iv_data():
 if __name__ == '__main__':
     get_iv_data()
     
+    '''
+    directory_path = "json/implied-volatility"
+    total_symbols = get_tickers_from_directory(directory_path)
+    if len(total_symbols) < 100:
+        total_symbols = stocks_symbols+etf_symbols
+
+    for symbol in tqdm(total_symbols):
+        try:
+            with open(f"json/options-historical-data/companies/{symbol}.json", "r") as file:
+                historical_data = orjson.loads(file.read())
+
+            with open(f"json/implied-volatility/{symbol}.json", "r") as file:
+                data = orjson.loads(file.read())
+            
+            res_list = add_data(data,historical_data)
+
+            save_json(res_list, symbol, directory_path)
+        except:
+            pass
+    '''
