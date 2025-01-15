@@ -99,6 +99,8 @@ def run_options_jobs():
         time.sleep(60)
         run_command(["python3", "cron_options_historical_volume.py"])
         time.sleep(60)
+        run_command(["python3", "cron_implied_volatility.py"])
+        time.sleep(60)
         run_command(["python3", "cron_options_hottest_contracts.py"])
         time.sleep(60)
         run_command(["python3", "cron_options_single_contract.py"])
@@ -353,7 +355,7 @@ def run_threaded(job_func):
 
 # Schedule the job to run
 
-schedule.every().day.at("00:00").do(run_threaded, run_options_jobs).tag('options_job')
+schedule.every().day.at("22:00").do(run_threaded, run_options_jobs).tag('options_job')
 schedule.every().day.at("02:00").do(run_threaded, run_db_schedule_job)
 schedule.every().day.at("05:00").do(run_threaded, run_options_historical_flow).tag('options_historical_flow_job')
 

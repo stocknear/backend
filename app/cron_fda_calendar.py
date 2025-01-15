@@ -5,19 +5,14 @@ import os
 import sqlite3
 from tqdm import tqdm
 from dotenv import load_dotenv
+from datetime import datetime
 import requests
 
 # Load environment variables
 load_dotenv()
 
-'''
-benzinga_api_key = os.getenv('benzinga_api_key')
+today = datetime.today().date()
 
-url = "https://api.benzinga.com/api/v2.1/calendar/fda"
-querystring = {"token":benzinga_api_key}
-headers = {"accept": "application/json"}
-
-'''
 api_key = os.getenv('UNUSUAL_WHALES_API_KEY')
 
 url = "https://api.unusualwhales.com/api/market/fda-calendar"
@@ -45,6 +40,11 @@ async def get_data():
     try:
         response = requests.get(url, headers=headers)
         data = response.json()['data']
+        data = [
+            entry for entry in data
+            if datetime.strptime(entry['start_date'], '%Y-%m-%d').date() >= today
+        ]
+        
         res_list = []
         for item in data:
             try:
