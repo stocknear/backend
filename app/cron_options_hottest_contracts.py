@@ -12,6 +12,10 @@ from functools import partial
 import asyncio
 import aiohttp
 
+
+today = datetime.today().date()
+
+
 load_dotenv()
 
 api_key = os.getenv('UNUSUAL_WHALES_API_KEY')
@@ -92,24 +96,24 @@ def prepare_data(data, symbol):
             if float(item['volume']) > 0:
                 # Parse option_symbol
                 date_expiration, option_type, strike_price = parse_option_symbol(item['option_symbol'])
+                if date_expiration >= today:
+                    # Round numerical and numerical-string values
+                    new_item = {
+                        key: safe_round(value) if isinstance(value, (int, float, str)) else value
+                        for key, value in item.items()
+                    }
 
-                # Round numerical and numerical-string values
-                new_item = {
-                    key: safe_round(value) if isinstance(value, (int, float, str)) else value
-                    for key, value in item.items()
-                }
+                    # Add parsed fields
+                    new_item['date_expiration'] = date_expiration
+                    new_item['option_type'] = option_type
+                    new_item['strike_price'] = strike_price
 
-                # Add parsed fields
-                new_item['date_expiration'] = date_expiration
-                new_item['option_type'] = option_type
-                new_item['strike_price'] = strike_price
+                    # Calculate open_interest_change
+                    new_item['open_interest_change'] = safe_round(
+                        new_item.get('open_interest', 0) - new_item.get('prev_oi', 0)
+                    )
 
-                # Calculate open_interest_change
-                new_item['open_interest_change'] = safe_round(
-                    new_item.get('open_interest', 0) - new_item.get('prev_oi', 0)
-                )
-
-                res_list.append(new_item)
+                    res_list.append(new_item)
         except:
             pass
 
@@ -130,6 +134,7 @@ def get_hottest_contracts():
             response = requests.get(url, headers=headers)
             if response.status_code == 200:
                 data = response.json()['data']
+
                 prepare_data(data, symbol)
             
             counter +=1
