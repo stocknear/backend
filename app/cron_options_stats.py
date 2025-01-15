@@ -109,13 +109,10 @@ async def fetch_data(session, chunk):
 
     try:
         async with session.get(url, headers=headers, params=params) as response:
-            if response.status == 200:
-                json_data = await response.json()
-                data = json_data.get('data', [])
-                prepare_data(data)
-                print(f"Processed chunk with {len(data)} results.")
-            else:
-                print(f"Error fetching chunk {chunk_str}: {response.status}")
+            json_data = await response.json()
+            data = json_data.get('data', [])
+            prepare_data(data)
+            print(f"Processed chunk with {len(data)} results.")
     except Exception as e:
         print(f"Exception fetching chunk {chunk_str}: {e}")
 
@@ -129,11 +126,11 @@ async def main():
     chunks = [total_symbols[i:i + chunk_size] for i in range(0, len(total_symbols), chunk_size)]
 
     async with aiohttp.ClientSession() as session:
-        for i in range(0, len(chunks), 200):  # Process 200 chunks at a time
+        for i in range(0, len(chunks), 100):  # Process 100 chunks at a time
             try:
-                tasks = [fetch_data(session, chunk) for chunk in chunks[i:i + 200]]
+                tasks = [fetch_data(session, chunk) for chunk in chunks[i:i + 100]]
                 await asyncio.gather(*tasks)
-                print("Processed 200 chunks. Sleeping for 60 seconds...")
+                print("Processed 100 chunks. Sleeping for 60 seconds...")
                 await asyncio.sleep(60)  # Avoid API rate limits
             except:
                 pass
