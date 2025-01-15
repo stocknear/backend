@@ -73,6 +73,13 @@ def run_market_flow():
     if week <= 4 and 8 <= hour < 20:
         run_command(["python3", "cron_market_flow.py"])
 
+def run_options_stats():
+    now = datetime.now(ny_tz)
+    week = now.weekday()
+    hour = now.hour
+    if week <= 4 and 9 <= hour < 16:
+        run_command(["python3", "cron_options_stats.py"])
+
 def run_dark_pool_level():
     now = datetime.now(ny_tz)
     week = now.weekday()
@@ -416,6 +423,8 @@ schedule.every(1).hours.do(run_threaded, run_company_news).tag('company_news_job
 schedule.every(3).hours.do(run_threaded, run_press_releases).tag('press_release_job')
 
 schedule.every(1).hours.do(run_threaded, run_fda_calendar).tag('fda_calendar_job')
+
+schedule.every(10).minutes.do(run_threaded, run_options_stats).tag('options_stats_job')
 
 schedule.every(5).minutes.do(run_threaded, run_market_flow).tag('market_flow_job')
 schedule.every(5).minutes.do(run_threaded, run_list).tag('stock_list_job')
