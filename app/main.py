@@ -2755,7 +2755,7 @@ async def get_options_stats_ticker(data:TickerData, api_key: str = Security(get_
     data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
     redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 60*60)
+    redis_client.expire(cache_key, 60*5)
     return StreamingResponse(
         io.BytesIO(compressed_data),
         media_type="application/json",
