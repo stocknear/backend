@@ -50,24 +50,27 @@ async def process_category(cursor, category, condition, category_type='market-ca
     
     res_list = []
     for row in raw_data:
-        symbol = row[0]
-        quote_data = await get_quote_data(symbol)
-        if quote_data:
-            item = {
-                'symbol': symbol,
-                'name': row[1],
-                'price': round(quote_data.get('price'), 2) if quote_data.get('price') is not None else None,
-                'changesPercentage': round(quote_data.get('changesPercentage'), 2) if quote_data.get('changesPercentage') is not None else None,
-                'marketCap': quote_data.get('marketCap', 0),
-                'revenue': 0,
-            }
-            
-            # Add screener data if available
-            if symbol in stock_screener_data_dict:
-                item['revenue'] = stock_screener_data_dict[symbol].get('revenue',0)
-            
-            if item['marketCap'] > 0 and item['revenue'] > 0:
-                res_list.append(item)
+        try:
+            symbol = row[0]
+            quote_data = await get_quote_data(symbol)
+            if quote_data:
+                item = {
+                    'symbol': symbol,
+                    'name': row[1],
+                    'price': round(quote_data.get('price'), 2) if quote_data.get('price') is not None else None,
+                    'changesPercentage': round(quote_data.get('changesPercentage'), 2) if quote_data.get('changesPercentage') is not None else None,
+                    'marketCap': quote_data.get('marketCap', 0),
+                    'revenue': 0,
+                }
+                
+                # Add screener data if available
+                if symbol in stock_screener_data_dict:
+                    item['revenue'] = stock_screener_data_dict[symbol].get('revenue',0)
+                
+                if item['marketCap'] > 0 and item['revenue'] > 0:
+                    res_list.append(item)
+        except:
+            pass
     
     # Sort by market cap and save
     sorted_result = sorted(res_list, key=lambda x: x['marketCap'] if x['marketCap'] else 0, reverse=True)
@@ -1176,6 +1179,7 @@ async def run():
             #await asyncio.sleep(1)  # Small delay between categories
 
         # Process sector categories
+        
         for category, condition in sector_conditions.items():
             await process_category(cursor, category, condition, 'sector')
             #await asyncio.sleep(1)  # Small delay between categories

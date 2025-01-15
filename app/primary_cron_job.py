@@ -376,7 +376,7 @@ schedule.every().day.at("09:30").do(run_threaded, run_profile).tag('profile_job'
 
 #schedule.every().day.at("10:30").do(run_threaded, run_sec_filings).tag('sec_filings_job')
 #schedule.every().day.at("11:00").do(run_threaded, run_executive).tag('executive_job')
-schedule.every().day.at("12:00").do(run_threaded, run_market_cap).tag('market_cap_josb')
+schedule.every().day.at("12:00").do(run_threaded, run_market_cap).tag('market_cap_job')
 
 #schedule.every().day.at("05:00").do(run_threaded, run_implied_volatility).tag('implied_volatility_job')
 
