@@ -7,11 +7,9 @@ import pandas as pd
 from GetStartEndDate import GetStartEndDate
 from dotenv import load_dotenv
 import os
-from utils.helper import check_market_hours
 
 load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
-
 
 
 async def save_price_data(symbol, data):
@@ -27,7 +25,9 @@ async def fetch_and_save_symbols_data(symbols):
     responses = await asyncio.gather(*tasks)
     
     for symbol, response in zip(symbols, responses):
-        await save_price_data(symbol, response)
+        if len(response) > 0:
+            print(response[0])
+            await save_price_data(symbol, response)
 
 async def get_todays_data(ticker):
 
@@ -109,19 +109,14 @@ async def run():
 
     total_symbols = stocks_symbols + etf_symbols
     total_symbols = sorted(total_symbols, key=lambda x: '.' in x)
-
-
-    market_open = check_market_hours()
     
-    if market_open:
-        chunk_size = 1000
-        for i in range(0, len(total_symbols), chunk_size):
-            symbols_chunk = total_symbols[i:i+chunk_size]
-            await fetch_and_save_symbols_data(symbols_chunk)
-            print('sleeping for 45 sec')
-            await asyncio.sleep(45)  # Wait for 60 seconds between chunks
-    else:
-        print('Market Closed')
+    chunk_size = 1000
+    for i in range(0, len(total_symbols), chunk_size):
+        symbols_chunk = total_symbols[i:i+chunk_size]
+        await fetch_and_save_symbols_data(symbols_chunk)
+        print('sleeping...')
+        await asyncio.sleep(60)  # Wait for 60 seconds between chunks
+
 
 try:
     asyncio.run(run())

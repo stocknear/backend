@@ -222,8 +222,12 @@ def run_historical_price():
         run_command(["python3", "cron_historical_price.py"])
 
 def run_one_day_price():
+    from utils.helper import check_market_hours
+
     week = datetime.today().weekday()
-    if week <= 4:
+    market_open = check_market_hours()
+
+    if week <= 4 and market_open:
         run_command(["python3", "cron_one_day_price.py"])
 
 def run_sec_filings():
@@ -406,7 +410,7 @@ schedule.every(30).minutes.do(run_threaded, run_cron_market_news).tag('market_ne
 
 schedule.every(30).minutes.do(run_threaded, run_cron_industry).tag('industry_job')
 
-schedule.every(7).minutes.do(run_threaded, run_one_day_price).tag('one_day_price_job')
+schedule.every(8).minutes.do(run_threaded, run_one_day_price).tag('one_day_price_job')
 #schedule.every(15).minutes.do(run_threaded, run_cron_heatmap).tag('heatmap_job')
 
 
