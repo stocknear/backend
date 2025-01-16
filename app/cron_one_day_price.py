@@ -26,7 +26,6 @@ async def fetch_and_save_symbols_data(symbols):
     
     for symbol, response in zip(symbols, responses):
         if len(response) > 0:
-            print(response[0])
             await save_price_data(symbol, response)
 
 async def get_todays_data(ticker):
