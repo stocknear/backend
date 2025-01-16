@@ -62,7 +62,7 @@ def run_dark_pool_flow():
     now = datetime.now(ny_tz)
     week = now.weekday()
     hour = now.hour
-    if week <= 4 and 8 <= hour < 20:
+    if week <= 4 and 8 <= hour < 17:
         run_command(["python3", "cron_dark_pool_flow.py"])
 
 def run_market_flow():
@@ -77,7 +77,7 @@ def run_options_stats():
     now = datetime.now(ny_tz)
     week = now.weekday()
     hour = now.hour
-    if week <= 4 and 9 <= hour < 16:
+    if week <= 4 and 9 <= hour <= 16:
         run_command(["python3", "cron_options_stats.py"])
 
 def run_dark_pool_level():
@@ -362,7 +362,7 @@ def run_threaded(job_func):
 
 # Schedule the job to run
 
-schedule.every().day.at("22:00").do(run_threaded, run_options_jobs).tag('options_job')
+schedule.every().day.at("00:00").do(run_threaded, run_options_jobs).tag('options_job')
 schedule.every().day.at("02:00").do(run_threaded, run_db_schedule_job)
 schedule.every().day.at("05:00").do(run_threaded, run_options_historical_flow).tag('options_historical_flow_job')
 
