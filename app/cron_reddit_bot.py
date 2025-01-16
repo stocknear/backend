@@ -12,7 +12,7 @@ import argparse
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Post Type')
-    parser.add_argument('--post_type', choices=['earnings', 'stock-list', 'premarket', 'aftermarket'], 
+    parser.add_argument('--post_type', choices=['earnings', 'stock-list', 'premarket', 'aftermarket',"option"], 
                         type=str, default='earnings',
                         help='Post type: "earnings" (default), "stock-list", "premarket", or "aftermarket"')
     return parser.parse_args()
@@ -43,13 +43,21 @@ def format_time(time_str):
         return ""
 
 
-def format_number(num):
+def format_number(num, decimal=False):
     """Abbreviate large numbers with B/M suffix"""
-    if num >= 1_000_000_000:
-        return f"{num / 1_000_000_000:.2f}B"
-    elif num >= 1_000_000:
-        return f"{num / 1_000_000:.2f}M"
-    return f"{num:,.0f}"
+    if decimal:
+        if num >= 1_000_000_000:
+            return f"{num / 1_000_000_000:.2f}B"
+        elif num >= 1_000_000:
+            return f"{num / 1_000_000:.2f}M"
+        return f"{num:,.0f}"
+    else:
+        if num >= 1_000_000_000:
+            return f"{num / 1_000_000_000:,.2f}B"
+        elif num >= 1_000_000:
+            return f"{num / 1_000_000:,.2f}M"
+        return f"{num:,.0f}"  # Format smaller numbers with commas
+
 
 def calculate_yoy_change(current, prior):
     """Calculate year-over-year percentage change"""
@@ -279,6 +287,92 @@ Here's a summary of today's Premarket Gainers and Losers, showcasing stocks that
 More info can be found here: [Premarket Gainers and Losers](https://stocknear.com/market-mover/premarket/gainers)
 """
 
+
+def format_option_data():
+    try:
+        with open("json/stocks-list/list/highest-option-premium.json", 'r') as file:
+            data = ujson.load(file)
+            highest_premium = [
+                {'symbol': item['symbol'], 
+                 'changesPercentage': item['changesPercentage'], 'totalPrem': item['totalPrem'],'totalOI': item['totalOI'],'ivRank':item['ivRank']} 
+                for item in data[:5]
+            ]
+
+        with open("json/stocks-list/list/highest-option-iv-rank.json", 'r') as file:
+            data = ujson.load(file)
+            highest_iv_rank = [
+                {'symbol': item['symbol'], 
+                 'changesPercentage': item['changesPercentage'], 'totalPrem': item['totalPrem'],'totalOI': item['totalOI'],'ivRank':item['ivRank']} 
+                for item in data[:5]
+            ]
+
+        with open("json/stocks-list/list/highest-open-interest-change.json", 'r') as file:
+            data = ujson.load(file)
+            highest_change_oi = [
+                {'symbol': item['symbol'], 
+                 'changesPercentage': item['changesPercentage'], 'totalPrem': item['totalPrem'],'changeOI': item['changeOI'],'ivRank':item['ivRank']} 
+                for item in data[:5]
+            ]
+
+        
+        combined_data = {'highest_premium': highest_premium, 'highest_iv_rank': highest_iv_rank, 'highest_change_oi': highest_change_oi}
+    
+    except Exception as e:
+        print(f"Error loading market data: {e}")
+        combined_data = {'highest_premium': [], 'highest_iv_rank': []}
+    
+    # Create highest_premium Table
+    highest_premium_table = "| Symbol | Change (%) | Total Prem | IV Rank | Total OI |\n"
+    highest_premium_table += "|:------:|:-----|------:|-----------:|-----------:|\n"
+    for item in combined_data["highest_premium"]:
+        highest_premium_table += (
+            f"| [{item['symbol']}](https://stocknear.com/stocks/{item['symbol']}) | {item['changesPercentage']:.2f}% | "
+            f"{format_number(item['totalPrem'])} | {item['ivRank']:.2f} | "
+            f"{format_number(item['totalOI'])} |\n"
+        )
+
+    # Create highest_iv_rank Table
+    highest_iv_rank_table = "| Symbol | Change (%) | Total Prem | IV Rank | Total OI |\n"
+    highest_iv_rank_table += "|:------:|:-----|------:|-----------:|-----------:|\n"
+    for item in combined_data["highest_iv_rank"]:
+        highest_iv_rank_table += (
+            f"| [{item['symbol']}](https://stocknear.com/stocks/{item['symbol']}) | {item['changesPercentage']:.2f}% | "
+            f"{format_number(item['totalPrem'])} | {item['ivRank']:.2f} | "
+            f"{format_number(item['totalOI'])} |\n"
+        )
+
+    # Create highest_iv_rank Table
+    highest_change_oi_table = "| Symbol | Change (%) | Total Prem | IV Rank | OI Change|\n"
+    highest_change_oi_table += "|:------:|:-----|------:|-----------:|-----------:|\n"
+    for item in combined_data["highest_change_oi"]:
+        highest_change_oi_table += (
+            f"| [{item['symbol']}](https://stocknear.com/stocks/{item['symbol']}) | {item['changesPercentage']:.2f}% | "
+            f"{format_number(item['totalPrem'])} | {item['ivRank']:.2f} | "
+            f"{format_number(item['changeOI'], decimal=True)} |\n"
+        )
+
+    # Construct final markdown text
+    return f"""
+
+Here's a quick overview of the top companies that led the market today with the highest options premium, IV rank and notable open interest (OI) changes—highlighting key stocks that gained attention.
+### Highest Options Premium
+
+{highest_premium_table}
+
+### Top IV Rank Leaders
+
+{highest_iv_rank_table}
+
+### Hottest Companies with highest OI Change
+
+{highest_change_oi_table}
+
+More info can be found at [Stocknear](https://stocknear.com/list)
+"""
+
+
+
+
 def create_post(post_data):
     include_rsi = False
     include_volume = post_data['data_type'] == 'penny-stocks'
@@ -490,6 +584,18 @@ def post_to_reddit():
         except Exception as e:
             print(f"Error posting to Reddit: {str(e)}")
     
+
+    if post_type == 'option':
+       
+        try:
+            formatted_content = format_option_data()
+            title = "Top Companies with the Highest Options Premiums, IV Rank and OI Change Today 🚀📉"
+            post = subreddit.submit(title, selftext=formatted_content, flair_id="b348676c-e451-11ee-8572-328509439585")
+            print(f"Post created successfully")
+        except Exception as e:
+            print(f"Error posting to Reddit: {str(e)}")
+
+
 
 if __name__ == "__main__":
     post_to_reddit()
