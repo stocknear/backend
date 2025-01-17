@@ -371,6 +371,36 @@ async def get_analyst_report():
         print(f"An error occurred: {e}")
         return {}
 
+async def get_latest_wiim():
+    url = "https://api.benzinga.com/api/v2/news"
+    querystring = {"token": benzinga_api_key,"dateFrom":yesterday,"dateTo":today,"sort":"created:desc", "pageSize": 1000, "channels":"WIIM"}
+    res_list = []
+
+    async with aiohttp.ClientSession() as session:
+
+        async with session.get(url, params=querystring, headers=headers) as response:
+            data = ujson.loads(await response.text())
+
+            for item in data:
+                try:
+                    if len(item['stocks']) == 1:
+                        item['ticker'] = item['stocks'][0].get('name',None)
+
+                        with open(f"/home/mrahimi/stocknear/backend/app/json/quote/{item['ticker']}.json","r") as file:
+                            quote_data = ujson.load(file)
+                            item['marketCap'] = quote_data.get('marketCap',None)
+                        
+                        res_list.append({'date': item['created'], 'text': item['title'], 'marketCap': item['marketCap'],'ticker': item['ticker']})
+                except:
+                    pass
+            res_list = sorted(
+                res_list,
+                key=lambda item: (item['marketCap'], datetime.strptime(item['date'], '%a, %d %b %Y %H:%M:%S %z')),
+                reverse=True
+            )
+    
+    return res_list[:10]
+
 async def run():
     async with aiohttp.ClientSession() as session:
         recent_earnings = await get_recent_earnings(session)
@@ -389,6 +419,8 @@ async def run():
             upcoming_earnings = await get_upcoming_earnings(session, tomorrow, filter_today=True)
 
         recent_analyst_report = await get_analyst_report()
+
+        recent_wiim = await get_latest_wiim()
 
         upcoming_earnings = [
             item for item in upcoming_earnings 
@@ -411,7 +443,6 @@ async def run():
                     'ivRank': highest_iv_rank,
                     'openInterest': highest_open_interest_change
                 }
-            print(optionsData)
         except Exception as e:
             print(e)
             optionsData = {}
@@ -477,6 +508,7 @@ async def run():
             'recentEarnings': recent_earnings,
             'upcomingEarnings': upcoming_earnings,
             'analystReport': recent_analyst_report,
+            'wiim': recent_wiim,
         }
 
         if len(data) > 0:

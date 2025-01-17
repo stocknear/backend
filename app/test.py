@@ -1,69 +1,77 @@
-import plotly.graph_objects as go
+import aiohttp
+import aiofiles
+import ujson
+import sqlite3
+import pandas as pd
+import asyncio
+import pytz
+import time
+import os
+from dotenv import load_dotenv
+from datetime import datetime, timedelta
+from tqdm import tqdm
+import pytz
 
-# Data for the semiconductor stocks
-data = {
-    'labels': ['Semiconductors', 'NVDA', 'AVGO', 'AMD', 'TXN', 'QCOM', 'ADI', 'INTC', 'MU', 'NXPI', 'MPWR'],
-    'parents': ['', 'Semiconductors', 'Semiconductors', 'Semiconductors', 'Semiconductors', 
-               'Semiconductors', 'Semiconductors', 'Semiconductors', 'Semiconductors', 
-               'Semiconductors', 'Semiconductors'],
-    'values': [100, 40, 15, 10, 8, 7, 6, 5, 4, 3, 2],  # Approximate sizes
-    'performance': [0, -0.02, 0.29, -4.31, -0.29, -0.9, 2.12, -0.65, -2.45, -1.55, -1.9]
-}
 
-# Function to determine color based on performance with updated colors
-def get_color(perf):
-    if perf > 0:
-        return f'rgb(75, 192, 75)'  # Brighter green
-    elif perf < 0:
-        return f'rgb(255, 82, 82)'  # Brighter red
-    else:
-        return f'rgb(128, 128, 128)'  # Gray for neutral
+date_format = "%a, %d %b %Y %H:%M:%S %z"
 
-# Create color list
-colors = [get_color(perf) for perf in data['performance']]
+load_dotenv()
+api_key = os.getenv('BENZINGA_API_KEY')
 
-# Create text labels with performance
-text = [f"{label}<br>{perf}%" if i > 0 else "" 
-        for i, (label, perf) in enumerate(zip(data['labels'], data['performance']))]
+headers = {"accept": "application/json"}
 
-# Create the treemap
-fig = go.Figure(go.Treemap(
-    labels=data['labels'],
-    parents=data['parents'],
-    values=data['values'],
-    text=text,
-    textinfo="label",
-    hovertext=text,
-    marker=dict(
-        colors=colors,
-        line=dict(width=2, color='white')
-    ),
-    textfont=dict(
-        size=16,
-        color='white'
-    ),
-))
+async def get_latest_wiim(session):
+    url = "https://api.benzinga.com/api/v2/news"
+    querystring = {"token": api_key,"dateFrom":"2025-01-16","dateTo":"2025-01-17","sort":"created:desc", "pageSize": 1000, "channels":"WIIM"}
 
-# Update layout
-fig.update_layout(
-    title="Semiconductors",
-    width=800,
-    height=500,
-    margin=dict(t=50, l=0, r=0, b=0),
-    paper_bgcolor='rgb(128, 128, 128)',
-    plot_bgcolor='rgb(128, 128, 128)',
-    showlegend=False,
-)
+    try:
+        async with session.get(url, params=querystring, headers=headers) as response:
+            res_list = []
+            data = ujson.loads(await response.text())
 
-# Configuration to remove interactivity
-config = {
-    'displayModeBar': False,
-    'staticPlot': True,  # Makes the plot completely static
-    'scrollZoom': False,
-    'doubleClick': False,
-    'showTips': False,
-    'responsive': False
-}
+            for item in data:
+                try:
+                    if len(item['stocks']) ==1:
+                        item['ticker'] = item['stocks'][0].get('name',None)
 
-# Save as HTML file
-fig.write_html("json/heatmap/data.html", config=config)
+                        with open(f"json/quote/{item['ticker']}.json","r") as file:
+                            quote_data = ujson.load(file)
+                            item['marketCap'] = quote_data.get('marketCap',None)
+                        
+                        res_list.append({'date': item['created'], 'text': item['title'], 'marketCap': item['marketCap'],'ticker': item['ticker']})
+                except:
+                    pass
+            res_list = sorted(
+                res_list,
+                key=lambda item: (item['marketCap'], datetime.strptime(item['date'], '%a, %d %b %Y %H:%M:%S %z')),
+                reverse=True
+            )
+
+            print(res_list[:10])
+
+            '''
+            for item in res:
+                for el in item['stocks']:
+                    # Update the 'name' key to 'ticker'
+                    if 'name' in el:
+                        el['ticker'] = el.pop('name')
+                        if el['ticker'] in stock_symbols:
+                            el['assetType'] = 'stock'
+                        elif el['ticker'] in etf_symbols:
+                            el['assetType'] = 'etf'
+                res_list.append({'date': item['created'], 'text': item['title'], 'stocks': item['stocks']})
+            with open(f"json/wiim/rss-feed/data.json", 'w') as file:
+                    ujson.dump(res_list, file)
+            '''
+
+    except Exception as e:
+        print(e)
+
+async def run():
+    async with aiohttp.ClientSession() as session:
+        await get_latest_wiim(session)
+
+try:
+    asyncio.run(run())
+except Exception as e:
+    print(e)
