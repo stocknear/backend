@@ -67,12 +67,12 @@ def add_data(data, historical_data):
         for item2 in historical_data:
             try:
                 if date == item2['date']:
-                   item['changesPercentage'] = item2['changesPercentage']
-                   item['putCallRatio'] = item2['putCallRatio']
-                   item['total_open_interest'] = item2['total_open_interest']
-                   item['changesPercentageOI'] = item2.get('changesPercentageOI',None)
-            except:
-                pass
+                    item['changesPercentage'] = item2['changesPercentage']
+                    item['putCallRatio'] = item2['putCallRatio']
+                    item['total_open_interest'] = item2['total_open_interest']
+                    item['changesPercentageOI'] = item2.get('changesPercentageOI',None)
+            except Exception as e:
+                print(e)
         
         if 'changesPercentage' in item:
             res_list.append(item)
@@ -100,7 +100,6 @@ def prepare_data(data, symbol, directory_path, sort_by = "date"):
             historical_data = orjson.loads(file.read())
         
         res_list = add_data(data,historical_data)
-        
         save_json(res_list, symbol, directory_path)
 
 

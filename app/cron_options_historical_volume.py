@@ -165,7 +165,7 @@ headers = {
     "Authorization": api_key
 }
 
-#total_symbols = ['NVDA']
+total_symbols = ['NVDA']
 
 counter = 0
 for symbol in tqdm(total_symbols):
