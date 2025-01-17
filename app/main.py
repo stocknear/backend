@@ -1868,6 +1868,31 @@ async def get_stock(
     return JSONResponse(content=orjson.loads(orjson.dumps(results)))
 
 
+@app.get("/full-searchbar")
+async def get_data(api_key: str = Security(get_api_key)):
+    
+    cache_key = f"full-searchbar"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
+
+
+    res = orjson.dumps(searchbar_data)
+    compressed_data = gzip.compress(res)
+
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 3600 * 3600) # Set cache expiration time to Infinity
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
+
 
 @app.post("/revenue-segmentation")
 async def revenue_segmentation(data: TickerData, api_key: str = Security(get_api_key)):
