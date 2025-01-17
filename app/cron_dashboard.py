@@ -386,7 +386,7 @@ async def get_latest_wiim():
                     if len(item['stocks']) == 1:
                         item['ticker'] = item['stocks'][0].get('name',None)
 
-                        with open(f"/home/mrahimi/stocknear/backend/app/json/quote/{item['ticker']}.json","r") as file:
+                        with open(f"json/quote/{item['ticker']}.json","r") as file:
                             quote_data = ujson.load(file)
                             item['marketCap'] = quote_data.get('marketCap',None)
                         
