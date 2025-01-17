@@ -421,6 +421,7 @@ async def run():
         recent_analyst_report = await get_analyst_report()
 
         recent_wiim = await get_latest_wiim()
+        print(recent_wiim)
 
         upcoming_earnings = [
             item for item in upcoming_earnings 
