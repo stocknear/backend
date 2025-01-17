@@ -26,12 +26,16 @@ query_template = """
 
 async def get_data(symbol):
     """Extract specified columns data for a given symbol."""
-    columns = ['dividendYield', 'employees', 'marketCap','relativeFTD']
+    columns = ['dividendYield', 'employees', 'marketCap','relativeFTD','name']
     
     if symbol in stock_screener_data_dict:
         result = {}
         for column in columns:
-            result[column] = stock_screener_data_dict[symbol].get(column, None)
+            try:
+                result[column] = stock_screener_data_dict[symbol].get(column, None)
+                
+            except:
+                pass
         return result
     return {}
 
@@ -48,7 +52,6 @@ async def run():
         try:
             # Get the list of peer stocks
             peers = orjson.loads(df['stock_peers'].iloc[0])
-
             # Create a list to store peer data
             peer_data_list = []
             
