@@ -373,7 +373,7 @@ async def get_analyst_report():
 
 async def get_latest_wiim():
     url = "https://api.benzinga.com/api/v2/news"
-    querystring = {"token": benzinga_api_key,"dateFrom":today,"dateTo":today,"sort":"created:desc", "pageSize": 1000, "channels":"WIIM"}
+    querystring = {"token": benzinga_api_key,"dateFrom":yesterday,"dateTo":today,"sort":"created:desc", "pageSize": 1000, "channels":"WIIM"}
     res_list = []
 
     async with aiohttp.ClientSession() as session:
@@ -395,7 +395,7 @@ async def get_latest_wiim():
                     pass
             res_list = sorted(
                 res_list,
-                key=lambda item: (item['marketCap'], datetime.strptime(item['date'], '%a, %d %b %Y %H:%M:%S %z')),
+                key=lambda item: datetime.strptime(item['date'], '%a, %d %b %Y %H:%M:%S %z'),
                 reverse=True
             )
     
