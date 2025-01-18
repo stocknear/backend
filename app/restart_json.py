@@ -1614,7 +1614,7 @@ def replace_representative(office):
         office = ' '.join(office.split())
     return office
 
-async def get_congress_rss_feed(symbols, etf_symbols, crypto_symbols):
+async def get_congress_rss_feed(symbols, etf_symbols):
 
     amount_mapping = {
     '$1,001 -': '$1K-$15K',
@@ -1672,8 +1672,6 @@ async def get_congress_rss_feed(symbols, etf_symbols, crypto_symbols):
            item["assetType"] = "stock"
         elif ticker in etf_symbols:
             item["assetType"] = "etf"
-        elif ticker in crypto_symbols:
-            item['assetType'] = "crypto"
         else:
             item['assetType'] = ''
 
@@ -1692,25 +1690,6 @@ async def get_congress_rss_feed(symbols, etf_symbols, crypto_symbols):
 
     return data
 
-
-
-async def get_all_etf_tickers(etf_con):
-    cursor = etf_con.cursor()
-    cursor.execute("SELECT symbol, name, totalAssets, numberOfHoldings FROM etfs WHERE totalAssets IS NOT NULL")
-    raw_data = cursor.fetchall()
-
-    # Extract only relevant data and sort it
-    etf_list_data = sorted([{'symbol': row[0], 'name': row[1], 'totalAssets': row[2], 'numberOfHoldings': row[3]} for row in raw_data], key=custom_symbol_sort)
-    return etf_list_data
-
-async def get_all_crypto_tickers(crypto_con):
-    cursor = crypto_con.cursor()
-    cursor.execute("SELECT symbol, name, marketCap, circulatingSupply, maxSupply FROM cryptos")
-    raw_data = cursor.fetchall()
-
-    # Extract only relevant data and sort it
-    crypto_list_data = sorted([{'symbol': row[0], 'name': row[1], 'marketCap': row[2], 'circulatingSupply': row[3], 'maxSupply': row[4]} for row in raw_data], key=custom_symbol_sort)
-    return crypto_list_data
 
 
 
@@ -1834,34 +1813,29 @@ async def get_ipo_calendar(con, symbols):
 
     res = []
     for entry in combined_data:
-        df = pd.read_sql_query(query_quote, con, params=(entry['symbol'],))
         try:
-            entry['currentPrice'] = round((ujson.loads(df['quote'].iloc[0])[0]).get('price'),2)
-        except:
-            entry['currentPrice'] = None
-        try:
-            entry['marketCap'] = (ujson.loads(df['quote'].iloc[0])[0]).get('marketCap')
-        except:
-            entry['marketCap'] = None
-        try:
+            symbol = entry['symbol']
+            with open(f"json/quote/{symbol}.json","r") as file:
+                quote_data = ujson.load(file)
+            
+            entry['currentPrice'] = quote_data.get('price',None)
             df =  pd.read_sql_query(query_open_price.format(ticker = entry['symbol']), con)
             entry['ipoPrice'] = round(df['open'].iloc[0], 2) if df['open'].iloc[0] != 0 else None
-        except:
-            entry['ipoPrice'] = entry['priceRange']
 
-        entry['return'] = None if (entry['ipoPrice'] in (0, None) or entry['currentPrice'] in (0, None)) else round(((entry['currentPrice'] / entry['ipoPrice'] - 1) * 100), 2)
-        
-        res.append({
-            "symbol": entry["symbol"],
-            "name": entry["company"],
-            "date": entry["date"],
-            "marketCap": entry["marketCap"],
-            "ipoPrice": entry["ipoPrice"],
-            "currentPrice": entry["currentPrice"],
-            "return": entry["return"],
-        })
+            if entry['ipoPrice'] != None and entry['currentPrice'] != None and entry['currentPrice'] != 0:
+                entry['return'] = None if (entry['ipoPrice'] in (0, None) or entry['currentPrice'] in (0, None)) else round(((entry['currentPrice'] / entry['ipoPrice'] - 1) * 100), 2)
+                res.append({
+                    "symbol": entry["symbol"],
+                    "name": entry["company"],
+                    "ipoDate": entry["date"],
+                    "ipoPrice": entry["ipoPrice"],
+                    "currentPrice": entry["currentPrice"],
+                    "return": entry["return"],
+                })
+        except:
+            pass
     
-    res_sorted = sorted(res, key=lambda x: x['date'], reverse=True)
+    res_sorted = sorted(res, key=lambda x: x['ipoDate'], reverse=True)
 
     return res_sorted
 
@@ -1869,7 +1843,6 @@ async def get_ipo_calendar(con, symbols):
 async def save_json_files():
     con = sqlite3.connect('stocks.db')
     etf_con = sqlite3.connect('etf.db')
-    crypto_con = sqlite3.connect('crypto.db')
 
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
@@ -1881,17 +1854,15 @@ async def save_json_files():
     etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
     etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
-    crypto_cursor = crypto_con.cursor()
-    crypto_cursor.execute("PRAGMA journal_mode = wal")
-    crypto_cursor.execute("SELECT DISTINCT symbol FROM cryptos")
-    crypto_symbols = [row[0] for row in crypto_cursor.fetchall()]
 
-
-
+    
     stock_screener_data = await get_stock_screener(con)
     with open(f"json/stock-screener/data.json", 'w') as file:
         ujson.dump(stock_screener_data, file)
 
+    data = await get_ipo_calendar(con, symbols)
+    with open(f"json/ipo-calendar/data.json", 'w') as file:
+        ujson.dump(data, file)
     
     earnings_list = await get_earnings_calendar(con,symbols)
     with open(f"json/earnings-calendar/calendar.json", 'w') as file:
@@ -1907,40 +1878,21 @@ async def save_json_files():
         ujson.dump(dividends_list, file)
 
     
-    data = await get_congress_rss_feed(symbols, etf_symbols, crypto_symbols)
+    data = await get_congress_rss_feed(symbols, etf_symbols)
     with open(f"json/congress-trading/rss-feed/data.json", 'w') as file:
         ujson.dump(data, file)
     
-    data = await get_ipo_calendar(con, symbols)
-    with open(f"json/ipo-calendar/data.json", 'w') as file:
-        ujson.dump(data, file)
-
-    data = await get_all_etf_tickers(etf_con)
-    with open(f"json/all-symbols/etfs.json", 'w') as file:
-        ujson.dump(data, file)
-
-    data = await get_all_crypto_tickers(crypto_con)
-    with open(f"json/all-symbols/cryptos.json", 'w') as file:
-        ujson.dump(data, file)
-
     
     data = await etf_providers(etf_con, etf_symbols)
     with open(f"json/all-etf-providers/data.json", 'w') as file:
         ujson.dump(data, file)
-    
-
-            
-    stock_splits_data = await get_stock_splits_calendar(con,symbols)
-    with open(f"json/stock-splits-calendar/calendar.json", 'w') as file:
-        ujson.dump(stock_splits_data, file)
 
     
-    
-    
 
+        
+    
     con.close()
     etf_con.close()
-    crypto_con.close()
     
         
 try:
