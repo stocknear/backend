@@ -193,77 +193,187 @@ async def get_etf_provider():
 
 
 
-async def get_magnificent_seven():
-  
-    symbol_list = ['MSFT','AAPL','GOOGL','AMZN','NVDA','META','TSLA']
-   
+async def generate_stock_list(symbol_list, output_file):
+    """
+    Generate a stock list for the given symbols and save it as a JSON file.
+    
+    :param symbol_list: List of stock symbols.
+    :param output_file: Path to save the resulting JSON file.
+    """
     res_list = []
     for symbol in symbol_list:
         try:
-            revenue = stock_screener_data_dict[symbol].get('revenue',None)
+            # Get revenue data
+            revenue = stock_screener_data_dict.get(symbol, {}).get('revenue', None)
 
+            # Load quote data from file
             try:
                 with open(f"json/quote/{symbol}.json") as file:
-                        quote_data = orjson.loads(file.read())
-            except:
+                    quote_data = orjson.loads(file.read())
+            except FileNotFoundError:
                 quote_data = None
 
-            # Assign price and changesPercentage if available, otherwise set to None
-            price = round(quote_data.get('price'), 2) if quote_data else None
-            changesPercentage = round(quote_data.get('changesPercentage'), 2) if quote_data else None
-            marketCap = quote_data.get('marketCap') if quote_data else None
-            name = quote_data.get('name') if quote_data else None
+            # Extract data from quote_data
+            price = round(quote_data.get('price', None), 2) if quote_data else None
+            changesPercentage = round(quote_data.get('changesPercentage', None), 2) if quote_data else None
+            marketCap = quote_data.get('marketCap', None) if quote_data else None
+            name = quote_data.get('name', None) if quote_data else None
 
-            res_list.append({'symbol': symbol, 'name': name, 'price': price, \
-                    'changesPercentage': changesPercentage, 'marketCap': marketCap, \
-                    'revenue': revenue})
+            # Append to result list
+            res_list.append({
+                'symbol': symbol,
+                'name': name,
+                'price': price,
+                'changesPercentage': changesPercentage,
+                'marketCap': marketCap,
+                'revenue': revenue
+            })
 
         except Exception as e:
-            print(e)
+            print(f"Error processing symbol {symbol}: {e}")
 
     if res_list:
-        res_list = sorted(res_list, key=lambda x: x['marketCap'], reverse=True)
+        # Sort by market cap and assign ranks
+        res_list = sorted(res_list, key=lambda x: x['marketCap'] or 0, reverse=True)
         for rank, item in enumerate(res_list, start=1):
-                item['rank'] = rank
-                
-        with open(f"json/stocks-list/list/magnificent-seven.json", 'wb') as file:
+            item['rank'] = rank
+
+        # Save the resulting list to the output file
+        with open(output_file, 'wb') as file:
             file.write(orjson.dumps(res_list))
+
+
+async def get_ai_stocks():
+    symbol_list = [
+        "NVDA", "MSFT", "GOOGL", "AMZN", "META", "AVGO", "TSM", "ORCL", "SAP",
+        "ASML", "ACN", "NOW", "ISRG", "IBM", "AMD", "ADBE", "PLTR", "ARM", "ANET",
+        "PANW", "MRVL", "KLAC", "CRWD", "SNPS", "WDAY", "TEAM", "TTD", "SNOW",
+        "NXPI", "IRM", "ROK", "BIDU", "SPLK", "TER", "ALAB", "SYM", "TWLO", "EPAM",
+        "TTEK", "PATH", "CGNX", "UPST", "TEM", "SOUN", "AVAV", "AI", "AMBA", "SPT",
+        "RXRX", "HOLI", "SSTK", "BBAI", "EXAI", "PDYN", "IRBT", "AISP", "REKR",
+        "VICR", "OSS", "KSCP", "MDAI", "NTC", "GFAI", "KITT", "OTRK"
+    ]
+    await generate_stock_list(symbol_list, "json/stocks-list/list/ai-stocks.json")
+
+async def get_clean_energy():
+    symbol_list = [
+        "NEE", "ED", "FSLR", "BEP", "ENPH", "SMR", "BE", "CWEN.A", "BEPC", "CWEN",
+        "FLNC", "RNW", "PLUG", "RUN", "ENLT", "DQ", "AMRC", "JKS", "ARRY", "SEDG",
+        "SHLS", "REX", "GPRE", "OPAL", "GEVO", "NOVA", "ELLO", "AMTX", "MAXN",
+        "SOL", "SMXT", "GWH", "TURB", "CETY", "ADN", "DFLI", "VVPR"
+    ]
+    await generate_stock_list(symbol_list, "json/stocks-list/list/clean-energy.json")
+
+async def get_esports():
+    symbol_list = ['MSFT','SE','EA','TTWO','SKLZ','AGAE','SLE','VS']
+    await generate_stock_list(symbol_list, "json/stocks-list/list/esports.json")
+
+async def get_car_company_stocks():
+    symbol_list = ["TSLA", "TM", "RACE", "GM", "HMC", "F", "STLA", "LI", "RIVN", "XPEV",
+    "VFS", "LCID", "NIO", "PII", "PSNY", "NKLA", "FFIE", "CENN", "EVTV",
+    "GOEV", "HYZN", "MULN"]
+    await generate_stock_list(symbol_list, "json/stocks-list/list/car-company-stocks.json")
+
+async def get_electric_vehicles():
+    symbol_list = [
+        "TSLA", "LI", "RIVN", "XPEV", "VFS", "LCID", "NIO", "ZK", "PSNY", "FFIE",
+        "CENN", "EVTV", "LOBO", "GOEV", "MULN"
+    ]
+    await generate_stock_list(symbol_list, "json/stocks-list/list/electric-vehicles.json")
+
+async def get_augmented_reality():
+    symbol_list = [
+    "AAPL", "NVDA", "GOOGL", "AMD", "QCOM", "SONY", "KLAC", "ADSK",
+    "RBLX", "ANSS", "SPLK", "PTC", "SNAP", "U", "OLED", "ETSY",
+    "HIMX", "MVIS", "IMMR", "VUZI", "KOPN", "EMAN", "WIMI", "VRAR", "BHAT"
+    ]
+    await generate_stock_list(symbol_list, "json/stocks-list/list/augmented-reality.json")
+
+async def get_gaming_stocks():
+    symbol_list = [
+        "NVDA", "MSFT", "SONY", "SE", "NTES", "RBLX", "EA", "TTWO", 
+        "DKNG", "GME", "LOGI", "U", "PLTK", "CRSR", "HUYA", "DDI", 
+        "GRVY", "SOHU", "GDEV", "INSE", "MYPS", "NCTY", "CMCM", "SKLZ", 
+        "SNAL", "AGAE", "GIGM", "SLE", "VS", "BHAT"
+    ]
+
+    await generate_stock_list(symbol_list, "json/stocks-list/list/gaming-stocks.json")
+
+async def get_pharmaceutical_stocks():
+    symbol_list = [
+        "LLY", "NVO", "JNJ", "ABBV", "MRK", "AZN", "NVS", "PFE", "AMGN", "SNY",
+        "BMY", "GILD", "ZTS", "GSK", "TAK", "HLN", "TEVA", "BIIB", "NBIX", "VTRS",
+        "ITCI", "RDY", "CTLT", "LNTH", "ELAN", "GRFS", "ALKS", "OGN", "ALVO", "PBH",
+        "PRGO", "BHC", "HCM", "AMRX", "SUPN", "AMPH", "DVAX", "TARO", "EVO", "INDV",
+        "KNSA", "HROW", "TLRY", "COLL", "ANIP", "BGM", "PCRX", "PETQ", "PAHC", "AVDL",
+        "CRON", "EOLS", "IRWD", "EBS", "ESPR", "SIGA", "TKNO", "KMDA", "AKBA", "ORGO",
+        "ETON", "AQST", "CGC", "LFCR", "ANIK", "ACB", "AMRN", "ZYBT", "OGI", "PROC",
+        "BIOA", "CRDL", "DERM", "CTOR", "ASRT", "INCR", "RGC", "RMTI", "SCLX", "OPTN",
+        "SCYX", "CPIX", "IXHL", "DRRX", "MIRA", "GELS", "CYTH", "FLGC", "TXMD", "AGRX",
+        "AYTU", "TLPH", "BFRI", "EVOK", "RDHL", "IMCC", "QNTM", "SBFM", "CPHI", "PTPI",
+        "SNOA", "UPC", "SHPH", "YCBD", "AKAN", "PRFX", "SXTC", "ACORQ"
+    ]
+
+    await generate_stock_list(symbol_list, "json/stocks-list/list/pharmaceutical-stocks.json")
+
+async def get_online_gambling():
+    symbol_list = [
+        "DKNG", "LNW", "BYD", "SRAD", "IGT", "RSI", "PENN", "PLTK", "GENI", "EVRI",
+        "DDI", "GAMB", "AGS", "INSE", "GAN", "GIGM"
+    ]
+    await generate_stock_list(symbol_list, "json/stocks-list/list/online-gambling.json")
+
+async def get_online_dating():
+    symbol_list = [
+        "META","MTCH","GRND","MOMO","BMBL"
+    ]
+    await generate_stock_list(symbol_list, "json/stocks-list/list/online-dating.json")
+
+async def get_virtual_reality():
+    symbol_list = [
+        "AAPL", "NVDA", "META", "AMD", "QCOM", "SONY", "KLAC", "ADSK", 
+        "ANSS", "U", "OLED", "MTTR", "HIMX", "IMMR", "KOPN", "EMAN", 
+        "RBOT", "VRAR"
+    ]
+    await generate_stock_list(symbol_list, "json/stocks-list/list/virtual-reality.json")
+async def get_mobile_games():
+    symbol_list = [
+        "SE", "RBLX", "MAT", "PLTK", "DDI", "GRVY", 
+        "SOHU", "GDEV", "MYPS", "NCTY", "CMCM", "SKLZ", "GIGM"
+    ]
+
+    await generate_stock_list(symbol_list, "json/stocks-list/list/mobile-games.json")
+
+async def get_social_media_stocks():
+    symbol_list = [
+        "META", "NTES", "RDDT", "PINS", "SNAP", "DJT", 
+        "MTCH", "WB", "YY", "SPT", "MOMO", "YALA"
+    ]
+
+    await generate_stock_list(symbol_list, "json/stocks-list/list/social-media-stocks.json")
+
+async def get_sports_betting():
+    symbol_list = [
+        "DKNG", "CHDN", "LNW", "SRAD", "PENN", "GAMB", "GAN"
+    ]
+    await generate_stock_list(symbol_list, "json/stocks-list/list/sports-betting.json")
+
+async def get_metaverse():
+    symbol_list = [
+        "AAPL", "NVDA", "META", "AMD", "ADBE", "QCOM", "SHOP", 
+        "ADSK", "RBLX", "U", "MTTR", "GMM"
+    ]
+    await generate_stock_list(symbol_list, "json/stocks-list/list/metaverse.json")
+
+async def get_magnificent_seven():
+    symbol_list = ['MSFT', 'AAPL', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA']
+    await generate_stock_list(symbol_list, "json/stocks-list/list/magnificent-seven.json")
 
 async def get_faang():
-  
-    symbol_list = ['AAPL','AMZN','GOOGL','META','NFLX']
+    symbol_list = ['AAPL', 'AMZN', 'GOOGL', 'META', 'NFLX']
+    await generate_stock_list(symbol_list, "json/stocks-list/list/faang.json")
 
-    res_list = []
-    for symbol in symbol_list:
-        try:
-            revenue = stock_screener_data_dict[symbol].get('revenue',None)
 
-            try:
-                with open(f"json/quote/{symbol}.json") as file:
-                        quote_data = orjson.loads(file.read())
-            except:
-                quote_data = None
-
-            # Assign price and changesPercentage if available, otherwise set to None
-            price = round(quote_data.get('price'), 2) if quote_data else None
-            changesPercentage = round(quote_data.get('changesPercentage'), 2) if quote_data else None
-            marketCap = quote_data.get('marketCap') if quote_data else None
-            name = quote_data.get('name') if quote_data else None
-
-            res_list.append({'symbol': symbol, 'name': name, 'price': price, \
-                    'changesPercentage': changesPercentage, 'marketCap': marketCap, \
-                    'revenue': revenue})
-
-        except Exception as e:
-            print(e)
-
-    if res_list:
-        res_list = sorted(res_list, key=lambda x: x['marketCap'], reverse=True)
-        for rank, item in enumerate(res_list, start=1):
-                item['rank'] = rank
-                
-        with open(f"json/stocks-list/list/faang.json", 'wb') as file:
-            file.write(orjson.dumps(res_list))
 
 async def get_penny_stocks():
     with sqlite3.connect('stocks.db') as con:
@@ -1140,6 +1250,21 @@ async def get_all_etf_tickers():
 
 async def run():
     await asyncio.gather(
+        get_ai_stocks(),
+        get_clean_energy(),
+        get_esports(),
+        get_car_company_stocks(),
+        get_electric_vehicles(),
+        get_augmented_reality(),
+        get_gaming_stocks(),
+        get_pharmaceutical_stocks(),
+        get_online_gambling(),
+        get_online_dating(),
+        get_social_media_stocks(),
+        get_mobile_games(),
+        get_virtual_reality(),
+        get_sports_betting(),
+        get_metaverse(),
         get_all_stock_tickers(),
         get_all_etf_tickers(),
         get_index_list(),
