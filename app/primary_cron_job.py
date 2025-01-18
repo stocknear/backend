@@ -180,6 +180,7 @@ def run_cron_market_news():
     week = datetime.today().weekday()
     if week <= 4:
         run_command(["python3", "cron_market_news.py"])
+        run_command(["python3", "cron_ipo_news.py"])
 
 def run_company_news():
     week = datetime.today().weekday()
