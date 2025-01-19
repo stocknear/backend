@@ -132,14 +132,14 @@ async def run():
         'numStocks': 0, 
         'totalMarketCap': 0.0, 
         'totalDividendYield': 0.0, 
-        'totalNetIncome': 0.0,
-        'totalRevenue': 0.0,
+        'totalProfitMargin': 0.0,
         'totalChange1D': 0.0, 
         'totalChange1Y': 0.0,
         'peCount': 0, 
         'dividendCount': 0, 
         'change1DCount': 0, 
-        'change1YCount': 0
+        'change1YCount': 0,
+        'profitMarginCount': 0,
     }))
 
     # Iterate through stock_screener_data to accumulate values
@@ -150,8 +150,8 @@ async def run():
             industry = stock.get('industry')
             market_cap = stock.get('marketCap')
             dividend_yield = stock.get('dividendYield')
-            net_income = stock.get('netIncome')
-            revenue = stock.get('revenue')
+            profit_margin = stock.get('netProfitMargin')
+
             with open(f"json/quote/{symbol}.json","r") as file:
                 quote_data = ujson.load(file)
             change_1_day = quote_data.get('changesPercentage',None)
@@ -169,9 +169,9 @@ async def run():
                     sector_industry_data[sector][industry]['dividendCount'] += 1
                 
                 # Accumulate net income and revenue for profit margin calculation
-                if net_income is not None and revenue is not None:
-                    sector_industry_data[sector][industry]['totalNetIncome'] += float(net_income)
-                    sector_industry_data[sector][industry]['totalRevenue'] += float(revenue)
+                if profit_margin is not None and profit_margin < 100 and profit_margin > -100:
+                    sector_industry_data[sector][industry]['totalProfitMargin'] += float(profit_margin)
+                    sector_industry_data[sector][industry]['profitMarginCount'] += 1
                 
                 # Accumulate 1-month change if available
                 if change_1_day is not None:
@@ -200,7 +200,7 @@ async def run():
                     'numStocks': data['numStocks'],
                     'totalMarketCap': data['totalMarketCap'],
                     'avgDividendYield': round((data['totalDividendYield'] / data['dividendCount']),2) if data['dividendCount'] > 0 else None,
-                    'profitMargin': round((data['totalNetIncome'] / data['totalRevenue'])*100,2) if data['totalRevenue'] > 0 else None,
+                    'profitMargin': round((data['totalProfitMargin'] / data['profitMarginCount']),2) if data['profitMarginCount'] > 0 else None,
                     'avgChange1D': round((data['totalChange1D'] / data['change1DCount']),2) if data['change1DCount'] > 0 else None,
                     'avgChange1Y': round((data['totalChange1Y'] / data['change1YCount']),2) if data['change1YCount'] > 0 else None
                 } for industry, data in sorted_industries
@@ -239,27 +239,27 @@ async def run():
         total_market_cap = 0
         total_stocks = 0
         total_dividend_yield = 0
-        total_net_income = 0
-        total_revenue = 0
+        total_profit_margin = 0
         total_change_1d = 0
         total_change_1y = 0
 
         dividend_count = 0
         change_1d_count = 0
         change_1y_count = 0
+        profit_margin_count = 0
 
         for industry, data in industries.items():
             # Sum up values across industries for the sector summary
             total_market_cap += data['totalMarketCap']
             total_stocks += data['numStocks']
-            total_net_income += data['totalNetIncome']
-            total_revenue += data['totalRevenue']
+            total_profit_margin += data['totalProfitMargin']
             total_change_1d += data['totalChange1D']
             total_change_1y += data['totalChange1Y']
 
             dividend_count += data['dividendCount']
             change_1d_count += data['change1DCount']
             change_1y_count += data['change1YCount']
+            profit_margin_count += data['profitMarginCount']
             total_dividend_yield += data['totalDividendYield']
 
         # Calculate averages and profit margin for the sector
@@ -268,7 +268,7 @@ async def run():
             'numStocks': total_stocks,
             'totalMarketCap': total_market_cap,
             'avgDividendYield': round((total_dividend_yield / dividend_count), 2) if dividend_count > 0 else None,
-            'profitMargin': round((total_net_income / total_revenue) * 100, 2) if total_revenue > 0 else None,
+            'profitMargin': round((total_profit_margin / profit_margin_count), 2) if profit_margin_count > 0 else None,
             'avgChange1D': round((total_change_1d / change_1d_count), 2) if change_1d_count > 0 else None,
             'avgChange1Y': round((total_change_1y / change_1y_count), 2) if change_1y_count > 0 else None
         })
