@@ -365,7 +365,7 @@ def run_threaded(job_func):
 
 # Schedule the job to run
 
-schedule.every().day.at("02:00").do(run_threaded, run_options_jobs).tag('options_job')
+#schedule.every().day.at("02:00").do(run_threaded, run_options_jobs).tag('options_job')
 schedule.every().day.at("01:00").do(run_threaded, run_db_schedule_job)
 schedule.every().day.at("05:00").do(run_threaded, run_options_historical_flow).tag('options_historical_flow_job')
 
@@ -427,7 +427,7 @@ schedule.every(3).hours.do(run_threaded, run_press_releases).tag('press_release_
 
 schedule.every(1).hours.do(run_threaded, run_fda_calendar).tag('fda_calendar_job')
 
-schedule.every(10).minutes.do(run_threaded, run_options_stats).tag('options_stats_job')
+#schedule.every(10).minutes.do(run_threaded, run_options_stats).tag('options_stats_job')
 
 schedule.every(5).minutes.do(run_threaded, run_market_flow).tag('market_flow_job')
 schedule.every(5).minutes.do(run_threaded, run_list).tag('stock_list_job')
