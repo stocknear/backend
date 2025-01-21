@@ -3,7 +3,7 @@ import asyncio
 import time
 import intrinio_sdk as intrinio
 from intrinio_sdk.rest import ApiException
-from datetime import datetime
+from datetime import datetime, timedelta
 import ast
 import orjson
 from tqdm import tqdm
@@ -44,7 +44,8 @@ intrinio.ApiClient().set_api_key(api_key)
 #intrinio.ApiClient().allow_retries(True)
 
 after = datetime.today().strftime('%Y-%m-%d')
-before = '2045-12-31'
+before = '2100-12-31'
+N_year_ago = datetime.now() - timedelta(days=365)
 include_related_symbols = False
 page_size = 5000
 MAX_CONCURRENT_REQUESTS = 20  # Adjust based on API rate limits
@@ -74,7 +75,6 @@ async def get_options_chain(symbol, expiration, semaphore):
                         include_related_symbols=include_related_symbols
                     )
                 )
-            
             contracts = set()
             for item in response.chain:
                 try:
@@ -100,6 +100,8 @@ async def get_single_contract_eod_data(symbol, contract_id, semaphore):
                 )
             
             # Extract and process the response data
+            key_data = {k: v for k, v in response._option.__dict__.items() if isinstance(v, (str, int, float, bool, list, dict, type(None)))}
+
             history = []
             if response and hasattr(response, '_prices'):
                 for price in response._prices:
@@ -108,9 +110,10 @@ async def get_single_contract_eod_data(symbol, contract_id, semaphore):
                         if isinstance(v, (str, int, float, bool, list, dict, type(None)))
                     })
 
+
             #clean the data
             history = [
-                {key.lstrip('_'): value for key, value in record.items() if key not in ('_open_ask', '_ask_low','_close_bid_size','_close_ask_size','_close_ask','_close_bid','_close_size','_exercise_style','discriminator','_open_bid','_bid_low','_bid_high','_ask_high')}
+                {key.lstrip('_'): value for key, value in record.items() if key not in ('_close_time','_open_ask', '_ask_low','_close_bid_size','_close_ask_size','_close_ask','_close_bid','_close_size','_exercise_style','discriminator','_open_bid','_bid_low','_bid_high','_ask_high')}
                 for record in history
             ]
 
@@ -123,30 +126,32 @@ async def get_single_contract_eod_data(symbol, contract_id, semaphore):
             avg_open_interest = int(total_open_interest / count) if count > 0 else 0
 
             if avg_volume > 10 and avg_open_interest > 10:
-                print(history)
-                '''
                 res_list = []
 
                 for item in history:
-
-                    new_item = {
-                        key: safe_round(value)
-                        for key, value in item.items()
-                        if key != 'in_out_flow'
-                    }
+                    try:
+                        new_item = {
+                            key: safe_round(value)
+                            for key, value in item.items()
+                        }
+                        res_list.append(new_item)
+                    except:
+                        pass
 
                 res_list = sorted(res_list, key=lambda x: x['date'])
                 for i in range(1, len(res_list)):
                     try:
-                        current_open_interest = res_list[i]['total_open_interest']
-                        previous_open_interest = res_list[i-1]['total_open_interest']
+                        current_open_interest = res_list[i]['open_interest']
+                        previous_open_interest = res_list[i-1]['open_interest'] or 0
                         changes_percentage_oi = round((current_open_interest/previous_open_interest -1)*100,2)
+                        res_list[i]['changeOI'] = current_open_interest - previous_open_interest
                         res_list[i]['changesPercentageOI'] = changes_percentage_oi
                     except:
+                        res_list[i]['changeOI'] = None
                         res_list[i]['changesPercentageOI'] = None
-
-                '''
-                await save_json(history, symbol, contract_id)
+                
+                data = {'expiration': key_data['_expiration'], 'strike': key_data['_strike'], 'optionType': key_data['_type'], 'history': history}
+                await save_json(data, symbol, contract_id)
 
         except Exception as e:
             print(f"Error fetching data for {contract_id}: {e}")
@@ -235,13 +240,16 @@ async def main():
     total_symbols = ['AA'] #get_total_symbols()
 
     for symbol in tqdm(total_symbols):
-        print(f"==========Start Process for {symbol}==========")
-        expiration_list = get_all_expirations(symbol)
-        print(f"Found {len(expiration_list)} expiration dates")
-        contract_list = await get_data(symbol,expiration_list)
-        print(f"Unique contracts: {len(contract_list)}")
+        try:
+            print(f"==========Start Process for {symbol}==========")
+            expiration_list = get_all_expirations(symbol)
+            print(f"Found {len(expiration_list)} expiration dates")
+            contract_list = await get_data(symbol,expiration_list)
+            print(f"Unique contracts: {len(contract_list)}")
 
-        results = await process_contracts(symbol, contract_list)
+            results = await process_contracts(symbol, contract_list)
+        except:
+            pass
 
 
 if __name__ == "__main__":

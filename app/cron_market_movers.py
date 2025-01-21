@@ -90,12 +90,7 @@ async def get_gainer_loser_active_stocks(symbols):
 
                 # Ensure the stock meets criteria
                 if market_cap >= market_cap_threshold:
-                    with open(f"json/one-day-price/{symbol}.json", 'rb') as file:
-                        one_day_price = orjson.loads(file.read())
-                        # Filter out entries with None 'close'
-                        filtered_prices = [p for p in one_day_price if p['close'] is not None]
-
-                    if price and changes_percentage and len(filtered_prices) > 100:
+                    if price and changes_percentage:
                         res_list.append({
                             "symbol": symbol,
                             "name": name,

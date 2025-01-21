@@ -8,86 +8,7 @@ import sqlite3
 import pandas as pd
 import time
 from tqdm import tqdm
-
-load_dotenv()
-
-api_key = os.getenv('UNUSUAL_WHALES_API_KEY')
-
-# Connect to the databases
-con = sqlite3.connect('stocks.db')
-etf_con = sqlite3.connect('etf.db')
-cursor = con.cursor()
-cursor.execute("PRAGMA journal_mode = wal")
-#cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%' AND marketCap > 1E9")
-cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
-stocks_symbols = [row[0] for row in cursor.fetchall()]
-
-etf_cursor = etf_con.cursor()
-etf_cursor.execute("PRAGMA journal_mode = wal")
-#etf_cursor.execute("SELECT DISTINCT symbol FROM etfs WHERE marketCap > 1E9")
-etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
-etf_symbols = [row[0] for row in etf_cursor.fetchall()]
-
-
-
-total_symbols = stocks_symbols + etf_symbols
-
-#today = datetime.today()
-#N_days_ago = today - timedelta(days=90)
-
-query_template = """
-    SELECT date, close, change_percent
-    FROM "{ticker}"
-    WHERE date BETWEEN ? AND ?
-"""
-
-def get_tickers_from_directory(directory: str):
-    try:
-        # Ensure the directory exists
-        if not os.path.exists(directory):
-            raise FileNotFoundError(f"The directory '{directory}' does not exist.")
-        
-        # Get all tickers from filenames
-        return [file.replace(".json", "") for file in os.listdir(directory) if file.endswith(".json")]
-    
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        return []
-
-directory_path = "json/options-historical-data/companies"
-total_symbols = get_tickers_from_directory(directory_path)
-
-if len(total_symbols) < 100:
-    total_symbols = stocks_symbols+etf_symbols
-
-print(len(total_symbols))
-
-
-def save_json(data, symbol):
-    os.makedirs(directory_path, exist_ok=True)  # Ensure the directory exists
-    with open(f"{directory_path}/{symbol}.json", 'wb') as file:  # Use binary mode for orjson
-        file.write(orjson.dumps(data))
-
-
-def safe_round(value, decimals=2):
-    try:
-        return round(float(value), decimals)
-    except (ValueError, TypeError):
-        return value
-
-
-def calculate_neutral_premium(data_item):
-    """Calculate the neutral premium for a data item."""
-    call_premium = float(data_item['call_premium'])
-    put_premium = float(data_item['put_premium'])
-    bearish_premium = float(data_item['bearish_premium'])
-    bullish_premium = float(data_item['bullish_premium'])
-    
-    total_premiums = bearish_premium + bullish_premium
-    observed_premiums = call_premium + put_premium
-    neutral_premium = observed_premiums - total_premiums
-    
-    return safe_round(neutral_premium)
+from collections import defaultdict
 
 
 def prepare_data(data, symbol):
@@ -158,37 +79,71 @@ def prepare_data(data, symbol):
         save_json(res_list, symbol)
 
 
-
-querystring = {"limit":"300"}
-headers = {
-    "Accept": "application/json, text/plain",
-    "Authorization": api_key
-}
-
-total_symbols = ['NVDA']
-
-counter = 0
-for symbol in tqdm(total_symbols):
+def get_contracts_from_directory(directory: str):
     try:
+        # Ensure the directory exists
+        if not os.path.exists(directory):
+            raise FileNotFoundError(f"The directory '{directory}' does not exist.")
         
-        url = f"https://api.unusualwhales.com/api/stock/{symbol}/options-volume"
-        
-        response = requests.get(url, headers=headers, params=querystring)
-
-        if response.status_code == 200:
-            data = response.json()['data']
-            prepare_data(data, symbol)
-        
-        counter +=1
-        # If 50 chunks have been processed, sleep for 60 seconds
-        if counter == 260:
-            print("Sleeping...")
-            time.sleep(60)  # Sleep for 60 seconds
-            counter = 0
-        
+        # Get all tickers from filenames
+        return [file.replace(".json", "") for file in os.listdir(directory) if file.endswith(".json")]
+    
     except Exception as e:
-        print(f"Error for {symbol}:{e}")
+        print(f"An error occurred: {e}")
+        return []
 
 
-con.close()
-etf_con.close()
+
+def aggregate_data_by_date():
+    total_symbols = ['AA']
+    data_by_date = defaultdict(lambda: {"volume": 0, "open_interest": 0})
+    contracts_processed = 0
+    
+    for symbol in tqdm(total_symbols, desc="Processing symbols"):
+        try:
+            contract_list = get_contracts_from_directory(f"json/all-options-contracts/{symbol}")
+            
+            for item in tqdm(contract_list, desc=f"Processing {symbol} contracts", leave=False):
+                try:
+                    with open(f"json/all-options-contracts/{symbol}/{item}.json", "r") as file:
+                        data = orjson.loads(file.read())
+                        
+                        # Process historical data
+                        for entry in data.get('history', []):
+                            date = entry.get('date')
+                            volume = entry.get('volume')
+                            open_interest = entry.get('open_interest')
+                            
+                            if date:
+                                # Aggregate volume
+                                if volume is not None:
+                                    data_by_date[date]["volume"] += int(volume)
+                                
+                                # Aggregate open interest
+                                if open_interest is not None:
+                                    data_by_date[date]["open_interest"] += int(open_interest)
+                                
+                    contracts_processed += 1
+                    
+                except Exception as e:
+                    print(f"Error processing contract {item} for {symbol}: {e}")
+                    continue
+                    
+        except Exception as e:
+            print(f"Error processing symbol {symbol}: {e}")
+            continue
+    
+    # Sort results by date
+    sorted_results = {date: metrics for date, metrics in sorted(data_by_date.items())}
+    
+    return sorted_results, contracts_processed
+
+if __name__ == '__main__':
+    # Run the aggregation
+    results, total_processed = aggregate_data_by_date()
+    
+    print("\nData by date:")
+    for date, metrics in results.items():
+        print(f"{date}: Volume = {metrics['volume']:,}, Open Interest = {metrics['open_interest']:,}")
+    
+    print(f"\nTotal contracts processed: {total_processed}")
