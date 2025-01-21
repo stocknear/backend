@@ -94,56 +94,89 @@ def get_contracts_from_directory(directory: str):
 
 
 
+def get_contracts_from_directory(directory):
+    """Retrieve a list of contract files from a directory."""
+    return [f.split('.')[0] for f in os.listdir(directory) if f.endswith('.json')]
+
+
 def aggregate_data_by_date():
     total_symbols = ['AA']
-    data_by_date = defaultdict(lambda: {"volume": 0, "open_interest": 0})
-    contracts_processed = 0
+    data_by_date = defaultdict(lambda: {
+        "date": "",  # Add date field to the dictionary
+        "call_volume": 0,
+        "put_volume": 0,
+        "call_open_interest": 0,
+        "put_open_interest": 0,
+        "call_premium": 0,
+        "put_premium": 0,
+    })
     
-    for symbol in tqdm(total_symbols, desc="Processing symbols"):
+    for symbol in tqdm(total_symbols):
         try:
-            contract_list = get_contracts_from_directory(f"json/all-options-contracts/{symbol}")
+            contract_dir = f"json/all-options-contracts/{symbol}"
+            if not os.path.exists(contract_dir):
+                print(f"Directory does not exist: {contract_dir}")
+                continue
+            
+            contract_list = get_contracts_from_directory(contract_dir)
             
             for item in tqdm(contract_list, desc=f"Processing {symbol} contracts", leave=False):
                 try:
-                    with open(f"json/all-options-contracts/{symbol}/{item}.json", "r") as file:
+                    file_path = os.path.join(contract_dir, f"{item}.json")
+                    with open(file_path, "r") as file:
                         data = orjson.loads(file.read())
-                        
-                        # Process historical data
-                        for entry in data.get('history', []):
-                            date = entry.get('date')
-                            volume = entry.get('volume')
-                            open_interest = entry.get('open_interest')
-                            
-                            if date:
-                                # Aggregate volume
+                    option_type = data.get('optionType', None)
+                    if option_type not in ['call', 'put']:
+                        continue
+                    for entry in data.get('history', []):
+                        date = entry.get('date')
+                        volume = entry.get('volume',0)
+                        open_interest = entry.get('open_interest',0)
+                        total_premium = entry.get('total_premium',0)
+                        print(total_premium)
+                        if volume is None:
+                            volume = 0
+                        if open_interest is None:
+                            open_interest = 0
+                        if total_premium is None:
+                            total_premium = 0
+
+
+                        if date:
+                            data_by_date[date]["date"] = date  # Store the date in the dictionary
+                            if option_type == 'call':
                                 if volume is not None:
-                                    data_by_date[date]["volume"] += int(volume)
-                                
-                                # Aggregate open interest
+                                    data_by_date[date]["call_volume"] += int(volume)
                                 if open_interest is not None:
-                                    data_by_date[date]["open_interest"] += int(open_interest)
-                                
-                    contracts_processed += 1
-                    
+                                    data_by_date[date]["call_open_interest"] += int(open_interest)
+                                if total_premium is not None:
+                                    data_by_date[date]["call_premium"] += int(total_premium)
+                            elif option_type == 'put':
+                                if volume is not None:
+                                    data_by_date[date]["put_volume"] += int(volume)
+                                if open_interest is not None:
+                                    data_by_date[date]["put_open_interest"] += int(open_interest)
+                                if total_premium is not None:
+                                    data_by_date[date]["put_premium"] += int(total_premium)
+
+
                 except Exception as e:
                     print(f"Error processing contract {item} for {symbol}: {e}")
                     continue
-                    
         except Exception as e:
             print(f"Error processing symbol {symbol}: {e}")
             continue
+            
+    # Convert to list of dictionaries and sort by date
+    result = list(data_by_date.values())
+    result.sort(key=lambda x: x['date'])
     
-    # Sort results by date
-    sorted_results = {date: metrics for date, metrics in sorted(data_by_date.items())}
-    
-    return sorted_results, contracts_processed
+    return result
+
+
 
 if __name__ == '__main__':
     # Run the aggregation
-    results, total_processed = aggregate_data_by_date()
-    
-    print("\nData by date:")
-    for date, metrics in results.items():
-        print(f"{date}: Volume = {metrics['volume']:,}, Open Interest = {metrics['open_interest']:,}")
-    
-    print(f"\nTotal contracts processed: {total_processed}")
+    results = aggregate_data_by_date()
+
+    print(results[-1])

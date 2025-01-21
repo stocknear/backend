@@ -7,11 +7,11 @@ from datetime import datetime, timedelta
 import ast
 import orjson
 from tqdm import tqdm
-from dotenv import load_dotenv
-import os
 import aiohttp
 from concurrent.futures import ThreadPoolExecutor
 import sqlite3
+from dotenv import load_dotenv
+import os
 
 load_dotenv()
 api_key = os.getenv('INTRINIO_API_KEY')
@@ -48,8 +48,8 @@ before = '2100-12-31'
 N_year_ago = datetime.now() - timedelta(days=365)
 include_related_symbols = False
 page_size = 5000
-MAX_CONCURRENT_REQUESTS = 20  # Adjust based on API rate limits
-BATCH_SIZE = 2000
+MAX_CONCURRENT_REQUESTS = 50  # Adjust based on API rate limits
+BATCH_SIZE = 1500
 
 def get_all_expirations(symbol):
     response = intrinio.OptionsApi().get_options_expirations_eod(
@@ -149,8 +149,17 @@ async def get_single_contract_eod_data(symbol, contract_id, semaphore):
                     except:
                         res_list[i]['changeOI'] = None
                         res_list[i]['changesPercentageOI'] = None
+
+                for i in range(1,len(res_list)):
+                    try:
+                        volume = res_list[i]['volume']
+                        avg_fill = res_list[i]['mark']
+                        res_list[i]['total_premium'] = int(avg_fill*volume*100)
+                    except:
+                        res_list[i]['total_premium'] = 0
+
                 
-                data = {'expiration': key_data['_expiration'], 'strike': key_data['_strike'], 'optionType': key_data['_type'], 'history': history}
+                data = {'expiration': key_data['_expiration'], 'strike': key_data['_strike'], 'optionType': key_data['_type'], 'history': res_list}
                 await save_json(data, symbol, contract_id)
 
         except Exception as e:
