@@ -434,8 +434,8 @@ schedule.every(5).minutes.do(run_threaded, run_list).tag('stock_list_job')
 
 
 
-schedule.every(30).minutes.do(run_threaded, run_dark_pool_level).tag('dark_pool_level_job')
-schedule.every(10).seconds.do(run_threaded, run_dark_pool_flow).tag('dark_pool_flow_job')
+#schedule.every(30).minutes.do(run_threaded, run_dark_pool_level).tag('dark_pool_level_job')
+#schedule.every(10).seconds.do(run_threaded, run_dark_pool_flow).tag('dark_pool_flow_job')
 
 schedule.every(2).minutes.do(run_threaded, run_dashboard).tag('dashboard_job')
 
