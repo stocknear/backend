@@ -40,6 +40,25 @@ class ChainItem:
     def prices(self):
         return self._prices
 
+
+def calculate_net_premium(ask_price, bid_price, ask_size, bid_size):
+    """
+    Calculate the net premium from the ask and bid prices and sizes.
+    If any value is None, it will be treated as 0.
+    """
+    # Replace None with 0 for any of the values
+    ask_price = ask_price if ask_price is not None else 0
+    bid_price = bid_price if bid_price is not None else 0
+    ask_size = ask_size if ask_size is not None else 0
+    bid_size = bid_size if bid_size is not None else 0
+    
+    # Premium for call or put options
+    ask_premium = ask_price * ask_size * 100  # Assuming 100 shares per contract
+    bid_premium = bid_price * bid_size * 100
+    
+    # Return the net premium (difference between received and paid)
+    return ask_premium - bid_premium
+
 intrinio.ApiClient().set_api_key(api_key)
 #intrinio.ApiClient().allow_retries(True)
 
@@ -113,7 +132,7 @@ async def get_single_contract_eod_data(symbol, contract_id, semaphore):
 
             #clean the data
             history = [
-                {key.lstrip('_'): value for key, value in record.items() if key not in ('_close_time','_open_ask', '_ask_low','_close_bid_size','_close_ask_size','_close_ask','_close_bid','_close_size','_exercise_style','discriminator','_open_bid','_bid_low','_bid_high','_ask_high')}
+                {key.lstrip('_'): value for key, value in record.items() if key not in ('_close_time','_open_ask', '_ask_low','_close_size','_exercise_style','discriminator','_open_bid','_bid_low','_bid_high','_ask_high')}
                 for record in history
             ]
 
@@ -155,10 +174,14 @@ async def get_single_contract_eod_data(symbol, contract_id, semaphore):
                         volume = res_list[i]['volume']
                         avg_fill = res_list[i]['mark']
                         res_list[i]['total_premium'] = int(avg_fill*volume*100)
+                        # Calculate the net premiums for call and put options
+                        res_list[i]['net_premium'] = calculate_net_premium(res_list[i]['close_ask'], res_list[i]['close_bid'], res_list[i]['close_ask_size'], res_list[i]['close_bid_size'])
+
                     except:
                         res_list[i]['total_premium'] = 0
+                        res_list[i]['net_premium'] = 0
 
-                
+                        
                 data = {'expiration': key_data['_expiration'], 'strike': key_data['_strike'], 'optionType': key_data['_type'], 'history': res_list}
                 await save_json(data, symbol, contract_id)
 
