@@ -1,13 +1,42 @@
-import aiohttp
+from __future__ import print_function
 import asyncio
+import time
+import intrinio_sdk as intrinio
+from intrinio_sdk.rest import ApiException
+from datetime import datetime, timedelta
+import ast
 import orjson
+from tqdm import tqdm
+import aiohttp
+from concurrent.futures import ThreadPoolExecutor
+import sqlite3
 from dotenv import load_dotenv
 import os
-import sqlite3
 
 load_dotenv()
 
-api_key = os.getenv('UNUSUAL_WHALES_API_KEY')
+api_key = os.getenv('INTRINIO_API_KEY')
+
+intrinio.ApiClient().set_api_key(api_key)
+#intrinio.ApiClient().allow_retries(True)
+
+source = ''
+show_stats = ''
+stock_price_source = ''
+model = ''
+show_extended_price = ''
+
+
+after = datetime.today().strftime('%Y-%m-%d')
+before = '2100-12-31'
+include_related_symbols = False
+page_size = 5000
+MAX_CONCURRENT_REQUESTS = 50  # Adjust based on API rate limits
+BATCH_SIZE = 1500
+
+
+
+
 
 # Database connection and symbol retrieval
 def get_total_symbols():
@@ -40,6 +69,18 @@ def get_tickers_from_directory():
         print(f"An error occurred: {e}")
         return []
 
+def get_contracts_from_directory(symbol):
+    directory = f"json/all-options-contracts/{symbol}/"
+    try:
+        # Ensure the directory exists
+        if not os.path.exists(directory):
+            raise FileNotFoundError(f"The directory '{directory}' does not exist.")
+        # Get all tickers from filenames
+        return [file.replace(".json", "") for file in os.listdir(directory) if file.endswith(".json")]
+    
+    except:
+        return []
+
 def save_json(data, symbol):
     directory = "json/options-stats/companies"
     os.makedirs(directory, exist_ok=True)
@@ -54,86 +95,147 @@ def safe_round(value):
         return value
 
 
-def calculate_neutral_premium(data_item):
-    call_premium = float(data_item['call_premium'])
-    put_premium = float(data_item['put_premium'])
-    bearish_premium = float(data_item['bearish_premium'])
-    bullish_premium = float(data_item['bullish_premium'])
+def get_all_expirations(symbol):
+    response = intrinio.OptionsApi().get_options_expirations_eod(
+        symbol, 
+        after=after, 
+        before=before, 
+        include_related_symbols=include_related_symbols
+    )
+    data = (response.__dict__).get('_expirations')
+    return data
 
-    total_premiums = bearish_premium + bullish_premium
-    observed_premiums = call_premium + put_premium
-    neutral_premium = observed_premiums - total_premiums
+async def get_options_chain(symbol, expiration, semaphore):
+    async with semaphore:
+        try:
+            # Run the synchronous API call in a thread pool since intrinio doesn't support async
+            loop = asyncio.get_event_loop()
+            with ThreadPoolExecutor() as pool:
+                response = await loop.run_in_executor(
+                    pool,
+                    lambda: intrinio.OptionsApi().get_options_chain_eod(
+                        symbol,
+                        expiration,
+                        include_related_symbols=include_related_symbols
+                    )
+                )
+            contracts = set()
+            for item in response.chain:
+                try:
+                    contracts.add(item.option.code)
+                except Exception as e:
+                    print(f"Error processing contract in {expiration}: {e}")
+            return contracts
+            
+        except Exception as e:
+            print(f"Error fetching chain for {expiration}: {e}")
+            return set()
 
-    return safe_round(neutral_premium)
+
+async def get_price_batch_realtime(symbol,contract_list):
+    body = {
+      "contracts": contract_list
+    }
 
 
-def prepare_data(data):
+    response = intrinio.OptionsApi().get_options_prices_batch_realtime(body, source=source, show_stats=show_stats, stock_price_source=stock_price_source, model=model, show_extended_price=show_extended_price)
+    data = response.__dict__
+    data = data['_contracts']
+
+    res_dict = {'total_premium': 0, 'call_premium': 0, 'put_premium': 0,
+        'volume': 0, 'call_volume': 0, 'put_volume': 0, 'gex': 0, 'dex': 0,
+        'total_open_interest': 0, 'call_open_interest': 0, 'put_open_interest': 0,}
+
+    time = None
+    iv_list = []
     for item in data:
         try:
-            symbol = item['ticker']
-            bearish_premium = float(item['bearish_premium'])
-            bullish_premium = float(item['bullish_premium'])
-            neutral_premium = calculate_neutral_premium(item)
+            price_data = (item.__dict__)['_price'].__dict__
+            stats_data = (item.__dict__)['_stats'].__dict__
+            option_data = (item.__dict__)['_option'].__dict__
+            option_type = ((item.__dict__)['_option'].__dict__)['_type']
+            
+            volume = int(price_data['_volume']) if price_data['_volume'] != None else 0
+            total_open_interest = int(price_data['_open_interest']) if price_data['_open_interest'] != None else 0
+            last_price = price_data['_last'] if price_data['_last'] != None else 0
+            premium = int(volume * last_price * 100)
+            implied_volatility = stats_data['_implied_volatility']
 
-            new_item = {
-                key: safe_round(value)
-                for key, value in item.items()
-                if key != 'in_out_flow'
-            }
+            gamma = stats_data['_gamma'] if stats_data['_gamma'] != None else 0
+            delta = stats_data['_delta'] if stats_data['_delta'] != None else 0
 
-            new_item['premium_ratio'] = [
-                safe_round(bearish_premium),
-                neutral_premium,
-                safe_round(bullish_premium)
-            ]
-            new_item['open_interest_change'] = (
-                new_item['total_open_interest'] - 
-                (new_item.get('prev_call_oi', 0) + new_item.get('prev_put_oi', 0))
-                if 'total_open_interest' in new_item else None
-            )
+            res_dict['gex'] += gamma * total_open_interest * 100
+            res_dict['dex'] += delta * total_open_interest * 100
 
-            if new_item:
-                save_json(new_item, symbol)
+            res_dict['total_premium'] += premium
+            res_dict['volume'] += volume
+            res_dict['total_open_interest'] += total_open_interest
+
+            if option_type == 'call':
+                res_dict['call_premium'] += premium
+                res_dict['call_volume'] += volume
+                res_dict['call_open_interest'] += total_open_interest
+            else:
+                res_dict['put_premium'] += premium
+                res_dict['put_volume'] += volume
+                res_dict['put_open_interest'] += total_open_interest
+
+            iv_list.append(implied_volatility)
+
+            time = price_data['_ask_timestamp'].strftime("%Y-%m-%d")
         except:
             pass
 
+    res_dict['iv'] = round((sum(iv_list) / len(iv_list)*100),2) if iv_list else 0
+    res_dict['putCallRatio'] = round(res_dict['put_volume'] / res_dict['call_volume'],2) if res_dict['call_volume'] > 0 else 0 
+    
+    with open("json/options-historical-data/companies/AA.json", "r") as file:
+        past_data = orjson.loads(file.read())
+        index = next((i for i, item in enumerate(past_data) if item['date'] == time), 0)
+        previous_open_interest = past_data[index]['total_open_interest']
 
-async def fetch_data(session, chunk):
-    chunk_str = ",".join(chunk)
-    url = "https://api.unusualwhales.com/api/screener/stocks"
-    params = {"ticker": chunk_str}
-    headers = {
-        "Accept": "application/json, text/plain",
-        "Authorization": api_key
-    }
+    res_dict['changesPercentageOI'] = round((res_dict['total_open_interest']/previous_open_interest-1)*100,2)
+    res_dict['changeOI'] = res_dict['total_open_interest'] - previous_open_interest
 
-    try:
-        async with session.get(url, headers=headers, params=params) as response:
-            json_data = await response.json()
-            data = json_data.get('data', [])
-            prepare_data(data)
-            print(f"Processed chunk with {len(data)} results.")
-    except Exception as e:
-        print(f"Exception fetching chunk {chunk_str}: {e}")
+    if res_dict:
+        save_json(res_dict, symbol)
+
+
+    
+
+
+async def prepare_dataset(symbol):
+    expiration_list = get_all_expirations(symbol)
+    
+    semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
+    
+    # Create tasks for all expirations
+    tasks = [get_options_chain(symbol, expiration, semaphore) for expiration in expiration_list]
+    # Show progress bar for completed tasks
+    contract_sets = set()
+    for task in tqdm(asyncio.as_completed(tasks), total=len(tasks), desc="Processing expirations"):
+        contracts = await task
+        contract_sets.update(contracts)
+    
+    # Convert final set to list
+    contract_list = list(contract_sets)
 
 
 async def main():
+    '''
     total_symbols = get_tickers_from_directory()
     if len(total_symbols) < 3000:
         total_symbols = get_total_symbols()
     print(f"Number of tickers: {len(total_symbols)}")
-    chunk_size = 50
-    chunks = [total_symbols[i:i + chunk_size] for i in range(0, len(total_symbols), chunk_size)]
 
-    async with aiohttp.ClientSession() as session:
-        for i in range(0, len(chunks), 100):  # Process 100 chunks at a time
-            try:
-                tasks = [fetch_data(session, chunk) for chunk in chunks[i:i + 100]]
-                await asyncio.gather(*tasks)
-                print("Processed 100 chunks. Sleeping for 60 seconds...")
-                await asyncio.sleep(60)  # Avoid API rate limits
-            except:
-                pass
+    total_symbols = ['AA']
+    for symbol in total_symbols:
+        await prepare_dataset(symbol)
+    '''
+    symbol = 'AA'
+    contract_list = get_contracts_from_directory(symbol)
+
+    await get_price_batch_realtime(symbol, contract_list)
 
 
 if __name__ == "__main__":

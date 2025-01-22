@@ -122,6 +122,9 @@ async def get_single_contract_eod_data(symbol, contract_id, semaphore):
             key_data = {k: v for k, v in response._option.__dict__.items() if isinstance(v, (str, int, float, bool, list, dict, type(None)))}
 
             history = []
+
+    
+
             if response and hasattr(response, '_prices'):
                 for price in response._prices:
                     history.append({
@@ -181,7 +184,8 @@ async def get_single_contract_eod_data(symbol, contract_id, semaphore):
                         res_list[i]['total_premium'] = 0
                         res_list[i]['net_premium'] = 0
 
-                        
+
+                
                 data = {'expiration': key_data['_expiration'], 'strike': key_data['_strike'], 'optionType': key_data['_type'], 'history': res_list}
                 await save_json(data, symbol, contract_id)
 

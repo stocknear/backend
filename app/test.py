@@ -16,15 +16,17 @@ intrinio.ApiClient().allow_retries(True)
 
 
 
-#identifier = 'AA250321C00045000'
+source = 'delayed'
+start_date = ''
+start_time = ''
+end_date = ''
+end_time = ''
+timezone = 'UTC'
+page_size = 100
+min_size = 100
+security = 'AAPL'
+next_page = ''
 
-symbol = 'MSFT'
-strike = 95
-source = ''
-stock_price_source = ''
-model = ''
-show_extended_price = ''
-include_related_symbols = False
-
-response = intrinio.OptionsApi().get_option_strikes_realtime(symbol, strike, source=source, stock_price_source=stock_price_source, model=model, show_extended_price=show_extended_price, include_related_symbols=include_related_symbols)
+response = intrinio.OptionsApi().get_option_trades(source=source, start_date=start_date, start_time=start_time, end_date=end_date, end_time=end_time, timezone=timezone, page_size=page_size, min_size=min_size, security=security, next_page=next_page)
 print(response)
+    
