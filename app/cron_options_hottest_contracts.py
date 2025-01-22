@@ -100,59 +100,54 @@ def safe_round(value, decimals=2):
         return value
 
 
-def prepare_data(contract_list, symbol):
-
-
-    res_list = []
-
-    
-    for item in contract_list:
-        new_item = {}
-        try:
-            with open(f"json/all-options-contracts/{symbol}/{item['contract_id']}.json","r") as file:
-                data = orjson.loads(file.read())
-
-            latest_entry = data['history'][-1]
-            previous_open_interest = data['history'][-2]['open_interest']
-            open_interest = latest_entry['open_interest']
-            close = latest_entry['close']
-            low = latest_entry['low']
-            high = latest_entry['high']
-            implied_volatility = round(latest_entry['implied_volatility'],2)
-
-            total_premium = int(latest_entry['mark'] * latest_entry['open_interest'] * 100)
-
-            strike_price = data['strike']
-            date_expiration = data['expiration']
-            option_type = data['optionType'].replace('call','C').replace('put','P')
-            volume = item['peak_volume']
-                
-            new_item['date_expiration'] = date_expiration
-            new_item['option_type'] = option_type
-            new_item['strike_price'] = strike_price
-            new_item['volume'] = volume
-            new_item['open_interest'] = open_interest
-            new_item['changeOI'] = open_interest -previous_open_interest
-            new_item['total_premium'] = total_premium
-            new_item['iv'] = implied_volatility
-            new_item['last'] = close
-            new_item['low'] = low
-            new_item['high'] = high
-
-
-            res_list.append(new_item)
+def process_contract(item, symbol):
+    """Process a single contract and return its processed data."""
+    try:
+        with open(f"json/all-options-contracts/{symbol}/{item['contract_id']}.json", "r") as file:
+            data = orjson.loads(file.read())
         
-        except Exception as e:
-            print(e)
-    print(res_list)
-    '''
-    if res_list:
-        highest_volume = sorted(res_list, key=lambda x: x['volume'], reverse=True)[:10]
-        highest_open_interest = sorted(res_list, key=lambda x: x['open_interest'], reverse=True)[:10]
-        res_dict = {'volume': highest_volume, 'openInterest': highest_open_interest}
-        save_json(res_dict, symbol,"json/hottest-contracts/companies")
-    '''
+        history = data['history']
+        latest_entry = history[-1]
+        
+        return {
+            'option_symbol': item['contract_id'],
+            'date_expiration': data['expiration'],
+            'option_type': data['optionType'].replace('call', 'C').replace('put', 'P'),
+            'strike_price': data['strike'],
+            'volume': item['peak_volume'],
+            'open_interest': latest_entry['open_interest'],
+            'changeOI': latest_entry['open_interest'] - history[-2]['open_interest'],
+            'total_premium': int(latest_entry['mark'] * latest_entry['open_interest'] * 100),
+            'iv': round(latest_entry['implied_volatility'] * 100, 2),
+            'last': latest_entry['close'],
+            'low': latest_entry['low'],
+            'high': latest_entry['high']
+        }
+    except Exception as e:
+        print(e)
+        return None
+
+def prepare_data(highest_volume_list, highest_oi_list, symbol):
+    """Prepare and save options data for highest volume and open interest contracts."""
+    # Process both lists in parallel using list comprehension
+    highest_volume = [
+        result for item in highest_volume_list 
+        if (result := process_contract(item, symbol)) is not None
+    ]
     
+    highest_oi = [
+        result for item in highest_oi_list 
+        if (result := process_contract(item, symbol)) is not None
+    ]
+    
+    res_dict = {'volume': highest_volume, 'openInterest': highest_oi}
+    
+    if res_dict:
+        save_json(res_dict, symbol, "json/hottest-contracts/companies")
+    
+    return res_dict
+
+
 
 def get_hottest_contracts(base_dir="json/all-options-contracts"):
     """
@@ -247,7 +242,7 @@ def get_hottest_contracts(base_dir="json/all-options-contracts"):
         top_by_volume_contracts = [contract_info for _, contract_info in top_by_volume]
         top_by_open_interest_contracts = [contract_info for _, contract_info in top_by_open_interest]
 
-        prepare_data(top_by_volume_contracts, symbol)
+        prepare_data(top_by_volume_contracts, top_by_open_interest_contracts, symbol)
         
 # Example usage
 if __name__ == "__main__":

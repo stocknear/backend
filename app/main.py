@@ -265,6 +265,10 @@ class TickerData(BaseModel):
 class GeneralData(BaseModel):
     params: str
 
+class OptionContract(BaseModel):
+    ticker: str
+    contract: str
+
 class ParamsData(BaseModel):
     params: str
     category: str
@@ -2668,9 +2672,12 @@ async def get_pre_post_quote(data:TickerData, api_key: str = Security(get_api_ke
 
 
 @app.post("/options-contract-history")
-async def get_data(data:GeneralData, api_key: str = Security(get_api_key)):
-    contract_id = data.params
-    cache_key = f"options-contract-history-{contract_id}"
+async def get_data(data:OptionContract, api_key: str = Security(get_api_key)):
+    contract_id = data.contract
+    ticker = data.ticker
+    print(ticker, contract_id)
+
+    cache_key = f"options-contract-history-{ticker}-{contract_id}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
         return StreamingResponse(
@@ -2679,10 +2686,11 @@ async def get_data(data:GeneralData, api_key: str = Security(get_api_key)):
         headers={"Content-Encoding": "gzip"})
 
     try:
-        with open(f"json/hottest-contracts/contracts/{contract_id}.json", 'rb') as file:
+        with open(f"json/all-options-contracts/{ticker}/{contract_id}.json", 'rb') as file:
             res = orjson.loads(file.read())
     except:
         res = []
+
     data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
     redis_client.set(cache_key, compressed_data)
