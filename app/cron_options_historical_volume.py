@@ -11,9 +11,46 @@ from tqdm import tqdm
 from collections import defaultdict
 
 
+
+#today = datetime.today()
+#N_days_ago = today - timedelta(days=90)
+
+query_template = """
+    SELECT date, close, change_percent
+    FROM "{ticker}"
+    WHERE date BETWEEN ? AND ?
+"""
+
+
+
+def save_json(data, symbol):
+    directory_path = f"json/options-historical-data/companies"
+    os.makedirs(directory_path, exist_ok=True)  # Ensure the directory exists
+    with open(f"{directory_path}/{symbol}.json", 'wb') as file:  # Use binary mode for orjson
+        file.write(orjson.dumps(data))
+
 def prepare_data(data, symbol):
     res_list = []
-    #data = [entry for entry in data if datetime.strptime(entry['date'], "%Y-%m-%d") >= N_days_ago]
+
+    data = [entry for entry in data if entry['call_volume'] != 0 or entry['put_volume'] != 0]
+    
+    data = sorted(data, key=lambda x: x['date'])
+    for i in range(1, len(data)):
+        try:
+            current_open_interest = data[i]['total_open_interest']
+            previous_open_interest = data[i-1]['total_open_interest']
+            changes_percentage_oi = round((current_open_interest/previous_open_interest -1)*100,2)
+            data[i]['changesPercentageOI'] = changes_percentage_oi
+            data[i]['changeOI'] = current_open_interest-previous_open_interest
+        except:
+            data[i]['changesPercentageOI'] = None
+            data[i]['changeOI'] = None
+
+    data = sorted(data, key=lambda x: x['date'], reverse=True)
+    
+    if data:
+        save_json(data,symbol)
+    '''
     
     start_date_str = data[-1]['date']
     end_date_str = data[0]['date']
@@ -77,6 +114,7 @@ def prepare_data(data, symbol):
 
     if res_list:
         save_json(res_list, symbol)
+    '''
 
 
 def get_contracts_from_directory(directory: str):
@@ -99,8 +137,7 @@ def get_contracts_from_directory(directory):
     return [f.split('.')[0] for f in os.listdir(directory) if f.endswith('.json')]
 
 
-def aggregate_data_by_date():
-    total_symbols = ['AA']
+def aggregate_data_by_date(total_symbols):
     data_by_date = defaultdict(lambda: {
         "date": "",  # Add date field to the dictionary
         "call_volume": 0,
@@ -108,7 +145,9 @@ def aggregate_data_by_date():
         "call_open_interest": 0,
         "put_open_interest": 0,
         "call_premium": 0,
+        "call_net_premium": 0,
         "put_premium": 0,
+        "put_net_premium": 0,
     })
     
     for symbol in tqdm(total_symbols):
@@ -133,14 +172,15 @@ def aggregate_data_by_date():
                         volume = entry.get('volume',0)
                         open_interest = entry.get('open_interest',0)
                         total_premium = entry.get('total_premium',0)
-                        print(total_premium)
+
+
                         if volume is None:
                             volume = 0
                         if open_interest is None:
                             open_interest = 0
                         if total_premium is None:
                             total_premium = 0
-
+                      
 
                         if date:
                             data_by_date[date]["date"] = date  # Store the date in the dictionary
@@ -151,6 +191,7 @@ def aggregate_data_by_date():
                                     data_by_date[date]["call_open_interest"] += int(open_interest)
                                 if total_premium is not None:
                                     data_by_date[date]["call_premium"] += int(total_premium)
+
                             elif option_type == 'put':
                                 if volume is not None:
                                     data_by_date[date]["put_volume"] += int(volume)
@@ -158,8 +199,15 @@ def aggregate_data_by_date():
                                     data_by_date[date]["put_open_interest"] += int(open_interest)
                                 if total_premium is not None:
                                     data_by_date[date]["put_premium"] += int(total_premium)
+                            try:
+                                data_by_date[date]["putCallRatio"] = round(data_by_date[date]["put_volume"]/data_by_date[date]["call_volume"],2)
+                            except:
+                                data_by_date[date]["putCallRatio"] = None
 
+                            data_by_date[date]["volume"] = data_by_date[date]["call_volume"] + data_by_date[date]["put_volume"]
+                            data_by_date[date]["total_open_interest"] = data_by_date[date]["call_open_interest"] + data_by_date[date]["put_open_interest"]
 
+            
                 except Exception as e:
                     print(f"Error processing contract {item} for {symbol}: {e}")
                     continue
@@ -167,16 +215,34 @@ def aggregate_data_by_date():
             print(f"Error processing symbol {symbol}: {e}")
             continue
             
-    # Convert to list of dictionaries and sort by date
-    result = list(data_by_date.values())
-    result.sort(key=lambda x: x['date'])
-    
-    return result
+        # Convert to list of dictionaries and sort by date
+        data = list(data_by_date.values())
+
+        data = prepare_data(data,symbol)
 
 
 
 if __name__ == '__main__':
-    # Run the aggregation
-    results = aggregate_data_by_date()
+    
+    # Connect to the databases
+    con = sqlite3.connect('stocks.db')
+    etf_con = sqlite3.connect('etf.db')
+    cursor = con.cursor()
+    cursor.execute("PRAGMA journal_mode = wal")
+    #cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%' AND marketCap > 1E9")
+    cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
+    stocks_symbols = [row[0] for row in cursor.fetchall()]
 
-    print(results[-1])
+    etf_cursor = etf_con.cursor()
+    etf_cursor.execute("PRAGMA journal_mode = wal")
+    #etf_cursor.execute("SELECT DISTINCT symbol FROM etfs WHERE marketCap > 1E9")
+    etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
+    etf_symbols = [row[0] for row in etf_cursor.fetchall()]
+    total_symbols = stocks_symbols + etf_symbols
+
+
+    total_symbols = ['AA']
+    data = aggregate_data_by_date(total_symbols)
+    
+    con.close()
+    etf_con.close()
