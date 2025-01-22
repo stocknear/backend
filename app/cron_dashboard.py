@@ -373,32 +373,57 @@ async def get_analyst_report():
 
 async def get_latest_wiim():
     url = "https://api.benzinga.com/api/v2/news"
-    querystring = {"token": benzinga_api_key,"dateFrom":yesterday,"dateTo":today,"sort":"created:desc", "pageSize": 1000, "channels":"WIIM"}
+    querystring = {
+        "token": benzinga_api_key,
+        "dateFrom": yesterday,
+        "dateTo": today,
+        "sort": "updated:desc",
+        "pageSize": 1000,
+        "channels": "WIIM"
+    }
+    max_retries = 3
+    retry_delay = 2  # seconds
     res_list = []
 
-    async with aiohttp.ClientSession() as session:
+    for attempt in range(max_retries):
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, params=querystring, headers=headers) as response:
+                if response.status != 200:
+                    await asyncio.sleep(retry_delay)
+                    continue
+                
+                data = ujson.loads(await response.text())
+                for item in data:
+                    try:
+                        if len(item['stocks']) == 1:
+                            item['ticker'] = item['stocks'][0].get('name', None)
 
-        async with session.get(url, params=querystring, headers=headers) as response:
-            data = ujson.loads(await response.text())
+                            with open(f"json/quote/{item['ticker']}.json", "r") as file:
+                                quote_data = ujson.load(file)
+                                item['marketCap'] = quote_data.get('marketCap', None)
+                            
+                            res_list.append({
+                                'date': item['created'],
+                                'text': item['title'],
+                                'marketCap': item['marketCap'],
+                                'ticker': item['ticker']
+                            })
+                    except:
+                        pass
+                
+                if res_list:
+                    break  # Exit retry loop if data is fetched successfully
+        
+        if res_list:
+            break
+        else:
+            await asyncio.sleep(retry_delay)
 
-            for item in data:
-                try:
-                    if len(item['stocks']) == 1:
-                        item['ticker'] = item['stocks'][0].get('name',None)
-
-                        with open(f"json/quote/{item['ticker']}.json","r") as file:
-                            quote_data = ujson.load(file)
-                            item['marketCap'] = quote_data.get('marketCap',None)
-                        
-                        res_list.append({'date': item['created'], 'text': item['title'], 'marketCap': item['marketCap'],'ticker': item['ticker']})
-                except:
-                    pass
-            res_list = sorted(
-                res_list,
-                key=lambda item: datetime.strptime(item['date'], '%a, %d %b %Y %H:%M:%S %z'),
-                reverse=True
-            )
-    
+    res_list = sorted(
+        res_list,
+        key=lambda item: datetime.strptime(item['date'], '%a, %d %b %Y %H:%M:%S %z'),
+        reverse=True
+    )
     return res_list[:10]
 
 async def run():
