@@ -222,21 +222,19 @@ async def prepare_dataset(symbol):
 
 
 async def main():
-    '''
+    
     total_symbols = get_tickers_from_directory()
     if len(total_symbols) < 3000:
         total_symbols = get_total_symbols()
     print(f"Number of tickers: {len(total_symbols)}")
 
-    total_symbols = ['AA']
-    for symbol in total_symbols:
-        await prepare_dataset(symbol)
-    '''
-    symbol = 'AA'
-    contract_list = get_contracts_from_directory(symbol)
-
-    await get_price_batch_realtime(symbol, contract_list)
-
+    for symbol in tqdm(total_symbols):
+        try:
+            contract_list = get_contracts_from_directory(symbol)
+            if len(contract_list) > 0:
+                await get_price_batch_realtime(symbol, contract_list)
+        except:
+            pass
 
 if __name__ == "__main__":
     asyncio.run(main())
