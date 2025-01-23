@@ -170,8 +170,6 @@ async def main():
     total_symbols = get_tickers_from_directory()
     print(f"Number of tickers: {len(total_symbols)}")
 
-    total_symbols = ['TSLA']
-
     for symbol in total_symbols:
         try:
             # Get list of contracts for the symbol

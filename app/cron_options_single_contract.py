@@ -17,6 +17,7 @@ load_dotenv()
 api_key = os.getenv('INTRINIO_API_KEY')
 
 directory_path = "json/all-options-contracts"
+current_date = datetime.now().date()
 
 async def save_json(data, symbol, contract_id):
     directory_path = f"json/all-options-contracts/{symbol}"
@@ -190,7 +191,9 @@ async def get_single_contract_eod_data(symbol, contract_id, semaphore):
 
                 
                 data = {'expiration': key_data['_expiration'], 'strike': key_data['_strike'], 'optionType': key_data['_type'], 'history': res_list}
-                await save_json(data, symbol, contract_id)
+                
+                if data:
+                    await save_json(data, symbol, contract_id)
 
         except Exception as e:
             print(f"Error fetching data for {contract_id}: {e}")
@@ -241,21 +244,17 @@ async def process_contracts(symbol, contract_list):
         for batch_num in range(total_batches):
             start_idx = batch_num * BATCH_SIZE
             batch = contract_list[start_idx:start_idx + BATCH_SIZE]
-            
-            print(f"\nProcessing batch {batch_num + 1}/{total_batches} ({len(batch)} contracts)")
-            batch_start_time = time.time()
-            
+                        
             # Process the batch concurrently
             batch_results = await process_batch(symbol, batch, semaphore, pbar)
             results.extend(batch_results)
             
-            batch_time = time.time() - batch_start_time
-            print(f"Batch completed in {batch_time:.2f} seconds")
-            
+            '''            
             # Sleep between batches if not the last batch
             if batch_num < total_batches - 1:
                 print(f"Sleeping for 60 seconds before next batch...")
                 await asyncio.sleep(60)
+            '''
     
     return results
 
@@ -274,21 +273,71 @@ def get_total_symbols():
 
     return stocks_symbols + etf_symbols
 
-async def main():
+
+
+def get_expiration_date(contract_id):
+    # Extract the date part (YYMMDD) from the contract ID
+    date_str = contract_id[2:8]
+    # Convert to datetime object
+    return datetime.strptime(date_str, "%y%m%d").date()
+
+def check_contract_expiry(symbol):
+    directory = f"{directory_path}/{symbol}/"
+    try:
+        # Ensure the directory exists
+        if not os.path.exists(directory):
+            raise FileNotFoundError(f"The directory '{directory}' does not exist.")
+        
+        # Iterate through all JSON files in the directory
+        for file in os.listdir(directory):
+            try:
+                if file.endswith(".json"):
+                    contract_id = file.replace(".json", "")
+                    expiration_date = get_expiration_date(contract_id)
+                    
+                    # Check if the contract is expired
+                    if expiration_date < current_date:
+                        # Delete the expired contract JSON file
+                        os.remove(os.path.join(directory, file))
+                        print(f"Deleted expired contract: {contract_id}")
+            except:
+                pass
+        
+        # Return the list of non-expired contracts
+        return [file.replace(".json", "") for file in os.listdir(directory) if file.endswith(".json")]
     
-    total_symbols = ['AA'] #get_total_symbols()
+    except:
+        pass
 
-    for symbol in tqdm(total_symbols):
-        try:
-            print(f"==========Start Process for {symbol}==========")
-            expiration_list = get_all_expirations(symbol)
-            print(f"Found {len(expiration_list)} expiration dates")
-            contract_list = await get_data(symbol,expiration_list)
-            print(f"Unique contracts: {len(contract_list)}")
+async def process_symbol(symbol):
+    try:
+        print(f"==========Start Process for {symbol}==========")
+        expiration_list = get_all_expirations(symbol)
+        #check existing contracts and delete expired ones
+        check_contract_expiry(symbol)
 
+        print(f"Found {len(expiration_list)} expiration dates")
+        contract_list = await get_data(symbol, expiration_list)
+        print(f"Unique contracts: {len(contract_list)}")
+
+        if len(contract_list) > 0:
             results = await process_contracts(symbol, contract_list)
-        except:
-            pass
+    except:
+        pass
+
+async def main():
+    total_symbols = get_total_symbols()
+
+    # Split the symbols into chunks of 2
+    for i in tqdm(range(0, len(total_symbols), 4)):
+        symbols_chunk = total_symbols[i:i+4]
+        
+        # Run the symbols in the chunk concurrently
+        await asyncio.gather(*[process_symbol(symbol) for symbol in symbols_chunk])
+
+# Example usage
+if __name__ == "__main__":
+    asyncio.run(main())
 
 
 if __name__ == "__main__":

@@ -20,6 +20,8 @@ api_key = os.getenv('INTRINIO_API_KEY')
 intrinio.ApiClient().set_api_key(api_key)
 #intrinio.ApiClient().allow_retries(True)
 
+current_date = datetime.now().date()
+
 source = ''
 show_stats = ''
 stock_price_source = ''
@@ -36,6 +38,11 @@ BATCH_SIZE = 1500
 
 
 
+def get_expiration_date(contract_id):
+    # Extract the date part (YYMMDD) from the contract ID
+    date_str = contract_id[2:8]
+    # Convert to datetime object
+    return datetime.strptime(date_str, "%y%m%d").date()
 
 
 # Database connection and symbol retrieval
@@ -72,12 +79,7 @@ def get_tickers_from_directory():
 def get_contracts_from_directory(symbol):
     directory = f"json/all-options-contracts/{symbol}/"
     try:
-        # Ensure the directory exists
-        if not os.path.exists(directory):
-            raise FileNotFoundError(f"The directory '{directory}' does not exist.")
-        # Get all tickers from filenames
         return [file.replace(".json", "") for file in os.listdir(directory) if file.endswith(".json")]
-    
     except:
         return []
 
@@ -127,8 +129,7 @@ async def get_options_chain(symbol, expiration, semaphore):
                     print(f"Error processing contract in {expiration}: {e}")
             return contracts
             
-        except Exception as e:
-            print(f"Error fetching chain for {expiration}: {e}")
+        except:
             return set()
 
 
@@ -148,6 +149,7 @@ async def get_price_batch_realtime(symbol,contract_list):
 
     time = None
     iv_list = []
+
     for item in data:
         try:
             price_data = (item.__dict__)['_price'].__dict__
@@ -189,7 +191,7 @@ async def get_price_batch_realtime(symbol,contract_list):
     res_dict['iv'] = round((sum(iv_list) / len(iv_list)*100),2) if iv_list else 0
     res_dict['putCallRatio'] = round(res_dict['put_volume'] / res_dict['call_volume'],2) if res_dict['call_volume'] > 0 else 0 
     
-    with open("json/options-historical-data/companies/AA.json", "r") as file:
+    with open(f"json/options-historical-data/companies/{symbol}.json", "r") as file:
         past_data = orjson.loads(file.read())
         index = next((i for i, item in enumerate(past_data) if item['date'] == time), 0)
         previous_open_interest = past_data[index]['total_open_interest']
@@ -197,12 +199,9 @@ async def get_price_batch_realtime(symbol,contract_list):
     res_dict['changesPercentageOI'] = round((res_dict['total_open_interest']/previous_open_interest-1)*100,2)
     res_dict['changeOI'] = res_dict['total_open_interest'] - previous_open_interest
 
+
     if res_dict:
         save_json(res_dict, symbol)
-
-
-    
-
 
 async def prepare_dataset(symbol):
     expiration_list = get_all_expirations(symbol)
@@ -232,6 +231,9 @@ async def main():
         try:
             contract_list = get_contracts_from_directory(symbol)
             if len(contract_list) > 0:
+                if len(contract_list) > 250:
+                    contract_list = contract_list[:250]
+                    #to-do: intrinio allows only 250 contracts per batch. Need to consider all batches.
                 await get_price_batch_realtime(symbol, contract_list)
         except:
             pass

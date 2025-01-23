@@ -145,24 +145,17 @@ def get_contracts_from_directory(directory: str):
     try:
         # Ensure the directory exists
         if not os.path.exists(directory):
-            raise FileNotFoundError(f"The directory '{directory}' does not exist.")
+            return []
         
         # Get all tickers from filenames
         return [file.replace(".json", "") for file in os.listdir(directory) if file.endswith(".json")]
     
     except Exception as e:
-        print(f"An error occurred: {e}")
+        print(e)
         return []
 
 
-
-def get_contracts_from_directory(directory):
-    """Retrieve a list of contract files from a directory."""
-    return [f.split('.')[0] for f in os.listdir(directory) if f.endswith('.json')]
-
-
-
-def aggregate_data_by_date(total_symbols):
+def aggregate_data_by_date(symbol):
     data_by_date = defaultdict(lambda: {
         "date": "",
         "call_volume": 0,
@@ -177,71 +170,68 @@ def aggregate_data_by_date(total_symbols):
         "iv_count": 0,  # Count of entries for IV
     })
     
-    for symbol in tqdm(total_symbols):
-        try:
-            contract_dir = f"json/all-options-contracts/{symbol}"
-            if not os.path.exists(contract_dir):
-                print(f"Directory does not exist: {contract_dir}")
-                continue
-            
-            contract_list = get_contracts_from_directory(contract_dir)
-            
-            for item in tqdm(contract_list, desc=f"Processing {symbol} contracts", leave=False):
-                try:
-                    file_path = os.path.join(contract_dir, f"{item}.json")
-                    with open(file_path, "r") as file:
-                        data = orjson.loads(file.read())
-                    
-                    option_type = data.get('optionType', None)
-                    if option_type not in ['call', 'put']:
-                        continue
-                    
-                    for entry in data.get('history', []):
-                        date = entry.get('date')
-                        volume = entry.get('volume', 0) or 0
-                        open_interest = entry.get('open_interest', 0) or 0
-                        total_premium = entry.get('total_premium', 0) or 0
-                        implied_volatility = entry.get('implied_volatility', 0) or 0
-                        
-                        if date:
-                            daily_data = data_by_date[date]
-                            daily_data["date"] = date
-                            
-                            if option_type == 'call':
-                                daily_data["call_volume"] += int(volume)
-                                daily_data["call_open_interest"] += int(open_interest)
-                                daily_data["call_premium"] += int(total_premium)
-                            elif option_type == 'put':
-                                daily_data["put_volume"] += int(volume)
-                                daily_data["put_open_interest"] += int(open_interest)
-                                daily_data["put_premium"] += int(total_premium)
-                                daily_data["iv"] += round(implied_volatility, 2)
-                                daily_data["iv_count"] += 1
-                            
-                            try:
-                                daily_data["putCallRatio"] = round(daily_data["put_volume"] / daily_data["call_volume"], 2)
-                            except ZeroDivisionError:
-                                daily_data["putCallRatio"] = None
-            
-                except Exception as e:
-                    print(f"Error processing contract {item} for {symbol}: {e}")
+    contract_dir = f"json/all-options-contracts/{symbol}"
+    contract_list = get_contracts_from_directory(contract_dir)
+
+    if len(contract_list) > 0:
+    
+        for item in contract_list:
+            try:
+                file_path = os.path.join(contract_dir, f"{item}.json")
+                with open(file_path, "r") as file:
+                    data = orjson.loads(file.read())
+                
+                option_type = data.get('optionType', None)
+                if option_type not in ['call', 'put']:
                     continue
-        except Exception as e:
-            print(f"Error processing symbol {symbol}: {e}")
-            continue
-    
-    # Convert to list of dictionaries and sort by date
-    data = list(data_by_date.values())
-    for daily_data in data:
-        # Compute the average IV if there are valid entries
-        if daily_data["iv_count"] > 0:
-            daily_data["iv"] = round(daily_data["iv"] / daily_data["iv_count"], 2)
-        else:
-            daily_data["iv"] = None  # Or set it to 0 if you prefer
-    
-    data = sorted(data, key=lambda x: x['date'], reverse=True)
-    data = calculate_iv_rank_for_all(data)
-    data = prepare_data(data, symbol)
+                
+                for entry in data.get('history', []):
+                    date = entry.get('date')
+                    volume = entry.get('volume', 0) or 0
+                    open_interest = entry.get('open_interest', 0) or 0
+                    total_premium = entry.get('total_premium', 0) or 0
+                    implied_volatility = entry.get('implied_volatility', 0) or 0
+                    
+                    if date:
+                        daily_data = data_by_date[date]
+                        daily_data["date"] = date
+                        
+                        if option_type == 'call':
+                            daily_data["call_volume"] += int(volume)
+                            daily_data["call_open_interest"] += int(open_interest)
+                            daily_data["call_premium"] += int(total_premium)
+                        elif option_type == 'put':
+                            daily_data["put_volume"] += int(volume)
+                            daily_data["put_open_interest"] += int(open_interest)
+                            daily_data["put_premium"] += int(total_premium)
+                            daily_data["iv"] += round(implied_volatility, 2)
+                            daily_data["iv_count"] += 1
+                        
+                        try:
+                            daily_data["putCallRatio"] = round(daily_data["put_volume"] / daily_data["call_volume"], 2)
+                        except ZeroDivisionError:
+                            daily_data["putCallRatio"] = None
+        
+            except:
+                pass
+      
+        # Convert to list of dictionaries and sort by date
+        data = list(data_by_date.values())
+        for daily_data in data:
+            try:
+                if daily_data["iv_count"] > 0:
+                    daily_data["iv"] = round(daily_data["iv"] / daily_data["iv_count"], 2)
+                else:
+                    daily_data["iv"] = None  # Or set it to 0 if you prefer
+            except:
+                daily_data["iv"] = None
+        
+        data = sorted(data, key=lambda x: x['date'], reverse=True)
+        data = calculate_iv_rank_for_all(data)
+        
+        return data
+    else:
+        return []
 
 
 
@@ -263,9 +253,12 @@ etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 total_symbols = stocks_symbols + etf_symbols
 
 
-
-total_symbols = ['AA']
-data = aggregate_data_by_date(total_symbols)
+for symbol in tqdm(total_symbols):
+    try:
+        data = aggregate_data_by_date(symbol)
+        data = prepare_data(data, symbol)
+    except:
+        pass
 
 con.close()
 etf_con.close()

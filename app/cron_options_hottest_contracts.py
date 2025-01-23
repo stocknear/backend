@@ -123,8 +123,7 @@ def process_contract(item, symbol):
             'low': latest_entry['low'],
             'high': latest_entry['high']
         }
-    except Exception as e:
-        print(e)
+    except:
         return None
 
 def prepare_data(highest_volume_list, highest_oi_list, symbol):
@@ -142,7 +141,7 @@ def prepare_data(highest_volume_list, highest_oi_list, symbol):
     
     res_dict = {'volume': highest_volume, 'openInterest': highest_oi}
     
-    if res_dict:
+    if highest_volume and highest_oi:
         save_json(res_dict, symbol, "json/hottest-contracts/companies")
     
     return res_dict
@@ -228,21 +227,21 @@ def get_hottest_contracts(base_dir="json/all-options-contracts"):
                 if len(top_by_open_interest) > 10:
                     top_by_open_interest.pop()
                     
-            except Exception as e:
-                print(f"Error processing {contract_file}: {e}")
+            except:
+                pass
     
-    # Process each symbol directory
-    total_symbols = ['AA']
+
     for symbol in tqdm(total_symbols):
         try:
             process_symbol(symbol)
-        except Exception as e:
-            print(f"Error processing symbol {symbol}: {e}")
-    
-        top_by_volume_contracts = [contract_info for _, contract_info in top_by_volume]
-        top_by_open_interest_contracts = [contract_info for _, contract_info in top_by_open_interest]
+            top_by_volume_contracts = [contract_info for _, contract_info in top_by_volume]
+            top_by_open_interest_contracts = [contract_info for _, contract_info in top_by_open_interest]
 
-        prepare_data(top_by_volume_contracts, top_by_open_interest_contracts, symbol)
+            prepare_data(top_by_volume_contracts, top_by_open_interest_contracts, symbol)
+
+        except:
+            pass
+    
         
 # Example usage
 if __name__ == "__main__":

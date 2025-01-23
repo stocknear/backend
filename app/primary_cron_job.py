@@ -98,6 +98,15 @@ def run_options_jobs():
     now = datetime.now(ny_tz)
     week = now.weekday()
     if week <= 5:
+        run_command(["python3", "cron_options_single_contract.py"])
+        time.sleep(60)
+        run_command(["python3", "cron_options_historical_volume.py"])
+        run_command(["python3", "cron_options_hottest_contracts.py"])
+        run_command(["python3", "cron_options_oi.py"])
+        run_command(["python3", "cron_implied_volatility.py"])
+        run_command(["python3", "cron_options_stats.py"])
+
+        '''
         run_command(["python3", "cron_options_gex_dex.py"])
         time.sleep(60)
         run_command(["python3", "cron_options_oi.py"])
@@ -111,6 +120,7 @@ def run_options_jobs():
         run_command(["python3", "cron_options_hottest_contracts.py"])
         time.sleep(60)
         run_command(["python3", "cron_options_single_contract.py"])
+        '''
 
 def run_fda_calendar():
     now = datetime.now(ny_tz)
@@ -427,7 +437,7 @@ schedule.every(3).hours.do(run_threaded, run_press_releases).tag('press_release_
 
 schedule.every(1).hours.do(run_threaded, run_fda_calendar).tag('fda_calendar_job')
 
-#schedule.every(10).minutes.do(run_threaded, run_options_stats).tag('options_stats_job')
+schedule.every(15).minutes.do(run_threaded, run_options_stats).tag('options_stats_job')
 
 schedule.every(5).minutes.do(run_threaded, run_market_flow).tag('market_flow_job')
 schedule.every(5).minutes.do(run_threaded, run_list).tag('stock_list_job')
