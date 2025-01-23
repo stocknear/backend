@@ -325,8 +325,25 @@ async def process_symbol(symbol):
     except:
         pass
 
+
+def get_tickers_from_directory(directory: str):
+    if not os.path.isdir(directory):
+        print(f"Error: '{directory}' is not a valid directory.")
+        return []
+    try:
+        return [
+            folder 
+            for folder in os.listdir(directory) 
+            if os.path.isdir(os.path.join(directory, folder))
+        ]
+    except Exception as e:
+        print(f"An error occurred while accessing '{directory}': {e}")
+        return []
+
 async def main():
-    total_symbols = get_total_symbols()
+    total_symbols = get_tickers_from_directory(directory_path)
+    if len(total_symbols) < 3000:
+        total_symbols = get_total_symbols()
 
     # Split the symbols into chunks of 2
     for i in tqdm(range(0, len(total_symbols), 4)):
