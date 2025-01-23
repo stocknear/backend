@@ -176,13 +176,16 @@ async def get_single_contract_eod_data(symbol, contract_id, semaphore):
                     try:
                         volume = res_list[i]['volume']
                         avg_fill = res_list[i]['mark']
+                        res_list[i]['gex'] = res_list[i]['gamma'] * res_list[i]['open_interest'] * 100
+                        res_list[i]['dex'] = res_list[i]['delta'] * res_list[i]['open_interest'] * 100
+
                         res_list[i]['total_premium'] = int(avg_fill*volume*100)
                         # Calculate the net premiums for call and put options
-                        res_list[i]['net_premium'] = calculate_net_premium(res_list[i]['close_ask'], res_list[i]['close_bid'], res_list[i]['close_ask_size'], res_list[i]['close_bid_size'])
+                        #res_list[i]['net_premium'] = calculate_net_premium(res_list[i]['close_ask'], res_list[i]['close_bid'], res_list[i]['close_ask_size'], res_list[i]['close_bid_size'])
 
                     except:
                         res_list[i]['total_premium'] = 0
-                        res_list[i]['net_premium'] = 0
+                        #res_list[i]['net_premium'] = 0
 
 
                 

@@ -2675,7 +2675,6 @@ async def get_pre_post_quote(data:TickerData, api_key: str = Security(get_api_ke
 async def get_data(data:OptionContract, api_key: str = Security(get_api_key)):
     contract_id = data.contract
     ticker = data.ticker
-    print(ticker, contract_id)
 
     cache_key = f"options-contract-history-{ticker}-{contract_id}"
     cached_result = redis_client.get(cache_key)
