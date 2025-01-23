@@ -62,7 +62,7 @@ async def calculate_price_reactions(ticker, filtered_data, price_history):
             continue  # Skip if report date is not found in the price history
 
         # Initialize a dictionary for price reactions
-        iv_value = next((entry['implied_volatility'] for entry in iv_data if entry['date'] == report_date), None)
+        iv_value = next((entry['iv'] for entry in iv_data if entry['date'] == report_date), None)
 
         #if iv_value is None:
         #    continue  # Skip if no matching iv_data is found for the report_date
