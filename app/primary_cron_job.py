@@ -99,7 +99,6 @@ def run_options_jobs():
     week = now.weekday()
     if week <= 5:
         run_command(["python3", "cron_options_single_contract.py"])
-        time.sleep(60)
         run_command(["python3", "cron_options_historical_volume.py"])
         run_command(["python3", "cron_options_hottest_contracts.py"])
         run_command(["python3", "cron_options_oi.py"])
@@ -108,18 +107,6 @@ def run_options_jobs():
 
         '''
         run_command(["python3", "cron_options_gex_dex.py"])
-        time.sleep(60)
-        run_command(["python3", "cron_options_oi.py"])
-        time.sleep(60)
-        run_command(["python3", "cron_options_stats.py"])
-        time.sleep(60)
-        run_command(["python3", "cron_options_historical_volume.py"])
-        time.sleep(60)
-        run_command(["python3", "cron_implied_volatility.py"])
-        time.sleep(60)
-        run_command(["python3", "cron_options_hottest_contracts.py"])
-        time.sleep(60)
-        run_command(["python3", "cron_options_single_contract.py"])
         '''
 
 def run_fda_calendar():
@@ -375,8 +362,8 @@ def run_threaded(job_func):
 
 # Schedule the job to run
 
-#schedule.every().day.at("02:00").do(run_threaded, run_options_jobs).tag('options_job')
 schedule.every().day.at("01:00").do(run_threaded, run_db_schedule_job)
+schedule.every().day.at("01:00").do(run_threaded, run_options_jobs).tag('options_job')
 schedule.every().day.at("05:00").do(run_threaded, run_options_historical_flow).tag('options_historical_flow_job')
 
 
@@ -435,7 +422,7 @@ schedule.every(2).hours.do(run_threaded, run_analyst_rating).tag('analyst_job')
 schedule.every(1).hours.do(run_threaded, run_company_news).tag('company_news_job')
 schedule.every(3).hours.do(run_threaded, run_press_releases).tag('press_release_job')
 
-schedule.every(1).hours.do(run_threaded, run_fda_calendar).tag('fda_calendar_job')
+#schedule.every(1).hours.do(run_threaded, run_fda_calendar).tag('fda_calendar_job')
 
 schedule.every(15).minutes.do(run_threaded, run_options_stats).tag('options_stats_job')
 
