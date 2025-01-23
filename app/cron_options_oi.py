@@ -20,8 +20,8 @@ intrinio.ApiClient().set_api_key(api_key)
 intrinio.ApiClient().allow_retries(True)
 
 # Configuration
-MAX_CONCURRENT_REQUESTS = 50
-BATCH_SIZE = 1500
+MAX_CONCURRENT_REQUESTS = 100
+BATCH_SIZE = 4000
 include_related_symbols = False
 
 def save_json(data, symbol, category="strike"):
@@ -108,17 +108,9 @@ async def process_contracts(symbol, contract_list):
             start_idx = batch_num * BATCH_SIZE
             batch = contract_list[start_idx:start_idx + BATCH_SIZE]
             
-            print(f"\nProcessing batch {batch_num + 1}/{total_batches} ({len(batch)} contracts)")
-            batch_start_time = time.time()
-            
             batch_results = await process_batch(symbol, batch, semaphore, pbar)
             results.extend(batch_results)
-            
-            batch_time = time.time() - batch_start_time
-            
-            if batch_num < total_batches - 1:
-                print(f"Sleeping for 30 seconds before next batch...")
-                await asyncio.sleep(30)
+                    
     return results
 
 def aggregate_open_interest(symbol, results):
@@ -142,9 +134,9 @@ def aggregate_open_interest(symbol, results):
                 elif option_type == 'put':
                     strike_data[strike]['put_open_interest'] += open_interest
                     expiration_data[expiration]['put_open_interest'] += open_interest
-            except Exception as e:
-                print(f"Error processing contract: {e}")
-
+            except:
+                pass
+                
     # Convert to sortable list format
     strike_data = sorted(strike_data.items(), key=lambda x: x[0], reverse=True)
     strike_data = [
@@ -178,7 +170,7 @@ async def main():
     total_symbols = get_tickers_from_directory()
     print(f"Number of tickers: {len(total_symbols)}")
 
-    total_symbols = ['AA']
+    total_symbols = ['TSLA']
 
     for symbol in total_symbols:
         try:
