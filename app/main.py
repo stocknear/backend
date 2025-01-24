@@ -3648,9 +3648,10 @@ async def get_data(data:TickerData, api_key: str = Security(get_api_key)):
         headers={"Content-Encoding": "gzip"}
     )
 
-@app.get("/cramer-tracker")
-async def get_cramer_tracker(api_key: str = Security(get_api_key)):
-    cache_key = f"cramer-tracker"
+@app.post("/unusual-activity")
+async def get_data(data:TickerData, api_key: str = Security(get_api_key)):
+    ticker = data.ticker.upper()
+    cache_key = f"unusual-activity-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
         return StreamingResponse(
@@ -3660,7 +3661,7 @@ async def get_cramer_tracker(api_key: str = Security(get_api_key)):
         )
 
     try:
-        with open(f"json/cramer-tracker/data.json", 'rb') as file:
+        with open(f"json/unusual-activity/{ticker}.json", 'rb') as file:
             res = orjson.loads(file.read())
     except:
         res = []
@@ -3669,7 +3670,7 @@ async def get_cramer_tracker(api_key: str = Security(get_api_key)):
     compressed_data = gzip.compress(data)
 
     redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 3600*3600)
+    redis_client.expire(cache_key, 60*10)
 
     return StreamingResponse(
         io.BytesIO(compressed_data),
