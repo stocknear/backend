@@ -124,7 +124,7 @@ def compute_realized_volatility(data, window_size=20):
                 "total_open_interest": data[i].get("total_open_interest", None),  # Default to None if missing
                 "changesPercentageOI": data[i].get("changesPercentageOI", None),  # Default to None if missing
                 "iv": data[i].get("iv", None),  # Default to None if missing
-                "rv": round(realized_volatility[i], 4) if realized_volatility[i] is not None else None
+                "rv": round(realized_volatility[i], 2) if realized_volatility[i] is not None else None
             })
         except Exception as e:
             # If any error occurs, append a dictionary with default values
