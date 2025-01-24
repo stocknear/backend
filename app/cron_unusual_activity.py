@@ -30,7 +30,7 @@ next_page = ''
 page_size = 1000
 activity_type = ''
 sentiment = ''
-minimum_total_value = 1E5
+minimum_total_value = 1E6
 maximum_total_value = 2E10
 
 
@@ -92,16 +92,14 @@ def parse_option_symbol(option_symbol):
 async def get_data(symbol):
     response = intrinio.OptionsApi().get_unusual_activity_intraday(symbol, next_page=next_page, page_size=page_size, activity_type=activity_type, sentiment=sentiment, start_date=start_date, end_date=end_date, minimum_total_value=minimum_total_value, maximum_total_value=maximum_total_value)
     data = (response.__dict__['_trades'])
-    
     res_list = []
     if len(data) > 0:
         for item in data:
             try:
                 trade_data = item.__dict__
                 trade_data = {key.lstrip('_'): value for key, value in trade_data.items()}
-                option_symbol = trade_data['contract'].replace("___","")
+                option_symbol = trade_data['contract'].replace("___","").replace("__","").replace("_","")
                 date_expiration, option_type, strike_price = parse_option_symbol(option_symbol)
-
                 if trade_data['underlying_price_at_execution'] > 0 and date_expiration >= datetime.today().date():
 
                     res_list.append({'date': trade_data['timestamp'].strftime("%Y-%m-%d"),
