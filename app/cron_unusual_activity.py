@@ -82,7 +82,7 @@ def parse_option_symbol(option_symbol):
     ticker, expiration, option_type, strike_price = match.groups()
     
     # Convert expiration to datetime
-    date_expiration = datetime.strptime(expiration, "%y%m%d").date().strftime("%Y-%m-%d")
+    date_expiration = datetime.strptime(expiration, "%y%m%d").date()
     
     # Convert strike price to float
     strike_price = int(strike_price) / 1000
@@ -102,20 +102,22 @@ async def get_data(symbol):
                 option_symbol = trade_data['contract'].replace("___","")
                 date_expiration, option_type, strike_price = parse_option_symbol(option_symbol)
 
-                res_list.append({'date': trade_data['timestamp'].strftime("%Y-%m-%d"),
-                    'askprice': trade_data['ask_at_execution'],
-                    'bidPrice': trade_data['bid_at_execution'],
-                    'premium': trade_data['total_value'],
-                    'sentiment': trade_data['sentiment'].capitalize(),
-                    'avgPrice': trade_data['average_price'],
-                    'price': trade_data['underlying_price_at_execution'],
-                    'unusualType': trade_data['type'].capitalize(),
-                    'size': trade_data['total_size'],
-                    'optionSymbol': option_symbol,
-                    'strike': strike_price,
-                    'expiry': date_expiration,
-                    'optionType': option_type.replace("P","Put").replace("C","Call")
-                    })
+                if trade_data['underlying_price_at_execution'] > 0 and date_expiration >= datetime.today().date():
+
+                    res_list.append({'date': trade_data['timestamp'].strftime("%Y-%m-%d"),
+                        'askprice': trade_data['ask_at_execution'],
+                        'bidPrice': trade_data['bid_at_execution'],
+                        'premium': trade_data['total_value'],
+                        'sentiment': trade_data['sentiment'].capitalize(),
+                        'avgPrice': trade_data['average_price'],
+                        'price': trade_data['underlying_price_at_execution'],
+                        'unusualType': trade_data['type'].capitalize(),
+                        'size': trade_data['total_size'],
+                        'optionSymbol': option_symbol,
+                        'strike': strike_price,
+                        'expiry': date_expiration.strftime("%Y-%m-%d"),
+                        'optionType': option_type.replace("P","Put").replace("C","Call")
+                        })
             except:
                 pass
 
@@ -130,7 +132,7 @@ async def main():
         total_symbols = get_total_symbols()
     print(f"Number of tickers: {len(total_symbols)}")
 
-    for symbol in tqdm(['AMD']):
+    for symbol in tqdm(total_symbols):
         try:
             data = await get_data(symbol)
         except Exception as e:
