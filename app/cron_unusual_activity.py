@@ -30,7 +30,7 @@ next_page = ''
 page_size = 1000
 activity_type = ''
 sentiment = ''
-minimum_total_value = 1E6
+minimum_total_value = 1E5
 maximum_total_value = 2E10
 
 
