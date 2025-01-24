@@ -133,42 +133,41 @@ async def get_options_chain(symbol, expiration, semaphore):
             return set()
 
 
-async def get_price_batch_realtime(symbol,contract_list):
+
+async def get_price_batch_realtime(symbol, contract_list):
     body = {
       "contracts": contract_list
     }
-
-
     response = intrinio.OptionsApi().get_options_prices_batch_realtime(body, source=source, show_stats=show_stats, stock_price_source=stock_price_source, model=model, show_extended_price=show_extended_price)
     data = response.__dict__
     data = data['_contracts']
-
-    res_dict = {'total_premium': 0, 'call_premium': 0, 'put_premium': 0,
-        'volume': 0, 'call_volume': 0, 'put_volume': 0, 'gex': 0, 'dex': 0,
-        'total_open_interest': 0, 'call_open_interest': 0, 'put_open_interest': 0,}
-
-    time = None
-    iv_list = []
+    
+    res_dict = {
+        'total_premium': 0, 'call_premium': 0, 'put_premium': 0,
+        'volume': 0, 'call_volume': 0, 'put_volume': 0, 
+        'gex': 0, 'dex': 0,
+        'total_open_interest': 0, 'call_open_interest': 0, 'put_open_interest': 0,
+        'iv_list': [],
+        'time': None
+    }
 
     for item in data:
         try:
             price_data = (item.__dict__)['_price'].__dict__
             stats_data = (item.__dict__)['_stats'].__dict__
-            option_data = (item.__dict__)['_option'].__dict__
             option_type = ((item.__dict__)['_option'].__dict__)['_type']
             
             volume = int(price_data['_volume']) if price_data['_volume'] != None else 0
+
             total_open_interest = int(price_data['_open_interest']) if price_data['_open_interest'] != None else 0
             last_price = price_data['_last'] if price_data['_last'] != None else 0
             premium = int(volume * last_price * 100)
             implied_volatility = stats_data['_implied_volatility']
-
             gamma = stats_data['_gamma'] if stats_data['_gamma'] != None else 0
             delta = stats_data['_delta'] if stats_data['_delta'] != None else 0
 
             res_dict['gex'] += gamma * total_open_interest * 100
             res_dict['dex'] += delta * total_open_interest * 100
-
             res_dict['total_premium'] += premium
             res_dict['volume'] += volume
             res_dict['total_open_interest'] += total_open_interest
@@ -182,26 +181,13 @@ async def get_price_batch_realtime(symbol,contract_list):
                 res_dict['put_volume'] += volume
                 res_dict['put_open_interest'] += total_open_interest
 
-            iv_list.append(implied_volatility)
-
-            time = price_data['_ask_timestamp'].strftime("%Y-%m-%d")
+            res_dict['iv_list'].append(implied_volatility)
+            res_dict['time'] = price_data['_ask_timestamp'].strftime("%Y-%m-%d")
         except:
             pass
 
-    res_dict['iv'] = round((sum(iv_list) / len(iv_list)*100),2) if iv_list else 0
-    res_dict['putCallRatio'] = round(res_dict['put_volume'] / res_dict['call_volume'],2) if res_dict['call_volume'] > 0 else 0 
-    
-    with open(f"json/options-historical-data/companies/{symbol}.json", "r") as file:
-        past_data = orjson.loads(file.read())
-        index = next((i for i, item in enumerate(past_data) if item['date'] == time), 0)
-        previous_open_interest = past_data[index]['total_open_interest']
+    return res_dict
 
-    res_dict['changesPercentageOI'] = round((res_dict['total_open_interest']/previous_open_interest-1)*100,2)
-    res_dict['changeOI'] = res_dict['total_open_interest'] - previous_open_interest
-
-
-    if res_dict:
-        save_json(res_dict, symbol)
 
 async def prepare_dataset(symbol):
     expiration_list = get_all_expirations(symbol)
@@ -221,7 +207,6 @@ async def prepare_dataset(symbol):
 
 
 async def main():
-    
     total_symbols = get_tickers_from_directory()
     if len(total_symbols) < 3000:
         total_symbols = get_total_symbols()
@@ -231,12 +216,52 @@ async def main():
         try:
             contract_list = get_contracts_from_directory(symbol)
             if len(contract_list) > 0:
-                if len(contract_list) > 250:
-                    contract_list = contract_list[:250]
-                    #to-do: intrinio allows only 250 contracts per batch. Need to consider all batches.
-                await get_price_batch_realtime(symbol, contract_list)
-        except:
-            pass
+                # Initialize aggregated results dictionary
+                aggregated_results = {
+                    'total_premium': 0, 'call_premium': 0, 'put_premium': 0,
+                    'volume': 0, 'call_volume': 0, 'put_volume': 0, 
+                    'gex': 0, 'dex': 0,
+                    'total_open_interest': 0, 'call_open_interest': 0, 'put_open_interest': 0,
+                    'iv_list': [],
+                    'time': None
+                }
+
+                # Process batches of 250 contracts
+                for i in range(0, len(contract_list), 250):
+                    batch = contract_list[i:i+250]
+                    batch_results = await get_price_batch_realtime(symbol, batch)
+                    
+                    # Aggregate results
+                    for key in ['total_premium', 'call_premium', 'put_premium', 
+                                'volume', 'call_volume', 'put_volume', 
+                                'gex', 'dex', 
+                                'total_open_interest', 'call_open_interest', 'put_open_interest']:
+                        aggregated_results[key] += batch_results[key]
+                    
+                    aggregated_results['iv_list'].extend(batch_results['iv_list'])
+                    aggregated_results['time'] = batch_results['time']
+
+                # Calculate final metrics
+                aggregated_results['iv'] = round((sum(aggregated_results['iv_list']) / len(aggregated_results['iv_list'])*100), 2) if aggregated_results['iv_list'] else 0
+                aggregated_results['putCallRatio'] = round(aggregated_results['put_volume'] / aggregated_results['call_volume'], 2) if aggregated_results['call_volume'] > 0 else 0
+
+                # Load previous data and calculate changes
+                with open(f"json/options-historical-data/companies/{symbol}.json", "r") as file:
+                    past_data = orjson.loads(file.read())
+                    index = next((i for i, item in enumerate(past_data) if item['date'] == aggregated_results['time']), 0)
+                    previous_open_interest = past_data[index]['total_open_interest']
+
+                aggregated_results['changesPercentageOI'] = round((aggregated_results['total_open_interest']/previous_open_interest-1)*100, 2)
+                aggregated_results['changeOI'] = aggregated_results['total_open_interest'] - previous_open_interest
+
+                # Remove the temporary iv_list before saving
+                del aggregated_results['iv_list']
+
+                # Save aggregated results
+                save_json(aggregated_results, symbol)
+
+        except Exception as e:
+            print(f"Error processing {symbol}: {e}")
 
 if __name__ == "__main__":
     asyncio.run(main())
