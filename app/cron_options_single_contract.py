@@ -341,7 +341,7 @@ def get_tickers_from_directory(directory: str):
 
 async def main():
     total_symbols = get_tickers_from_directory(directory_path)
-    if len(total_symbols) < 3000:
+    if len(total_symbols) < 2000:
         total_symbols = get_total_symbols()
 
     # Split the symbols into chunks of 2
