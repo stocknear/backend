@@ -16,8 +16,8 @@ load_dotenv()
 url = os.getenv('FDA_CALENDAR')
 
 def save_json(data):
-    with open(f"json/fda-calendar/data.json", 'wb') as file:
-        ujson.dumps(data, file)
+    with open("json/fda-calendar/data.json", 'w', encoding='utf-8') as file:
+        ujson.dump(data, file, ensure_ascii=False, indent=2)
 
 def main():
     # Set up Chrome options
