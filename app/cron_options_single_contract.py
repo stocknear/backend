@@ -12,6 +12,8 @@ from concurrent.futures import ThreadPoolExecutor
 import sqlite3
 from dotenv import load_dotenv
 import os
+import re
+
 
 load_dotenv()
 api_key = os.getenv('INTRINIO_API_KEY')
@@ -262,11 +264,17 @@ def get_total_symbols():
     return stocks_symbols + etf_symbols
 
 
-def get_expiration_date(contract_id):
-    # Extract the date part (YYMMDD) from the contract ID
-    date_str = contract_id[2:8]
-    # Convert to datetime object
-    return datetime.strptime(date_str, "%y%m%d").date()
+def get_expiration_date(option_symbol):
+    # Define regex pattern to match the symbol structure
+    match = re.match(r"([A-Z]+)(\d{6})([CP])(\d+)", option_symbol)
+    if not match:
+        raise ValueError(f"Invalid option_symbol format: {option_symbol}")
+    
+    ticker, expiration, option_type, strike_price = match.groups()
+    
+    # Convert expiration to datetime
+    date_expiration = datetime.strptime(expiration, "%y%m%d").date()
+    return date_expiration
 
 def check_contract_expiry(symbol):
     directory = f"{directory_path}/{symbol}/"

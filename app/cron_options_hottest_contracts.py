@@ -50,7 +50,7 @@ def get_contracts_from_directory(symbol):
 
 directory_path = "json/options-historical-data/companies"
 total_symbols = get_tickers_from_directory(directory_path)
-print(total_symbols)
+
 
 def save_json(data, symbol, directory="json/hottest-contracts/companies"):
     os.makedirs(directory, exist_ok=True)
