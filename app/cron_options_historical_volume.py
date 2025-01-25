@@ -286,7 +286,7 @@ etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 total_symbols = stocks_symbols + etf_symbols
 
 
-for symbol in tqdm(['AAPL']):
+for symbol in tqdm(total_symbols):
     try:
         data = aggregate_data_by_date(symbol)
         data = prepare_data(data, symbol)
