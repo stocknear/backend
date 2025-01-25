@@ -887,7 +887,7 @@ async def get_highest_option_iv_rank():
             total_oi = stock_screener_data_dict[symbol].get('totalOI',0)
             change_oi = stock_screener_data_dict[symbol].get('changeOI',0)
 
-            if total_oi > 1E6 and iv_rank > 0:
+            if total_oi > 1E6 and iv_rank > 0 and iv_rank < 100:
                 quote_data = await get_quote_data(symbol)
                 # Assign price and volume, and check if they meet the penny stock criteria
                 if quote_data:
@@ -966,7 +966,7 @@ async def get_highest_option_premium():
     if res_list:
         # Sort by market cap in descending order
         res_list = sorted(res_list, key=lambda x: x['totalPrem'], reverse=True)[:50]
-        
+
         # Assign rank to each stock
         for rank, item in enumerate(res_list, start=1):
             item['rank'] = rank

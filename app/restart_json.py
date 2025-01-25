@@ -916,27 +916,21 @@ async def get_stock_screener(con):
             item['shortFloatPercent'] = None
 
         try:
-            with open(f"json/options-stats/companies/{symbol}.json", "r") as file:
-                res = orjson.loads(file.read())
-                item['gexRatio'] = res['gex_ratio']
+            with open(f"json/options-historical-data/companies/{symbol}.json", "r") as file:
+                res = orjson.loads(file.read())[0]
                 item['ivRank'] = res['iv_rank']
-                item['iv30d'] = res['iv30d']
+                item['iv30d'] = res['iv']
                 item['totalOI'] = res['total_open_interest']
-                item['changeOI'] = res['open_interest_change']
-                item['netCallPrem'] = res['net_call_premium']
-                item['netPutPrem'] = res['net_put_premium']
+                item['changeOI'] = res['changeOI']
                 item['callVolume'] = res['call_volume']
                 item['putVolume'] = res['put_volume']
-                item['pcRatio'] = res['put_call_ratio']
-                item['totalPrem'] = res['call_premium']+res['put_premium']
+                item['pcRatio'] = res['putCallRatio']
+                item['totalPrem'] = res['total_premium']
         except:
-            item['gexRatio'] = None
             item['ivRank'] = None
             item['iv30d'] = None
             item['totalOI'] = None
             item['changeOI'] = None
-            item['netCallPrem'] = None
-            item['netPutPrem'] = None
             item['callVolume'] = None
             item['putVolume'] = None
             item['pcRatio'] = None

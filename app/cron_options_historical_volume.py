@@ -22,7 +22,6 @@ query_template = """
 """
 
 
-
 def save_json(data, symbol):
     directory_path = f"json/options-historical-data/companies"
     os.makedirs(directory_path, exist_ok=True)  # Ensure the directory exists
@@ -36,29 +35,141 @@ def safe_round(value, decimals=2):
         return value
 
 
-def calculate_iv_rank_for_all(data):
-    # Extract all IV values
-    iv_values = [entry['iv'] for entry in data if 'iv' in entry]
+def aggregate_data_by_date(symbol):
+    data_by_date = defaultdict(lambda: {
+        "date": "",
+        "call_volume": 0,
+        "put_volume": 0,
+        "call_open_interest": 0,
+        "put_open_interest": 0,
+        "call_premium": 0,
+        "put_premium": 0,
+        "iv": 0.0,  # Sum of implied volatilities
+        "iv_count": 0,  # Count of entries for IV
+    })
+    
+    # Calculate cutoff date (1 year ago)
+    today = datetime.today().date()
+    one_year_ago = today - timedelta(days=365)
+    one_year_ago_str = one_year_ago.strftime('%Y-%m-%d')
+    
+    contract_dir = f"json/all-options-contracts/{symbol}"
+    contract_list = get_contracts_from_directory(contract_dir)
 
-    if not iv_values:
-        return None  # No IV data available
-
-    # Compute highest and lowest IV
-    highest_iv = max(iv_values)
-    lowest_iv = min(iv_values)
-
-    # Calculate IV Rank for each entry
-    for entry in data:
-        if 'iv' in entry:
-            iv = entry['iv']
-            if highest_iv == lowest_iv:
-                entry['iv_rank'] = 100.0  # If all IVs are the same, rank is 100%
+    if len(contract_list) > 0:
+        for item in contract_list:
+            try:
+                file_path = os.path.join(contract_dir, f"{item}.json")
+                with open(file_path, "r") as file:
+                    data = orjson.loads(file.read())
+                
+                option_type = data.get('optionType', None)
+                if option_type not in ['call', 'put']:
+                    continue
+                
+                for entry in data.get('history', []):
+                    date = entry.get('date')
+                    # Skip entries older than one year
+                    if date < one_year_ago_str:
+                        continue
+                    
+                    volume = entry.get('volume', 0) or 0
+                    open_interest = entry.get('open_interest', 0) or 0
+                    total_premium = entry.get('total_premium', 0) or 0
+                    implied_volatility = entry.get('implied_volatility', 0) or 0
+                    
+                    daily_data = data_by_date[date]
+                    daily_data["date"] = date
+                    
+                    if option_type == 'call':
+                        daily_data["call_volume"] += int(volume)
+                        daily_data["call_open_interest"] += int(open_interest)
+                        daily_data["call_premium"] += int(total_premium)
+                    elif option_type == 'put':
+                        daily_data["put_volume"] += int(volume)
+                        daily_data["put_open_interest"] += int(open_interest)
+                        daily_data["put_premium"] += int(total_premium)
+                    
+                    # Aggregate IV for both calls and puts
+                    daily_data["iv"] += round(implied_volatility, 2)
+                    daily_data["iv_count"] += 1
+                    
+                    # Calculate put/call ratio
+                    try:
+                        daily_data["putCallRatio"] = round(daily_data["put_volume"] / daily_data["call_volume"], 2)
+                    except ZeroDivisionError:
+                        daily_data["putCallRatio"] = None
+            
+            except Exception as e:
+                print(f"Error processing {item}: {e}")
+                continue
+        
+        # Convert to list and calculate average IV
+        data = []
+        for date, daily in data_by_date.items():
+            if daily['iv_count'] > 0:
+                daily['iv'] = round(daily['iv'] / daily['iv_count'], 2)
             else:
-                entry['iv_rank'] = round(((iv - lowest_iv) / (highest_iv - lowest_iv)) * 100,2)
-        else:
-            entry['iv_rank'] = None  # Handle missing IV
+                daily['iv'] = None
+            data.append(daily)
+        
+        # Sort and calculate IV Rank
+        data = sorted(data, key=lambda x: x['date'])
+        data = calculate_iv_rank_for_all(data)
+        data = sorted(data, key=lambda x: x['date'], reverse=True)
 
-    return data
+        return data
+    else:
+        return []
+
+def calculate_iv_rank_for_all(data):
+    if not data:
+        return []
+    
+    # Convert to DataFrame
+    df = pd.DataFrame(data)
+    
+    # Check if 'iv' exists and filter out entries without IV
+    if 'iv' not in df.columns or df['iv'].isnull().all():
+        for entry in data:
+            entry['iv_rank'] = None
+        return data
+    
+    # Convert date to datetime and sort
+    df['date'] = pd.to_datetime(df['date'])
+    df.sort_values('date', inplace=True)
+    
+    # Calculate rolling 365-day min and max for IV
+    df.set_index('date', inplace=True)
+    rolling_min = df['iv'].rolling('365D', min_periods=1).min()
+    rolling_max = df['iv'].rolling('365D', min_periods=1).max()
+    
+    # Merge back into DataFrame
+    df['rolling_min'] = rolling_min
+    df['rolling_max'] = rolling_max
+    
+    # Calculate IV Rank
+    df['iv_rank'] = ((df['iv'] - df['rolling_min']) / (df['rolling_max'] - df['rolling_min'])) * 100
+    df['iv_rank'] = df['iv_rank'].round(2)
+    
+    # Handle cases where max == min
+    df.loc[df['rolling_max'] == df['rolling_min'], 'iv_rank'] = 100.0
+    
+    # Replace NaN with None
+    df['iv_rank'] = df['iv_rank'].where(pd.notnull(df['iv_rank']), None)
+    
+    # Drop temporary columns
+    df.drop(['rolling_min', 'rolling_max'], axis=1, inplace=True)
+    
+    # Convert back to list of dicts
+    df.reset_index(inplace=True)
+    df['date'] = df['date'].dt.strftime('%Y-%m-%d')
+    result = df.to_dict('records')
+    
+    # Sort in reverse chronological order
+    result = sorted(result, key=lambda x: x['date'], reverse=True)
+    
+    return result
 
 
 def prepare_data(data, symbol):
@@ -155,84 +266,6 @@ def get_contracts_from_directory(directory: str):
         return []
 
 
-def aggregate_data_by_date(symbol):
-    data_by_date = defaultdict(lambda: {
-        "date": "",
-        "call_volume": 0,
-        "put_volume": 0,
-        "call_open_interest": 0,
-        "put_open_interest": 0,
-        "call_premium": 0,
-        "call_net_premium": 0,
-        "put_premium": 0,
-        "put_net_premium": 0,
-        "iv": 0,  # Sum of implied volatilities
-        "iv_count": 0,  # Count of entries for IV
-    })
-    
-    contract_dir = f"json/all-options-contracts/{symbol}"
-    contract_list = get_contracts_from_directory(contract_dir)
-
-    if len(contract_list) > 0:
-    
-        for item in contract_list:
-            try:
-                file_path = os.path.join(contract_dir, f"{item}.json")
-                with open(file_path, "r") as file:
-                    data = orjson.loads(file.read())
-                
-                option_type = data.get('optionType', None)
-                if option_type not in ['call', 'put']:
-                    continue
-                
-                for entry in data.get('history', []):
-                    date = entry.get('date')
-                    volume = entry.get('volume', 0) or 0
-                    open_interest = entry.get('open_interest', 0) or 0
-                    total_premium = entry.get('total_premium', 0) or 0
-                    implied_volatility = entry.get('implied_volatility', 0) or 0
-                    
-                    if date:
-                        daily_data = data_by_date[date]
-                        daily_data["date"] = date
-                        
-                        if option_type == 'call':
-                            daily_data["call_volume"] += int(volume)
-                            daily_data["call_open_interest"] += int(open_interest)
-                            daily_data["call_premium"] += int(total_premium)
-                        elif option_type == 'put':
-                            daily_data["put_volume"] += int(volume)
-                            daily_data["put_open_interest"] += int(open_interest)
-                            daily_data["put_premium"] += int(total_premium)
-                            daily_data["iv"] += round(implied_volatility, 2)
-                            daily_data["iv_count"] += 1
-                        
-                        try:
-                            daily_data["putCallRatio"] = round(daily_data["put_volume"] / daily_data["call_volume"], 2)
-                        except ZeroDivisionError:
-                            daily_data["putCallRatio"] = None
-        
-            except:
-                pass
-      
-        # Convert to list of dictionaries and sort by date
-        data = list(data_by_date.values())
-        for daily_data in data:
-            try:
-                if daily_data["iv_count"] > 0:
-                    daily_data["iv"] = round(daily_data["iv"] / daily_data["iv_count"], 2)
-                else:
-                    daily_data["iv"] = None  # Or set it to 0 if you prefer
-            except:
-                daily_data["iv"] = None
-        
-        data = sorted(data, key=lambda x: x['date'], reverse=True)
-        data = calculate_iv_rank_for_all(data)
-        
-        return data
-    else:
-        return []
-
 
 
 
@@ -253,7 +286,7 @@ etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 total_symbols = stocks_symbols + etf_symbols
 
 
-for symbol in tqdm(total_symbols):
+for symbol in tqdm(['AAPL']):
     try:
         data = aggregate_data_by_date(symbol)
         data = prepare_data(data, symbol)
