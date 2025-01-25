@@ -274,7 +274,6 @@ def get_total_symbols():
     return stocks_symbols + etf_symbols
 
 
-
 def get_expiration_date(contract_id):
     # Extract the date part (YYMMDD) from the contract ID
     date_str = contract_id[2:8]
@@ -346,8 +345,8 @@ async def main():
         total_symbols = get_total_symbols()
 
     # Split the symbols into chunks of 2
-    for i in tqdm(range(0, len(total_symbols), 4)):
-        symbols_chunk = total_symbols[i:i+4]
+    for i in tqdm(range(0, len(total_symbols), 2)):
+        symbols_chunk = total_symbols[i:i+2]
         
         # Run the symbols in the chunk concurrently
         await asyncio.gather(*[process_symbol(symbol) for symbol in symbols_chunk])

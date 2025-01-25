@@ -228,10 +228,6 @@ def run_sec_filings():
     if week <= 4:
         run_command(["python3", "cron_sec_filings.py"])
 
-def run_executive():
-    week = datetime.today().weekday()
-    if week <= 4:
-        run_command(["python3", "cron_executive.py"])
 
 def run_analyst_rating():
     week = datetime.today().weekday()
@@ -347,7 +343,11 @@ def run_economy_indicator():
 
 
 def run_ai_score():
-    run_command(["python3", "cron_ai_score.py"])
+    now = datetime.now(ny_tz)
+    week = now.weekday()
+    if week == 5:
+        run_command(["python3", "cron_ai_score.py"])
+    
     run_command(["python3", "cron_stockdeck.py"])
     run_command(["python3", "restart_json.py"])
     run_command(["python3", "cron_statistics.py"])
@@ -381,8 +381,6 @@ schedule.every().day.at("10:00").do(run_threaded, run_fda_calendar).tag('fda_job
 
 
 
-#schedule.every().day.at("10:30").do(run_threaded, run_sec_filings).tag('sec_filings_job')
-#schedule.every().day.at("11:00").do(run_threaded, run_executive).tag('executive_job')
 schedule.every().day.at("12:00").do(run_threaded, run_market_cap).tag('market_cap_job')
 
 #schedule.every().day.at("05:00").do(run_threaded, run_implied_volatility).tag('implied_volatility_job')
