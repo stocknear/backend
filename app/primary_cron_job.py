@@ -79,6 +79,7 @@ def run_options_stats():
     hour = now.hour
     if week <= 4 and 9 <= hour <= 16:
         run_command(["python3", "cron_options_stats.py"])
+        run_command(["python3", "cron_unusual_activity.py"])
 
 def run_dark_pool_level():
     now = datetime.now(ny_tz)
@@ -101,8 +102,8 @@ def run_options_jobs():
         run_command(["python3", "cron_options_single_contract.py"])
         run_command(["python3", "cron_options_historical_volume.py"])
         run_command(["python3", "cron_options_hottest_contracts.py"])
-        run_command(["python3", "cron_options_oi.py"])
         run_command(["python3", "cron_implied_volatility.py"])
+        run_command(["python3", "cron_options_oi.py"])
         '''
         run_command(["python3", "cron_options_gex_dex.py"])
         '''
@@ -421,7 +422,7 @@ schedule.every(1).hours.do(run_threaded, run_company_news).tag('company_news_job
 schedule.every(3).hours.do(run_threaded, run_press_releases).tag('press_release_job')
 
 
-schedule.every(20).minutes.do(run_threaded, run_options_stats).tag('options_stats_job')
+schedule.every(30).minutes.do(run_threaded, run_options_stats).tag('options_stats_job')
 
 schedule.every(5).minutes.do(run_threaded, run_market_flow).tag('market_flow_job')
 schedule.every(5).minutes.do(run_threaded, run_list).tag('stock_list_job')
