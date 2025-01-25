@@ -1,72 +1,100 @@
-import ujson
-import asyncio
-import aiohttp
-import os
+import json
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 import sqlite3
-from tqdm import tqdm
+import ujson
 from dotenv import load_dotenv
-from datetime import datetime
-import requests
+import os
 
-# Load environment variables
 load_dotenv()
 
-today = datetime.today().date()
+url = os.getenv('FDA_CALENDAR')
 
-api_key = os.getenv('UNUSUAL_WHALES_API_KEY')
+def save_json(data):
+    with open(f"json/fda-calendar/data.json", 'wb') as file:
+        ujson.dumps(data, file)
 
-url = "https://api.unusualwhales.com/api/market/fda-calendar"
-
-headers = {
-    "Accept": "application/json, text/plain",
-    "Authorization": api_key
-}
-
-
-
-async def save_json(data):
-    with open(f"json/fda-calendar/data.json", 'w') as file:
-        ujson.dump(data, file)
-
-
-async def get_data():
-
+def main():
+    # Set up Chrome options
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    
+    # Initialize WebDriver
+    service = Service(ChromeDriverManager().install())
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+    
+    # Connect to the database to get stock symbols
     con = sqlite3.connect('stocks.db')
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
     cursor.execute("SELECT DISTINCT symbol FROM stocks")
-    stock_symbols = [row[0] for row in cursor.fetchall()]
+    stock_symbols = [row[0].strip() for row in cursor.fetchall()]  # Ensure symbols are stripped
     con.close()
+
     try:
-        response = requests.get(url, headers=headers)
-        data = response.json()['data']
-        data = [
-            entry for entry in data
-            if datetime.strptime(entry['start_date'], '%Y-%m-%d').date() >= today
+        # Navigate to FDA calendar
+        driver.get(url)
+        
+        # Wait for the table to load
+        WebDriverWait(driver, 20).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "table.flow-full-table"))
+        )
+        
+        # Extract table data
+        entries = []
+        rows = driver.find_elements(By.CSS_SELECTOR, "table.flow-full-table tbody tr")
+        
+        for row in rows:
+            cols = row.find_elements(By.TAG_NAME, "td")
+            if len(cols) >=6:  # Check for minimum required columns
+                try:
+                    # Extract ticker from the anchor tag, stripping whitespace
+                    ticker_element = cols[0].find_element(By.TAG_NAME, "a")
+                    ticker = ticker_element.text.strip() if ticker_element else ""
+                    ticker = ticker or None  # Set to None if empty after strip
+                except:
+                    ticker = None  # If no anchor tag found
+                
+
+                # Extract other fields, converting empty strings to None
+                date = cols[1].text.strip() or None
+                drug = cols[2].text.strip() or None
+                indication = cols[3].text.strip() or None
+                status = cols[4].text.strip() or None
+                description = cols[5].text.strip() or None
+                
+                entry = {
+                    "ticker": ticker,
+                    "date": date,
+                    "drug": drug,
+                    "indication": indication,
+                    "status": status,
+                    "description": description
+                }
+                entries.append(entry)
+        
+        # Filter entries to include only those with tickers present in the database
+        filtered_entries = [
+            entry for entry in entries
+            if entry['ticker'] is not None and entry['ticker'] in stock_symbols
         ]
         
-        res_list = []
-        for item in data:
-            try:
-                symbol = item['ticker']
-                if symbol in stock_symbols:
-                    res_list.append({**item})
-            except:
-                pass
+
+        if filtered_entries:
+            save_json(filtered_entries)
+            print("Successfully scraped FDA calendar data")
         
-        return data
     except Exception as e:
-        print(f"Error fetching data: {e}")
-        return []
-
-
-async def run():
-    data = await get_data()
-    if len(data) > 0:
-        await save_json(data)
+        print(f"Error during scraping: {str(e)}")
+    finally:
+        driver.quit()
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(run())
-    except Exception as e:
-        print(f"An error occurred: {e}")
+    main()

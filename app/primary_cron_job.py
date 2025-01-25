@@ -110,8 +110,7 @@ def run_options_jobs():
 def run_fda_calendar():
     now = datetime.now(ny_tz)
     week = now.weekday()
-    hour = now.hour
-    if week <= 4 and 8 <= hour < 20:
+    if week <= 5:
         run_command(["python3", "cron_fda_calendar.py"])
 
 def run_cron_insider_trading():
@@ -378,6 +377,9 @@ schedule.every().day.at("08:00").do(run_threaded, run_cron_insider_trading).tag(
 schedule.every().day.at("08:30").do(run_threaded, run_dividends).tag('dividends_job')
 schedule.every().day.at("09:00").do(run_threaded, run_shareholders).tag('shareholders_job')
 schedule.every().day.at("09:30").do(run_threaded, run_profile).tag('profile_job')
+schedule.every().day.at("10:00").do(run_threaded, run_fda_calendar).tag('fda_job')
+
+
 
 #schedule.every().day.at("10:30").do(run_threaded, run_sec_filings).tag('sec_filings_job')
 #schedule.every().day.at("11:00").do(run_threaded, run_executive).tag('executive_job')
@@ -420,7 +422,6 @@ schedule.every(2).hours.do(run_threaded, run_analyst_rating).tag('analyst_job')
 schedule.every(1).hours.do(run_threaded, run_company_news).tag('company_news_job')
 schedule.every(3).hours.do(run_threaded, run_press_releases).tag('press_release_job')
 
-#schedule.every(1).hours.do(run_threaded, run_fda_calendar).tag('fda_calendar_job')
 
 schedule.every(20).minutes.do(run_threaded, run_options_stats).tag('options_stats_job')
 
