@@ -100,7 +100,7 @@ async def get_data(symbol):
                 trade_data = {key.lstrip('_'): value for key, value in trade_data.items()}
                 option_symbol = trade_data['contract'].replace("___","").replace("__","").replace("_","")
                 date_expiration, option_type, strike_price = parse_option_symbol(option_symbol)
-                if trade_data['underlying_price_at_execution'] > 0 and date_expiration >= datetime.today().date():
+                if trade_data['underlying_price_at_execution'] > 0: #and date_expiration >= datetime.today().date():
 
                     res_list.append({'date': trade_data['timestamp'].strftime("%Y-%m-%d"),
                         'askprice': trade_data['ask_at_execution'],
