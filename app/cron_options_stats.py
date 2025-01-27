@@ -132,7 +132,7 @@ async def get_price_batch_realtime(symbol, contract_list):
     res_dict = {
         'total_premium': 0, 'call_premium': 0, 'put_premium': 0,
         'volume': 0, 'call_volume': 0, 'put_volume': 0, 
-        'gex': 0, 'dex': 0,
+        'gex': 0,
         'total_open_interest': 0, 'call_open_interest': 0, 'put_open_interest': 0,
         'iv_list': [],
         'time': None
@@ -156,7 +156,6 @@ async def get_price_batch_realtime(symbol, contract_list):
 
             # Update metrics
             res_dict['gex'] += gamma * open_interest * 100
-            res_dict['dex'] += delta * open_interest * 100
             res_dict['total_premium'] += premium
             res_dict['volume'] += volume
             res_dict['total_open_interest'] += open_interest
@@ -202,7 +201,7 @@ async def main():
                 aggregated_results = {
                     'total_premium': 0, 'call_premium': 0, 'put_premium': 0,
                     'volume': 0, 'call_volume': 0, 'put_volume': 0, 
-                    'gex': 0, 'dex': 0,
+                    'gex': 0,
                     'total_open_interest': 0, 'call_open_interest': 0, 'put_open_interest': 0,
                     'iv_list': [],
                     'time': None
@@ -216,7 +215,7 @@ async def main():
                     # Aggregate results
                     for key in ['total_premium', 'call_premium', 'put_premium', 
                                 'volume', 'call_volume', 'put_volume', 
-                                'gex', 'dex', 
+                                'gex',
                                 'total_open_interest', 'call_open_interest', 'put_open_interest']:
                         aggregated_results[key] += batch_results[key]
                     
@@ -232,9 +231,12 @@ async def main():
                     past_data = orjson.loads(file.read())
                     index = next((i for i, item in enumerate(past_data) if item['date'] == aggregated_results['time']), 0)
                     previous_open_interest = past_data[index]['total_open_interest']
+                    iv_rank = past_data[index]['iv_rank']
 
                 aggregated_results['changesPercentageOI'] = round((aggregated_results['total_open_interest']/previous_open_interest-1)*100, 2)
                 aggregated_results['changeOI'] = aggregated_results['total_open_interest'] - previous_open_interest
+                #we don't aggregate this result
+                aggregated_results['ivRank'] = iv_rank
 
                 # Remove the temporary iv_list before saving
                 del aggregated_results['iv_list']
