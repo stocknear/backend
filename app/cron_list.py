@@ -887,7 +887,7 @@ async def get_highest_option_iv_rank():
             total_oi = stock_screener_data_dict[symbol].get('totalOI',0)
             change_oi = stock_screener_data_dict[symbol].get('changeOI',0)
 
-            if iv_rank > 0 and iv_rank < 100:
+            if iv_rank > 0 and iv_rank < 100 and change_oi > 100:
                 quote_data = await get_quote_data(symbol)
                 # Assign price and volume, and check if they meet the penny stock criteria
                 if quote_data:
