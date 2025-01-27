@@ -10,10 +10,26 @@ import aiohttp
 import pytz
 import requests  # Add missing import
 from collections import defaultdict
+import intrinio_sdk as intrinio
+from intrinio_sdk.rest import ApiException
+from GetStartEndDate import GetStartEndDate
+from tqdm import tqdm
+
+import re
+
 
 load_dotenv()
 fmp_api_key = os.getenv('FMP_API_KEY')
+api_key = os.getenv('INTRINIO_API_KEY')
+
+intrinio.ApiClient().set_api_key(api_key)
+intrinio.ApiClient().allow_retries(True)
+
+
 ny_tz = pytz.timezone('America/New_York')
+
+today,_ =  GetStartEndDate().run()
+today = today.strftime("%Y-%m-%d")
 
 
 def save_json(data):
@@ -34,136 +50,47 @@ def add_close_to_data(price_list, data):
                 break  # Match found, no need to continue searching
     return data
 
-def convert_timestamps(data_list):
-    ny_tz = pytz.timezone('America/New_York')
+def parse_contract_data(option_symbol):
+    # Define regex pattern to match the symbol structure
+    match = re.match(r"([A-Z]+)(\d{6})([CP])(\d+)", option_symbol)
+    if not match:
+        raise ValueError(f"Invalid option_symbol format: {option_symbol}")
     
-    for item in data_list:
-        try:
-            # Get the timestamp and split on '.'
-            timestamp = item['timestamp']
-            base_time = timestamp.split('.')[0]
-            
-            # Handle microseconds if present
-            if '.' in timestamp:
-                microseconds = timestamp.split('.')[1].replace('Z', '')
-                microseconds = microseconds.ljust(6, '0')  # Pad with zeros if needed
-                base_time = f"{base_time}.{microseconds}"
-            
-            # Replace 'Z' with '+00:00' (for UTC)
-            base_time = base_time.replace('Z', '+00:00')
-            
-            # Parse the timestamp
-            dt = datetime.fromisoformat(base_time)
-            
-            # Ensure the datetime is timezone-aware (assumed to be UTC initially)
-            if dt.tzinfo is None:
-                dt = pytz.utc.localize(dt)
-            
-            # Convert the time to New York timezone (automatically handles DST)
-            ny_time = dt.astimezone(ny_tz)
-            
-            # Optionally, format to include date and time
-            item['timestamp'] = ny_time.strftime('%Y-%m-%d %H:%M:%S')
-            
-        except ValueError as e:
-            raise ValueError(f"Invalid timestamp format: {item['timestamp']} - Error: {str(e)}")
-        except Exception as e:
-            raise Exception(f"Error processing timestamp: {item['timestamp']} - Error: {str(e)}")
+    ticker, expiration, option_type, strike_price = match.groups()
     
-    return data_list
-
-
-def safe_round(value):
-    """Attempt to convert a value to float and round it. Return the original value if not possible."""
-    try:
-        return round(float(value), 2)
-    except (ValueError, TypeError):
-        return value
-
-def calculate_neutral_premium(data_item):
-    """Calculate the neutral premium for a data item."""
-    call_premium = float(data_item['call_premium'])
-    put_premium = float(data_item['put_premium'])
-    bearish_premium = float(data_item['bearish_premium'])
-    bullish_premium = float(data_item['bullish_premium'])
+    return option_type
     
-    total_premiums = bearish_premium + bullish_premium
-    observed_premiums = call_premium + put_premium
-    neutral_premium = observed_premiums - total_premiums
+
+async def get_intrinio_data(ticker):
+    url=f"https://api-v2.intrinio.com/options/unusual_activity/{ticker}/intraday?page_size=1000&api_key={api_key}"
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            data = await response.json()
     
-    return safe_round(neutral_premium)
-
-def generate_time_intervals(start_time, end_time):
-    """Generate 1-minute intervals from start_time to end_time."""
-    intervals = []
-    current_time = start_time
-    while current_time <= end_time:
-        intervals.append(current_time.strftime('%Y-%m-%d %H:%M:%S'))
-        current_time += timedelta(minutes=1)
-    return intervals
-
-def get_sector_data():
-    try:
-        url = "https://api.unusualwhales.com/api/market/sector-etfs"
-        response = requests.get(url, headers=headers)
-        data = response.json().get('data', [])
+    data = data.get('trades',[])
+    if data:
         res_list = []
-        processed_data = []
-
-        
         for item in data:
-            symbol = item['ticker']
+            try:
+                iso_timestamp = item['timestamp'].replace('Z', '+00:00')
+                # Parse timestamp and convert to New York time
+                timestamp = datetime.fromisoformat(iso_timestamp).astimezone(ny_tz)
+                formatted_time = timestamp.strftime('%Y-%m-%d %H:%M:%S')
+                put_call = parse_contract_data(item['contract'].replace("___","").replace("__","").replace("_",''))
+                if put_call == 'C':
+                    put_call = 'calls'
+                else:
+                    put_call = 'puts'
 
-            bearish_premium = float(item['bearish_premium'])
-            bullish_premium = float(item['bullish_premium'])
-            neutral_premium = calculate_neutral_premium(item)
-            
-            # Step 1: Replace 'full_name' with 'name' if needed
-            new_item = {
-                'name' if key == 'full_name' else key: safe_round(value)
-                for key, value in item.items()
-                if key != 'in_out_flow'
-            }
-            
-            # Step 2: Replace 'name' values
-            if str(new_item.get('name')) == 'Consumer Staples':
-                new_item['name'] = 'Consumer Defensive'
-            elif str(new_item.get('name')) == 'Consumer Discretionary':
-                new_item['name'] = 'Consumer Cyclical'
-            elif str(new_item.get('name')) == 'Health Care':
-                new_item['name'] = 'Healthcare'
-            elif str(new_item.get('name')) == 'Financials':
-                new_item['name'] = 'Financial Services'
-            elif str(new_item.get('name')) == 'Materials':
-                new_item['name'] = 'Basic Materials'
+                res_list.append({'timestamp': formatted_time, 'put_call': put_call, 'cost_basis': item['total_value'], 'volume': item['total_size'], 'sentiment': item['sentiment']})
+            except:
+                pass
 
-            new_item['premium_ratio'] = [
-                safe_round(bearish_premium),
-                neutral_premium,
-                safe_round(bullish_premium)
-            ]
-
-            with open(f"json/quote/{symbol}.json") as file:
-                quote_data = orjson.loads(file.read())
-                new_item['price'] = round(quote_data.get('price', 0), 2)
-                new_item['changesPercentage'] = round(quote_data.get('changesPercentage', 0), 2)
-
-            #get prem tick data:
-            '''
-            if symbol != 'SPY':
-                prem_tick_history = get_etf_tide(symbol)
-                #if symbol == 'XLB':
-                #    print(prem_tick_history[10])
-
-                new_item['premTickHistory'] = prem_tick_history
-            '''
-
-            processed_data.append(new_item)
-
-        return processed_data
-    except Exception as e:
-        print(e)
+        res_list.sort(key=lambda x: x['timestamp'])
+        return res_list
+    else:
         return []
+
 
 async def get_stock_chart_data(ticker):
     start_date_1d, end_date_1d = GetStartEndDate().run()
@@ -184,31 +111,39 @@ async def get_stock_chart_data(ticker):
 
 
 def get_market_tide(interval_5m=False):
-    ticker_list = ['SPY']
+    with open(f"json/stocks-list/sp500_constituent.json","r") as file:
+        ticker_list = orjson.loads(file.read())
+        ticker_list = [item['symbol'] for item in ticker_list][:10]
+    
+    
     res_list = []
 
-    for ticker in ticker_list:
+    # Track changes per interval
+    delta_data = defaultdict(lambda: {
+        'cumulative_net_call_premium': 0,
+        'cumulative_net_put_premium': 0,
+        'call_ask_vol': 0,
+        'call_bid_vol': 0,
+        'put_ask_vol': 0,
+        'put_bid_vol': 0
+    })
+
+    for ticker in tqdm(['SPY']):
+        '''
         with open("json/options-flow/feed/data.json", "r") as file:
             data = orjson.loads(file.read())
+        '''
+        data = asyncio.run(get_intrinio_data(ticker))
+        
 
-        # Filter and sort data
-        ticker_options = [item for item in data if item['ticker'] == ticker]
-        ticker_options.sort(key=lambda x: x['time'])
+        ticker_options = [item for item in data if item['timestamp'].startswith(today)]
+        ticker_options.sort(key=lambda x: x['timestamp'])
 
-        # Track changes per interval
-        delta_data = defaultdict(lambda: {
-            'cumulative_net_call_premium': 0,
-            'cumulative_net_put_premium': 0,
-            'call_ask_vol': 0,
-            'call_bid_vol': 0,
-            'put_ask_vol': 0,
-            'put_bid_vol': 0
-        })
 
         for item in ticker_options:
             try:
                 # Parse and standardize timestamp
-                dt = datetime.strptime(f"{item['date']} {item['time']}", "%Y-%m-%d %H:%M:%S")
+                dt = datetime.strptime(f"{item['timestamp']}", "%Y-%m-%d %H:%M:%S")
                 
                 # Truncate to start of minute (for 1m summaries)
                 dt = dt.replace(second=0, microsecond=0)
@@ -282,9 +217,9 @@ def get_market_tide(interval_5m=False):
 
     res_list.sort(key=lambda x: x['timestamp'])
 
-    price_list = asyncio.run(get_stock_chart_data(ticker))
+    price_list = asyncio.run(get_stock_chart_data('SPY'))
     if len(price_list) == 0:
-        with open(f"json/one-day-price/{ticker}.json") as file:
+        with open(f"json/one-day-price/'SPY'.json") as file:
             price_list = orjson.loads(file.read())
 
     data = add_close_to_data(price_list, res_list)

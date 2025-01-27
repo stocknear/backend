@@ -2568,36 +2568,12 @@ async def get_ipo_calendar(data:IPOData, api_key: str = Security(get_api_key)):
         headers={"Content-Encoding": "gzip"}
     )
 
-@app.get("/trending")
-async def get_trending(api_key: str = Security(get_api_key)):
-    cache_key = f"get-trending"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return StreamingResponse(
-        io.BytesIO(cached_result),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"})
 
-    try:
-        with open(f"json/trending/data.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = []
-
-    data = orjson.dumps(res)
-    compressed_data = gzip.compress(data)
-    redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 60*15)  # Set cache expiration time to 1 day
-
-    return StreamingResponse(
-        io.BytesIO(compressed_data),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"}
-    )
-
-@app.get("/heatmap")
-async def get_heatmap(api_key: str = Security(get_api_key)):
-    cache_key = "heatmap"
+@app.post("/heatmap")
+async def get_heatmap(data: GeneralData, api_key: str = Security(get_api_key)):
+    print(data)
+    time_period = data.params
+    cache_key = f"heatmap-{time_period}"
     cached_result = redis_client.get(cache_key)
     
     if cached_result:
@@ -2608,7 +2584,7 @@ async def get_heatmap(api_key: str = Security(get_api_key)):
         )
     
     try:
-        with open("json/heatmap/data.html", 'r', encoding='utf-8') as file:
+        with open(f"json/heatmap/{time_period}.html", 'r', encoding='utf-8') as file:
             html_content = file.read()
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Heatmap file not found")
@@ -2627,9 +2603,10 @@ async def get_heatmap(api_key: str = Security(get_api_key)):
         media_type="text/html",
         headers={
             "Content-Encoding": "gzip",
-            "Cache-Control": "public, max-age=300"  # 5 minutes cache
         }
     )
+
+
 
 @app.post("/pre-post-quote")
 async def get_pre_post_quote(data:TickerData, api_key: str = Security(get_api_key)):
