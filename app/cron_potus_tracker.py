@@ -11,9 +11,22 @@ import asyncio
 import orjson
 from dotenv import load_dotenv
 import os
+import sqlite3
+import pandas as pd
 
 load_dotenv()
 geolocator = Nominatim(user_agent="myGeocodingApp/1.0 (your-email@example.com)")
+
+
+query_template = """
+    SELECT
+        date, close
+    FROM
+        "{symbol}"
+    WHERE
+        date BETWEEN ? AND ?
+"""
+
 
 def save_json(data):
     path = "json/tracker/potus"
@@ -78,13 +91,13 @@ def get_bills():
                 read_more_buttons[0].click()
 
                 # Wait for the popup to become visible
-                print("Waiting for the popup to appear...")
+                #print("Waiting for the popup to appear...")
                 WebDriverWait(driver, 10).until(
                     EC.visibility_of_element_located((By.ID, "popup-container"))  # Wait until popup is visible
                 )
 
                 # Extract content from the popup
-                print("Popup appeared, extracting content...")
+                #print("Popup appeared, extracting content...")
                 popup_title = driver.find_element(By.ID, "popup-title").text
                 popup_content = driver.find_element(By.ID, "popup-content").text
 
@@ -95,7 +108,7 @@ def get_bills():
                 # Close the popup (optional)
                 close_button = driver.find_element(By.ID, "popup-close-button")
                 close_button.click()
-                print("Popup closed.")
+                #print("Popup closed.")
 
             # Append data to list
             data.append({
@@ -116,6 +129,19 @@ def get_bills():
 
 async def get_data():
     bill_data = get_bills()
+    query = query_template.format(symbol='SPY')
+
+    etf_con = sqlite3.connect('etf.db')
+    etf_cursor = etf_con.cursor()
+    etf_cursor.execute("PRAGMA journal_mode = wal")
+
+    df = pd.read_sql_query(query, etf_con, params=("2025-01-20", '2025-01-27'))
+    if not df.empty:
+        df['changesPercentage'] = (df['close'].pct_change() * 100).round(2)
+        sp500_list = df.dropna().to_dict(orient="records")   # Drop NaN values and convert to list
+    etf_con.close()
+
+    return_since = round((sp500_list[-1]['close']/sp500_list[0]['close']-1)*100,2)
 
     url = "https://media-cdn.factba.se/rss/json/trump/calendar-full.json"
     async with aiohttp.ClientSession() as session:
@@ -159,8 +185,13 @@ async def get_data():
                 print(f"Latitude: {latitude}, Longitude: {longitude}")
                 break
 
-        res_dict = {'city': city, 'lon': longitude, 'lat': latitude, 'history': data, 'billData': bill_data}
+        for item in data:
+            for price_item in sp500_list:
+                if item['date'] == price_item['date']:
+                    item['changesPercentage'] = price_item['changesPercentage']
+                    break
+
+        res_dict = {'returnSince': return_since,'city': city, 'lon': longitude, 'lat': latitude, 'history': data, 'billData': bill_data}
         save_json(res_dict)
-
-
+    
 asyncio.run(get_data())
