@@ -113,6 +113,7 @@ def run_fda_calendar():
     week = now.weekday()
     if week <= 5:
         run_command(["python3", "cron_fda_calendar.py"])
+        run_command(["python3", "cron_potus_tracker.py"])
 
 def run_cron_insider_trading():
     week = datetime.today().weekday()

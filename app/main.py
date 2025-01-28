@@ -2571,7 +2571,6 @@ async def get_ipo_calendar(data:IPOData, api_key: str = Security(get_api_key)):
 
 @app.post("/heatmap")
 async def get_heatmap(data: GeneralData, api_key: str = Security(get_api_key)):
-    print(data)
     time_period = data.params
     cache_key = f"heatmap-{time_period}"
     cached_result = redis_client.get(cache_key)
@@ -2579,7 +2578,7 @@ async def get_heatmap(data: GeneralData, api_key: str = Security(get_api_key)):
     if cached_result:
         return StreamingResponse(
             io.BytesIO(cached_result),
-            media_type="text/html",
+            media_type="application/json",
             headers={"Content-Encoding": "gzip"}
         )
     
@@ -2600,7 +2599,7 @@ async def get_heatmap(data: GeneralData, api_key: str = Security(get_api_key)):
     
     return StreamingResponse(
         io.BytesIO(compressed_data),
-        media_type="text/html",
+        media_type="application/json",
         headers={
             "Content-Encoding": "gzip",
         }
@@ -4275,6 +4274,35 @@ async def get_market_flow(api_key: str = Security(get_api_key)):
 
     redis_client.set(cache_key, compressed_data)
     redis_client.expire(cache_key,2*60)
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
+
+@app.get("/potus-tracker")
+async def get_data(api_key: str = Security(get_api_key)):
+    cache_key = f"potus-tracker"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
+
+    try:
+        with open(f"json/tracker/potus/data.json", 'rb') as file:
+            res = orjson.loads(file.read())
+    except:
+        res = {}
+        
+    data = orjson.dumps(res)
+    compressed_data = gzip.compress(data)
+
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key,60*15)
 
     return StreamingResponse(
         io.BytesIO(compressed_data),
