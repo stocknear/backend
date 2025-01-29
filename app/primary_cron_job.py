@@ -382,7 +382,6 @@ schedule.every().day.at("10:00").do(run_threaded, run_fda_calendar).tag('fda_job
 
 schedule.every().day.at("12:00").do(run_threaded, run_market_cap).tag('market_cap_job')
 
-#schedule.every().day.at("05:00").do(run_threaded, run_implied_volatility).tag('implied_volatility_job')
 
 
 schedule.every().day.at("13:40").do(run_threaded, run_analyst_estimate).tag('analyst_estimate_job')

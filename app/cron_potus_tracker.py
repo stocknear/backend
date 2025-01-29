@@ -165,32 +165,35 @@ async def get_data():
 
         
         for address in [details, location]:
-            if any(place in address for place in ["White House", "Blair House","Washington DC"]):
-                location = "Washington, DC"
-            else:
-                location = address  # Otherwise, use the full address string
+            try:
+                if any(place in address for place in ["White House", "Blair House","Washington DC", "East Room"]):
+                    location = "Washington, DC"
+                else:
+                    location = address  # Otherwise, use the full address string
 
-            # Geocode the processed address
-            location_data = geolocator.geocode(location)
-            city = location_data.address.split(',', 1)[0]
-            if location_data:
-                
-                # Extract city from the address components
-                address_components = location_data.raw.get('address', {})
-                
-               
-                # Extract latitude and longitude
-                latitude = location_data.latitude
-                longitude = location_data.longitude
-                print(f"Latitude: {latitude}, Longitude: {longitude}")
-                break
+                # Geocode the processed address
+                location_data = geolocator.geocode(location)
+                city = location_data.address.split(',', 1)[0]
+                if location_data:
+                    
+                    # Extract city from the address components
+                    address_components = location_data.raw.get('address', {})
+                    
+                   
+                    # Extract latitude and longitude
+                    latitude = location_data.latitude
+                    longitude = location_data.longitude
+                    print(f"Latitude: {latitude}, Longitude: {longitude}")
+                    break
+            except:
+                pass
 
         for item in data:
             for price_item in sp500_list:
                 if item['date'] == price_item['date']:
                     item['changesPercentage'] = price_item['changesPercentage']
                     break
-
+        print(city)
         res_dict = {'returnSince': return_since,'city': city, 'lon': longitude, 'lat': latitude, 'history': data, 'billData': bill_data}
         save_json(res_dict)
     
