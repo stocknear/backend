@@ -1,5 +1,6 @@
 import pytz
 from datetime import datetime, timedelta
+import time
 import json
 import ujson
 import orjson
@@ -1455,10 +1456,10 @@ async def get_economic_calendar():
     ny_tz = pytz.timezone('America/New_York')
     today = datetime.now(ny_tz)
 
-    start_date = today - timedelta(weeks=6)
+    start_date = today - timedelta(weeks=3)
     start_date = start_date - timedelta(days=(start_date.weekday() - 0) % 7)
 
-    end_date = today + timedelta(weeks=6)
+    end_date = today + timedelta(weeks=3)
     end_date = end_date + timedelta(days=(4 - end_date.weekday()) % 7)
 
     url = "https://api.benzinga.com/api/v2.1/calendar/economics"
@@ -1467,6 +1468,12 @@ async def get_economic_calendar():
     all_data = []
     current_date = start_date
 
+    def safe_float_convert(value):
+        try:
+            return round(float(value), 2) if value != '' else ''
+        except ValueError:
+            return value  # Return the original value if it can't be converted to float
+
     async with aiohttp.ClientSession() as session:
         while current_date <= end_date:
             date_str = current_date.strftime('%Y-%m-%d')
@@ -1474,6 +1481,7 @@ async def get_economic_calendar():
                 "token": benzinga_api_key,
                 "parameters[date_from]": date_str,
                 "parameters[date_to]": date_str,
+                "pagesize": 1000
             }
 
             try:
@@ -1492,23 +1500,27 @@ async def get_economic_calendar():
     for item in all_data:
         try:
             matching_country = next((c['short'] for c in country_list if c['long'] == item['country']), None)
-
-            if matching_country:
+            # Special case for USA
+            if item['country'] == 'USA':
+                country_code = 'us'
+            elif matching_country:
                 country_code = matching_country.lower()
-
-                filtered_data.append({
-                    'countryCode': country_code,
-                    'country': item['country'],
-                    'time': item['time'][0:5],
-                    'date': item['date'],
-                    'prior': round(float(item['prior']), 2) if item['prior'] != '' else '',
-                    'consensus': round(float(item['consensus']), 2) if item['consensus'] != '' else '',
-                    'actual': round(float(item['actual']), 2) if item['actual'] != '' else '',
-                    'importance': item['importance'],
-                    'event': item['event_name'],
-                })
+            else:
+                continue
+                
+            filtered_data.append({
+                'countryCode': country_code,
+                'country': item['country'],
+                'time': item['time'][0:5],
+                'date': item['date'],
+                'prior': item['prior'],  # Keep as string to avoid conversion issues
+                'consensus': item['consensus'],  # Keep as string to avoid conversion issues
+                'actual': item['actual'],  # Keep as string to avoid conversion issues
+                'importance': item['importance'],
+                'event': item['event_name'],
+            })
         except Exception as e:
-            pass
+            print(f"Error processing item: {e}")
 
 
     return filtered_data
@@ -1849,6 +1861,10 @@ async def save_json_files():
     etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
 
+    economic_list = await get_economic_calendar()
+    if len(economic_list) > 0:
+        with open(f"json/economic-calendar/calendar.json", 'w') as file:
+            ujson.dump(economic_list, file)
     
     stock_screener_data = await get_stock_screener(con)
     with open(f"json/stock-screener/data.json", 'w') as file:
@@ -1862,10 +1878,6 @@ async def save_json_files():
     with open(f"json/earnings-calendar/calendar.json", 'w') as file:
         ujson.dump(earnings_list, file)
 
-    economic_list = await get_economic_calendar()
-    if len(economic_list) > 0:
-        with open(f"json/economic-calendar/calendar.json", 'w') as file:
-            ujson.dump(economic_list, file)
 
     dividends_list = await get_dividends_calendar(con,symbols)
     with open(f"json/dividends-calendar/calendar.json", 'w') as file:
@@ -1881,7 +1893,6 @@ async def save_json_files():
     with open(f"json/all-etf-providers/data.json", 'w') as file:
         ujson.dump(data, file)
 
-    
 
         
     
