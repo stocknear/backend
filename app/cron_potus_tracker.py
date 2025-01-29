@@ -193,7 +193,6 @@ async def get_data():
                 if item['date'] == price_item['date']:
                     item['changesPercentage'] = price_item['changesPercentage']
                     break
-        print(city)
         res_dict = {'returnSince': return_since,'city': city, 'lon': longitude, 'lat': latitude, 'history': data, 'billData': bill_data}
         save_json(res_dict)
     

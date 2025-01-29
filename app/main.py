@@ -4310,6 +4310,35 @@ async def get_data(api_key: str = Security(get_api_key)):
         headers={"Content-Encoding": "gzip"}
     )
 
+@app.get("/egg-price")
+async def get_data(api_key: str = Security(get_api_key)):
+    cache_key = f"egg-price"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
+
+    try:
+        with open(f"json/tracker/potus/egg_price.json", 'rb') as file:
+            res = orjson.loads(file.read())
+    except:
+        res = {}
+        
+    data = orjson.dumps(res)
+    compressed_data = gzip.compress(data)
+
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key,60*15)
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
+
 
 @app.get("/newsletter")
 async def get_newsletter():
