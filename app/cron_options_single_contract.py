@@ -44,23 +44,6 @@ class ChainItem:
         return self._prices
 
 
-def calculate_net_premium(ask_price, bid_price, ask_size, bid_size):
-    """
-    Calculate the net premium from the ask and bid prices and sizes.
-    If any value is None, it will be treated as 0.
-    """
-    # Replace None with 0 for any of the values
-    ask_price = ask_price if ask_price is not None else 0
-    bid_price = bid_price if bid_price is not None else 0
-    ask_size = ask_size if ask_size is not None else 0
-    bid_size = bid_size if bid_size is not None else 0
-    
-    # Premium for call or put options
-    ask_premium = ask_price * ask_size * 100  # Assuming 100 shares per contract
-    bid_premium = bid_price * bid_size * 100
-    
-    # Return the net premium (difference between received and paid)
-    return ask_premium - bid_premium
 
 intrinio.ApiClient().set_api_key(api_key)
 intrinio.ApiClient().allow_retries(True)
@@ -82,6 +65,13 @@ def get_all_expirations(symbol):
     )
     data = (response.__dict__).get('_expirations')
     return data
+
+def get_contracts_from_directory(symbol):
+    directory = f"json/all-options-contracts/{symbol}/"
+    try:
+        return [file.replace(".json", "") for file in os.listdir(directory) if file.endswith(".json")]
+    except:
+        return []
 
 async def get_options_chain(symbol, expiration, semaphore):
     async with semaphore:
@@ -232,7 +222,6 @@ async def process_contracts(symbol, contract_list):
     # Calculate total batches for better progress tracking
     total_contracts = len(contract_list)
     total_batches = (total_contracts + BATCH_SIZE - 1) // BATCH_SIZE
-    
     with tqdm(total=total_contracts, desc="Processing contracts") as pbar:
         for batch_num in range(total_batches):
             try:
@@ -307,7 +296,7 @@ def check_contract_expiry(symbol):
 async def process_symbol(symbol):
     try:
         print(f"==========Start Process for {symbol}==========")
-        expiration_list = get_all_expirations(symbol)
+        expiration_list = get_contracts_from_directory(symbol) #get_all_expirations(symbol)
         #check existing contracts and delete expired ones
         check_contract_expiry(symbol)
 
@@ -317,8 +306,8 @@ async def process_symbol(symbol):
 
         if len(contract_list) > 0:
             results = await process_contracts(symbol, contract_list)
-    except:
-        pass
+    except Exception as e:
+        print(e)
 
 
 def get_tickers_from_directory(directory: str):
@@ -342,6 +331,7 @@ async def main():
     
     for symbol in tqdm(total_symbols):
         await process_symbol(symbol)
+
 
 if __name__ == "__main__":
     asyncio.run(main())
