@@ -296,7 +296,10 @@ def check_contract_expiry(symbol):
 async def process_symbol(symbol):
     try:
         print(f"==========Start Process for {symbol}==========")
-        expiration_list = get_contracts_from_directory(symbol) #get_all_expirations(symbol)
+        expiration_list = get_all_expirations(symbol)
+        if len(expiration_list) < 0:
+            expiration_list = get_contracts_from_directory(symbol)
+
         #check existing contracts and delete expired ones
         check_contract_expiry(symbol)
 
@@ -325,9 +328,7 @@ def get_tickers_from_directory(directory: str):
         return []
 
 async def main():
-    total_symbols = get_tickers_from_directory(directory_path)
-    if len(total_symbols) < 2000:
-        total_symbols = get_total_symbols()
+    total_symbols = get_total_symbols() #get_tickers_from_directory(directory_path)
     
     for symbol in tqdm(total_symbols):
         await process_symbol(symbol)
