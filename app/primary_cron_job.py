@@ -108,11 +108,7 @@ def run_options_jobs():
         run_command(["python3", "cron_options_gex_dex.py"])
         '''
 
-def run_fda_calendar():
-    now = datetime.now(ny_tz)
-    week = now.weekday()
-    if week <= 5:
-        run_command(["python3", "cron_fda_calendar.py"])
+
 
 def run_cron_insider_trading():
     week = datetime.today().weekday()
@@ -376,7 +372,6 @@ schedule.every().day.at("08:00").do(run_threaded, run_cron_insider_trading).tag(
 schedule.every().day.at("08:30").do(run_threaded, run_dividends).tag('dividends_job')
 schedule.every().day.at("09:00").do(run_threaded, run_shareholders).tag('shareholders_job')
 schedule.every().day.at("09:30").do(run_threaded, run_profile).tag('profile_job')
-schedule.every().day.at("10:00").do(run_threaded, run_fda_calendar).tag('fda_job')
 
 
 
