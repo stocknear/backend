@@ -2560,7 +2560,7 @@ async def get_ipo_calendar(data:IPOData, api_key: str = Security(get_api_key)):
     data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
     redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
+    redis_client.expire(cache_key, 60*5)  # Set cache expiration time to 1 day
 
     return StreamingResponse(
         io.BytesIO(compressed_data),
