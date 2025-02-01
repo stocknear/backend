@@ -215,7 +215,7 @@ async def get_data():
     etf_cursor = etf_con.cursor()
     etf_cursor.execute("PRAGMA journal_mode = wal")
 
-    df = pd.read_sql_query(query, etf_con, params=("2025-01-20", '2025-01-27'))
+    df = pd.read_sql_query(query, etf_con, params=("2025-01-20", datetime.today().strftime("%Y-%m-%d")))
     if not df.empty:
         df['changesPercentage'] = (df['close'].pct_change() * 100).round(2)
         sp500_list = df.dropna().to_dict(orient="records")   # Drop NaN values and convert to list
