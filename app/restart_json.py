@@ -25,7 +25,7 @@ import os
 
 load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
-benzinga_api_key = os.getenv('benzinga_api_key')
+BENZINGA_API_KEY = os.getenv('BENZINGA_API_KEY')
 
 berlin_tz = pytz.timezone('Europe/Berlin')
 
@@ -1051,7 +1051,6 @@ async def get_earnings_calendar(con, stock_symbols):
                 unique_elements.append(element)
         return unique_elements
 
-    BENZINGA_API_KEY = os.getenv('BENZINGA_API_KEY')
     headers = {"accept": "application/json"}
     url = "https://api.benzinga.com/api/v2.1/calendar/earnings"
     importance_list = ["0", "1", "2", "3", "4", "5"]
