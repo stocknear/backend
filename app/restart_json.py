@@ -1209,293 +1209,36 @@ async def get_stock_splits_calendar(con,symbols):
 
 
 async def get_economic_calendar():
-
-    country_list = [
-    {'short': 'AW', 'long': 'ABW'},
-    {'short': 'AF', 'long': 'AFG'},
-    {'short': 'AO', 'long': 'AGO'},
-    {'short': 'AI', 'long': 'AIA'},
-    {'short': 'AX', 'long': 'ALA'},
-    {'short': 'AL', 'long': 'ALB'},
-    {'short': 'AD', 'long': 'AND'},
-    {'short': 'AE', 'long': 'ARE'},
-    {'short': 'AR', 'long': 'ARG'},
-    {'short': 'AM', 'long': 'ARM'},
-    {'short': 'AS', 'long': 'ASM'},
-    {'short': 'AQ', 'long': 'ATA'},
-    {'short': 'TF', 'long': 'ATF'},
-    {'short': 'AG', 'long': 'ATG'},
-    {'short': 'AU', 'long': 'AUS'},
-    {'short': 'AT', 'long': 'AUT'},
-    {'short': 'AZ', 'long': 'AZE'},
-    {'short': 'BI', 'long': 'BDI'},
-    {'short': 'BE', 'long': 'BEL'},
-    {'short': 'BJ', 'long': 'BEN'},
-    {'short': 'BQ', 'long': 'BES'},
-    {'short': 'BF', 'long': 'BFA'},
-    {'short': 'BD', 'long': 'BGD'},
-    {'short': 'BG', 'long': 'BGR'},
-    {'short': 'BH', 'long': 'BHR'},
-    {'short': 'BS', 'long': 'BHS'},
-    {'short': 'BA', 'long': 'BIH'},
-    {'short': 'BL', 'long': 'BLM'},
-    {'short': 'BY', 'long': 'BLR'},
-    {'short': 'BZ', 'long': 'BLZ'},
-    {'short': 'BM', 'long': 'BMU'},
-    {'short': 'BO', 'long': 'BOL'},
-    {'short': 'BR', 'long': 'BRA'},
-    {'short': 'BB', 'long': 'BRB'},
-    {'short': 'BN', 'long': 'BRN'},
-    {'short': 'BT', 'long': 'BTN'},
-    {'short': 'BV', 'long': 'BVT'},
-    {'short': 'BW', 'long': 'BWA'},
-    {'short': 'CF', 'long': 'CAF'},
-    {'short': 'CA', 'long': 'CAN'},
-    {'short': 'CC', 'long': 'CCK'},
-    {'short': 'CH', 'long': 'CHE'},
-    {'short': 'CL', 'long': 'CHL'},
-    {'short': 'CN', 'long': 'CHN'},
-    {'short': 'CI', 'long': 'CIV'},
-    {'short': 'CM', 'long': 'CMR'},
-    {'short': 'CD', 'long': 'COD'},
-    {'short': 'CG', 'long': 'COG'},
-    {'short': 'CK', 'long': 'COK'},
-    {'short': 'CO', 'long': 'COL'},
-    {'short': 'KM', 'long': 'COM'},
-    {'short': 'CV', 'long': 'CPV'},
-    {'short': 'CR', 'long': 'CRI'},
-    {'short': 'CU', 'long': 'CUB'},
-    {'short': 'CW', 'long': 'CUW'},
-    {'short': 'CX', 'long': 'CXR'},
-    {'short': 'KY', 'long': 'CYM'},
-    {'short': 'CY', 'long': 'CYP'},
-    {'short': 'CZ', 'long': 'CZE'},
-    {'short': 'DE', 'long': 'DEU'},
-    {'short': 'DJ', 'long': 'DJI'},
-    {'short': 'DM', 'long': 'DMA'},
-    {'short': 'DK', 'long': 'DNK'},
-    {'short': 'DO', 'long': 'DOM'},
-    {'short': 'DZ', 'long': 'DZA'},
-    {'short': 'EC', 'long': 'ECU'},
-    {'short': 'EG', 'long': 'EGY'},
-    {'short': 'ER', 'long': 'ERI'},
-    {'short': 'EH', 'long': 'ESH'},
-    {'short': 'ES', 'long': 'ESP'},
-    {'short': 'EE', 'long': 'EST'},
-    {'short': 'ET', 'long': 'ETH'},
-    {'short': 'FI', 'long': 'FIN'},
-    {'short': 'FJ', 'long': 'FJI'},
-    {'short': 'FK', 'long': 'FLK'},
-    {'short': 'FR', 'long': 'FRA'},
-    {'short': 'FO', 'long': 'FRO'},
-    {'short': 'FM', 'long': 'FSM'},
-    {'short': 'GA', 'long': 'GAB'},
-    {'short': 'GB', 'long': 'GBR'},
-    {'short': 'GE', 'long': 'GEO'},
-    {'short': 'GG', 'long': 'GGY'},
-    {'short': 'GH', 'long': 'GHA'},
-    {'short': 'GI', 'long': 'GIB'},
-    {'short': 'GN', 'long': 'GIN'},
-    {'short': 'GP', 'long': 'GLP'},
-    {'short': 'GM', 'long': 'GMB'},
-    {'short': 'GW', 'long': 'GNB'},
-    {'short': 'GQ', 'long': 'GNQ'},
-    {'short': 'GR', 'long': 'GRC'},
-    {'short': 'GD', 'long': 'GRD'},
-    {'short': 'GL', 'long': 'GRL'},
-    {'short': 'GT', 'long': 'GTM'},
-    {'short': 'GF', 'long': 'GUF'},
-    {'short': 'GU', 'long': 'GUM'},
-    {'short': 'GY', 'long': 'GUY'},
-    {'short': 'HK', 'long': 'HKG'},
-    {'short': 'HM', 'long': 'HMD'},
-    {'short': 'HN', 'long': 'HND'},
-    {'short': 'HR', 'long': 'HRV'},
-    {'short': 'HT', 'long': 'HTI'},
-    {'short': 'HU', 'long': 'HUN'},
-    {'short': 'ID', 'long': 'IDN'},
-    {'short': 'IM', 'long': 'IMN'},
-    {'short': 'IN', 'long': 'IND'},
-    {'short': 'IO', 'long': 'IOT'},
-    {'short': 'IE', 'long': 'IRL'},
-    {'short': 'IR', 'long': 'IRN'},
-    {'short': 'IQ', 'long': 'IRQ'},
-    {'short': 'IS', 'long': 'ISL'},
-    {'short': 'IL', 'long': 'ISR'},
-    {'short': 'IT', 'long': 'ITA'},
-    {'short': 'JM', 'long': 'JAM'},
-    {'short': 'JE', 'long': 'JEY'},
-    {'short': 'JO', 'long': 'JOR'},
-    {'short': 'JP', 'long': 'JPN'},
-    {'short': 'KZ', 'long': 'KAZ'},
-    {'short': 'KE', 'long': 'KEN'},
-    {'short': 'KG', 'long': 'KGZ'},
-    {'short': 'KH', 'long': 'KHM'},
-    {'short': 'KI', 'long': 'KIR'},
-    {'short': 'KN', 'long': 'KNA'},
-    {'short': 'KR', 'long': 'KOR'},
-    {'short': 'KW', 'long': 'KWT'},
-    {'short': 'LA', 'long': 'LAO'},
-    {'short': 'LB', 'long': 'LBN'},
-    {'short': 'LR', 'long': 'LBR'},
-    {'short': 'LY', 'long': 'LBY'},
-    {'short': 'LC', 'long': 'LCA'},
-    {'short': 'LI', 'long': 'LIE'},
-    {'short': 'LK', 'long': 'LKA'},
-    {'short': 'LS', 'long': 'LSO'},
-    {'short': 'LT', 'long': 'LTU'},
-    {'short': 'LU', 'long': 'LUX'},
-    {'short': 'LV', 'long': 'LVA'},
-    {'short': 'MO', 'long': 'MAC'},
-    {'short': 'MF', 'long': 'MAF'},
-    {'short': 'MA', 'long': 'MAR'},
-    {'short': 'MC', 'long': 'MCO'},
-    {'short': 'MD', 'long': 'MDA'},
-    {'short': 'MG', 'long': 'MDG'},
-    {'short': 'MV', 'long': 'MDV'},
-    {'short': 'MX', 'long': 'MEX'},
-    {'short': 'MH', 'long': 'MHL'},
-    {'short': 'MK', 'long': 'MKD'},
-    {'short': 'ML', 'long': 'MLI'},
-    {'short': 'MT', 'long': 'MLT'},
-    {'short': 'MM', 'long': 'MMR'},
-    {'short': 'ME', 'long': 'MNE'},
-    {'short': 'MN', 'long': 'MNG'},
-    {'short': 'MP', 'long': 'MNP'},
-    {'short': 'MZ', 'long': 'MOZ'},
-    {'short': 'MR', 'long': 'MRT'},
-    {'short': 'MS', 'long': 'MSR'},
-    {'short': 'MQ', 'long': 'MTQ'},
-    {'short': 'MU', 'long': 'MUS'},
-    {'short': 'MW', 'long': 'MWI'},
-    {'short': 'MY', 'long': 'MYS'},
-    {'short': 'YT', 'long': 'MYT'},
-    {'short': 'NA', 'long': 'NAM'},
-    {'short': 'NC', 'long': 'NCL'},
-    {'short': 'NE', 'long': 'NER'},
-    {'short': 'NF', 'long': 'NFK'},
-    {'short': 'NG', 'long': 'NGA'},
-    {'short': 'NI', 'long': 'NIC'},
-    {'short': 'NU', 'long': 'NIU'},
-    {'short': 'NL', 'long': 'NLD'},
-    {'short': 'NO', 'long': 'NOR'},
-    {'short': 'NP', 'long': 'NPL'},
-    {'short': 'NR', 'long': 'NRU'},
-    {'short': 'NZ', 'long': 'NZL'},
-    {'short': 'OM', 'long': 'OMN'},
-    {'short': 'PK', 'long': 'PAK'},
-    {'short': 'PA', 'long': 'PAN'},
-    {'short': 'PN', 'long': 'PCN'},
-    {'short': 'PE', 'long': 'PER'},
-    {'short': 'PH', 'long': 'PHL'},
-    {'short': 'PW', 'long': 'PLW'},
-    {'short': 'PG', 'long': 'PNG'},
-    {'short': 'PL', 'long': 'POL'},
-    {'short': 'PR', 'long': 'PRI'},
-    {'short': 'KP', 'long': 'PRK'},
-    {'short': 'PT', 'long': 'PRT'},
-    {'short': 'PY', 'long': 'PRY'},
-    {'short': 'PS', 'long': 'PSE'},
-    {'short': 'PF', 'long': 'PYF'},
-    {'short': 'QA', 'long': 'QAT'},
-    {'short': 'RE', 'long': 'REU'},
-    {'short': 'RO', 'long': 'ROU'},
-    {'short': 'RU', 'long': 'RUS'},
-    {'short': 'RW', 'long': 'RWA'},
-    {'short': 'SA', 'long': 'SAU'},
-    {'short': 'SD', 'long': 'SDN'},
-    {'short': 'SN', 'long': 'SEN'},
-    {'short': 'SG', 'long': 'SGP'},
-    {'short': 'GS', 'long': 'SGS'},
-    {'short': 'SH', 'long': 'SHN'},
-    {'short': 'SJ', 'long': 'SJM'},
-    {'short': 'SB', 'long': 'SLB'},
-    {'short': 'SL', 'long': 'SLE'},
-    {'short': 'SV', 'long': 'SLV'},
-    {'short': 'SM', 'long': 'SMR'},
-    {'short': 'SO', 'long': 'SOM'},
-    {'short': 'PM', 'long': 'SPM'},
-    {'short': 'RS', 'long': 'SRB'},
-    {'short': 'SS', 'long': 'SSD'},
-    {'short': 'ST', 'long': 'STP'},
-    {'short': 'SR', 'long': 'SUR'},
-    {'short': 'SZ', 'long': 'SWZ'},
-    {'short': 'SE', 'long': 'SWE'},
-    {'short': 'SY', 'long': 'SYR'},
-    {'short': 'TH', 'long': 'THA'},
-    {'short': 'TJ', 'long': 'TJK'},
-    {'short': 'TK', 'long': 'TKL'},
-    {'short': 'TM', 'long': 'TKM'},
-    {'short': 'TL', 'long': 'TLS'},
-    {'short': 'TO', 'long': 'TON'},
-    {'short': 'TT', 'long': 'TTO'},
-    {'short': 'TN', 'long': 'TUN'},
-    {'short': 'TR', 'long': 'TUR'},
-    {'short': 'TV', 'long': 'TUV'},
-    {'short': 'TZ', 'long': 'TZA'},
-    {'short': 'UG', 'long': 'UGA'},
-    {'short': 'UA', 'long': 'UKR'},
-    {'short': 'UM', 'long': 'UMI'},
-    {'short': 'UY', 'long': 'URY'},
-    {'short': 'US', 'long': 'USA'},
-    {'short': 'UZ', 'long': 'UZB'},
-    {'short': 'VA', 'long': 'VAT'},
-    {'short': 'VC', 'long': 'VCT'},
-    {'short': 'VE', 'long': 'VEN'},
-    {'short': 'VG', 'long': 'VGB'},
-    {'short': 'VI', 'long': 'VIR'},
-    {'short': 'VN', 'long': 'VNM'},
-    {'short': 'VU', 'long': 'VUT'},
-    {'short': 'WF', 'long': 'WLF'},
-    {'short': 'WS', 'long': 'WSM'},
-    {'short': 'YE', 'long': 'YEM'},
-    {'short': 'ZA', 'long': 'ZAF'},
-    {'short': 'ZM', 'long': 'ZMB'},
-    {'short': 'ZW', 'long': 'ZWE'}
-    ]
     ny_tz = pytz.timezone('America/New_York')
     today = datetime.now(ny_tz)
 
     start_date = today - timedelta(weeks=3)
-    start_date = start_date - timedelta(days=(start_date.weekday() - 0) % 7)
+    start_date = start_date - timedelta(days=(start_date.weekday() - 0) % 7)  # Align to Monday
 
     end_date = today + timedelta(weeks=3)
-    end_date = end_date + timedelta(days=(4 - end_date.weekday()) % 7)
-
-    url = "https://api.benzinga.com/api/v2.1/calendar/economics"
-    headers = {"accept": "application/json"}
+    end_date = end_date + timedelta(days=(4 - end_date.weekday()) % 7)  # Align to Friday
 
     all_data = []
     current_date = start_date
 
-    def safe_float_convert(value):
-        try:
-            return round(float(value), 2) if value != '' else ''
-        except ValueError:
-            return value  # Return the original value if it can't be converted to float
-
     async with aiohttp.ClientSession() as session:
         while current_date <= end_date:
-            date_str = current_date.strftime('%Y-%m-%d')
-            querystring = {
-                "token": benzinga_api_key,
-                "parameters[date_from]": date_str,
-                "parameters[date_to]": date_str,
-                "pagesize": 1000
-            }
+            date_str = current_date.strftime("%Y-%m-%d")  # Convert date to string for API request
+            url = f"https://financialmodelingprep.com/api/v3/economic_calendar?from={date_str}&to={date_str}&limit=2000&apikey={api_key}"
 
             try:
-                async with session.get(url, params=querystring, headers=headers) as response:
-                    data = ujson.loads(await response.text())['economics']
-                    if len(data) > 0:
+                async with session.get(url) as response:
+                    data = await response.json()
+                    if data:  # Check if data is not empty
                         all_data.extend(data)
                         print(f"Fetched data for {date_str}: {len(data)} events")
             except Exception as e:
-                print(f'Error fetching data for {date_str}:', e)
+                print(f"Error fetching data for {date_str}: {e}")
 
-            current_date += timedelta(days=1)
+            current_date += timedelta(days=1)  # Move to next day
 
     filtered_data = []
+
 
     for item in all_data:
         try:
@@ -1507,18 +1250,30 @@ async def get_economic_calendar():
                 country_code = matching_country.lower()
             else:
                 continue
-                
+            
+            impact = item.get('impact',None)
+            importance = 1
+            if impact == 'High':
+                importance = 3
+            elif impact == 'Medium':
+                importance = 2
+            else:
+                importance = 1
+
+            dt = datetime.strptime(item['date'], "%Y-%m-%d %H:%M:%S")  # Convert to datetime object
             filtered_data.append({
                 'countryCode': country_code,
                 'country': item['country'],
-                'time': item['time'][0:5],
-                'date': item['date'],
-                'prior': item['prior'],  # Keep as string to avoid conversion issues
-                'consensus': item['consensus'],  # Keep as string to avoid conversion issues
-                'actual': item['actual'],  # Keep as string to avoid conversion issues
-                'importance': item['importance'],
-                'event': item['event_name'],
+                'time': dt.strftime("%H:%M"),  # Extract hour and minute
+                'date': dt.strftime("%Y-%m-%d"),  # Extract year, month, day
+                'prior': item['previous'],  
+                'consensus': item['estimate'],  
+                'actual': item['actual'],  
+                'importance': importance,
+                'event': item['event'],
             })
+
+            
         except Exception as e:
             print(f"Error processing item: {e}")
 
@@ -1871,15 +1626,16 @@ async def save_json_files():
     etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
 
-    data = await get_ipo_calendar(con, symbols)
-    with open(f"json/ipo-calendar/data.json", 'w') as file:
-        ujson.dump(data, file)
-
     economic_list = await get_economic_calendar()
     if len(economic_list) > 0:
         with open(f"json/economic-calendar/calendar.json", 'w') as file:
             ujson.dump(economic_list, file)
+
     
+    data = await get_ipo_calendar(con, symbols)
+    with open(f"json/ipo-calendar/data.json", 'w') as file:
+        ujson.dump(data, file)
+
     stock_screener_data = await get_stock_screener(con)
     with open(f"json/stock-screener/data.json", 'w') as file:
         ujson.dump(stock_screener_data, file)
@@ -1904,7 +1660,7 @@ async def save_json_files():
     with open(f"json/all-etf-providers/data.json", 'w') as file:
         ujson.dump(data, file)
         
-    
+
     con.close()
     etf_con.close()
     
