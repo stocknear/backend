@@ -63,7 +63,7 @@ def correct_weekday(selected_date):
 
 # Create a semaphore to limit concurrent requests
 REQUEST_LIMIT = 500
-PAUSE_TIME = 60
+PAUSE_TIME = 5
 
 def check_existing_file(symbol):
     file_path = f"json/wiim/company/{symbol}.json"
