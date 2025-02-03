@@ -347,6 +347,15 @@ def run_ai_score():
     run_command(["python3", "restart_json.py"])
     run_command(["python3", "cron_statistics.py"])
 
+def run_push_notification():
+    now = datetime.now(ny_tz)
+    week = now.weekday()
+    hour = now.hour
+    
+    if week <= 4 and 7 <= hour < 22:
+        run_command(["python3", "cron_push_notification.py"])
+    
+
 # Create functions to run each schedule in a separate thread
 def run_threaded(job_func):
     job_thread = threading.Thread(target=job_func)
@@ -413,6 +422,7 @@ schedule.every(1).hours.do(run_threaded, run_company_news).tag('company_news_job
 schedule.every(3).hours.do(run_threaded, run_press_releases).tag('press_release_job')
 
 
+schedule.every(15).minutes.do(run_threaded, run_push_notification).tag('push_notification_job')
 schedule.every(30).minutes.do(run_threaded, run_options_stats).tag('options_stats_job')
 
 schedule.every(5).minutes.do(run_threaded, run_market_flow).tag('market_flow_job')
