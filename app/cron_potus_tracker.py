@@ -246,7 +246,7 @@ async def get_data():
         
         for address in [details, location]:
             try:
-                if any(place in address for place in ["White House", "Blair House","Washington DC", "East Room"]):
+                if any(place in address for place in ["Oval Office","White House", "Blair House","Washington DC", "East Room"]):
                     location = "Washington, DC"
                 else:
                     location = address  # Otherwise, use the full address string
