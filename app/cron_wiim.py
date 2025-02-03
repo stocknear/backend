@@ -151,8 +151,7 @@ async def get_endpoint(session, symbol, con, semaphore):
                         res_list.append({
                             'date': new_date_str,
                             'text': item['title'],
-                            'changesPercentage': change_percent,
-                            'url': item['url']
+                            'changesPercentage': change_percent
                         })
                     except:
                         pass
