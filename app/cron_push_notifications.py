@@ -128,7 +128,7 @@ async def push_wiim(user_id):
                                     'liveResults': {'symbol': symbol, 'assetType': 'stocks' if symbol in stocks_symbols else 'etf'},
                                 }
                                 notify_item = pb.collection('notifications').create(newNotification)
-                                await push_notification(f'⚡News Update for {symbol}', data['text'], user_id)
+                                await push_notification(f'News Update for {symbol}', data['text'], user_id)
                         
                 except:
                     pass
