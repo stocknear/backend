@@ -7,12 +7,14 @@ load_dotenv()
 api_key = os.getenv('STOCKNEAR_API_KEY')
 
 # Define the URL and the API key
-url = 'https://stocknear.com/api/sendPushSubscription'
+origin = "https://stocknear.com"
+url = f"{origin}/api/sendPushSubscription"
 
 # Define the data payload for the notification
 data = {
-    "title": "Price Alert",
-    "body": "bus bauen",
+    "title": "Hast du nix besseres zu tun am Sonntag",
+    "body": "Du Opfer",
+    "url": f"{origin}/stocks/nvda",
     "key": api_key,
 }
 
