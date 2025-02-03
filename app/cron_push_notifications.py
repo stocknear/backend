@@ -77,7 +77,7 @@ async def push_notification(title, text, user_id):
     response = requests.post(url, headers=headers, data=json.dumps(data))
 
 
-async def push_wiim(user_id, is_pro=False):
+async def push_wiim(user_id):
     """
     Pushes the latest WIIM news based on users' watchlists.
 
@@ -122,15 +122,16 @@ async def push_wiim(user_id, is_pro=False):
 
                             notify_item = pb.collection('notifications').create(newNotification)
 
-                            if is_pro == True:
-                                check_subscription = pb.collection("pushSubscription").get_full_list(query_params={"filter": f"user='{user_id}'"})
-                                user_subscribed = False
-                                for item in check_subscription:
-                                    if item.user == user_id:
-                                        user_subscribed = True
-                                        break
-                                if user_subscribed:
-                                    await push_notification(f'Why Priced Moved for {symbol}', data['text'], user_id)
+                            #if is_pro == True:
+
+                            check_subscription = pb.collection("pushSubscription").get_full_list(query_params={"filter": f"user='{user_id}'"})
+                            user_subscribed = False
+                            for item in check_subscription:
+                                if item.user == user_id:
+                                    user_subscribed = True
+                                    break
+                            if user_subscribed:
+                                await push_notification(f'Why Priced Moved for {symbol}', data['text'], user_id)
                 except:
                     pass
     except Exception as e:
@@ -141,8 +142,8 @@ async def run():
     all_users = pb.collection("users").get_full_list()
     for item in tqdm(all_users):
         user_id = item.id
-        is_pro = True if item.tier == 'Pro' else False 
-        await push_wiim(user_id=user_id, is_pro=is_pro)
+        #is_pro = True if item.tier == 'Pro' else False 
+        await push_wiim(user_id=user_id)
        
 
 try:
