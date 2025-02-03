@@ -18,6 +18,7 @@ import hashlib
 import orjson
 import sqlite3
 from tqdm import tqdm
+import json
 
 from dotenv import load_dotenv
 import os
@@ -64,6 +65,21 @@ def generate_unique_id(date, text):
     unique_id = hashlib.md5(unique_str.encode()).hexdigest()
     
     return unique_id
+
+def format_number(num, decimal=False):
+    """Abbreviate large numbers with B/M suffix"""
+    if decimal:
+        if num >= 1_000_000_000:
+            return f"{num / 1_000_000_000:.2f}B"
+        elif num >= 1_000_000:
+            return f"{num / 1_000_000:.2f}M"
+        return f"{num:,.0f}"
+    else:
+        if num >= 1_000_000_000:
+            return f"{num / 1_000_000_000:,.2f}B"
+        elif num >= 1_000_000:
+            return f"{num / 1_000_000:,.2f}M"
+        return f"{num:,.0f}"  # Format smaller numbers with commas
 
 async def push_notification(title, text, user_id):
     data = {
@@ -137,6 +153,72 @@ async def push_wiim(user_id):
     except Exception as e:
         print(e)
 
+async def push_earnings_release(user_id):
+    """
+    Pushes the latest earnings releases based on users' watchlists.
+
+    Steps:
+    1. Retrieve the watchlist for each user.
+    2. Iterate through the tickers in the watchlist.
+    3. Load the corresponding earnings files and verify if its creation date matches today's date.
+    4. If the date matches, check if a notification has already been sent using pushHash.
+    5. If no notification has been sent, create and send one.
+    """
+    try:
+        result = pb.collection("watchlist").get_full_list(query_params={"filter": f"user='{user_id}'"})
+        all_tickers = set()
+        for item in result:
+            all_tickers.update(item.ticker)
+        all_tickers = list(all_tickers)
+
+        if all_tickers:
+            for symbol in all_tickers:
+                try:
+                    with open(f"json/earnings/surprise/{symbol}.json","r") as file:
+                        data = orjson.loads(file.read())
+                        date_string = data['date']
+
+                    if data['revenue'] != None and data['eps'] != None:
+                        if date_string == today:
+                            sorted_data = json.dumps(data, sort_keys=True)
+                            unique_id = hashlib.md5(sorted_data.encode()).hexdigest()
+                            
+                            #check if push notification already exist
+                            all_notification = pb.collection("notifications").get_full_list(query_params={"filter": f"opUser='{user_id}'"})
+                            exist = any(notify_item.push_hash == unique_id for notify_item in all_notification)
+                            
+
+                            if exist == False:
+                                #check if user is subscribed to pushSubscription to receive push notifications
+                                
+                                newNotification = {
+                                    'opUser': user_id,
+                                    'user': '9ncz4wunmhk0k52', #stocknear bot id
+                                    'notifyType': 'earningsSurprise',
+                                    'sent': True,
+                                    'pushHash': unique_id,
+                                    'liveResults': {'symbol': symbol, 'assetType': 'stocks' if symbol in stocks_symbols else 'etf'},
+                                }
+
+                                notify_item = pb.collection('notifications').create(newNotification)
+
+                                #if is_pro == True:
+
+                                check_subscription = pb.collection("pushSubscription").get_full_list(query_params={"filter": f"user='{user_id}'"})
+                                user_subscribed = False
+                                for item in check_subscription:
+                                    if item.user == user_id:
+                                        user_subscribed = True
+                                        break
+                                if user_subscribed:
+                                    title = f'Earnings release for {symbol}'
+                                    text = f"Revenue of {format_number(data['revenue'])} and EPS of {data['eps']}"
+                                    await push_notification(title, text, user_id)
+                except:
+                    pass
+    except Exception as e:
+        print(e)
+
 
 async def run():
     all_users = pb.collection("users").get_full_list()
@@ -144,6 +226,7 @@ async def run():
         user_id = item.id
         #is_pro = True if item.tier == 'Pro' else False 
         await push_wiim(user_id=user_id)
+        await push_earnings_release(user_id=user_id)
        
 
 try:
