@@ -36,7 +36,7 @@ admin_data = pb.collection('_superusers').auth_with_password(pb_admin_email, pb_
 
 
 # Define the URL and the API key
-origin = "http://localhost:5173" #"http://localhost:5173"
+origin = "https://stocknear.com" #"http://localhost:5173"
 url = f"{origin}/api/sendPushSubscription"
 headers = {"Content-Type": "application/json"}
 
