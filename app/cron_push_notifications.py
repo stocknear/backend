@@ -77,7 +77,7 @@ async def push_notification(title, text, user_id):
     response = requests.post(url, headers=headers, data=json.dumps(data))
 
 
-async def push_wiim(user_id):
+async def push_wiim(user_id, is_pro=False):
     """
     Pushes the latest WIIM news based on users' watchlists.
 
@@ -110,26 +110,27 @@ async def push_wiim(user_id):
 
                         if exist == False:
                             #check if user is subscribed to pushSubscription to receive push notifications
-                            check_subscription = pb.collection("pushSubscription").get_full_list(query_params={"filter": f"user='{user_id}'"})
-                            user_subscribed = False
-                            for item in check_subscription:
-                                if item.user == user_id:
-                                    user_subscribed = True
-                                    break
+                            
+                            newNotification = {
+                                'opUser': user_id,
+                                'user': '9ncz4wunmhk0k52', #stocknear bot id
+                                'notifyType': 'wiim',
+                                'sent': True,
+                                'pushHash': unique_id,
+                                'liveResults': {'symbol': symbol, 'assetType': 'stocks' if symbol in stocks_symbols else 'etf'},
+                            }
 
-                            if user_subscribed:
-                                #create notification in pb and push notification
-                                newNotification = {
-                                    'opUser': user_id,
-                                    'user': '9ncz4wunmhk0k52', #stocknear bot id
-                                    'notifyType': 'wiim',
-                                    'sent': True,
-                                    'pushHash': unique_id,
-                                    'liveResults': {'symbol': symbol, 'assetType': 'stocks' if symbol in stocks_symbols else 'etf'},
-                                }
-                                notify_item = pb.collection('notifications').create(newNotification)
-                                await push_notification(f'News Update for {symbol}', data['text'], user_id)
-                        
+                            notify_item = pb.collection('notifications').create(newNotification)
+
+                            if is_pro == True:
+                                check_subscription = pb.collection("pushSubscription").get_full_list(query_params={"filter": f"user='{user_id}'"})
+                                user_subscribed = False
+                                for item in check_subscription:
+                                    if item.user == user_id:
+                                        user_subscribed = True
+                                        break
+                                if user_subscribed:
+                                    await push_notification(f'Why Priced Moved for {symbol}', data['text'], user_id)
                 except:
                     pass
     except Exception as e:
@@ -137,10 +138,11 @@ async def push_wiim(user_id):
 
 
 async def run():
-    all_users = pb.collection("users").get_full_list(query_params={"filter": "tier='Pro'"})
+    all_users = pb.collection("users").get_full_list()
     for item in tqdm(all_users):
         user_id = item.id
-        await push_wiim(user_id=user_id)
+        is_pro = True if item.tier == 'Pro' else False 
+        await push_wiim(user_id=user_id, is_pro=is_pro)
        
 
 try:
