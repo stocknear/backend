@@ -421,7 +421,7 @@ schedule.every(1).hours.do(run_threaded, run_company_news).tag('company_news_job
 schedule.every(3).hours.do(run_threaded, run_press_releases).tag('press_release_job')
 
 
-schedule.every(15).minutes.do(run_threaded, run_push_notifications).tag('push_notifications_job')
+schedule.every(5).minutes.do(run_threaded, run_push_notifications).tag('push_notifications_job')
 schedule.every(30).minutes.do(run_threaded, run_options_stats).tag('options_stats_job')
 
 schedule.every(5).minutes.do(run_threaded, run_market_flow).tag('market_flow_job')
