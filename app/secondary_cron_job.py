@@ -25,6 +25,7 @@ subprocess.run(["timedatectl", "set-timezone", "Europe/Berlin"])
 def run_pocketbase():
     # Run the asynchronous function inside an asyncio loop
     subprocess.run(["python3", "cron_pocketbase.py"])
+    subprocess.run(["python3", "cron_notification_channel.py"])
     
 def run_restart_cache():
     #update db daily
