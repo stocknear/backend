@@ -223,10 +223,21 @@ async def push_earnings_release(user_id):
 async def run():
     all_users = pb.collection("users").get_full_list()
     for item in tqdm(all_users):
-        user_id = item.id
-        #is_pro = True if item.tier == 'Pro' else False 
-        await push_wiim(user_id=user_id)
-        await push_earnings_release(user_id=user_id)
+        try:
+            user_id = item.id
+            #is_pro = True if item.tier == 'Pro' else False
+            result = pb.collection('notificationChannels').get_list(query_params={"filter": f"user='{user_id}'"})
+            channels = result.items
+            for channel in channels:
+
+                if channel.wiim == True:     
+                    await push_wiim(user_id=user_id)
+
+                if channel.earnings_surprise == True:
+                    await push_earnings_release(user_id=user_id)
+        
+        except Exception as e:
+            print(e)
        
 
 try:
