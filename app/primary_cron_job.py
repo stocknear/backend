@@ -351,8 +351,7 @@ def run_push_notifications():
     now = datetime.now(ny_tz)
     week = now.weekday()
     hour = now.hour
-    
-    if week <= 4 and 7 <= hour < 22:
+    if week <= 4 and 9 <= hour < 20:
         run_command(["python3", "cron_push_notifications.py"])
     
 
