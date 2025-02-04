@@ -141,7 +141,8 @@ def create_treemap(time_period):
                     full_html=False,
                     config=dict(
                         displayModeBar=False,
-                        responsive=False
+                        responsive=False,
+                        staticPlot=True
                     )
                 )}
             </div>
