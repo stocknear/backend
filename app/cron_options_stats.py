@@ -105,7 +105,7 @@ async def main():
             #changeOI = total_open_interest - previous_open_interest
             put_call_ratio = round(put_volume/call_volume,2) if call_volume > 0 else 0
 
-            net_premium = net_call_premium + net_put_premium
+            net_premium = net_call_premium - net_put_premium
             premium_ratio = [
                 safe_round(bearish_premium),
                 safe_round(neutral_premium),
