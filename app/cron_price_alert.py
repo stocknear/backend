@@ -38,7 +38,7 @@ headers = {"Content-Type": "application/json"}
 
 async def push_notification(symbol, user_id):
     data = {
-        "title": f"🚨 Price Alert Triggered for ${symbol}!",
+        "title": f"🚨 {symbol} Price Alert triggered",
         "body": "",
         "url": f"{origin}/notifications",
         "userId": user_id,
