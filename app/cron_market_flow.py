@@ -4,7 +4,6 @@ import orjson
 from dotenv import load_dotenv
 import sqlite3
 from datetime import datetime, timedelta
-from GetStartEndDate import GetStartEndDate
 import asyncio
 import aiohttp
 import pytz
@@ -22,8 +21,20 @@ fmp_api_key = os.getenv('FMP_API_KEY')
 
 ny_tz = pytz.timezone('America/New_York')
 
-today,_ =  GetStartEndDate().run()
-today = today.strftime("%Y-%m-%d")
+today = datetime.today()
+
+def get_end_time():
+    today = datetime.now()
+    if today.weekday() < 5:  # If today is Monday to Friday
+        # Market closes at 16:00 (4:00 PM)
+        end_time = today.replace(hour=16, minute=10, second=0, microsecond=0)
+    else:  # If today is Saturday or Sunday, find the previous Friday
+        days_until_friday = (today.weekday() - 4) % 7  # 4 is Friday (0=Monday, 6=Sunday)
+        last_friday = today - timedelta(days=days_until_friday)
+        end_time = last_friday.replace(hour=16, minute=10, second=0, microsecond=0)
+
+    # Return as a string in the format "YYYY-MM-DD HH:MM:SS"
+    return end_time.strftime("%Y-%m-%d %H:%M:%S")
 
 
 def save_json(data):
@@ -92,7 +103,6 @@ def get_market_tide(interval_5m=True):
         # Filter and sort data for the given ticker.
         data = [item for item in data if item['ticker'] == ticker]
         data.sort(key=lambda x: x['time'])
-
         # Process each item in the data
         for item in data:
             try:
@@ -162,11 +172,11 @@ def get_market_tide(interval_5m=True):
             res_list.append({
                 'time': ts,
                 'ticker': ticker,
-                'net_call_premium': cumulative['net_call_premium'],
-                'net_put_premium': cumulative['net_put_premium'],
-                'call_volume': call_volume,
-                'put_volume': put_volume,
-                'net_volume': net_volume
+                'net_call_premium': round(cumulative['net_call_premium']),
+                'net_put_premium': round(cumulative['net_put_premium']),
+                'call_volume': round(call_volume),
+                'put_volume': round(put_volume),
+                'net_volume': round(net_volume),
             })
 
     # Sort the results list by time.
@@ -184,8 +194,9 @@ def get_market_tide(interval_5m=True):
     # Ensure that each minute until 16:10:00 is present in the data.
     fields = ['net_call_premium', 'net_put_premium', 'call_volume', 'put_volume', 'net_volume', 'close']
     last_time = datetime.strptime(data[-1]['time'], "%Y-%m-%d %H:%M:%S")
-    end_time = datetime.strptime("2025-02-05 16:10:00", "%Y-%m-%d %H:%M:%S")
-
+    end_time = get_end_time()
+    end_time = datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S")
+    
     while last_time < end_time:
         last_time += timedelta(minutes=1)
         data.append({
@@ -306,6 +317,7 @@ def main():
 
     if data:
         save_json(data)
+        
     '''
     sector_data = get_sector_data()
     top_sector_tickers = get_top_sector_tickers()
