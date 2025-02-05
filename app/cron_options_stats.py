@@ -95,14 +95,14 @@ async def main():
 
             with open(f"json/options-historical-data/companies/{symbol}.json", "r") as file:
                 past_data = orjson.loads(file.read())[0]
-                previous_open_interest = past_data['total_open_interest']
+                #previous_open_interest = past_data['total_open_interest']
                 iv_rank = past_data['iv_rank']
                 iv = past_data['iv']
 
             total_open_interest = call_open_interest+put_open_interest
 
-            changesPercentageOI = round((total_open_interest/previous_open_interest-1)*100, 2) if previous_open_interest > 0 else 0
-            changeOI = total_open_interest - previous_open_interest
+            #changesPercentageOI = round((total_open_interest/previous_open_interest-1)*100, 2) if previous_open_interest > 0 else 0
+            #changeOI = total_open_interest - previous_open_interest
             put_call_ratio = round(put_volume/call_volume,2) if call_volume > 0 else 0
 
             net_premium = net_call_premium + net_put_premium
@@ -120,12 +120,12 @@ async def main():
                 "put_volume": round(put_volume,0),
                 "putCallRatio": round(put_volume/call_volume,0),
                 "total_open_interest": round(total_open_interest,0),
-                "changeOI": round(changeOI,0),
-                "changesPercentageOI": changesPercentageOI,
                 "iv": round(iv,2),
                 "iv_rank": round(iv_rank,2),
                 "putCallRatio": put_call_ratio,
                 "premium_ratio": premium_ratio,
+                "net_call_premium": round(net_call_premium),
+                "net_put_premium": round(net_put_premium),
                 "net_premium": round(net_premium),
             }
 
@@ -134,5 +134,6 @@ async def main():
 
         except:
             pass
+            
 if __name__ == "__main__":
     asyncio.run(main())
