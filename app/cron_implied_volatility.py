@@ -141,20 +141,16 @@ def compute_realized_volatility(data, window_size=20):
     
     # Sort the final list by date in descending order
     rv_list = sorted(rv_list, key=lambda x: x['date'], reverse=True)
-    
     return rv_list
 
 if __name__ == '__main__':
     directory_path = "json/implied-volatility"
-    total_symbols = get_tickers_from_directory(directory_path)
-    if len(total_symbols) < 100:
-        total_symbols = stocks_symbols + etf_symbols  # Assuming these are defined elsewhere
+    total_symbols = stocks_symbols + etf_symbols
 
     for symbol in tqdm(total_symbols):
         try:
             with open(f"json/options-historical-data/companies/{symbol}.json", "r") as file:
                 data = orjson.loads(file.read())
-            
             rv_list = compute_realized_volatility(data)
 
             if rv_list:

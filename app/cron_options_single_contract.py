@@ -48,7 +48,7 @@ class ChainItem:
 intrinio.ApiClient().set_api_key(api_key)
 intrinio.ApiClient().allow_retries(True)
 
-after = datetime.today().strftime('%Y-%m-%d')
+after = (datetime.today()- timedelta(days=365)).strftime('%Y-%m-%d')
 before = '2100-12-31'
 N_year_ago = datetime.now() - timedelta(days=365)
 include_related_symbols = False
@@ -301,7 +301,7 @@ async def process_symbol(symbol):
             expiration_list = get_contracts_from_directory(symbol)
 
         #check existing contracts and delete expired ones
-        check_contract_expiry(symbol)
+        #check_contract_expiry(symbol)
 
         print(f"Found {len(expiration_list)} expiration dates")
         contract_list = await get_data(symbol, expiration_list)

@@ -57,6 +57,8 @@ def save_json(data, symbol, directory="json/hottest-contracts/companies"):
     with open(f"{directory}/{symbol}.json", 'wb') as file:
         file.write(orjson.dumps(data))
 
+
+
 def parse_option_symbol(option_symbol):
     match = re.match(r"([A-Z]+)(\d{6})([CP])(\d+)", option_symbol)
     if not match:
@@ -143,6 +145,14 @@ def get_hottest_contracts(base_dir="json/all-options-contracts"):
                 file_path = os.path.join(symbol_dir, contract_file)
                 with open(file_path, 'rb') as f:
                     data = orjson.loads(f.read())
+
+                #only consider contracts that didn't expire yet
+                expiration_date, _, _ = parse_option_symbol(contract_file.replace(".json",""))
+                    
+                # Check if the contract is expired
+                if expiration_date < today:
+                    continue
+
                 if 'history' not in data:
                     continue
 

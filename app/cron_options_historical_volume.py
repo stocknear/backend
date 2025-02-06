@@ -70,8 +70,8 @@ def aggregate_data_by_date(symbol):
                 for entry in data.get('history', []):
                     date = entry.get('date')
                     # Skip entries older than one year
-                    if date < one_year_ago_str:
-                        continue
+                    #if date < one_year_ago_str:
+                    #    continue
                     
                     volume = entry.get('volume', 0) or 0
                     open_interest = entry.get('open_interest', 0) or 0
