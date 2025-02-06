@@ -100,7 +100,7 @@ def get_market_tide(interval_5m=True):
                 # Adjust for 5-minute intervals if requested.
                 if interval_5m:
                     # Round down minutes to the nearest 5-minute mark.
-                    minute = dt.minute - (dt.minute % 5)
+                    minute = dt.minute - (dt.minute % 1)
                     dt = dt.replace(minute=minute)
                 
                 rounded_ts = dt.strftime("%Y-%m-%d %H:%M:%S")
@@ -121,10 +121,10 @@ def get_market_tide(interval_5m=True):
                         delta_data[rounded_ts]['call_bid_vol'] += vol
                 elif put_call == "Puts":
                     if sentiment == "Bullish":
-                        delta_data[rounded_ts]['cumulative_net_put_premium'] -= cost
+                        delta_data[rounded_ts]['cumulative_net_put_premium'] += cost
                         delta_data[rounded_ts]['put_ask_vol'] += vol
                     elif sentiment == "Bearish":
-                        delta_data[rounded_ts]['cumulative_net_put_premium'] += cost
+                        delta_data[rounded_ts]['cumulative_net_put_premium'] -= cost
                         delta_data[rounded_ts]['put_bid_vol'] += vol
 
             except Exception as e:
@@ -296,7 +296,7 @@ def main():
 
     market_tide = get_market_tide()
     top_spy_tickers = get_top_spy_tickers()
-    top_sector_tickers['SPY'] = top_spy_tickers[:10]
+    top_sector_tickers['SPY'] = top_spy_tickers
 
     data = {'marketTide': market_tide, 'topSectorTickers': top_sector_tickers}
 
