@@ -21,20 +21,6 @@ fmp_api_key = os.getenv('FMP_API_KEY')
 
 ny_tz = pytz.timezone('America/New_York')
 
-today = datetime.today()
-
-def get_end_time():
-    today = datetime.now()
-    if today.weekday() < 5:  # If today is Monday to Friday
-        # Market closes at 16:00 (4:00 PM)
-        end_time = today.replace(hour=16, minute=10, second=0, microsecond=0)
-    else:  # If today is Saturday or Sunday, find the previous Friday
-        days_until_friday = (today.weekday() - 4) % 7  # 4 is Friday (0=Monday, 6=Sunday)
-        last_friday = today - timedelta(days=days_until_friday)
-        end_time = last_friday.replace(hour=16, minute=10, second=0, microsecond=0)
-
-    # Return as a string in the format "YYYY-MM-DD HH:MM:SS"
-    return end_time.strftime("%Y-%m-%d %H:%M:%S")
 
 
 def save_json(data):
@@ -194,8 +180,7 @@ def get_market_tide(interval_5m=True):
     # Ensure that each minute until 16:10:00 is present in the data.
     fields = ['net_call_premium', 'net_put_premium', 'call_volume', 'put_volume', 'net_volume', 'close']
     last_time = datetime.strptime(data[-1]['time'], "%Y-%m-%d %H:%M:%S")
-    end_time = get_end_time()
-    end_time = datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S")
+    end_time = last_time.replace(hour=16, minute=5, second=0)
     
     while last_time < end_time:
         last_time += timedelta(minutes=1)

@@ -70,7 +70,7 @@ def run_market_flow():
     week = now.weekday()
     current_time = now.time()
     hour = now.hour
-    if week <= 4 and 8 <= hour < 20:
+    if week <= 4 and 8 <= hour < 17:
         run_command(["python3", "cron_market_flow.py"])
         run_command(["python3", "cron_option_stats.py"])
         run_command(["python3", "cron_unusual_activity.py"])
