@@ -192,68 +192,6 @@ def get_market_tide(interval_5m=True):
 
     return data
 
-def get_top_sector_tickers():
-    keep_elements = ['price', 'ticker', 'name', 'changesPercentage','netPremium','netCallPremium','netPutPremium','gexRatio','gexNetChange','ivRank']
-    sector_list = [
-        "Basic Materials",
-        "Communication Services",
-        "Consumer Cyclical",
-        "Consumer Defensive",
-        "Energy",
-        "Financial Services",
-        "Healthcare",
-        "Industrials",
-        "Real Estate",
-        "Technology",
-        "Utilities",
-    ]
-    headers = {
-        "Accept": "application/json, text/plain",
-        "Authorization": api_key
-    }
-    url = "https://api.unusualwhales.com/api/screener/stocks"
-
-    res_list = {}
-
-    for sector in sector_list:
-        querystring = {
-            'order': 'net_premium',
-            'order_direction': 'desc',
-            'sectors[]': sector
-        }
-
-        response = requests.get(url, headers=headers, params=querystring)
-        data = response.json().get('data', [])
-
-        updated_data = []
-        for item in data[:10]:
-            try:
-                new_item = {key: safe_round(value) for key, value in item.items()}
-                with open(f"json/quote/{item['ticker']}.json") as file:
-                    quote_data = orjson.loads(file.read())
-                    new_item['name'] = quote_data['name']
-                    new_item['price'] = round(float(quote_data['price']), 2)
-                    new_item['changesPercentage'] = round(float(quote_data['changesPercentage']), 2)
-                    
-                    new_item['ivRank'] = round(float(new_item['iv_rank']),2)
-                    new_item['gexRatio'] = new_item['gex_ratio']
-                    new_item['gexNetChange'] = new_item['gex_net_change']
-                    new_item['netCallPremium'] = new_item['net_call_premium']
-                    new_item['netPutPremium'] = new_item['net_put_premium']
-
-                    new_item['netPremium'] = abs(new_item['netCallPremium'] - new_item['netPutPremium'])
-                # Filter new_item to keep only specified elements
-                filtered_item = {key: new_item[key] for key in keep_elements if key in new_item}
-                updated_data.append(filtered_item)
-            except Exception as e:
-                print(f"Error processing ticker {item.get('ticker', 'unknown')}: {e}")
-
-        # Add rank to each item
-        for rank, item in enumerate(updated_data, 1):
-            item['rank'] = rank
-        res_list[sector] = updated_data
-
-    return res_list
 
 
 def get_top_spy_tickers():
@@ -282,6 +220,7 @@ def get_top_spy_tickers():
             pass
 
     # Add rank to each item
+    res_list = [item for item in res_list if 'net_call_premium' in item and 'net_put_premium' in item]
     res_list = sorted(res_list, key=lambda item: item['net_premium'], reverse=True)
 
     for rank, item in enumerate(res_list, 1):
@@ -296,9 +235,11 @@ def main():
 
     market_tide = get_market_tide()
     top_spy_tickers = get_top_spy_tickers()
-    top_sector_tickers['SPY'] = top_spy_tickers
+    top_neg_spy_tickers = sorted(get_top_spy_tickers(), key=lambda item: item['net_premium'])
+    for rank, item in enumerate(top_neg_spy_tickers, 1):
+        item['rank'] = rank
 
-    data = {'marketTide': market_tide, 'topSectorTickers': top_sector_tickers}
+    data = {'marketTide': market_tide, 'topPosNetPremium': top_spy_tickers[:10], 'topNegNetPremium': top_neg_spy_tickers[:10]}
 
     if data:
         save_json(data)
