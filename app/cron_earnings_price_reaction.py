@@ -31,11 +31,6 @@ async def save_json(data, symbol, dir_path):
         await file.write(ujson.dumps(data))
 
 
-from datetime import datetime, timedelta
-import pytz
-
-ny_tz = pytz.timezone("America/New_York")
-
 async def compute_rsi(price_history, time_period=14):
     df_price = pd.DataFrame(price_history)
     df_price['rsi'] = rsi(df_price['close'], window=time_period)

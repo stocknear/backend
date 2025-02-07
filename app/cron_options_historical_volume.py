@@ -44,6 +44,10 @@ def aggregate_data_by_date(symbol):
         "put_open_interest": 0,
         "call_premium": 0,
         "put_premium": 0,
+        "call_gex": 0,
+        "put_gex": 0,
+        "call_dex": 0,
+        "put_dex": 0,
         "iv": 0.0,  # Sum of implied volatilities
         "iv_count": 0,  # Count of entries for IV
     })
@@ -77,7 +81,10 @@ def aggregate_data_by_date(symbol):
                     open_interest = entry.get('open_interest', 0) or 0
                     total_premium = entry.get('total_premium', 0) or 0
                     implied_volatility = entry.get('implied_volatility', 0) or 0
-                    
+                    gamma = entry.get('gamma',0) or 0
+                    delta = entry.get('delta',0) or 0
+                    gex = 100 * open_interest * 
+
                     daily_data = data_by_date[date]
                     daily_data["date"] = date
                     

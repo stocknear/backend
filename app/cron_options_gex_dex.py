@@ -83,11 +83,10 @@ def prepare_data(data, symbol, directory_path, sort_by = "date"):
 def get_overview_data():
     print("Starting to download overview data...")
     directory_path = "json/gex-dex/overview"
-    total_symbols = get_tickers_from_directory(directory_path)
-    if len(total_symbols) < 100:
-        total_symbols = stocks_symbols+etf_symbols
+    total_symbols = stocks_symbols+etf_symbols
 
     counter = 0
+    
     #Test mode
     #total_symbols = ['GME','SPY']
     for symbol in tqdm(total_symbols):
@@ -111,13 +110,10 @@ def get_overview_data():
             print(f"Error for {symbol}:{e}")
 
 
-
 def get_strike_data():
     print("Starting to download strike data...")
     directory_path = "json/gex-dex/strike"
-    total_symbols = get_tickers_from_directory(directory_path)
-    if len(total_symbols) < 100:
-        total_symbols = stocks_symbols+etf_symbols
+    total_symbols = stocks_symbols+etf_symbols
 
     counter = 0
     #Test mode
@@ -145,9 +141,7 @@ def get_strike_data():
 def get_expiry_data():
     print("Starting to download expiry data...")
     directory_path = "json/gex-dex/expiry"
-    total_symbols = get_tickers_from_directory(directory_path)
-    if len(total_symbols) < 100:
-        total_symbols = stocks_symbols+etf_symbols
+    total_symbols = stocks_symbols+etf_symbols
 
     counter = 0
         #total_symbols = ['GME','SPY']
@@ -175,8 +169,9 @@ def get_expiry_data():
 
 if __name__ == '__main__':
     get_overview_data()
+    '''
     time.sleep(60)
     get_strike_data()
     time.sleep(60)
     get_expiry_data()
-
+    '''
