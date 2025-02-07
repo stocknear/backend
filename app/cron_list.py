@@ -810,6 +810,52 @@ async def get_most_shorted_stocks():
             file.write(orjson.dumps(res_list))
 
 
+async def get_most_buybacks():
+    with sqlite3.connect('stocks.db') as con:
+        cursor = con.cursor()
+        cursor.execute("PRAGMA journal_mode = wal")
+        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%' AND symbol NOT LIKE '%-%'")
+        symbols = [row[0] for row in cursor.fetchall()]
+
+    res_list = []
+    for symbol in symbols:
+        try:
+            stock_buybacks = stock_screener_data_dict[symbol].get('commonStockRepurchased',None)
+            country = stock_screener_data_dict[symbol].get('country',None)
+            if country == 'United States' and stock_buybacks < -1E6:
+                quote_data = await get_quote_data(symbol)
+                # Assign price and volume, and check if they meet the penny stock criteria
+                if quote_data:
+                    price = round(quote_data.get('price',None), 2)
+                    changesPercentage = round(quote_data.get('changesPercentage'), 2)
+                    marketCap = quote_data.get('marketCap')
+                    name = quote_data.get('name')
+
+                    if abs(stock_buybacks/marketCap) < 1:
+                        res_list.append({
+                            'symbol': symbol,
+                            'name': name,
+                            'price': price,
+                            'changesPercentage': changesPercentage,
+                            'marketCap': marketCap,
+                            'commonStockRepurchased': stock_buybacks
+                        })
+        except:
+            pass
+
+    if res_list:
+        # Sort by market cap in descending order
+        res_list = sorted(res_list, key=lambda x: x['commonStockRepurchased'])[:100]
+        
+        # Assign rank to each stock
+        for rank, item in enumerate(res_list, start=1):
+            item['rank'] = rank
+
+        # Write the filtered and ranked penny stocks to a JSON file
+        with open("json/stocks-list/list/most-buybacks.json", 'wb') as file:
+            file.write(orjson.dumps(res_list))
+
+
 async def get_highest_oi_change():
     with sqlite3.connect('stocks.db') as con:
         cursor = con.cursor()
@@ -1020,8 +1066,8 @@ async def etf_bitcoin_list():
                                 'price': price,
                                 'changesPercentage': changesPercentage
                             })
-                except Exception as e:
-                    print(f"Error processing symbol {symbol}: {e}")
+                except:
+                    pass
             
             if res_list:
                 res_list = sorted(res_list, key=lambda x: x['totalAssets'], reverse=True)
@@ -1031,8 +1077,8 @@ async def etf_bitcoin_list():
                 with open("json/etf-bitcoin-list/data.json", 'wb') as file:
                     file.write(orjson.dumps(res_list))
 
-    except Exception as e:
-        print(f"Database error: {e}")
+    except:
+        pass
 
 async def get_all_reits_list(cursor):
     base_query = """
@@ -1185,8 +1231,8 @@ async def get_all_stock_tickers():
                         res_list.append(item)
 
             
-            except Exception as e:
-                print(f"Error processing symbol {symbol}: {e}")
+            except:
+                pass
             
         if res_list:
             res_list = sorted(res_list, key=lambda x: x['symbol'], reverse=False)
@@ -1194,8 +1240,8 @@ async def get_all_stock_tickers():
             with open("json/stocks-list/list/all-stock-tickers.json", 'wb') as file:
                 file.write(orjson.dumps(res_list))
 
-    except Exception as e:
-        print(f"Database error: {e}")
+    except:
+        pass
 
 async def get_all_etf_tickers():
     try:
@@ -1235,8 +1281,8 @@ async def get_all_etf_tickers():
                         res_list.append(item)
 
             
-            except Exception as e:
-                print(f"Error processing symbol {symbol}: {e}")
+            except:
+                pass
             
         if res_list:
             res_list = sorted(res_list, key=lambda x: x['symbol'], reverse=False)
@@ -1244,8 +1290,8 @@ async def get_all_etf_tickers():
             with open("json/stocks-list/list/all-etf-tickers.json", 'wb') as file:
                 file.write(orjson.dumps(res_list))
 
-    except Exception as e:
-        print(f"Database error: {e}")
+    except:
+        pass
 
 
 async def run():
@@ -1285,6 +1331,7 @@ async def run():
         get_highest_option_premium(),
         get_etf_holding(),
         get_etf_provider(),
+        get_most_buybacks(),
     )
 
 
