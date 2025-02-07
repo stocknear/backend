@@ -273,6 +273,11 @@ class ParamsData(BaseModel):
     params: str
     category: str
 
+class GreekExposureData(BaseModel):
+    params: str
+    category: str
+    type: str
+
 class MarketNews(BaseModel):
     newsType: str
 
@@ -2677,11 +2682,12 @@ async def get_data(data:OptionContract, api_key: str = Security(get_api_key)):
     )
 
 @app.post("/options-gex-dex")
-async def get_data(data:ParamsData, api_key: str = Security(get_api_key)):
+async def get_data(data:GreekExposureData, api_key: str = Security(get_api_key)):
     ticker = data.params.upper()
     category = data.category.lower()
+    type = data.type
 
-    cache_key = f"options-gex-dex-{ticker}-{category}"
+    cache_key = f"options-gex-dex-{ticker}-{category}-{type}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
         return StreamingResponse(
@@ -2689,17 +2695,17 @@ async def get_data(data:ParamsData, api_key: str = Security(get_api_key)):
         media_type="application/json",
         headers={"Content-Encoding": "gzip"})
 
+    
     try:
-        with open(f"json/gex-dex/{category}/{ticker}.json", 'rb') as file:
-            data = orjson.loads(file.read())
-            if category == 'strike':
-                key_element = 'gex'
-                val_sums = [item[f"call_{key_element}"] + item[f"put_{key_element}"] for item in data]
-                threshold = np.percentile(val_sums, 85)
-                data = [item for item in data if (item[f"call_{key_element}"] + item[f"put_{key_element}"]) >= threshold]
-
+        if len(type) > 0:
+            with open(f"json/gex-dex/{category}/{type}/{ticker}.json", 'rb') as file:
+                data = orjson.loads(file.read())
+        else:
+            with open(f"json/gex-dex/{category}/{ticker}.json", 'rb') as file:
+                data = orjson.loads(file.read())
     except:
         data = []
+
     data = orjson.dumps(data)
     compressed_data = gzip.compress(data)
     redis_client.set(cache_key, compressed_data)

@@ -60,8 +60,11 @@ def aggregate_data_by_date(symbol):
     contract_dir = f"json/all-options-contracts/{symbol}"
     contract_list = get_contracts_from_directory(contract_dir)
 
+    with open(f"json/historical-price/max/{symbol}.json","r") as file:
+        price_list = orjson.loads(file.read())
+
     if len(contract_list) > 0:
-        for item in contract_list:
+        for item in tqdm(contract_list):
             try:
                 file_path = os.path.join(contract_dir, f"{item}.json")
                 with open(file_path, "r") as file:
@@ -73,9 +76,10 @@ def aggregate_data_by_date(symbol):
                 
                 for entry in data.get('history', []):
                     date = entry.get('date')
+
                     # Skip entries older than one year
-                    #if date < one_year_ago_str:
-                    #    continue
+                    if date < one_year_ago_str:
+                        continue
                     
                     volume = entry.get('volume', 0) or 0
                     open_interest = entry.get('open_interest', 0) or 0
@@ -83,7 +87,18 @@ def aggregate_data_by_date(symbol):
                     implied_volatility = entry.get('implied_volatility', 0) or 0
                     gamma = entry.get('gamma',0) or 0
                     delta = entry.get('delta',0) or 0
-                    gex = 100 * open_interest * 
+
+                    # Find the matching date in price_list
+                    matching_price = next((p for p in price_list if p.get('time') == date), 0)
+
+                    if matching_price:
+                        spot_price = matching_price['close']
+                    else:
+                        spot_price = 0  # Or some default value
+
+                    gex = open_interest * gamma * spot_price
+                    dex = open_interest * delta * spot_price
+
 
                     daily_data = data_by_date[date]
                     daily_data["date"] = date
@@ -92,10 +107,14 @@ def aggregate_data_by_date(symbol):
                         daily_data["call_volume"] += int(volume)
                         daily_data["call_open_interest"] += int(open_interest)
                         daily_data["call_premium"] += int(total_premium)
+                        daily_data["call_gex"] += round(gex,2)
+                        daily_data["call_dex"] += round(dex,2)
                     elif option_type == 'put':
                         daily_data["put_volume"] += int(volume)
                         daily_data["put_open_interest"] += int(open_interest)
                         daily_data["put_premium"] += int(total_premium)
+                        daily_data["put_gex"] += round(gex,2)
+                        daily_data["put_dex"] += round(dex,2)
                     
                     # Aggregate IV for both calls and puts
                     daily_data["iv"] += round(implied_volatility, 2)
@@ -236,8 +255,8 @@ def prepare_data(data, symbol):
                 new_item['price'] = None
 
             res_list.append(new_item)
-        except Exception as e:
-            print(e)
+        except:
+            pass
     
 
     res_list = sorted(res_list, key=lambda x: x['date'])
