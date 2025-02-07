@@ -2695,7 +2695,6 @@ async def get_data(data:GreekExposureData, api_key: str = Security(get_api_key))
         media_type="application/json",
         headers={"Content-Encoding": "gzip"})
 
-    
     try:
         if len(type) > 0:
             with open(f"json/gex-dex/{category}/{type}/{ticker}.json", 'rb') as file:

@@ -1401,54 +1401,59 @@ async def get_congress_rss_feed(symbols, etf_symbols):
     data = data[0] +data[1]
     congressional_districts = {"UT": "Utah","CA": "California","NY": "New York","TX": "Texas","FL": "Florida","IL": "Illinois","PA": "Pennsylvania","OH": "Ohio","GA": "Georgia","MI": "Michigan","NC": "North Carolina","AZ": "Arizona","WA": "Washington","CO": "Colorado","OR": "Oregon","VA": "Virginia","NJ": "New Jersey","TN": "Tennessee","MA": "Massachusetts","WI": "Wisconsin","SC": "South Carolina","KY": "Kentucky","LA": "Louisiana","AR": "Arkansas","AL": "Alabama","MS": "Mississippi","NDAL": "North Dakota","SDAL": "South Dakota","MN": "Minnesota","IA": "Iowa","OK": "Oklahoma","ID": "Idaho","NH": "New Hampshire","NE": "Nebraska","MTAL": "Montana","WYAL": "Wyoming","WV": "West Virginia","VTAL": "Vermont","DEAL": "Delaware","RI": "Rhode Island","ME": "Maine","HI": "Hawaii","AKAL": "Alaska","NM": "New Mexico","KS": "Kansas","MS": "Mississippi","CT": "Connecticut","MD": "Maryland","NV": "Nevada",}
     
+    res_list = []
     for item in data:
-        ticker = item.get("ticker")
-        ticker = ticker.replace('BRK.A','BRK-A')
-        ticker = ticker.replace('BRK/A','BRK-A')
-        ticker = ticker.replace('BRK.B','BRK-B')
-        ticker = ticker.replace('BRK/B','BRK-B')
-        
-        if item['assetDescription'] == 'Bitcoin':
-            item['ticker'] = 'BTCUSD'
+        try:
             ticker = item.get("ticker")
-
-        if item['assetDescription'] == 'Ethereum':
-            item['ticker'] = 'ETHUSD'
-            ticker = item.get("ticker")
-        
-        item['assetDescription'] = item['assetDescription'].replace('U.S','US')
-
-
-        if 'Sale' in item['type']:
-            item['type'] = 'Sold'
-        if 'Purchase' in item['type']:
-            item['type'] = 'Bought'
-
-        item['amount'] = amount_mapping.get(item['amount'], item['amount'])
-
-
-        item['ticker'] = ticker
-        if ticker in symbols:
-           item["assetType"] = "stock"
-        elif ticker in etf_symbols:
-            item["assetType"] = "etf"
-        else:
-            item['assetType'] = ''
-
-        if 'representative' in item:
-            item['representative'] = replace_representative(item['representative'])
-
-        item['id'] = generate_id(item['representative'])
-
-        # Check if 'district' key exists in item
-        if 'district' in item:
-            # Extract state code from the 'district' value
-            state_code = item['district'][:2]
+            ticker = ticker.replace('BRK.A','BRK-A')
+            ticker = ticker.replace('BRK/A','BRK-A')
+            ticker = ticker.replace('BRK.B','BRK-B')
+            ticker = ticker.replace('BRK/B','BRK-B')
             
-            # Replace 'district' value with the corresponding value from congressional_districts
-            item['district'] = f"{congressional_districts.get(state_code, state_code)}"
+            if ticker in symbols or ticker in etf_symbols:
+                if item['assetDescription'] == 'Bitcoin':
+                    item['ticker'] = 'BTCUSD'
+                    ticker = item.get("ticker")
 
-    return data
+                if item['assetDescription'] == 'Ethereum':
+                    item['ticker'] = 'ETHUSD'
+                    ticker = item.get("ticker")
+                
+                item['assetDescription'] = item['assetDescription'].replace('U.S','US')
+
+
+                if 'Sale' in item['type']:
+                    item['type'] = 'Sold'
+                if 'Purchase' in item['type']:
+                    item['type'] = 'Bought'
+
+                item['amount'] = amount_mapping.get(item['amount'], item['amount'])
+
+
+                item['ticker'] = ticker
+                if ticker in symbols:
+                   item["assetType"] = "stock"
+                elif ticker in etf_symbols:
+                    item["assetType"] = "etf"
+
+                if 'representative' in item:
+                    item['representative'] = replace_representative(item['representative'])
+
+                item['id'] = generate_id(item['representative'])
+
+                # Check if 'district' key exists in item
+                if 'district' in item:
+                    # Extract state code from the 'district' value
+                    state_code = item['district'][:2]
+                    
+                    # Replace 'district' value with the corresponding value from congressional_districts
+                    item['district'] = f"{congressional_districts.get(state_code, state_code)}"
+
+                res_list.append(item)
+        except:
+            pass
+
+    return res_list
 
 
 
@@ -1625,6 +1630,10 @@ async def save_json_files():
     etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
 
+    data = await get_congress_rss_feed(symbols, etf_symbols)
+    with open(f"json/congress-trading/rss-feed/data.json", 'w') as file:
+        ujson.dump(data, file)
+    
     economic_list = await get_economic_calendar()
     if len(economic_list) > 0:
         with open(f"json/economic-calendar/calendar.json", 'w') as file:
@@ -1649,16 +1658,14 @@ async def save_json_files():
     with open(f"json/dividends-calendar/calendar.json", 'w') as file:
         ujson.dump(dividends_list, file)
 
-    
-    data = await get_congress_rss_feed(symbols, etf_symbols)
-    with open(f"json/congress-trading/rss-feed/data.json", 'w') as file:
-        ujson.dump(data, file)
+
     
     
     data = await etf_providers(etf_con, etf_symbols)
     with open(f"json/all-etf-providers/data.json", 'w') as file:
         ujson.dump(data, file)
         
+    
 
     con.close()
     etf_con.close()

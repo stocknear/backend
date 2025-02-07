@@ -263,15 +263,16 @@ def get_strike_data():
     for symbol in tqdm(total_symbols):
         try:
             data = aggregate_data_by_strike(symbol)
-            for key_element in ['gex','dex']:
-                val_sums = [item[f"call_{key_element}"] + item[f"put_{key_element}"] for item in data]
-                threshold = np.percentile(val_sums, 90)
-                filtered_data = [item for item in data if (item[f"call_{key_element}"] + item[f"put_{key_element}"]) >= threshold]
-                filtered_data = sorted(filtered_data, key=lambda x: x['strike'], reverse=True)
-                if filtered_data:
-                    save_json(filtered_data, symbol, directory_path+key_element)
-        except Exception as e:
-            print(e)
+            if len(data) > 0:
+                for key_element in ['gex','dex']:
+                    val_sums = [item[f"call_{key_element}"] + item[f"put_{key_element}"] for item in data]
+                    threshold = np.percentile(val_sums, 90)
+                    filtered_data = [item for item in data if (item[f"call_{key_element}"] + item[f"put_{key_element}"]) >= threshold]
+                    filtered_data = sorted(filtered_data, key=lambda x: x['strike'], reverse=True)
+                    if filtered_data:
+                        save_json(filtered_data, symbol, directory_path+key_element)
+        except:
+            pass
 
 def get_expiry_data():
     directory_path = "json/gex-dex/expiry/"
@@ -282,16 +283,17 @@ def get_expiry_data():
     for symbol in tqdm(total_symbols):
         try:
             data = aggregate_data_by_expiration(symbol)
-            for key_element in ['gex','dex']:
-                val_sums = [item[f"call_{key_element}"] + item[f"put_{key_element}"] for item in data]
-                threshold = np.percentile(val_sums, 90)
-                filtered_data = [item for item in data if (item[f"call_{key_element}"] + item[f"put_{key_element}"]) >= threshold]
-                filtered_data = sorted(filtered_data, key=lambda x: x['expiry'], reverse=True)
-                if filtered_data:
-                    save_json(filtered_data, symbol, directory_path+key_element)
+            if len(data) > 0:
+                for key_element in ['gex','dex']:
+                    val_sums = [item[f"call_{key_element}"] + item[f"put_{key_element}"] for item in data]
+                    threshold = np.percentile(val_sums, 90)
+                    filtered_data = [item for item in data if (item[f"call_{key_element}"] + item[f"put_{key_element}"]) >= threshold]
+                    filtered_data = sorted(filtered_data, key=lambda x: x['expiry'], reverse=True)
+                    if filtered_data:
+                        save_json(filtered_data, symbol, directory_path+key_element)
 
-        except Exception as e:
-            print(e)
+        except:
+            pass
 
 if __name__ == '__main__':
     get_overview_data()
