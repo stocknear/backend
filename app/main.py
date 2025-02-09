@@ -140,7 +140,9 @@ with db_connection(ETF_DB) as cursor:
   } for row in raw_data]
 #------End ETF DB------------#
 
+
 #------Start Crypto DB------------#
+'''
 with db_connection(CRYPTO_DB) as cursor:
   cursor.execute("SELECT DISTINCT symbol FROM cryptos")
   crypto_symbols = [row[0] for row in cursor.fetchall()]
@@ -152,6 +154,7 @@ with db_connection(CRYPTO_DB) as cursor:
     'name': row[1],
     'type': row[2].capitalize(),
   } for row in raw_data]
+'''
 #------End Crypto DB------------#
 
 #------Start Institute DB------------#
@@ -169,7 +172,8 @@ stock_screener_data_dict = {item['symbol']: item for item in stock_screener_data
 #------End Stock Screener--------#
 
 #------Init Searchbar Data------------#
-searchbar_data = stock_list_data + etf_list_data
+index_list_data = [{'symbol': '^SPX','name': 'S&P 500 Index', 'type': 'Index'}, {'symbol': '^VIX','name': 'CBOE Volatility Index', 'type': 'Index'},]
+searchbar_data = stock_list_data + etf_list_data + index_list_data
 
 for item in searchbar_data:
     try:
@@ -180,14 +184,12 @@ for item in searchbar_data:
         item['isin'] = None
 
 
-etf_set, crypto_set = set(etf_symbols), set(crypto_symbols)
+etf_set = set(etf_symbols)
 
 
 ### TECH DEBT ###
 con = sqlite3.connect('stocks.db')
 etf_con = sqlite3.connect('etf.db')
-crypto_con = sqlite3.connect('crypto.db')
-con_inst = sqlite3.connect('institute.db')
 
 load_dotenv()
 
@@ -1272,7 +1274,6 @@ async def get_indicator(data: IndicatorListData, api_key: str = Security(get_api
         # Determine the ticker type based on the sets
         ticker_type = (
             'etf' if ticker in etf_set else 
-            'crypto' if ticker in crypto_set else 
             'stock'
         )
 
@@ -1305,14 +1306,12 @@ async def get_indicator(data: IndicatorListData, api_key: str = Security(get_api
 
 
 
-async def process_watchlist_ticker(ticker, rule_of_list, quote_keys_to_include, screener_dict, etf_set, crypto_set):
+async def process_watchlist_ticker(ticker, rule_of_list, quote_keys_to_include, screener_dict, etf_set):
     """Optimized single ticker processing with reduced I/O and memory overhead."""
     ticker = ticker.upper()
     ticker_type = 'stocks'
     if ticker in etf_set:
         ticker_type = 'etf'
-    elif ticker in crypto_set:
-        ticker_type = 'crypto'
 
     try:
         # Combine I/O operations into single async read
@@ -1399,7 +1398,6 @@ async def get_watchlist(data: GetWatchList, api_key: str = Security(get_api_key)
                 quote_keys_to_include, 
                 screener_dict,
                 etf_set,  # Assuming these are pre-computed sets
-                crypto_set
             ) 
             for ticker in ticker_list
         ]
@@ -1678,51 +1676,6 @@ async def stock_finder(data:StockScreenerData, api_key: str = Security(get_api_k
     )
 
 
-@app.post("/get-quant-stats")
-async def get_quant_stats(data: TickerData, api_key: str = Security(get_api_key)):
-    data = data.dict()
-    ticker = data['ticker'].upper()
-    cache_key = f"get-quant-stats-{ticker}"
-    
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return orjson.loads(cached_result)
-    if ticker in etf_symbols:
-        table_name = 'etfs'
-        query_con = etf_con
-    elif ticker in crypto_symbols:
-        table_name = 'cryptos'
-        query_con = crypto_con
-    else:
-        table_name = 'stocks'
-        query_con = con
-    # If the hash doesn't exist or doesn't match, fetch data from the database
-    query_metrics_template = f"""
-        SELECT
-            quantStats
-        FROM
-            {table_name}
-        WHERE
-            symbol = ?
-    """
-
-    metrics_data = pd.read_sql_query(query_metrics_template, query_con, params=(ticker,))
-    
-    try:
-        #metrics_data = orjson.loads(metrics_data.to_dict()['quantStats'][0])
-        metrics_data = metrics_data.to_dict()['quantStats'][0]
-        metrics_data = eval(metrics_data)
-    except:
-        metrics_data = {}
-    # Store the data and hash in the cache
-    redis_client.set(cache_key, orjson.dumps(metrics_data))
-    redis_client.expire(cache_key, 3600 *24) # Set cache expiration time to 1 hour
-
-    return metrics_data
-
-
-
-
 
 @app.post("/congress-trading-ticker")
 async def get_fair_price(data: TickerData, api_key: str = Security(get_api_key)):
@@ -1845,11 +1798,27 @@ async def get_all_hedge_funds_data(api_key: str = Security(get_api_key)):
 @app.get("/searchbar")
 async def get_stock(
     query: str = Query(""),
-    api_key: str = Security(lambda: None)  # Replace with your actual security function
+    api_key: str = Security(lambda: None)
 ) -> JSONResponse:
-
     if not query:
         return JSONResponse(content=[])
+
+    # Handle special index cases
+    index_mappings = {
+        "SPX": "^SPX",
+        "VIX": "^VIX"
+    }
+    
+    # Check if query matches any index symbols
+    upper_query = query.upper()
+    if upper_query in index_mappings:
+        # Find the index data in searchbar_data
+        index_result = next(
+            (item for item in searchbar_data if item['symbol'] == index_mappings[upper_query]),
+            None
+        )
+        if index_result:
+            return JSONResponse(content=[index_result])
 
     # Check for exact ISIN match first
     exact_match = next((item for item in searchbar_data if item.get("isin",None) == query), None)
@@ -1859,14 +1828,14 @@ async def get_stock(
     # Precompile case-insensitive regex for faster matching
     search_pattern = re.compile(re.escape(query.lower()), re.IGNORECASE)
 
-    # Filter items based on the search pattern (ignore items where neither name nor symbol match)
+    # Filter items based on the search pattern
     filtered_data = [
         item for item in searchbar_data
         if search_pattern.search(item['name']) or search_pattern.search(item['symbol'])
     ]
 
     # Sort by the calculated score, giving exact symbol matches the highest priority,
-    # and then by descending marketCap for other matches
+    # and then by descending marketCap for other matches (if available)
     results = sorted(
         filtered_data,
         key=lambda item: (
@@ -1874,6 +1843,7 @@ async def get_stock(
             0 if item.get('marketCap') is None else -item['marketCap']
         )
     )[:5]
+    
     return JSONResponse(content=orjson.loads(orjson.dumps(results)))
 
 
@@ -1979,8 +1949,43 @@ async def get_crypto_profile(data: TickerData, api_key: str = Security(get_api_k
     return profile_list
 
 
+
+@app.post("/index-profile")
+async def get_data(data: TickerData, api_key: str = Security(get_api_key)):
+
+    data = data.dict()
+    ticker = data['ticker'].upper()
+    cache_key = f"index-profile-{ticker}"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
+
+    try:
+        with open(f"json/index/profile/{ticker}.json","r") as file:
+            res = orjson.loads(file.read())
+    except Exception as e:
+        print(e)
+        res = []
+    print(res)
+    data = orjson.dumps(res)
+    compressed_data = gzip.compress(data)
+
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 3600*24)
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
+
+
 @app.post("/etf-profile")
-async def get_fair_price(data: TickerData, api_key: str = Security(get_api_key)):
+async def get_data(data: TickerData, api_key: str = Security(get_api_key)):
 
     data = data.dict()
     ticker = data['ticker'].upper()
@@ -1988,7 +1993,11 @@ async def get_fair_price(data: TickerData, api_key: str = Security(get_api_key))
     cache_key = f"etf-profile-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return orjson.loads(cached_result)
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
 
     query_template = """
         SELECT 
@@ -2002,21 +2011,28 @@ async def get_fair_price(data: TickerData, api_key: str = Security(get_api_key))
     cur = etf_con.cursor()
     cur.execute(query, (ticker,))
     result = cur.fetchone()  # Get the first row
-    profile_list = []
+    res = []
 
     try:
         if result is not None:
-            profile_list = orjson.loads(result[0])
-            for item in profile_list:
+            res = orjson.loads(result[0])
+            for item in res:
                 item['etfProvider'] = result[1]
             #Show only hedge funds that are in the institute.db
     except:
-        profile_list = []
+        res = []
 
-    redis_client.set(cache_key, orjson.dumps(profile_list))
-    redis_client.expire(cache_key, 3600 * 24) # Set cache expiration time to Infinity
+    data = orjson.dumps(res)
+    compressed_data = gzip.compress(data)
 
-    return profile_list
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 3600*24)
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
 
 
 
@@ -2146,16 +2162,28 @@ async def get_congress_rss_feed(api_key: str = Security(get_api_key)):
     cache_key = f"congress-rss-feed"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return orjson.loads(cached_result)
+        return StreamingResponse(
+        io.BytesIO(cached_result),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"})
     try:
         with open(f"json/congress-trading/rss-feed/data.json", 'rb') as file:
             res = orjson.loads(file.read())
     except:
         res = []
 
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 60*15)
-    return res
+    data = orjson.dumps(res)
+    compressed_data = gzip.compress(data)
+
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 60 * 24)  # Set cache expiration time to 1 day
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
+
 
 
 
@@ -2241,7 +2269,10 @@ async def get_earnings_call_transcripts(data:TranscriptData, api_key: str = Secu
     cached_result = redis_client.get(cache_key)
 
     if cached_result:
-        return orjson.loads(cached_result)
+        return StreamingResponse(
+        io.BytesIO(cached_result),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"})
     
     try:
         async with aiohttp.ClientSession() as session:
@@ -2257,27 +2288,16 @@ async def get_earnings_call_transcripts(data:TranscriptData, api_key: str = Secu
     except:
         res = {}
 
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
-    return res
+    data = orjson.dumps(res)
+    compressed_data = gzip.compress(data)
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 3600*60)  # Set cache expiration time to 1 day
 
-@app.get("/ticker-mentioning")
-async def get_ticker_mentioning(api_key: str = Security(get_api_key)):
-
-    cache_key = f"get-ticker-mentioning"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return orjson.loads(cached_result)
-
-    try:
-        with open(f"json/ticker-mentioning/data.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = []
-
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
-    return res
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
 
 
 @app.post("/top-etf-ticker-holder")
@@ -3019,48 +3039,16 @@ async def get_dark_pool_feed(api_key: str = Security(get_api_key)):
 
 
 
-@app.get("/options-zero-dte")
-async def get_options_flow_feed(api_key: str = Security(get_api_key)):
-    try:
-        with open(f"json/options-flow/zero-dte/data.json", 'rb') as file:
-            res_list = orjson.loads(file.read())
-    except:
-        res_list = []
-    data = orjson.dumps(res_list)
-    compressed_data = gzip.compress(data)
-    return StreamingResponse(
-        io.BytesIO(compressed_data),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"}
-    )
-
-
-@app.post("/options-bubble")
-async def get_options_bubble(data:TickerData, api_key: str = Security(get_api_key)):
-    ticker = data.ticker.upper()
-
-    cache_key = f"options-bubble-{ticker}"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return orjson.loads(cached_result)
-
-    try:
-        with open(f"json/options-bubble/{ticker}.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = {}
-
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 3600*24)  # Set cache expiration time to 1 day
-    return res
-
 
 @app.get("/top-analysts")
 async def get_all_analysts(api_key: str = Security(get_api_key)):
     cache_key = f"top-analysts"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return orjson.loads(cached_result)
+        return StreamingResponse(
+        io.BytesIO(cached_result),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"})
 
     try:
         with open(f"json/analyst/top-analysts.json", 'rb') as file:
@@ -3068,16 +3056,27 @@ async def get_all_analysts(api_key: str = Security(get_api_key)):
     except:
         res = []
 
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 60*60*2)  # Set cache expiration time to 1 day
-    return res
+    data = orjson.dumps(res)
+    compressed_data = gzip.compress(data)
+
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 60*15)
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
 
 @app.get("/top-analysts-stocks")
 async def get_all_analysts(api_key: str = Security(get_api_key)):
     cache_key = f"top-analysts-stocks"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return orjson.loads(cached_result)
+        return StreamingResponse(
+        io.BytesIO(cached_result),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"})
 
     try:
         with open(f"json/analyst/top-stocks.json", 'rb') as file:
@@ -3085,9 +3084,17 @@ async def get_all_analysts(api_key: str = Security(get_api_key)):
     except:
         res = []
 
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 60*60*2)  # Set cache expiration time to 1 day
-    return res
+    data = orjson.dumps(res)
+    compressed_data = gzip.compress(data)
+
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 60*15)
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
 
 @app.post("/analyst-stats")
 async def get_all_analysts(data:AnalystId, api_key: str = Security(get_api_key)):
@@ -3096,101 +3103,13 @@ async def get_all_analysts(data:AnalystId, api_key: str = Security(get_api_key))
     cache_key = f"analyst-stats-{analyst_id}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return orjson.loads(cached_result)
+        return StreamingResponse(
+        io.BytesIO(cached_result),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"})
 
     try:
         with open(f"json/analyst/analyst-db/{analyst_id}.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = {}
-
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 60*60*2)  # Set cache expiration time to 1 day
-    return res
-
-@app.post("/wiim")
-async def get_wiim(data:TickerData, api_key: str = Security(get_api_key)):
-    ticker = data.ticker.upper()
-
-    cache_key = f"wiim-{ticker}"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return orjson.loads(cached_result)
-
-    try:
-        with open(f"json/wiim/company/{ticker}.json", 'rb') as file:
-            res = orjson.loads(file.read())[:5]
-    except:
-        res = []
-
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 60*5)
-    return res
-
-@app.get("/dashboard-info")
-async def get_dashboard_info(api_key: str = Security(get_api_key)):
-
-    cache_key = f"dashboard-info"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return orjson.loads(cached_result)
-    try:
-        with open(f"json/dashboard/data.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = []
-
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 60*5)
-    return res
-
-@app.post("/sentiment-analysis")
-async def get_sentiment_analysis(data:TickerData, api_key: str = Security(get_api_key)):
-    ticker = data.ticker.upper()
-    cache_key = f"sentiment-analysis-{ticker}"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return orjson.loads(cached_result)
-    try:
-        with open(f"json/sentiment-analysis/{ticker}.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = []
-
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
-    return res
-
-@app.post("/trend-analysis")
-async def get_trend_analysis(data:TickerData, api_key: str = Security(get_api_key)):
-    ticker = data.ticker.upper()
-    cache_key = f"trend-analysis-{ticker}"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return orjson.loads(cached_result)
-    try:
-        with open(f"json/trend-analysis/{ticker}.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = []
-
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
-    return res
-
-@app.post("/price-analysis")
-async def get_price_analysis(data:TickerData, api_key: str = Security(get_api_key)):
-    ticker = data.ticker.upper()
-    cache_key = f"price-analysis-{ticker}"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return StreamingResponse(
-            io.BytesIO(cached_result),
-            media_type="application/json",
-            headers={"Content-Encoding": "gzip"}
-        )
-    try:
-        with open(f"json/price-analysis/{ticker}.json", 'rb') as file:
             res = orjson.loads(file.read())
     except:
         res = {}
@@ -3199,7 +3118,7 @@ async def get_price_analysis(data:TickerData, api_key: str = Security(get_api_ke
     compressed_data = gzip.compress(data)
 
     redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
+    redis_client.expire(cache_key, 60*15)
 
     return StreamingResponse(
         io.BytesIO(compressed_data),
@@ -3207,111 +3126,62 @@ async def get_price_analysis(data:TickerData, api_key: str = Security(get_api_ke
         headers={"Content-Encoding": "gzip"}
     )
 
-
-
-@app.post("/fundamental-predictor-analysis")
-async def get_fundamental_predictor_analysis(data:TickerData, api_key: str = Security(get_api_key)):
+@app.post("/wiim")
+async def get_wiim(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
-    cache_key = f"fundamental-predictor-analysis-{ticker}"
+    cache_key = f"wiim-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return orjson.loads(cached_result)
+        return StreamingResponse(
+        io.BytesIO(cached_result),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"})
+
     try:
-        with open(f"json/fundamental-predictor-analysis/{ticker}.json", 'rb') as file:
-            res = orjson.loads(file.read())
+        with open(f"json/wiim/company/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())[:5]
     except:
-        res = {}
+        res = []
 
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
-    return res
+    data = orjson.dumps(res)
+    compressed_data = gzip.compress(data)
 
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 60*2)
 
-@app.post("/value-at-risk")
-async def get_trend_analysis(data:TickerData, api_key: str = Security(get_api_key)):
-    ticker = data.ticker.upper()
-    cache_key = f"value-at-risk-{ticker}"
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
+
+@app.get("/dashboard-info")
+async def get_dashboard_info(api_key: str = Security(get_api_key)):
+
+    cache_key = f"dashboard-info"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return orjson.loads(cached_result)
+        return StreamingResponse(
+        io.BytesIO(cached_result),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"})
     try:
-        with open(f"json/var/{ticker}.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = {}
-
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
-    return res
-
-@app.post("/government-contract")
-async def get_government_contract(data:TickerData, api_key: str = Security(get_api_key)):
-    ticker = data.ticker.upper()
-    cache_key = f"government-contract-{ticker}"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return orjson.loads(cached_result)
-    try:
-        with open(f"json/government-contract/{ticker}.json", 'rb') as file:
+        with open(f"json/dashboard/data.json", 'rb') as file:
             res = orjson.loads(file.read())
     except:
         res = []
 
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
-    return res
+    data = orjson.dumps(res)
+    compressed_data = gzip.compress(data)
 
-@app.post("/corporate-lobbying")
-async def get_lobbying(data:TickerData, api_key: str = Security(get_api_key)):
-    ticker = data.ticker.upper()
-    cache_key = f"corporate-lobbying-{ticker}"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return orjson.loads(cached_result)
-    try:
-        with open(f"json/corporate-lobbying/companies/{ticker}.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = []
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 60*2)
 
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
-    return res
-
-@app.post("/enterprise-values")
-async def get_enterprise_values(data:TickerData, api_key: str = Security(get_api_key)):
-    ticker = data.ticker.upper()
-    cache_key = f"enterprise-values-{ticker}"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return orjson.loads(cached_result)
-    try:
-        with open(f"json/enterprise-values/{ticker}.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = []
-
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
-    return res
-
-
-@app.post("/share-statistics")
-async def get_enterprise_values(data:TickerData, api_key: str = Security(get_api_key)):
-    ticker = data.ticker.upper()
-    cache_key = f"share-statistics-{ticker}"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return orjson.loads(cached_result)
-    try:
-        with open(f"json/share-statistics/{ticker}.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = {}
-
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
-    return res
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
 
 
 @app.post("/politician-stats")
@@ -3375,24 +3245,6 @@ async def get_all_politician(api_key: str = Security(get_api_key)):
     )
 
 
-
-@app.get("/most-shorted-stocks")
-async def get_most_shorted_stocks(api_key: str = Security(get_api_key)):
-    cache_key = f"most-shorted-stocks"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return orjson.loads(cached_result)
-    try:
-        with open(f"json/most-shorted-stocks/data.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = []
-
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
-    return res
-
-
 @app.post("/historical-dark-pool")
 async def get_dark_pool(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
@@ -3444,55 +3296,6 @@ async def get_dark_pool(data:TickerData, api_key: str = Security(get_api_key)):
     redis_client.set(cache_key, compressed_data)
     redis_client.expire(cache_key, 60*5)
     
-    return StreamingResponse(
-        io.BytesIO(compressed_data),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"}
-    )
-
-
-
-@app.post("/market-maker")
-async def get_market_maker(data:TickerData, api_key: str = Security(get_api_key)):
-    ticker = data.ticker.upper()
-    cache_key = f"market-maker-{ticker}"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return orjson.loads(cached_result)
-    try:
-        with open(f"json/market-maker/companies/{ticker}.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = {}
-
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
-    return res
-
-@app.post("/clinical-trial")
-async def get_clinical_trial(data:TickerData, api_key: str = Security(get_api_key)):
-    ticker = data.ticker.upper()
-    cache_key = f"clinical-trial-{ticker}"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return StreamingResponse(
-            io.BytesIO(cached_result),
-            media_type="application/json",
-            headers={"Content-Encoding": "gzip"}
-        )
-
-    try:
-        with open(f"json/clinical-trial/companies/{ticker}.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = []
-
-    data = orjson.dumps(res)
-    compressed_data = gzip.compress(data)
-
-    redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
-
     return StreamingResponse(
         io.BytesIO(compressed_data),
         media_type="application/json",
@@ -3556,16 +3359,28 @@ async def get_analyst_insight(data:TickerData, api_key: str = Security(get_api_k
     cache_key = f"analyst-insight-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return orjson.loads(cached_result)
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
     try:
         with open(f"json/analyst/insight/{ticker}.json", 'rb') as file:
             res = orjson.loads(file.read())
     except:
         res = {}
 
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 3600*3600)  # Set cache expiration time to 1 day
-    return res
+    data = orjson.dumps(res)
+    compressed_data = gzip.compress(data)
+
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 60*15)  # Set cache expiration time to 1 day
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
 
 
 @app.post("/implied-volatility")
@@ -3659,33 +3474,6 @@ async def get_data(data:TickerData, api_key: str = Security(get_api_key)):
         headers={"Content-Encoding": "gzip"}
     )
 
-@app.get("/lobbying-tracker")
-async def get_cramer_tracker(api_key: str = Security(get_api_key)):
-    cache_key = f"corporate-lobbying-tracker"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return StreamingResponse(
-            io.BytesIO(cached_result),
-            media_type="application/json",
-            headers={"Content-Encoding": "gzip"}
-        )
-    try:
-        with open(f"json/corporate-lobbying/tracker/data.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = []
-
-    data = orjson.dumps(res)
-    compressed_data = gzip.compress(data)
-
-    redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 60*15)
-
-    return StreamingResponse(
-        io.BytesIO(compressed_data),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"}
-    )
 
 
 @app.get("/reddit-tracker")
@@ -3998,33 +3786,14 @@ async def get_info_text(data:InfoText, api_key: str = Security(get_api_key)):
     cache_key = f"info-text-{parameter}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return orjson.loads(cached_result)
-    try:
-        with open(f"json/info-text/data.json", 'rb') as file:
-            res = orjson.loads(file.read())[parameter]
-    except:
-        res = {}
-
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key,3600*3600)
-
-    return res
-
-@app.post("/fomc-impact")
-async def get_fomc_impact(data: TickerData, api_key: str = Security(get_api_key)):
-    ticker = data.ticker.upper()
-
-    cache_key = f"fomc-impact-{ticker}"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
         return StreamingResponse(
             io.BytesIO(cached_result),
             media_type="application/json",
             headers={"Content-Encoding": "gzip"}
         )
     try:
-        with open(f"json/fomc-impact/companies/{ticker}.json", 'rb') as file:
-            res = orjson.loads(file.read())
+        with open(f"json/info-text/data.json", 'rb') as file:
+            res = orjson.loads(file.read())[parameter]
     except:
         res = {}
 
@@ -4032,13 +3801,14 @@ async def get_fomc_impact(data: TickerData, api_key: str = Security(get_api_key)
     compressed_data = gzip.compress(data)
 
     redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key,3600*3600)
+    redis_client.expire(cache_key,3600*60)
 
     return StreamingResponse(
         io.BytesIO(compressed_data),
         media_type="application/json",
         headers={"Content-Encoding": "gzip"}
     )
+
 
 @app.get("/sentiment-tracker")
 async def get_fomc_impact(api_key: str = Security(get_api_key)):

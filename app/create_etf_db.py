@@ -337,7 +337,7 @@ class ETFDatabase:
 
 
     def _create_ticker_table(self, symbol):
-        #cleaned_symbol = re.sub(r'[^a-zA-Z0-9_]', '_', symbol)
+        cleaned_symbol = symbol
         # Check if table exists
         self.cursor.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{symbol}'")
         table_exists = self.cursor.fetchone() is not None
