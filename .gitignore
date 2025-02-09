@@ -5,6 +5,7 @@ app/stocks.*
 app/institute.*
 app/etf.*
 app/crypto.*
+app/index.*
 app/*.sh
 app/.env*
 app/ml_models/weights
