@@ -265,8 +265,8 @@ async def get_data():
                     longitude = location_data.longitude
                     print(f"Latitude: {latitude}, Longitude: {longitude}")
                     break
-            except Exception as e:
-                print(e)
+            except:
+                pass
 
         for item in data:
             for price_item in sp500_list:
