@@ -1,13 +1,8 @@
-import requests
 import orjson
-import ujson
-import re
-from datetime import datetime
 import os
 import sqlite3
 import time
 from tqdm import tqdm
-import pandas as pd
 import numpy as np
 
 
@@ -25,6 +20,7 @@ etf_cursor.execute("PRAGMA journal_mode = wal")
 etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
 etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
+index_symbols = ["^SPX","^VIX"]
 con.close()
 etf_con.close()
 
@@ -145,7 +141,7 @@ def compute_realized_volatility(data, window_size=20):
 
 if __name__ == '__main__':
     directory_path = "json/implied-volatility"
-    total_symbols = stocks_symbols + etf_symbols
+    total_symbols = stocks_symbols + etf_symbols + index_symbols
 
     for symbol in tqdm(total_symbols):
         try:

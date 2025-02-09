@@ -25,7 +25,8 @@ def get_total_symbols():
         etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
         etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
-    return stocks_symbols + etf_symbols
+    index_symbols =["^SPX","^VIX"]
+    return stocks_symbols + etf_symbols +index_symbols
 
 
 def save_json(data, symbol):

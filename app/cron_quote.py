@@ -97,7 +97,6 @@ async def save_bid_ask_as_json(symbol, data):
 async def run():
     con = sqlite3.connect('stocks.db')
     etf_con = sqlite3.connect('etf.db')
-    crypto_con = sqlite3.connect('crypto.db')
 
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
@@ -109,14 +108,11 @@ async def run():
     etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
     etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
-    crypto_cursor = crypto_con.cursor()
-    crypto_cursor.execute("PRAGMA journal_mode = wal")
-    crypto_cursor.execute("SELECT DISTINCT symbol FROM cryptos")
-    crypto_symbols = [row[0] for row in crypto_cursor.fetchall()]
+
+    index_symbols = ['^SPX','^VIX']
 
     con.close()
     etf_con.close()
-    crypto_con.close()
 
     new_york_tz = pytz.timezone('America/New_York')
     current_time_new_york = datetime.now(new_york_tz)
@@ -126,15 +122,16 @@ async def run():
 
 
     #Crypto Quotes
+    '''
     latest_quote = await get_quote_of_stocks(crypto_symbols)
     for item in latest_quote:
         symbol = item['symbol']
 
         await save_quote_as_json(symbol, item)
-
+    '''
     # Stock and ETF Quotes
     
-    total_symbols = stocks_symbols+etf_symbols
+    total_symbols = stocks_symbols+etf_symbols+index_symbols
     
     chunk_size = len(total_symbols) // 20  # Divide the list into N chunks
     chunks = [total_symbols[i:i + chunk_size] for i in range(0, len(total_symbols), chunk_size)]

@@ -309,7 +309,10 @@ etf_cursor.execute("PRAGMA journal_mode = wal")
 #etf_cursor.execute("SELECT DISTINCT symbol FROM etfs WHERE marketCap > 1E9")
 etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
 etf_symbols = [row[0] for row in etf_cursor.fetchall()]
-total_symbols = stocks_symbols + etf_symbols
+
+index_symbols =["^SPX","^VIX"]
+
+total_symbols = stocks_symbols + etf_symbols + index_symbols
 
 
 for symbol in tqdm(total_symbols):

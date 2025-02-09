@@ -106,7 +106,9 @@ async def run():
     con.close()
     etf_con.close()
 
-    total_symbols = stocks_symbols + etf_symbols
+    index_symbols = ['^SPX','^VIX']
+
+    total_symbols = stocks_symbols + etf_symbols + index_symbols
     total_symbols = sorted(total_symbols, key=lambda x: '.' in x)
     
     chunk_size = 1000

@@ -29,6 +29,9 @@ etf_cursor.execute("PRAGMA journal_mode = wal")
 etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
 etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
+index_symbols =["^SPX","^VIX"]
+
+
 con.close()
 etf_con.close()
 
@@ -225,9 +228,8 @@ def aggregate_data_by_expiration(symbol):
 
 def get_overview_data():
     directory_path = "json/gex-dex/overview"
-    total_symbols = stocks_symbols+etf_symbols
+    total_symbols = stocks_symbols+etf_symbols+index_symbols
 
-    counter = 0
     
     #Test mode
     #total_symbols = ['TSLA']

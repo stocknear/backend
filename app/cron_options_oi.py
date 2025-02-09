@@ -1,9 +1,7 @@
 from __future__ import print_function
 import asyncio
-import time
 import intrinio_sdk as intrinio
 from intrinio_sdk.rest import ApiException
-from datetime import datetime, timedelta
 import orjson
 from tqdm import tqdm
 import os

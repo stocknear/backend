@@ -14,13 +14,13 @@ load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
 
 
-async def fetch_and_save_symbols_data(symbols, etf_symbols, crypto_symbols, session):
+async def fetch_and_save_symbols_data(symbols, etf_symbols, index_symbols, session):
     tasks = []
     for symbol in symbols:
         if symbol in etf_symbols:
             query_con = etf_con
-        elif symbol in crypto_symbols:
-            query_con = crypto_con
+        elif symbol in index_symbols:
+            query_con = index_con
         else:
             query_con = con
 
@@ -104,12 +104,8 @@ async def run():
         etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
         etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
-        crypto_cursor = crypto_con.cursor()
-        crypto_cursor.execute("PRAGMA journal_mode = wal")
-        crypto_cursor.execute("SELECT DISTINCT symbol FROM cryptos")
-        crypto_symbols = [row[0] for row in crypto_cursor.fetchall()]
-
-        total_symbols = stock_symbols + etf_symbols + crypto_symbols
+        index_symbols =["^SPX","^VIX"]
+        total_symbols = stock_symbols + etf_symbols +index_symbols
     except Exception as e:
         print(f"Failed to fetch symbols: {e}")
         return
@@ -119,7 +115,7 @@ async def run():
         async with aiohttp.ClientSession(connector=connector) as session:
             for i in range(0, len(total_symbols), chunk_size):
                 symbols_chunk = total_symbols[i:i + chunk_size]
-                await fetch_and_save_symbols_data(symbols_chunk, etf_symbols, crypto_symbols, session)
+                await fetch_and_save_symbols_data(symbols_chunk, etf_symbols, index_symbols, session)
                 print('sleeping for 30 sec')
                 await asyncio.sleep(30)  # Wait for 60 seconds between chunks
     except Exception as e:
@@ -128,7 +124,7 @@ async def run():
 try:
     con = sqlite3.connect('stocks.db')
     etf_con = sqlite3.connect('etf.db')
-    crypto_con = sqlite3.connect('crypto.db')
+    index_con = sqlite3.connect('index.db')
 
     berlin_tz = pytz.timezone('Europe/Berlin')
     end_date = datetime.now(berlin_tz)
@@ -143,7 +139,7 @@ try:
     asyncio.run(run())
     con.close()
     etf_con.close()
-    crypto_con.close()
+    index_con.close()
 except Exception as e:
     print(e)
 

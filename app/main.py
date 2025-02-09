@@ -854,7 +854,7 @@ async def stock_dividend(data: TickerData, api_key: str = Security(get_api_key))
 @app.post("/stock-quote")
 async def stock_dividend(data: TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
-
+    print(ticker)
     cache_key = f"stock-quote-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -866,6 +866,7 @@ async def stock_dividend(data: TickerData, api_key: str = Security(get_api_key))
     except:
         res = {}
 
+    print(ticker)
     redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 60)
     return res
@@ -3130,6 +3131,7 @@ async def get_all_analysts(data:AnalystId, api_key: str = Security(get_api_key))
 async def get_wiim(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     cache_key = f"wiim-{ticker}"
+    print(ticker)
     cached_result = redis_client.get(cache_key)
     if cached_result:
         return StreamingResponse(

@@ -1,18 +1,10 @@
 import pytz
 from datetime import datetime, timedelta
 from urllib.request import urlopen
-import certifi
 import json
-import ujson
-import schedule
-import time
-import subprocess
 from pocketbase import PocketBase  # Client also works the same
 import asyncio
-import aiohttp
 import pytz
-import pandas as pd
-import numpy as np
 import requests
 import hashlib
 import orjson
@@ -55,6 +47,8 @@ with sqlite3.connect('etf.db') as etf_con:
     etf_cursor.execute("PRAGMA journal_mode = wal")
     etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
     etf_symbols = [row[0] for row in etf_cursor.fetchall()]
+
+index_symbols =["^SPX","^VIX"]
 
 
 def generate_unique_id(date, text):
@@ -127,13 +121,20 @@ async def push_wiim(user_id):
                         if exist == False:
                             #check if user is subscribed to pushSubscription to receive push notifications
                             
+                            if symbol in stocks_symbols:
+                                asset_type = 'stock'
+                            elif symbol in etf_symbols:
+                                asset_type = 'etf'
+                            else:
+                                asset_type = 'index'
+
                             newNotification = {
                                 'opUser': user_id,
                                 'user': '9ncz4wunmhk0k52', #stocknear bot id
                                 'notifyType': 'wiim',
                                 'sent': True,
                                 'pushHash': unique_id,
-                                'liveResults': {'symbol': symbol, 'assetType': 'stocks' if symbol in stocks_symbols else 'etf'},
+                                'liveResults': {'symbol': symbol, 'assetType': asset_type},
                             }
 
                             notify_item = pb.collection('notifications').create(newNotification)
@@ -191,13 +192,20 @@ async def push_earnings_release(user_id):
                             if exist == False:
                                 #check if user is subscribed to pushSubscription to receive push notifications
                                 
+                                if symbol in stocks_symbols:
+                                    asset_type = 'stock'
+                                elif symbol in etf_symbols:
+                                    asset_type = 'etf'
+                                else:
+                                    asset_type = 'index'
+
                                 newNotification = {
                                     'opUser': user_id,
                                     'user': '9ncz4wunmhk0k52', #stocknear bot id
                                     'notifyType': 'earningsSurprise',
                                     'sent': True,
                                     'pushHash': unique_id,
-                                    'liveResults': {'symbol': symbol, 'assetType': 'stocks' if symbol in stocks_symbols else 'etf'},
+                                    'liveResults': {'symbol': symbol, 'assetType': asset_type},
                                 }
 
                                 notify_item = pb.collection('notifications').create(newNotification)

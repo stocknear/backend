@@ -16,21 +16,7 @@ today = datetime.today().date()
 
 load_dotenv()
 
-# Connect to the databases
-con = sqlite3.connect('stocks.db')
-etf_con = sqlite3.connect('etf.db')
-cursor = con.cursor()
-cursor.execute("PRAGMA journal_mode = wal")
-cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
-stocks_symbols = [row[0] for row in cursor.fetchall()]
 
-etf_cursor = etf_con.cursor()
-etf_cursor.execute("PRAGMA journal_mode = wal")
-etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
-etf_symbols = [row[0] for row in etf_cursor.fetchall()]
-
-con.close()
-etf_con.close()
 
 def get_tickers_from_directory(directory: str):
     try:

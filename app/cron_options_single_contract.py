@@ -22,6 +22,11 @@ directory_path = "json/all-options-contracts"
 current_date = datetime.now().date()
 
 async def save_json(data, symbol, contract_id):
+    if symbol in ['SPX', 'VIX']:
+        symbol = '^SPX'
+    elif symbol == 'VIX':
+        symbol = '^VIX'
+
     directory_path = f"json/all-options-contracts/{symbol}"
     os.makedirs(directory_path, exist_ok=True)  # Ensure the directory exists
     with open(f"{directory_path}/{contract_id}.json", 'wb') as file:  # Use binary mode for orjson
@@ -250,7 +255,9 @@ def get_total_symbols():
         etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
         etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
-    return stocks_symbols + etf_symbols
+    #important: don't add ^ since intrino doesn't add it to the symbol
+    index_symbols =["SPX","VIX"]
+    return stocks_symbols + etf_symbols +index_symbols
 
 
 def get_expiration_date(option_symbol):
