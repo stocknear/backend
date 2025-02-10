@@ -44,7 +44,7 @@ async def calculate_price_reactions(ticker, filtered_data, price_history):
 
     results = []
 
-    with open(f"json/implied-volatility/{ticker}.json",'r') as file:
+    with open(f"json/options-historical-data/companies/{ticker}.json",'r') as file:
         iv_data = ujson.load(file)
 
     for item in filtered_data:
@@ -113,7 +113,7 @@ async def calculate_price_reactions(ticker, filtered_data, price_history):
 
     return results
 
-async def get_past_data(data, ticker, con):
+async def get_past_data(data, ticker):
     # Filter data based on date constraints
     filtered_data = []
     for item in data:
@@ -149,27 +149,47 @@ async def get_past_data(data, ticker, con):
             price_history = await compute_rsi(price_history)
             results = await calculate_price_reactions(ticker, filtered_data, price_history)
             #print(results[0])
-            await save_json(results, ticker, 'json/earnings/past')
+            # Calculate statistics for earnings and revenue surprises
+            stats_dict = {
+                'totalReports': len(filtered_data[:8]),
+                'positiveEpsSurprises': len([r for r in filtered_data[:8] if r.get('epsSurprisePercent', 0) > 0]),
+                'positiveRevenueSurprises': len([r for r in filtered_data[:8] if r.get('revenueSurprisePercent', 0) > 0])
+            }
+
+
+            # Calculate percentages if there are results
+            if stats_dict['totalReports'] > 0:
+                stats_dict['positiveEpsPercent'] = round((stats_dict['positiveEpsSurprises'] / stats_dict['totalReports']) * 100)
+                stats_dict['positiveRevenuePercent'] = round((stats_dict['positiveRevenueSurprises'] / stats_dict['totalReports']) * 100)
+            else:
+                stats_dict['positiveEpsPercent'] = 0
+                stats_dict['positiveRevenuePercent'] = 0
+
+            # Add stats to first result entry if results exist
+            if results:
+                res_dict = {'stats': stats_dict, 'history': results}
+                await save_json(res_dict, ticker, 'json/earnings/past')
             
+
         except:
             pass
 
 
-async def get_data(session, ticker, con):
+async def get_data(session, ticker):
     querystring = {"token": api_key, "parameters[tickers]": ticker}
     try:
         async with session.get(url, params=querystring, headers=headers) as response:
             data = ujson.loads(await response.text())['earnings']
             
-            await get_past_data(data, ticker, con)
+            await get_past_data(data, ticker)
             
     except Exception as e:
         print(e)
         #pass
 
-async def run(stock_symbols, con):
+async def run(stock_symbols):
     async with aiohttp.ClientSession() as session:
-        tasks = [get_data(session, symbol, con) for symbol in stock_symbols]
+        tasks = [get_data(session, symbol) for symbol in stock_symbols]
         for f in tqdm(asyncio.as_completed(tasks), total=len(stock_symbols)):
             await f
 
@@ -180,9 +200,11 @@ try:
     cursor.execute("PRAGMA journal_mode = wal")
     cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
     stock_symbols = [row[0] for row in cursor.fetchall()]
-    #stock_symbols = ['AMD']
+    #stock_symbols = ['TSLA']
 
-    asyncio.run(run(stock_symbols, con))
+    con.close()
+
+    asyncio.run(run(stock_symbols))
     
 except Exception as e:
     print(e)
