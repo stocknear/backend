@@ -115,7 +115,10 @@ def format_upcoming_earnings_data(earnings_data):
             )
             formatted_items.append(entry)
     
-    return "".join(formatted_items)
+    support_message = "\nIf you don’t want Stocknear to go bankrupt, it would be awesome if you could [support me](https://stocknear.com/pricing)! 🙌"
+    
+    return "".join(formatted_items) + support_message
+
 
 def format_recent_earnings_data(earnings_data):
     """Format earnings data into Reddit-friendly markdown with bullet points."""
@@ -163,7 +166,9 @@ def format_recent_earnings_data(earnings_data):
 
             formatted_items.append(entry)
     
-    return "".join(formatted_items)
+    support_message = "\nIf you don’t want Stocknear to go bankrupt, it would be awesome if you could [support me](https://stocknear.com/pricing)! 🙌"
+    
+    return "".join(formatted_items) + support_message
 
 def format_afterhour_market():
     try:
