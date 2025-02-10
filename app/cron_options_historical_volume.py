@@ -1,12 +1,9 @@
-import requests
 import orjson
-import re
 from datetime import datetime,timedelta
 from dotenv import load_dotenv
 import os
 import sqlite3
 import pandas as pd
-import time
 from tqdm import tqdm
 from collections import defaultdict
 
@@ -36,23 +33,13 @@ def safe_round(value, decimals=2):
 
 
 def aggregate_data_by_date(symbol):
-    data_by_date = defaultdict(lambda: {
-        "date": "",
-        "call_volume": 0,
-        "put_volume": 0,
-        "call_open_interest": 0,
-        "put_open_interest": 0,
-        "call_premium": 0,
-        "put_premium": 0,
-        "call_gex": 0,
-        "put_gex": 0,
-        "call_dex": 0,
-        "put_dex": 0,
-        "iv": 0.0,  # Sum of implied volatilities
-        "iv_count": 0,  # Count of entries for IV
-    })
+    # Pre-load price data and create lookup dictionary for better performance
+    with open(f"json/historical-price/max/{symbol}.json", "r") as file:
+        price_list = {p['time']: p['close'] for p in orjson.loads(file.read())}
     
-    # Calculate cutoff date (1 year ago)
+    # Use dict instead of defaultdict for better performance
+    data_by_date = {}
+    
     today = datetime.today().date()
     one_year_ago = today - timedelta(days=365)
     one_year_ago_str = one_year_ago.strftime('%Y-%m-%d')
@@ -60,93 +47,90 @@ def aggregate_data_by_date(symbol):
     contract_dir = f"json/all-options-contracts/{symbol}"
     contract_list = get_contracts_from_directory(contract_dir)
 
-    with open(f"json/historical-price/max/{symbol}.json","r") as file:
-        price_list = orjson.loads(file.read())
-
-    if len(contract_list) > 0:
-        for item in tqdm(contract_list):
-            try:
-                file_path = os.path.join(contract_dir, f"{item}.json")
-                with open(file_path, "r") as file:
-                    data = orjson.loads(file.read())
-                
-                option_type = data.get('optionType', None)
-                if option_type not in ['call', 'put']:
-                    continue
-                
-                for entry in data.get('history', []):
-                    date = entry.get('date')
-
-                    # Skip entries older than one year
-                    if date < one_year_ago_str:
-                        continue
-                    
-                    volume = entry.get('volume', 0) or 0
-                    open_interest = entry.get('open_interest', 0) or 0
-                    total_premium = entry.get('total_premium', 0) or 0
-                    implied_volatility = entry.get('implied_volatility', 0) or 0
-                    gamma = entry.get('gamma',0) or 0
-                    delta = entry.get('delta',0) or 0
-
-                    # Find the matching date in price_list
-                    matching_price = next((p for p in price_list if p.get('time') == date), 0)
-
-                    if matching_price:
-                        spot_price = matching_price['close']
-                    else:
-                        continue
-
-                    gex = open_interest * gamma * spot_price
-                    dex = open_interest * delta * spot_price
-
-
-                    daily_data = data_by_date[date]
-                    daily_data["date"] = date
-                    
-                    if option_type == 'call':
-                        daily_data["call_volume"] += int(volume)
-                        daily_data["call_open_interest"] += int(open_interest)
-                        daily_data["call_premium"] += int(total_premium)
-                        daily_data["call_gex"] += round(gex,2)
-                        daily_data["call_dex"] += round(dex,2)
-                    elif option_type == 'put':
-                        daily_data["put_volume"] += int(volume)
-                        daily_data["put_open_interest"] += int(open_interest)
-                        daily_data["put_premium"] += int(total_premium)
-                        daily_data["put_gex"] += round(gex,2)
-                        daily_data["put_dex"] += round(dex,2)
-                    
-                    # Aggregate IV for both calls and puts
-                    daily_data["iv"] += round(implied_volatility, 2)
-                    daily_data["iv_count"] += 1
-                    
-                    # Calculate put/call ratio
-                    try:
-                        daily_data["putCallRatio"] = round(daily_data["put_volume"] / daily_data["call_volume"], 2)
-                    except ZeroDivisionError:
-                        daily_data["putCallRatio"] = None
-            
-            except Exception as e:
-                print(f"Error processing {item}: {e}")
-                continue
-        
-        # Convert to list and calculate average IV
-        data = []
-        for date, daily in data_by_date.items():
-            if daily['iv_count'] > 0:
-                daily['iv'] = round(daily['iv'] / daily['iv_count'], 2)
-            else:
-                daily['iv'] = None
-            data.append(daily)
-        
-        # Sort and calculate IV Rank
-        data = sorted(data, key=lambda x: x['date'])
-        data = calculate_iv_rank_for_all(data)
-        data = sorted(data, key=lambda x: x['date'], reverse=True)
-
-        return data
-    else:
+    if not contract_list:
         return []
+
+    for item in tqdm(contract_list):
+        try:
+            file_path = os.path.join(contract_dir, f"{item}.json")
+            with open(file_path, "r") as file:
+                data = orjson.loads(file.read())
+            
+            option_type = data.get('optionType')
+            if option_type not in ['call', 'put']:
+                continue
+            
+            is_call = option_type == 'call'
+            
+            for entry in data.get('history', []):
+                date = entry.get('date')
+                #if date < one_year_ago_str:
+                #    continue
+                
+                spot_price = price_list.get(date)
+                if not spot_price:
+                    continue
+
+                volume = entry.get('volume', 0) or 0
+                open_interest = entry.get('open_interest', 0) or 0
+                total_premium = entry.get('total_premium', 0) or 0
+                implied_volatility = entry.get('implied_volatility', 0) or 0
+                gamma = entry.get('gamma', 0) or 0
+                delta = entry.get('delta', 0) or 0
+
+                gex = open_interest * gamma * spot_price
+                dex = open_interest * delta * spot_price
+
+                if date not in data_by_date:
+                    data_by_date[date] = {
+                        "date": date,
+                        "call_volume": 0,
+                        "put_volume": 0,
+                        "call_open_interest": 0,
+                        "put_open_interest": 0,
+                        "call_premium": 0,
+                        "put_premium": 0,
+                        "call_gex": 0,
+                        "put_gex": 0,
+                        "call_dex": 0,
+                        "put_dex": 0,
+                        "iv": [],
+                        "iv_count": 0,
+                    }
+
+                daily_data = data_by_date[date]
+                
+                # Use conditional indexing instead of if-else
+                type_prefix = 'call_' if is_call else 'put_'
+                daily_data[f"{type_prefix}volume"] += int(volume)
+                daily_data[f"{type_prefix}open_interest"] += int(open_interest)
+                daily_data[f"{type_prefix}premium"] += int(total_premium)
+                daily_data[f"{type_prefix}gex"] += round(gex, 2)
+                daily_data[f"{type_prefix}dex"] += round(dex, 2)
+                
+                daily_data["iv"].append(round(implied_volatility, 2))
+                daily_data["iv_count"] += 1
+                
+                try:
+                    daily_data["putCallRatio"] = round(daily_data["put_volume"] / daily_data["call_volume"], 2)
+                except ZeroDivisionError:
+                    daily_data["putCallRatio"] = None
+        
+        except:
+            continue
+
+    # Convert to list and calculate median IV
+    data = list(data_by_date.values())
+    
+    # Use vectorized operations with pandas for IV calculations
+    df = pd.DataFrame(data)
+    df['iv'] = df.apply(lambda x: round(float(pd.Series(x['iv']).median()), 2) if x['iv_count'] > 0 else None, axis=1)
+    
+    # Sort and calculate IV Rank
+    data = df.to_dict('records')
+    data = sorted(data, key=lambda x: x['date'])
+    data = calculate_iv_rank_for_all(data)
+    return sorted(data, key=lambda x: x['date'], reverse=True)
 
 def calculate_iv_rank_for_all(data):
     if not data:
@@ -199,88 +183,65 @@ def calculate_iv_rank_for_all(data):
 
 
 def prepare_data(data, symbol):
-    
+    # Filter data first to reduce processing
     data = [entry for entry in data if entry['call_volume'] != 0 or entry['put_volume'] != 0]
+    if not data:
+        return
     
     start_date_str = data[-1]['date']
     end_date_str = data[0]['date']
 
-    query = query_template.format(ticker=symbol)
-    if symbol in stocks_symbols:
-        query_con = con
-    elif symbol in etf_symbols:
-        query_con = etf_con
-    else:
-        query_con = index_con
+    # Determine query connection
+    query_con = (con if symbol in stocks_symbols else 
+                etf_con if symbol in etf_symbols else 
+                index_con)
 
-    df_price = pd.read_sql_query(query, query_con, params=(start_date_str, end_date_str)).round(2)
+    # Use pandas efficient reading and processing
+    df_price = pd.read_sql_query(
+        query_template.format(ticker=symbol),
+        query_con,
+        params=(start_date_str, end_date_str)
+    ).round(2)
+
     df_price = df_price.rename(columns={"change_percent": "changesPercentage"})
-
-    # Convert the DataFrame to a dictionary for quick lookups by date
-    df_change_dict = df_price.set_index('date')['changesPercentage'].to_dict()
-    df_close_dict = df_price.set_index('date')['close'].to_dict()
+    price_lookup = df_price.set_index('date').to_dict('index')
 
     res_list = []
-
     for item in data:
         try:
-            # Round numerical and numerical-string values
             new_item = {
                 key: safe_round(value) if isinstance(value, (int, float, str)) else value
                 for key, value in item.items()
             }
 
-            # Add parsed fields
-            new_item['volume'] = round(new_item['call_volume'] + new_item['put_volume'], 2)
-            new_item['putCallRatio'] = round(new_item['put_volume']/new_item['call_volume'],2)
-            #new_item['avgVolumeRatio'] = round(new_item['volume'] / (round(new_item['avg_30_day_call_volume'] + new_item['avg_30_day_put_volume'], 2)), 2)
-            new_item['total_premium'] = round(new_item['call_premium'] + new_item['put_premium'], 2)
-            #new_item['net_premium'] = round(new_item['net_call_premium'] - new_item['net_put_premium'],2)
-            new_item['total_open_interest'] = round(new_item['call_open_interest'] + new_item['put_open_interest'], 2)
+            # Calculate derived fields
+            new_item.update({
+                'volume': new_item['call_volume'] + new_item['put_volume'],
+                'putCallRatio': round(new_item['put_volume'] / new_item['call_volume'], 2),
+                'total_premium': new_item['call_premium'] + new_item['put_premium'],
+                'total_open_interest': new_item['call_open_interest'] + new_item['put_open_interest']
+            })
 
-            
-            #bearish_premium = float(item['bearish_premium'])
-            #bullish_premium = float(item['bullish_premium'])
-            #neutral_premium = calculate_neutral_premium(item)
-            '''
-            new_item['premium_ratio'] = [
-                safe_round(bearish_premium),
-                neutral_premium,
-                safe_round(bullish_premium)
-            ]
-            '''
-
-            # Add changesPercentage if the date exists in df_change_dict
-            if item['date'] in df_change_dict:
-                new_item['changesPercentage'] = float(df_change_dict[item['date']])
+            # Get price data from lookup
+            if price_data := price_lookup.get(item['date']):
+                new_item['changesPercentage'] = float(price_data['changesPercentage'])
+                new_item['price'] = float(price_data['close'])
             else:
                 new_item['changesPercentage'] = None
-
-            if item['date'] in df_close_dict:
-                new_item['price'] = float(df_close_dict[item['date']])
-            else:
                 new_item['price'] = None
 
             res_list.append(new_item)
         except:
-            pass
+            continue
+
+    # Calculate OI changes using vectorized operations
+    df = pd.DataFrame(res_list)
+    df = df.sort_values('date')
+    df['changeOI'] = df['total_open_interest'].diff()
+    df['changesPercentageOI'] = (df['total_open_interest'].pct_change() * 100).round(2)
     
-
-    res_list = sorted(res_list, key=lambda x: x['date'])
-
-    for i in range(1, len(res_list)):
-        try:
-            current_open_interest = res_list[i]['total_open_interest']
-            previous_open_interest = res_list[i-1]['total_open_interest']
-            changes_percentage_oi = round((current_open_interest/previous_open_interest -1)*100,2)
-            res_list[i]['changesPercentageOI'] = changes_percentage_oi
-            res_list[i]['changeOI'] = current_open_interest-previous_open_interest
-        except:
-            res_list[i]['changesPercentageOI'] = None
-            res_list[i]['changeOI'] = None
-
-    res_list = sorted(res_list, key=lambda x: x['date'],reverse=True)
-
+    res_list = df.sort_values('date', ascending=False).to_dict('records')
+    
     if res_list:
         save_json(res_list, symbol)
 

@@ -57,7 +57,6 @@ intrinio.ApiClient().allow_retries(True)
 
 after = (datetime.today()- timedelta(days=365)).strftime('%Y-%m-%d')
 before = '2100-12-31'
-N_year_ago = datetime.now() - timedelta(days=365)
 include_related_symbols = False
 page_size = 5000
 MAX_CONCURRENT_REQUESTS = 100  # Adjust based on API rate limits

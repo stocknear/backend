@@ -62,11 +62,89 @@ def save_json(data, symbol):
         file.write(orjson.dumps(serializable_data))
 
 
+def is_outlier(value, values, n_sigmas=3):
+    """
+    Detect if a value is an outlier using the z-score method
+    
+    Args:
+        value: The value to check
+        values: List of values to compare against
+        n_sigmas: Number of standard deviations to use as threshold (default: 3)
+    
+    Returns:
+        bool: True if the value is an outlier, False otherwise
+    """
+    if value is None or not values:
+        return False
+    
+    values = [v for v in values if v is not None]
+    if not values:
+        return False
+
+    mean = np.mean(values)
+    std = np.std(values)
+    
+    if std == 0:
+        return False
+        
+    z_score = abs((value - mean) / std)
+    return z_score > n_sigmas
+
+def clean_iv_data(data):
+    """
+    Clean IV data by handling outliers
+    
+    Args:
+        data: List of dictionaries containing IV values
+        
+    Returns:
+        List of dictionaries with cleaned IV values
+    """
+    # Extract IV values
+    iv_values = [item.get('iv') for item in data]
+    
+    # Create a copy of the data to modify
+    cleaned_data = []
+    
+    window_size = 20  # Rolling window size for outlier detection
+    
+    for i, item in enumerate(data):
+        cleaned_item = item.copy()
+        iv = item.get('iv')
+        
+        if iv is not None:
+            # Get a window of IV values centered around the current point
+            start_idx = max(0, i - window_size // 2)
+            end_idx = min(len(data), i + window_size // 2)
+            window_values = [data[j].get('iv') for j in range(start_idx, end_idx)]
+            
+            # Check if the current IV is an outlier
+            if is_outlier(iv, window_values):
+                # Replace outlier with the median of nearby non-outlier values
+                non_outlier_values = [
+                    v for v in window_values 
+                    if v is not None and not is_outlier(v, window_values)
+                ]
+                
+                if non_outlier_values:
+                    cleaned_item['iv'] = round(np.median(non_outlier_values), 2)
+                else:
+                    cleaned_item['iv'] = None
+            else:
+                cleaned_item['iv'] = round(iv, 2)
+                
+        cleaned_data.append(cleaned_item)
+    
+    return cleaned_data
+
 def compute_realized_volatility(data, window_size=20):
     """
     Compute the realized volatility of stock prices over a rolling window.
     Realized volatility is the annualized standard deviation of log returns of stock prices.
     """
+    # First clean the IV data
+    data = clean_iv_data(data)
+    
     # Sort data by date (oldest first)
     data = sorted(data, key=lambda x: x['date'])
     
@@ -142,6 +220,7 @@ def compute_realized_volatility(data, window_size=20):
 if __name__ == '__main__':
     directory_path = "json/implied-volatility"
     total_symbols = stocks_symbols + etf_symbols + index_symbols
+
 
     for symbol in tqdm(total_symbols):
         try:
