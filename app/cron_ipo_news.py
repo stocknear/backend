@@ -45,19 +45,19 @@ def main():
         # Wait for the page to load
         driver.implicitly_wait(5)
 
-        # Find all the news containers
-        news_items = driver.find_elements(By.CSS_SELECTOR, ".gap-4.border-gray-300.bg-white.p-4.shadow.last\\:pb-1")
+        # Updated selector for news containers
+        news_items = driver.find_elements(By.CSS_SELECTOR, "div.gap-4.border-gray-300.bg-white.p-4.shadow")
 
         # Extract data from the containers
         news_data = []
         for item in news_items:
             try:
-                # Extract relevant elements
+                # Updated selectors
                 title_element = item.find_element(By.CSS_SELECTOR, "h3 a")
-                description_element = item.find_element(By.CSS_SELECTOR, "p")
-                timestamp_element = item.find_element(By.CSS_SELECTOR, ".text-sm.text-faded")
-                stocks_element = item.find_elements(By.CSS_SELECTOR, ".ticker")
-                img_element = item.find_element(By.CSS_SELECTOR, "img.h-full.w-full.rounded.object-cover")
+                description_element = item.find_element(By.CSS_SELECTOR, "p.overflow-auto")
+                timestamp_element = item.find_element(By.CSS_SELECTOR, "div.text-sm.text-faded")
+                stocks_element = item.find_elements(By.CSS_SELECTOR, "a.ticker")
+                img_element = item.find_element(By.CSS_SELECTOR, "img.w-full.rounded.object-cover")
 
                 # Get element data
                 title = title_element.text
@@ -87,7 +87,9 @@ def main():
         df = pd.DataFrame(news_data)
 
         # Save the DataFrame to a JSON file
-        df.to_json(json_file_path, orient='records', indent=2)
+        if not df.empty:
+            print(df)
+            df.to_json(json_file_path, orient='records', indent=2)
 
     finally:
         # Ensure the WebDriver is closed
