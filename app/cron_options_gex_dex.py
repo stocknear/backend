@@ -35,7 +35,7 @@ index_symbols =["^SPX","^VIX"]
 con.close()
 etf_con.close()
 
-total_symbols = index_symbols #stocks_symbols+etf_symbols+index_symbols
+total_symbols = stocks_symbols+etf_symbols+index_symbols
 
 def save_json(data, symbol, directory_path):
     os.makedirs(directory_path, exist_ok=True)  # Ensure the directory exists
@@ -67,6 +67,7 @@ def get_contracts_from_directory(directory: str):
 def get_expiration_date(option_symbol):
     # Define regex pattern to match the symbol structure
     match = re.match(r"(\^?[A-Z]+)(\d{6})([CP])(\d+)", option_symbol)
+
     if not match:
         raise ValueError(f"Invalid option_symbol format: {option_symbol}")
     
@@ -74,6 +75,7 @@ def get_expiration_date(option_symbol):
     
     # Convert expiration to datetime
     date_expiration = datetime.strptime(expiration, "%y%m%d").date()
+
     return date_expiration
 
 def aggregate_data_by_strike(symbol):
@@ -90,7 +92,6 @@ def aggregate_data_by_strike(symbol):
     
     # Only consider contracts that haven't expired
     contract_list = [item for item in contract_list if get_expiration_date(item) >= today]
-
     # Load historical price data
     with open(f"json/historical-price/max/{symbol}.json", "r") as file:
         price_list = orjson.loads(file.read())
@@ -118,6 +119,7 @@ def aggregate_data_by_strike(symbol):
                 open_interest = latest_entry.get("open_interest", 0) or 0
                 gamma = latest_entry.get("gamma", 0) or 0
                 delta = latest_entry.get("delta", 0) or 0
+
 
                 # Find the matching spot price for the date
                 matching_price = next((p for p in price_list if p.get("time") == date), None)
