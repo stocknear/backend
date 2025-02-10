@@ -204,87 +204,114 @@ def filter_latest_analyst_unique_rating(data):
     return [value['entry'] for value in latest_entries.values()]
 
 def process_top_analyst_data(data, current_price):
-    data = [item for item in data if item.get('analystScore', 0) >= 4] if data else []
-    data = filter_latest_analyst_unique_rating(data)
-    # Filter recent data from the last 12 months
-    recent_data = [
-        item for item in data
-        if 'date' in item and datetime.strptime(item['date'], "%Y-%m-%d") >= one_year_ago
-    ][:30]  # Consider only the last 30 ratings
+    try:
+        # Filter for top analysts with score >= 4
+        filtered_data = []
+        for item in data:
+            try:
+                if item['analystScore'] >= 4:
+                    filtered_data.append(item)
+            except:
+                pass
+        data = filtered_data
 
-    # Count filtered analysts
-    if len(recent_data) > 0:
+        data = filter_latest_analyst_unique_rating(data)
+        
+        # Filter recent data from last 12 months, limit to 30 most recent
+        recent_data = []
+
+        for item in data:
+            try:
+                if 'date' in item and datetime.strptime(item['date'], "%Y-%m-%d") >= one_year_ago:
+                    recent_data.append(item)
+            except:
+                pass
+
+        recent_data = recent_data[:30]
+
+        if not recent_data:
+            return {
+                "topAnalystCounter": None,
+                "topAnalystPriceTarget": None, 
+                "topAnalystUpside": None,
+                "topAnalystRating": None
+            }
+
         filtered_analyst_count = len(recent_data)
 
-        # Extract and filter price targets
-        price_targets = [
-            float(item['adjusted_pt_current']) for item in recent_data
-            if 'adjusted_pt_current' in item and item['adjusted_pt_current'] and not math.isnan(float(item['adjusted_pt_current']))
-        ]
+        # Extract valid price targets
+        price_targets = []
+        for item in recent_data:
+            try:
+                pt = item.get('adjusted_pt_current')
+                if pt and not math.isnan(float(pt)):
+                    price_targets.append(float(pt))
+            except (ValueError, TypeError):
+                continue
 
         # Calculate median price target
         median_price_target = None
         if price_targets:
             price_targets.sort()
-            median_index = len(price_targets) // 2
+            mid = len(price_targets) // 2
             median_price_target = (
-                price_targets[median_index]
-                if len(price_targets) % 2 != 0 else
-                (price_targets[median_index - 1] + price_targets[median_index]) / 2
+                price_targets[mid] if len(price_targets) % 2 
+                else (price_targets[mid-1] + price_targets[mid]) / 2
             )
-        if median_price_target <= 0:
-            median_price_target = None
-        # Calculate changes percentage
+            if median_price_target <= 0:
+                median_price_target = None
+
+        # Calculate upside percentage
         upside = None
-        if median_price_target != None  and current_price is not None:
+        if median_price_target and current_price and current_price > 0:
             upside = round(((median_price_target / current_price - 1) * 100), 2)
 
-        # Define rating scores
+        # Rating scores mapping
         rating_scores = {
             "Strong Buy": 5,
-            "Buy": 4,
+            "Buy": 4, 
             "Hold": 3,
             "Sell": 2,
-            "Strong Sell": 1,
+            "Strong Sell": 1
         }
 
-        # Calculate total rating score
-        total_rating_score = sum(
-            rating_scores.get(item.get('rating_current'), 0) for item in recent_data
-        )
-
-        # Calculate average rating score
+        # Calculate average rating
+        valid_ratings = [
+            rating_scores.get(item.get('rating_current', ''), 0) 
+            for item in recent_data
+        ]
+        
         average_rating_score = (
-            round(total_rating_score / filtered_analyst_count,2)
-            if filtered_analyst_count > 0 else 0
+            round(sum(valid_ratings) / len(valid_ratings), 2)
+            if valid_ratings else 0
         )
 
-        # Determine consensus rating
+        # Map average score to consensus rating
+        consensus_rating = None
         if average_rating_score >= 4.5:
             consensus_rating = "Strong Buy"
         elif average_rating_score >= 3.5:
             consensus_rating = "Buy"
         elif average_rating_score >= 2.5:
-            consensus_rating = "Hold"
+            consensus_rating = "Hold" 
         elif average_rating_score >= 1.5:
             consensus_rating = "Sell"
         elif average_rating_score >= 1.0:
             consensus_rating = "Strong Sell"
-        else:
-            consensus_rating = None
 
         return {
             "topAnalystCounter": filtered_analyst_count,
             "topAnalystPriceTarget": median_price_target,
             "topAnalystUpside": upside,
-            "topAnalystRating": consensus_rating,
+            "topAnalystRating": consensus_rating
         }
-    else:
+
+    except Exception as e:
         return {
             "topAnalystCounter": None,
             "topAnalystPriceTarget": None,
-            "topAnalystUpside": None,
-            "topAnalystRating": None,
+            "topAnalystUpside": None, 
+            "topAnalystRating": None
         }
 
 
@@ -647,7 +674,9 @@ async def get_stock_screener(con):
     raw_data = cursor.fetchall()
 
     # Iterate through stock_screener_data and update 'price' and 'changesPercentage' if symbols match
-    # Add VaR value to stock screener
+    #test mode
+    #filtered_data = [item for item in stock_screener_data if item['symbol'] == 'AMD']
+
     for item in tqdm(stock_screener_data):
         symbol = item['symbol']
 
@@ -793,7 +822,6 @@ async def get_stock_screener(con):
             item['topAnalystPriceTarget'] = None
             item['topAnalystUpside'] = None
             item['topAnalystRating'] = None
-
 
 
         try:
@@ -1630,6 +1658,12 @@ async def save_json_files():
     etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
 
+
+    stock_screener_data = await get_stock_screener(con)
+    with open(f"json/stock-screener/data.json", 'w') as file:
+        ujson.dump(stock_screener_data, file)
+    
+    
     data = await get_congress_rss_feed(symbols, etf_symbols)
     with open(f"json/congress-trading/rss-feed/data.json", 'w') as file:
         ujson.dump(data, file)
@@ -1643,11 +1677,6 @@ async def save_json_files():
     data = await get_ipo_calendar(con, symbols)
     with open(f"json/ipo-calendar/data.json", 'w') as file:
         ujson.dump(data, file)
-
-    stock_screener_data = await get_stock_screener(con)
-    with open(f"json/stock-screener/data.json", 'w') as file:
-        ujson.dump(stock_screener_data, file)
-
     
     earnings_list = await get_earnings_calendar(con,symbols)
     with open(f"json/earnings-calendar/calendar.json", 'w') as file:
@@ -1658,12 +1687,10 @@ async def save_json_files():
     with open(f"json/dividends-calendar/calendar.json", 'w') as file:
         ujson.dump(dividends_list, file)
 
-
-    
-    
     data = await etf_providers(etf_con, etf_symbols)
     with open(f"json/all-etf-providers/data.json", 'w') as file:
         ujson.dump(data, file)
+    
         
     
 
