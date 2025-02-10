@@ -94,7 +94,7 @@ def aggregate_data_by_date(symbol):
                     if matching_price:
                         spot_price = matching_price['close']
                     else:
-                        spot_price = 0  # Or some default value
+                        continue
 
                     gex = open_interest * gamma * spot_price
                     dex = open_interest * delta * spot_price
