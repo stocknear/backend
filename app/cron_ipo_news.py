@@ -88,7 +88,6 @@ def main():
 
         # Save the DataFrame to a JSON file
         if not df.empty:
-            print(df)
             df.to_json(json_file_path, orient='records', indent=2)
 
     finally:
