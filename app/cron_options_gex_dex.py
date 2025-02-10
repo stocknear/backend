@@ -35,6 +35,7 @@ index_symbols =["^SPX","^VIX"]
 con.close()
 etf_con.close()
 
+total_symbols = stocks_symbols+etf_symbols+index_symbols
 
 def save_json(data, symbol, directory_path):
     os.makedirs(directory_path, exist_ok=True)  # Ensure the directory exists
@@ -228,8 +229,6 @@ def aggregate_data_by_expiration(symbol):
 
 def get_overview_data():
     directory_path = "json/gex-dex/overview"
-    total_symbols = stocks_symbols+etf_symbols+index_symbols
-
     
     #Test mode
     #total_symbols = ['TSLA']
@@ -258,7 +257,6 @@ def get_overview_data():
 
 def get_strike_data():
     directory_path = "json/gex-dex/strike/"
-    total_symbols = stocks_symbols+etf_symbols
 
     #Test mode
     #total_symbols = ['TSLA']
@@ -278,7 +276,6 @@ def get_strike_data():
 
 def get_expiry_data():
     directory_path = "json/gex-dex/expiry/"
-    total_symbols = stocks_symbols+etf_symbols
 
     #Test mode
     #total_symbols = ['TSLA']

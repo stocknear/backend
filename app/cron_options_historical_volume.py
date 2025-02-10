@@ -206,7 +206,14 @@ def prepare_data(data, symbol):
     end_date_str = data[0]['date']
 
     query = query_template.format(ticker=symbol)
-    df_price = pd.read_sql_query(query, con if symbol in stocks_symbols else etf_con, params=(start_date_str, end_date_str)).round(2)
+    if symbol in stocks_symbols:
+        query_con = con
+    elif symbol in etf_symbols:
+        query_con = etf_con
+    else:
+        query_con = index_con
+
+    df_price = pd.read_sql_query(query, query_con, params=(start_date_str, end_date_str)).round(2)
     df_price = df_price.rename(columns={"change_percent": "changesPercentage"})
 
     # Convert the DataFrame to a dictionary for quick lookups by date
@@ -298,6 +305,8 @@ def get_contracts_from_directory(directory: str):
 # Connect to the databases
 con = sqlite3.connect('stocks.db')
 etf_con = sqlite3.connect('etf.db')
+index_con = sqlite3.connect("index.db")
+
 cursor = con.cursor()
 cursor.execute("PRAGMA journal_mode = wal")
 #cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%' AND marketCap > 1E9")
@@ -324,3 +333,4 @@ for symbol in tqdm(total_symbols):
 
 con.close()
 etf_con.close()
+index_con.close()

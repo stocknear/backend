@@ -22,10 +22,12 @@ directory_path = "json/all-options-contracts"
 current_date = datetime.now().date()
 
 async def save_json(data, symbol, contract_id):
-    if symbol in ['SPX', 'VIX']:
+    if symbol in 'SPX':
         symbol = '^SPX'
+        contract_id = "^"+contract_id
     elif symbol == 'VIX':
         symbol = '^VIX'
+        contract_id = "^"+contract_id
 
     directory_path = f"json/all-options-contracts/{symbol}"
     os.makedirs(directory_path, exist_ok=True)  # Ensure the directory exists
