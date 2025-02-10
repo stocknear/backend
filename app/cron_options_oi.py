@@ -84,6 +84,8 @@ async def get_single_contract_data(symbol, expiration, semaphore):
             return None
 
 async def process_batch(symbol, batch, semaphore, pbar):
+    symbol = symbol.replace("^","") #for index symbols
+
     tasks = [get_single_contract_data(symbol, contract, semaphore) for contract in batch]
     results = []
     

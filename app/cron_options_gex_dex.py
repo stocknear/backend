@@ -35,7 +35,7 @@ index_symbols =["^SPX","^VIX"]
 con.close()
 etf_con.close()
 
-total_symbols = stocks_symbols+etf_symbols+index_symbols
+total_symbols = index_symbols #stocks_symbols+etf_symbols+index_symbols
 
 def save_json(data, symbol, directory_path):
     os.makedirs(directory_path, exist_ok=True)  # Ensure the directory exists
@@ -66,7 +66,7 @@ def get_contracts_from_directory(directory: str):
 
 def get_expiration_date(option_symbol):
     # Define regex pattern to match the symbol structure
-    match = re.match(r"([A-Z]+)(\d{6})([CP])(\d+)", option_symbol)
+    match = re.match(r"(\^?[A-Z]+)(\d{6})([CP])(\d+)", option_symbol)
     if not match:
         raise ValueError(f"Invalid option_symbol format: {option_symbol}")
     

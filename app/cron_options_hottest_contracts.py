@@ -46,7 +46,7 @@ def save_json(data, symbol, directory="json/hottest-contracts/companies"):
 
 
 def parse_option_symbol(option_symbol):
-    match = re.match(r"([A-Z]+)(\d{6})([CP])(\d+)", option_symbol)
+    match = re.match(r"(\^?[A-Z]+)(\d{6})([CP])(\d+)", option_symbol)
     if not match:
         raise ValueError(f"Invalid option_symbol format: {option_symbol}")
     ticker, expiration, option_type, strike_price = match.groups()
