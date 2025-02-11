@@ -13,6 +13,7 @@ import aiohttp
 import pytz
 import pandas as pd
 import numpy as np
+from tqdm import tqdm
 
 import smtplib
 from email.mime.multipart import MIMEMultipart
@@ -37,7 +38,7 @@ pb = PocketBase('http://127.0.0.1:8090')
 admin_data = pb.collection('_superusers').auth_with_password(pb_admin_email, pb_password)
 
 
-now = datetime.now()
+now = datetime.today().date()
 #one_month_ago = now - timedelta(days=30)
 time_threshold = now - timedelta(days=7)
 
@@ -109,23 +110,49 @@ async def update_free_trial():
                 print(e)
 
 
+
 async def downgrade_user():
 
     user_data =  pb.collection('users').get_full_list()
-    for item in user_data:
+    for item in tqdm(user_data):
         if item.tier != 'Pro':
             stock_screener_data = pb.collection("stockscreener").get_full_list(query_params = {"filter": f"user = '{item.id}'"})
             for screener in stock_screener_data:
-                pb.collection('stockscreener').delete(screener.id);
+                pb.collection('stockscreener').delete(screener.id)
 
             options_watchlist_data = pb.collection("optionsWatchlist").get_full_list(query_params = {"filter": f"user = '{item.id}'"})
             for watchlist in options_watchlist_data:
-                pb.collection('optionsWatchlist').delete(watchlist.id);
+                pb.collection('optionsWatchlist').delete(watchlist.id)
+
+
+            payment_data = pb.collection("payments").get_full_list(query_params = {"filter": f"user = '{item.id}'"})
+            for item in payment_data:
+                pb.collection('payments').delete(item.id)
+
+
+async def delete_old_notifications():
+    # Get the current datetime
+    now = datetime.utcnow()
+    # Calculate the threshold datetime
+    time_threshold = now - timedelta(days=7)
+
+    # Fetch all notifications
+    data = pb.collection("notifications").get_full_list()
+    for item in data:
+        try:
+            # Ensure both are datetime objects before comparison
+            if item.created < time_threshold:
+                pb.collection('notifications').delete(item.id)
+        except:
+            pass
+
+
 
 
 async def run():
 
     await update_free_trial()
     await downgrade_user()
+    await delete_old_notifications()
 
 asyncio.run(run())
