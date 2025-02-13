@@ -18,6 +18,7 @@ job_status = {
 }
 
 ny_tz = timezone('America/New_York')
+berlin_tz = timezone('Europe/Berlin')
 
 # Setup logging
 '''
@@ -346,6 +347,25 @@ def run_push_notifications():
     if week <= 4 and 7 <= hour < 20:
         run_command(["python3", "cron_push_notifications.py"])
     
+def run_reddit_bot():
+    now = datetime.now(berlin_tz)
+    week = now.weekday()
+    hour = now.hour
+    minute = now.minute  # Add minute check for precise timing
+
+    if week <= 4:  # Only run Monday to Friday
+        if hour == 10 and minute == 0:
+            subprocess.run(["python3", "cron_reddit_bot.py", "--post_type", "earnings"])
+
+        if hour == 12 and minute == 0:
+            subprocess.run(["python3", "cron_reddit_bot.py", "--post_type", "premarket"])
+
+        if hour == 22 and minute == 15:
+            subprocess.run(["python3", "cron_reddit_bot.py", "--post_type", "stock-list"])
+
+        if hour == 23 and minute == 0:
+            subprocess.run(["python3", "cron_reddit_bot.py", "--post_type", "aftermarket"])
+
 
 # Create functions to run each schedule in a separate thread
 def run_threaded(job_func):
@@ -424,6 +444,7 @@ schedule.every(5).minutes.do(run_threaded, run_list).tag('stock_list_job')
 #schedule.every(10).seconds.do(run_threaded, run_dark_pool_flow).tag('dark_pool_flow_job')
 
 schedule.every(2).minutes.do(run_threaded, run_dashboard).tag('dashboard_job')
+schedule.every(1).minutes.do(run_threaded, run_reddit_bot).tag('reddit_bot_job')
 
 
 schedule.every(10).seconds.do(run_threaded, run_if_not_running(run_cron_options_flow, 'options_flow_job')).tag('options_flow_job')
