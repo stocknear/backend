@@ -227,6 +227,74 @@ async def push_earnings_release(user_id):
     except Exception as e:
         print(e)
 
+async def push_top_analyst(user_id):
+    """
+    Pushes the latest earnings releases based on users' watchlists.
+
+    Steps:
+    1. Retrieve the watchlist for each user.
+    2. Iterate through the tickers in the watchlist.
+    3. Load the corresponding top analyst ratings files and verify if its creation date matches today's date.
+    4. If the date matches, check if a notification has already been sent using pushHash.
+    5. If no notification has been sent, create and send one.
+    """
+    try:
+        result = pb.collection("watchlist").get_full_list(query_params={"filter": f"user='{user_id}'"})
+        all_tickers = set()
+        for item in result:
+            all_tickers.update(item.ticker)
+        all_tickers = list(all_tickers)
+        if all_tickers:
+            for symbol in all_tickers:
+                try:
+                    with open(f"json/analyst/history/{symbol}.json","r") as file:
+                        data = orjson.loads(file.read())
+                        data = [item for item in data if item['analystScore'] >=4 and item['date'] == today and item['rating_current'] != None and item['adjusted_pt_current'] != None]
+
+                    for item in data:
+                        try:
+                            sorted_data = json.dumps(item, sort_keys=True)
+                            unique_id = hashlib.md5(sorted_data.encode()).hexdigest()
+                            
+                            #check if push notification already exist
+                            all_notification = pb.collection("notifications").get_full_list(query_params={"filter": f"opUser='{user_id}'"})
+                            exist = any(notify_item.push_hash == unique_id for notify_item in all_notification)
+                            
+
+                            if exist == False:
+                                #check if user is subscribed to pushSubscription to receive push notifications
+                                asset_type = 'stock'
+                             
+                                newNotification = {
+                                    'opUser': user_id,
+                                    'user': '9ncz4wunmhk0k52', #stocknear bot id
+                                    'notifyType': 'topAnalyst',
+                                    'sent': True,
+                                    'pushHash': unique_id,
+                                    'liveResults': {'symbol': symbol, 'assetType': asset_type, 'analyst': item['analyst'], 'rating_current': item['rating_current'], 'adjusted_pt_current': item['adjusted_pt_current']},
+                                }
+
+                                notify_item = pb.collection('notifications').create(newNotification)
+
+                                #if is_pro == True:
+
+                                check_subscription = pb.collection("pushSubscription").get_full_list(query_params={"filter": f"user='{user_id}'"})
+                                user_subscribed = False
+                                for sub in check_subscription:
+                                    if sub.user == user_id:
+                                        user_subscribed = True
+                                        break
+                                if user_subscribed:
+                                    title = f'New Top Analyst Rating for {symbol}'
+                                    text = f"The rating company {item['analyst']} has issued a new rating of „{item['rating_current']}“ with an updated price target of ${item['adjusted_pt_current']}."
+                                    await push_notification(title, text, user_id)
+                        except Exception as e:
+                            print(e)
+                except:
+                    pass
+    except Exception as e:
+        print(e)
+
 
 async def run():
     all_users = pb.collection("users").get_full_list()
@@ -243,6 +311,9 @@ async def run():
 
                 if channel.earnings_surprise == True:
                     await push_earnings_release(user_id=user_id)
+
+                if channel.top_analyst == True:
+                    await push_top_analyst(user_id=user_id)
         
         except Exception as e:
             print(e)
