@@ -62,8 +62,8 @@ def correct_weekday(selected_date):
     return selected_date
 
 # Create a semaphore to limit concurrent requests
-REQUEST_LIMIT = 500
-PAUSE_TIME = 5
+REQUEST_LIMIT = 30
+PAUSE_TIME = 1
 
 def check_existing_file(symbol):
     file_path = f"json/wiim/company/{symbol}.json"
@@ -95,8 +95,8 @@ def check_existing_file(symbol):
             else:
                 os.remove(file_path)
                 print(f"Deleted file for {symbol} as all entries were older than two weeks.")
-        except Exception as e:
-            print(f"Error processing existing file for {symbol}: {e}")
+        except:
+            pass
 
 async def get_endpoint(session, symbol, con, semaphore):
     async with semaphore:
@@ -144,8 +144,7 @@ async def get_endpoint(session, symbol, con, semaphore):
                                 change_percent = round((df['close'].iloc[1] / df['close'].iloc[0] - 1) * 100, 2)
                             else:
                                 change_percent = '-'
-                        except Exception as e:
-                            print(f"Error fetching stock data for {symbol}: {e}")
+                        except:
                             change_percent = '-'
                         
                         res_list.append({
@@ -163,8 +162,8 @@ async def get_endpoint(session, symbol, con, semaphore):
                 else:
                     check_existing_file(symbol)
                     
-        except Exception as e:
-            print(f"Error fetching data for {symbol}: {e}")
+        except:
+            pass
 
 async def run():
     con = sqlite3.connect('stocks.db')
