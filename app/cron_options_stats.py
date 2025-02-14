@@ -132,9 +132,14 @@ async def main():
 
             if aggregate:
                 save_json(aggregate, symbol)
+            else:
+                os.remove(f"json/options-stats/companies/{symbol}.json")
 
         except:
-            pass
-            
+            try:
+                os.remove(f"json/options-stats/companies/{symbol}.json")
+            except:
+                pass
+
 if __name__ == "__main__":
     asyncio.run(main())
