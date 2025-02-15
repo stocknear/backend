@@ -20,7 +20,7 @@ async def save_json(symbol, data):
 async def get_data(symbol):
     """Extract specified columns data for a given symbol."""
     columns = ['sharesOutStanding', 'sharesQoQ', 'sharesYoY','institutionalOwnership','floatShares',
-    'peg','priceEarningsRatio','forwardPE','priceToSalesRatio','forwardPS','priceToBookRatio','priceToFreeCashFlowsRatio',
+    'priceEarningsToGrowthRatio','priceEarningsRatio','forwardPE','priceToSalesRatio','forwardPS','priceToBookRatio','priceToFreeCashFlowsRatio',
     'sharesShort','shortOutStandingPercent','shortFloatPercent','shortRatio',
     'enterpriseValue','evEarnings','evSales','evEBITDA','evEBIT','evFCF',
     'currentRatio','quickRatio','debtRatio','debtEquityRatio','interestCoverage','cashFlowToDebtRatio','totalDebtToCapitalization',
@@ -37,10 +37,12 @@ async def get_data(symbol):
     if symbol in stock_screener_data_dict:
         result = {}
         for column in columns:
-            result[column] = stock_screener_data_dict[symbol].get(column, None)
+            try:
+                result[column] = stock_screener_data_dict[symbol].get(column, None)
+            except:
+                pass
         return result
     return {}
-
 
 
 async def run():

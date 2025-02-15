@@ -968,21 +968,20 @@ async def get_stock_screener(con):
 
         try:
             with open(f"json/analyst-estimate/{symbol}.json", 'r') as file:
-                res = orjson.loads(file.read())
+                res = orjson.loads(file.read())[-1]
                 item['forwardPS'] = None
-                item['peg'] = None
-                for analyst_item in res:
-                    if analyst_item['date'] == next_year and item['marketCap'] > 0 and analyst_item['estimatedRevenueAvg'] > 0:
-                        # Calculate forwardPS: marketCap / estimatedRevenueAvg
-                        item['forwardPS'] = round(item['marketCap'] / analyst_item['estimatedRevenueAvg'], 1)
-                        if item['eps'] > 0:
-                            cagr = ((analyst_item['estimatedEpsHigh']/item['eps'] ) -1)*100
-                            item['peg'] = round(item['priceEarningsRatio'] / cagr,2) if cagr > 0 else None
-                        break  # Exit the loop once the desired item is found
+                #item['peg'] = None
+                #for analyst_item in res:
+                if item['marketCap'] > 0 and res['estimatedRevenueAvg'] > 0: #res['date'] == next_year and 
+                    # Calculate forwardPS: marketCap / estimatedRevenueAvg
+                    item['forwardPS'] = round(item['marketCap'] / res['estimatedRevenueAvg'], 1)
+                    if item['eps'] > 0:
+                        cagr = ((res['estimatedEpsAvg']/item['eps'] ) -1)*100
+                        #item['peg'] = round(item['priceEarningsRatio'] / cagr,2) if cagr > 0 else None
         except:
             item['forwardPS'] = None
-            item['peg'] = None
- 
+            #item['peg'] = None
+
         try:
             item['halalStocks'] = get_halal_compliant(item)
         except:
