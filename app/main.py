@@ -4041,7 +4041,36 @@ async def get_market_flow(api_key: str = Security(get_api_key)):
         )
 
     try:
-        with open(f"json/market-flow/data.json", 'rb') as file:
+        with open(f"json/market-flow/overview.json", 'rb') as file:
+            res = orjson.loads(file.read())
+    except:
+        res = {}
+        
+    data = orjson.dumps(res)
+    compressed_data = gzip.compress(data)
+
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key,2*60)
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
+
+@app.get("/sector-flow")
+async def get_data(api_key: str = Security(get_api_key)):
+    cache_key = f"sector-flow"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
+
+    try:
+        with open(f"json/market-flow/sector.json", 'rb') as file:
             res = orjson.loads(file.read())
     except:
         res = {}
