@@ -68,130 +68,6 @@ async def get_stock_chart_data(ticker):
 
 
 
-def get_market_tide(interval_1m=True):
-    res_list = []
-
-    # Load the options flow JSON data only once.
-    with open("json/options-flow/feed/data.json", "r") as file:
-        all_data = orjson.loads(file.read())
-
-    # We're processing SPY (the market tide) – if needed you could expand this list.
-    tickers = ['SPY']
-
-    # Use a single dictionary to track cumulative flows.
-    delta_data = defaultdict(lambda: {
-        'cumulative_net_call_premium': 0,
-        'cumulative_net_put_premium': 0,
-        'call_ask_vol': 0,
-        'call_bid_vol': 0,
-        'put_ask_vol': 0,
-        'put_bid_vol': 0
-    })
-
-    # Process each ticker.
-    for ticker in tqdm(tickers):
-        # Filter and sort the data for the current ticker.
-        data = [item for item in all_data if item['ticker'] == ticker]
-        data.sort(key=lambda x: x['time'])
-        for item in data:
-            try:
-                # Combine date and time, then truncate to the start of the minute.
-                dt = datetime.strptime(f"{item['date']} {item['time']}", "%Y-%m-%d %H:%M:%S")
-                dt = dt.replace(second=0, microsecond=0)
-                
-                if interval_1m:
-                    minute = dt.minute - (dt.minute % 1)
-                    dt = dt.replace(minute=minute)
-                
-                rounded_ts = dt.strftime("%Y-%m-%d %H:%M:%S")
-
-                # Extract metrics.
-                cost = float(item.get("cost_basis", 0))
-                sentiment = item.get("sentiment", "")
-                put_call = item.get("put_call", "")
-                vol = int(item.get("volume", 0))
-
-                # Update premium and volume metrics.
-                if put_call == "Calls":
-                    if sentiment == "Bullish":
-                        delta_data[rounded_ts]['cumulative_net_call_premium'] += cost
-                        delta_data[rounded_ts]['call_ask_vol'] += vol
-                    elif sentiment == "Bearish":
-                        delta_data[rounded_ts]['cumulative_net_call_premium'] -= cost
-                        delta_data[rounded_ts]['call_bid_vol'] += vol
-                elif put_call == "Puts":
-                    if sentiment == "Bullish":
-                        delta_data[rounded_ts]['cumulative_net_put_premium'] += cost
-                        delta_data[rounded_ts]['put_ask_vol'] += vol
-                    elif sentiment == "Bearish":
-                        delta_data[rounded_ts]['cumulative_net_put_premium'] -= cost
-                        delta_data[rounded_ts]['put_bid_vol'] += vol
-
-            except Exception as e:
-                print(f"Error processing item: {e}")
-
-    # Calculate cumulative values over time.
-    sorted_ts = sorted(delta_data.keys())
-    cumulative = {
-        'net_call_premium': 0,
-        'net_put_premium': 0,
-        'call_ask': 0,
-        'call_bid': 0,
-        'put_ask': 0,
-        'put_bid': 0
-    }
-
-    for ts in sorted_ts:
-        cumulative['net_call_premium'] += delta_data[ts]['cumulative_net_call_premium']
-        cumulative['net_put_premium'] += delta_data[ts]['cumulative_net_put_premium']
-        cumulative['call_ask'] += delta_data[ts]['call_ask_vol']
-        cumulative['call_bid'] += delta_data[ts]['call_bid_vol']
-        cumulative['put_ask'] += delta_data[ts]['put_ask_vol']
-        cumulative['put_bid'] += delta_data[ts]['put_bid_vol']
-
-        call_volume = cumulative['call_ask'] + cumulative['call_bid']
-        put_volume = cumulative['put_ask'] + cumulative['put_bid']
-        net_volume = (cumulative['call_ask'] - cumulative['call_bid']) - (cumulative['put_ask'] - cumulative['put_bid'])
-
-        res_list.append({
-            'time': ts,
-            'ticker': ticker,
-            'net_call_premium': round(cumulative['net_call_premium']),
-            'net_put_premium': round(cumulative['net_put_premium']),
-            'call_volume': round(call_volume),
-            'put_volume': round(put_volume),
-            'net_volume': round(net_volume),
-        })
-
-    # Sort the results list by time.
-    res_list.sort(key=lambda x: x['time'])
-
-    # Retrieve SPY price list data (using asyncio or fallback to local file).
-    price_list = asyncio.run(get_stock_chart_data('SPY'))
-    if len(price_list) == 0:
-        with open("json/one-day-price/SPY.json", "r") as file:
-            price_list = orjson.loads(file.read())
-
-    # Append closing prices to the market tide data.
-    data_with_close = add_close_to_data(price_list, res_list)
-
-    # Ensure that every minute until 16:05 is present in the data.
-    fields = ['net_call_premium', 'net_put_premium', 'call_volume', 'put_volume', 'net_volume', 'close']
-    last_time = datetime.strptime(data_with_close[-1]['time'], "%Y-%m-%d %H:%M:%S")
-    end_time = last_time.replace(hour=16, minute=5, second=0)
-
-    while last_time < end_time:
-        last_time += timedelta(minutes=1)
-        data_with_close.append({
-            'time': last_time.strftime("%Y-%m-%d %H:%M:%S"),
-            'ticker': 'SPY',
-            **{field: None for field in fields}
-        })
-
-    return data_with_close
-
-
-
 def get_sector_data(sector_ticker,interval_1m=True):
     res_list = []
     
@@ -358,7 +234,7 @@ def get_top_tickers(sector_ticker):
 
 
 def get_market_flow():
-    market_tide = get_sector_data(sector_ticker="SPY") #get_market_tide()
+    market_tide = get_sector_data(sector_ticker="SPY")
     top_pos_tickers = get_top_tickers(sector_ticker="SPY")
     top_neg_tickers = sorted(get_top_tickers(sector_ticker="SPY"), key=lambda item: item['net_premium'])
     for rank, item in enumerate(top_neg_tickers, 1):
