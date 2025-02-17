@@ -36,16 +36,24 @@ def safe_round(value):
     except (ValueError, TypeError):
         return value
 
-# Function to convert and match timestamps
 def add_close_to_data(price_list, data):
     for entry in data:
         formatted_time = entry['time']
         # Match with price_list
         for price in price_list:
-            if price['time'] == formatted_time:
+            # Check if 'time' key exists; if not, try 'date'
+            if 'time' in price:
+                price_time = price['time']
+            elif 'date' in price:
+                price_time = price['date']
+            else:
+                continue  # Skip if neither key is present
+
+            if price_time == formatted_time:
                 entry['close'] = price['close']
                 break  # Match found, no need to continue searching
     return data
+
 
 
 
