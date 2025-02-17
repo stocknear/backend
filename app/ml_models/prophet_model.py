@@ -64,9 +64,9 @@ class PricePredictor:
 
         # Apply rolling average to smooth the forecast intervals
         rolling_window = 200
-        forecast['smoothed_upper'] = forecast['yhat_upper'].rolling(window=rolling_window, min_periods=1).mean().round(2)
-        forecast['smoothed_lower'] = forecast['yhat_lower'].rolling(window=rolling_window, min_periods=1).mean().round(2)
-        forecast['smoothed_mean']  = forecast['yhat'].rolling(window=rolling_window, min_periods=1).mean().round(2)
+        forecast['smoothed_upper'] = forecast['yhat_upper'].round(2)#.rolling(window=rolling_window, min_periods=1).mean().round(2)
+        forecast['smoothed_lower'] = forecast['yhat_lower'].round(2)#.rolling(window=rolling_window, min_periods=1).mean().round(2)
+        forecast['smoothed_mean']  = forecast['yhat'].round(2)#.rolling(window=rolling_window, min_periods=1).mean().round(2)
 
         # Actual and predicted values for evaluation (optional)
         actual_values = df['y'].values
@@ -81,16 +81,23 @@ class PricePredictor:
         historical_date_list = df['ds'][-1200:].dt.strftime('%Y-%m-%d').tolist()
         historical_price_list = df['y'][-1200:].round(2).tolist()
 
+        metrics_dict = {
+            'mse': mean_squared_error(actual_values, predicted_values),
+            'mae': mean_absolute_error(actual_values, predicted_values),
+            'r2': r2_score(actual_values, predicted_values)}
+        print("Metrics:", metrics_dict)
+
         # Get monthly historical data and round the close value
         monthly_historical_data = get_monthly_historical_data(df)
         monthly_historical_data = [{**item, 'close': round(item['close'], 2)} for item in monthly_historical_data]
 
        
         future_forecast = forecast[forecast['ds'] > df['ds'].max()]['smoothed_mean']
-        if not future_forecast.empty:
-            median_price = round(np.median(future_forecast), 2)
-        else:
-            median_price = round(forecast['smoothed_mean'].iloc[-1], 2)
+        median_price = round(np.mean([
+            forecast['smoothed_lower'].iloc[-1],
+            forecast['smoothed_mean'].iloc[-1],
+            forecast['smoothed_upper'].iloc[-1]
+        ]), 2)
 
         # Latest actual price from the dataset
         latest_price = round(df['y'].iloc[-1], 2)
@@ -101,7 +108,6 @@ class PricePredictor:
             'highPriceTarget': upper_list[-1],
             'lowPriceTarget': lower_list[-1],
             'medianPriceTarget': median_price,
-            'latestPrice': latest_price
         }
 
 

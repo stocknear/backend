@@ -65,11 +65,12 @@ async def run():
 
     total_symbols = stock_symbols
     print(f"Total tickers: {len(total_symbols)}")
-    start_date = datetime(2015, 1, 1).strftime("%Y-%m-%d")
+    start_date = datetime(2020, 1, 1).strftime("%Y-%m-%d")
     end_date = datetime.today().strftime("%Y-%m-%d")
 
     chunk_size = len(total_symbols) // 70  # Divide the list into N chunks
     chunks = [total_symbols[i:i + chunk_size] for i in range(0, len(total_symbols), chunk_size)]
+    #chunks = [['TSLA']]
     for chunk in chunks:
         tasks = []
         for ticker in tqdm(chunk):
