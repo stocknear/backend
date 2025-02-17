@@ -42,7 +42,7 @@ def add_close_to_data(price_list, data):
         formatted_time = entry['time']
         # Match with price_list
         for price in price_list:
-            if price['date'] == formatted_time:
+            if price['time'] == formatted_time:
                 entry['close'] = price['close']
                 break  # Match found, no need to continue searching
     return data
@@ -253,7 +253,7 @@ def get_sector_flow():
     for sector_ticker in ["XLB", "XLC", "XLY", "XLP", "XLE", "XLF", "XLV", "XLI", "XLRE", "XLK", "XLU"]:
         sector_data = get_sector_data(sector_ticker=sector_ticker)  
         top_pos_tickers = get_top_tickers(sector_ticker=sector_ticker)
-        top_neg_tickers = sorted(top_pos_tickers, key=lambda item: item['net_premium'])
+        top_neg_tickers = sorted(get_top_tickers(sector_ticker=sector_ticker), key=lambda item: item['net_premium'])
 
         for rank, item in enumerate(top_neg_tickers, 1):
             item['rank'] = rank
