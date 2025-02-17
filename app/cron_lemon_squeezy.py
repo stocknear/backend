@@ -146,7 +146,7 @@ async def run():
                     # Uncomment the line below to perform the update:
                     # pb.collection('users').update(user.id, {'tier': 'Free'})
                     print(f"Downgraded: {user_email}")
-                    print(attributes)
+                    #print(attributes)
             
         except Exception as e:
             print(f"Error processing user {user_email}: {e}")
