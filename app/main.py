@@ -3009,7 +3009,7 @@ async def get_options_flow_feed(api_key: str = Security(get_api_key)):
 
 @app.get("/dark-pool-flow-feed")
 async def get_dark_pool_feed(api_key: str = Security(get_api_key)):
-    cache_key = f"dark-pooll-flow-feed"
+    cache_key = f"dark-pool-flow-feed"
     cached_result = redis_client.get(cache_key)
     if cached_result:
         return StreamingResponse(
@@ -3019,9 +3019,8 @@ async def get_dark_pool_feed(api_key: str = Security(get_api_key)):
         )
 
     try:
-        directory = "json/dark-pool/historical-flow"
-        res_list = load_latest_json(directory)
-        res_list = [item for item in res_list if float(item['premium']) > 500_000]
+        with open(f"json/dark-pool/feed/data.json", "r") as file:
+            res_list = orjson.loads(file.read())
 
     except:
         res_list = []
