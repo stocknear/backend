@@ -3022,6 +3022,8 @@ async def get_dark_pool_feed(api_key: str = Security(get_api_key)):
         with open(f"json/dark-pool/feed/data.json", "r") as file:
             res_list = orjson.loads(file.read())
 
+        res_list = [item for item in res_list if float(item['premium']) >= 1E6]
+
     except:
         res_list = []
         

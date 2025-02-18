@@ -81,7 +81,7 @@ def run_dark_pool_level():
     now = datetime.now(ny_tz)
     week = now.weekday()
     hour = now.hour
-    if week <= 4 and 8 <= hour < 20:
+    if week <= 4 and 8 <= hour <= 22:
         run_command(["python3", "cron_dark_pool_level.py"])
 
 def run_dark_pool_ticker():
@@ -421,8 +421,8 @@ schedule.every(5).minutes.do(run_threaded, run_list).tag('stock_list_job')
 
 
 
-#schedule.every(30).minutes.do(run_threaded, run_dark_pool_level).tag('dark_pool_level_job')
-schedule.every(5).minutes.do(run_threaded, run_dark_pool_flow).tag('dark_pool_flow_job')
+schedule.every(30).minutes.do(run_threaded, run_dark_pool_level).tag('dark_pool_level_job')
+schedule.every(10).minutes.do(run_threaded, run_dark_pool_flow).tag('dark_pool_flow_job')
 
 schedule.every(2).minutes.do(run_threaded, run_dashboard).tag('dashboard_job')
 

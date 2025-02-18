@@ -82,7 +82,7 @@ def get_data():
         sources = ['utp_delayed', 'cta_a_delayed', 'cta_b_delayed']
         page_size = 50000
         min_size = 2000
-        threshold = 1E6  # Define threshold
+        threshold = 1E5  # Define threshold
 
         for source in tqdm(sources):
             try:
