@@ -35,7 +35,7 @@ async def download_data(ticker, start_date, end_date):
         df = df.rename(columns={"Date": "ds", "Adj Close": "y"})
         if len(df) > 252*2: #At least 2 years of history is necessary
             q_high= df["y"].quantile(0.99)
-            q_low = df["y"].quantile(0.05)
+            q_low = df["y"].quantile(0.01)
             df = df[(df["y"] > q_low)]
             df = df[(df["y"] < q_high)]
             #df['y'] = df['y'].rolling(window=10).mean()
@@ -65,12 +65,12 @@ async def run():
 
     total_symbols = stock_symbols
     print(f"Total tickers: {len(total_symbols)}")
-    start_date = datetime(2020, 1, 1).strftime("%Y-%m-%d")
+    start_date = datetime(2017, 1, 1).strftime("%Y-%m-%d")
     end_date = datetime.today().strftime("%Y-%m-%d")
 
     chunk_size = len(total_symbols) // 70  # Divide the list into N chunks
     chunks = [total_symbols[i:i + chunk_size] for i in range(0, len(total_symbols), chunk_size)]
-    #chunks = [['TSLA']]
+    #chunks = [['NVDA','GME','TSLA','AAPL']]
     for chunk in chunks:
         tasks = []
         for ticker in tqdm(chunk):
