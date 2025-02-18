@@ -344,8 +344,8 @@ def run_push_notifications():
     now = datetime.now(ny_tz)
     week = now.weekday()
     hour = now.hour
-    if week <= 4 and 7 <= hour < 20:
-        run_command(["python3", "cron_push_n30tifications.py"])
+    if week <= 4 and 5 <= hour < 21:
+        run_command(["python3", "cron_push_notifications.py"])
     
 
 # Create functions to run each schedule in a separate thread
