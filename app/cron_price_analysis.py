@@ -4,11 +4,10 @@ import aiohttp
 import sqlite3
 from datetime import datetime
 from ml_models.prophet_model import PricePredictor
-import yfinance as yf
 import pandas as pd
 from tqdm import tqdm
 import concurrent.futures
-
+import orjson
 
 def convert_symbols(symbol_list):
     converted_symbols = []
@@ -27,22 +26,37 @@ async def save_json(symbol, data):
     with open(f"json/price-analysis/{symbol}.json", 'w') as file:
         ujson.dump(data, file)
 
-async def download_data(ticker, start_date, end_date):
+async def download_data(ticker: str, start_date: str, end_date: str):
     try:
-        df = yf.download(ticker, start=start_date, end=end_date, interval="1d")
-        df = df.reset_index()
-        df = df[['Date', 'Adj Close']]
-        df = df.rename(columns={"Date": "ds", "Adj Close": "y"})
-        if len(df) > 252*2: #At least 2 years of history is necessary
-            q_high= df["y"].quantile(0.99)
+        with open(f"json/historical-price/max/{ticker}.json", "r") as file:
+            data = orjson.loads(file.read())
+
+        df = pd.DataFrame(data)
+
+        # Rename columns to ensure consistency
+        df = df.rename(columns={"Date": "ds", "Adj Close": "y", "time": "ds", "close": "y"})
+
+        # Ensure correct data types
+        df["ds"] = pd.to_datetime(df["ds"])
+        df["y"] = df["y"].astype(float)
+
+        # Convert start_date and end_date from string to datetime
+        start_date = pd.to_datetime(start_date, format="%Y-%m-%d")
+        end_date = pd.to_datetime(end_date, format="%Y-%m-%d")
+
+        # Filter data based on start_date and end_date
+        df = df[(df["ds"] >= start_date) & (df["ds"] <= end_date)]
+
+        # Apply filtering logic if enough data exists
+        if len(df) > 252 * 2:  # At least 2 years of history is necessary
+            q_high = df["y"].quantile(0.99)
             q_low = df["y"].quantile(0.01)
-            df = df[(df["y"] > q_low)]
-            df = df[(df["y"] < q_high)]
-            #df['y'] = df['y'].rolling(window=10).mean()
-            #df = df.dropna()
-            return df
+            df = df[(df["y"] > q_low) & (df["y"] < q_high)]
+
+        return df
     except Exception as e:
-        print(e)
+        print(f"Error processing {ticker}: {e}")
+        return None
 
 async def process_symbol(ticker, start_date, end_date):
     try:
