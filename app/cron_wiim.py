@@ -14,6 +14,7 @@ import pytz
 
 
 date_format = "%a, %d %b %Y %H:%M:%S %z"
+timezone = pytz.timezone("Europe/Berlin")
 
 load_dotenv()
 api_key = os.getenv('BENZINGA_API_KEY')
@@ -114,8 +115,7 @@ async def get_endpoint(session, symbol, con, semaphore):
                 res_list = []
                 res = ujson.loads(await response.text())
                 
-                # Define New York timezone
-                ny_tz = pytz.timezone("America/New_York")
+            
                 
                 for item in res:
                     try:
@@ -129,7 +129,7 @@ async def get_endpoint(session, symbol, con, semaphore):
                             continue
 
                         # Convert the date to New York timezone
-                        date_obj_ny = date_obj.astimezone(ny_tz)
+                        date_obj_ny = date_obj.astimezone(timezone)
                         
                         start_date_obj_utc = correct_weekday(date_obj)
                         start_date = start_date_obj_utc.strftime("%Y-%m-%d")
