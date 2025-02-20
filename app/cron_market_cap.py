@@ -12,6 +12,13 @@ import os
 load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
 
+
+today = datetime.today().strftime('%Y-%m-%d')
+years = list(range(1995, datetime.today().year, 5))
+dates = [f"{year}-01-01" for year in years] + [today]
+
+print(dates)
+
 async def save_json(symbol, data):
     with open(f"json/market-cap/companies/{symbol}.json", 'w') as file:
         ujson.dump(data, file)
@@ -20,16 +27,7 @@ async def save_json(symbol, data):
 async def get_data(session, symbol):
     res_list = []
     start_date = '1990-01-01'
-    dates = [
-        '1995-01-01',
-        '2000-01-01',
-        '2005-01-01',
-        '2010-01-01',
-        '2015-01-01',
-        '2020-01-01',
-        '2025-01-01'
-    ]
-
+    
     for end_date in dates:
 
         # Construct the API URL
@@ -55,7 +53,8 @@ async def get_data(session, symbol):
         filtered_data = [{k: v for k, v in item.items() if k != 'symbol'} for item in unique_res_list]
         
         # Save the filtered data
-        await save_json(symbol, filtered_data)
+        if filtered_data:
+            await save_json(symbol, filtered_data)
 
 async def run():
     con = sqlite3.connect('stocks.db')
@@ -68,12 +67,15 @@ async def run():
     async with aiohttp.ClientSession() as session:
         tasks = []
         for i, symbol in enumerate(tqdm(symbols), 1):
-            tasks.append(get_data(session, symbol))
-            if i % 100 == 0:
-                await asyncio.gather(*tasks)
-                tasks = []
-                print(f'sleeping mode: {i}')
-                await asyncio.sleep(60)  # Pause for 60 seconds
+            try:
+                tasks.append(get_data(session, symbol))
+                if i % 100 == 0:
+                    await asyncio.gather(*tasks)
+                    tasks = []
+                    print(f'sleeping mode: {i}')
+                    await asyncio.sleep(60)  # Pause for 60 seconds
+            except:
+                pass
         
         if tasks:
             await asyncio.gather(*tasks)
