@@ -76,14 +76,10 @@ def format_number(num, decimal=False):
         return f"{num:,.0f}"  # Format smaller numbers with commas
 
 async def push_notification(title, text, user_id, link=None):
-    if link == None:
-        url = f"{origin}/notifications",
-    else:
-        url = f"{origin}/{link}",
     data = {
         "title": title,
         "body": text,
-        "url": url,
+        "url": f"{origin}/notifications" if link == None else f"{origin}/{link}",
         "userId": user_id,
         "key": stocknear_api_key,
     }
@@ -152,7 +148,16 @@ async def push_wiim(user_id):
                                     user_subscribed = True
                                     break
                             if user_subscribed:
-                                await push_notification(f'Why Priced Moved for {symbol}', data['text'], user_id, link=f"{asset_type}/{symbol}")
+                                if asset_type == 'stock':
+                                    link = f"stocks/{symbol}"
+                                elif asset_type == 'etf':
+                                    link = f"etf/{symbol}"
+                                elif asset_type == 'index':
+                                    link = f"index/{symbol}"
+                                else:
+                                    link = None
+
+                                await push_notification(f'Why Priced Moved for {symbol}', data['text'], user_id, link=link)
                 except:
                     pass
     except Exception as e:
