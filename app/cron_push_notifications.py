@@ -156,7 +156,7 @@ async def push_wiim(user_id):
                                     link = f"index/{symbol}"
                                 else:
                                     link = None
-
+                                print(link)
                                 await push_notification(f'Why Priced Moved for {symbol}', data['text'], user_id, link=link)
                 except:
                     pass
