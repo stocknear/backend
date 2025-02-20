@@ -196,32 +196,35 @@ async def main():
             net_premium = 0
             
             for item in data:
-                if item['ticker'] == symbol:
-                    if item['put_call'] == 'Calls':
-                        call_premium += item['cost_basis']
-                        call_open_interest += int(item['open_interest'])
-                        call_volume += int(item['volume'])
-                    elif item['put_call'] == 'Puts':
-                        put_premium += item['cost_basis']
-                        put_open_interest += int(item['open_interest'])
-                        put_volume += int(item['volume'])
-
-                    if item['sentiment'] == 'Bullish':
-                        bullish_premium +=item['cost_basis']
+                try:
+                    if item['ticker'] == symbol:
                         if item['put_call'] == 'Calls':
-                            net_call_premium +=item['cost_basis']
+                            call_premium += item['cost_basis']
+                            call_open_interest += int(item['open_interest'])
+                            call_volume += int(item['volume'])
                         elif item['put_call'] == 'Puts':
-                            net_put_premium +=item['cost_basis']
-                    
-                    if item['sentiment'] == 'Bearish':
-                        bearish_premium +=item['cost_basis']
-                        if item['put_call'] == 'Calls':
-                            net_call_premium -=item['cost_basis']
-                        elif item['put_call'] == 'Puts':
-                            net_put_premium -=item['cost_basis']
+                            put_premium += item['cost_basis']
+                            put_open_interest += int(item['open_interest'])
+                            put_volume += int(item['volume'])
 
-                    if item['sentiment'] == 'Neutral':
-                        neutral_premium +=item['cost_basis']
+                        if item['sentiment'] == 'Bullish':
+                            bullish_premium +=item['cost_basis']
+                            if item['put_call'] == 'Calls':
+                                net_call_premium +=item['cost_basis']
+                            elif item['put_call'] == 'Puts':
+                                net_put_premium +=item['cost_basis']
+                        
+                        if item['sentiment'] == 'Bearish':
+                            bearish_premium +=item['cost_basis']
+                            if item['put_call'] == 'Calls':
+                                net_call_premium -=item['cost_basis']
+                            elif item['put_call'] == 'Puts':
+                                net_put_premium -=item['cost_basis']
+
+                        if item['sentiment'] == 'Neutral':
+                            neutral_premium +=item['cost_basis']
+                except:
+                    pass
 
             with open(f"json/options-historical-data/companies/{symbol}.json", "r") as file:
                 past_data = orjson.loads(file.read())[0]
