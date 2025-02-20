@@ -304,6 +304,7 @@ def run_market_cap():
     week = datetime.today().weekday()
     if week <= 4:
         run_command(["python3", "cron_market_cap.py"])
+        run_command(["python3", "cron_revenue.py"])
 
 
 def run_dividends():

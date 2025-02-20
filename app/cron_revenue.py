@@ -82,7 +82,9 @@ async def run():
     cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
     total_symbols = [row[0] for row in cursor.fetchall()]
     con.close()
-    total_symbols = ['PLTR']
+    
+    #Testing mode
+    #total_symbols = ['PLTR']
     for symbol in tqdm(total_symbols):
         try:
             await get_data(symbol)
