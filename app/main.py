@@ -3553,6 +3553,36 @@ async def get_historical_market_cap(data:TickerData, api_key: str = Security(get
         headers={"Content-Encoding": "gzip"}
     )
 
+@app.post("/historical-revenue")
+async def get_data(data:TickerData, api_key: str = Security(get_api_key)):
+    ticker = data.ticker.upper()
+    cache_key = f"historical-revenue-{ticker}"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
+    try:
+        with open(f"json/revenue/companies/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
+    except:
+        res = {}
+
+    data = orjson.dumps(res)
+    compressed_data = gzip.compress(data)
+
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key,3600*3600)
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
+
+
 @app.get("/economic-indicator")
 async def get_economic_indicator(api_key: str = Security(get_api_key)):
     cache_key = f"economic-indicator"

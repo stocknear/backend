@@ -26,7 +26,7 @@ query_template = """
 
 async def get_data(symbol):
     """Extract specified columns data for a given symbol."""
-    columns = ['dividendYield', 'employees', 'marketCap','relativeFTD','name']
+    columns = ['dividendYield', 'employees', 'marketCap','relativeFTD','name','revenue']
     
     if symbol in stock_screener_data_dict:
         result = {}
