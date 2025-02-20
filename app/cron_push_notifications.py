@@ -75,11 +75,15 @@ def format_number(num, decimal=False):
             return f"{num / 1_000_000:,.2f}M"
         return f"{num:,.0f}"  # Format smaller numbers with commas
 
-async def push_notification(title, text, user_id):
+async def push_notification(title, text, user_id, link=None):
+    if link == None:
+        url = f"{origin}/notifications",
+    else:
+        url = f"{origin}/{link}",
     data = {
         "title": title,
         "body": text,
-        "url": f"{origin}/notifications",
+        "url": url,
         "userId": user_id,
         "key": stocknear_api_key,
     }
@@ -148,7 +152,7 @@ async def push_wiim(user_id):
                                     user_subscribed = True
                                     break
                             if user_subscribed:
-                                await push_notification(f'Why Priced Moved for {symbol}', data['text'], user_id)
+                                await push_notification(f'Why Priced Moved for {symbol}', data['text'], user_id, link=f"{asset_type}/{symbol}")
                 except:
                     pass
     except Exception as e:
@@ -305,7 +309,6 @@ async def run():
             result = pb.collection('notificationChannels').get_list(query_params={"filter": f"user='{user_id}'"})
             channels = result.items
             for channel in channels:
-
                 if channel.wiim == True:     
                     await push_wiim(user_id=user_id)
 
