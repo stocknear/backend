@@ -55,18 +55,24 @@ class PricePredictor:
             interval_width=0.8,
             daily_seasonality=True,
             yearly_seasonality=True,
+            changepoint_prior_scale= 0.1,
+            seasonality_prior_scale=0.1,
         )
+        #self.model.add_regressor('volume')
+
 
     def run(self, df):
+        df = df.copy()
+    
         self.model.fit(df)
         future = self.model.make_future_dataframe(periods=self.predict_ndays)
         forecast = self.model.predict(future)
 
         # Apply rolling average to smooth the forecast intervals
         rolling_window = 200
-        forecast['smoothed_upper'] = forecast['yhat_upper'].round(2)#.rolling(window=rolling_window, min_periods=1).mean().round(2)
-        forecast['smoothed_lower'] = forecast['yhat_lower'].round(2)#.rolling(window=rolling_window, min_periods=1).mean().round(2)
-        forecast['smoothed_mean']  = forecast['yhat'].round(2)#.rolling(window=rolling_window, min_periods=1).mean().round(2)
+        forecast['smoothed_upper'] = forecast['yhat_upper'].rolling(window=rolling_window, min_periods=1).mean().round(2)
+        forecast['smoothed_lower'] = forecast['yhat_lower'].rolling(window=rolling_window, min_periods=1).mean().round(2)
+        forecast['smoothed_mean']  = forecast['yhat'].rolling(window=rolling_window, min_periods=1).mean().round(2)
 
         # Actual and predicted values for evaluation (optional)
         actual_values = df['y'].values
@@ -74,9 +80,9 @@ class PricePredictor:
 
         # Extract forecast values for plotting or analysis (if needed)
         pred_date_list = forecast['ds'][-1200 - self.predict_ndays:].dt.strftime('%Y-%m-%d').tolist()
-        upper_list    = forecast['smoothed_upper'][-1200 - self.predict_ndays:].tolist()
-        lower_list    = forecast['smoothed_lower'][-1200 - self.predict_ndays:].tolist()
-        mean_list     = forecast['smoothed_mean'][-1200 - self.predict_ndays:].tolist()
+        upper_list = forecast['smoothed_upper'][-1200 - self.predict_ndays:].tolist()
+        lower_list = forecast['smoothed_lower'][-1200 - self.predict_ndays:].tolist()
+        mean_list = forecast['smoothed_mean'][-1200 - self.predict_ndays:].tolist()
 
         historical_date_list = df['ds'][-1200:].dt.strftime('%Y-%m-%d').tolist()
         historical_price_list = df['y'][-1200:].round(2).tolist()

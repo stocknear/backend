@@ -8,6 +8,7 @@ import pandas as pd
 from tqdm import tqdm
 import concurrent.futures
 import orjson
+import os
 
 def convert_symbols(symbol_list):
     converted_symbols = []
@@ -50,10 +51,13 @@ async def download_data(ticker: str, start_date: str, end_date: str):
         # Apply filtering logic if enough data exists
         if len(df) > 252 * 2:  # At least 2 years of history is necessary
             q_high = df["y"].quantile(0.99)
-            q_low = df["y"].quantile(0.01)
+            q_low = df["y"].quantile(0.1)
             df = df[(df["y"] > q_low) & (df["y"] < q_high)]
 
-        return df
+        # Calculate Simple Moving Average (SMA)
+        #df["y"] = df["y"].rolling(window=50).mean()  # 50-day SMA
+
+        return df.dropna()  # Drop initial NaN values due to rolling window
     except Exception as e:
         print(f"Error processing {ticker}: {e}")
         return None
@@ -62,10 +66,19 @@ async def process_symbol(ticker, start_date, end_date):
     try:
         df = await download_data(ticker, start_date, end_date)
         data = PricePredictor().run(df)
-        await save_json(ticker, data)
+        file_path = f"json/price-analysis/{ticker}.json"
+
+        if data and data['lowPriceTarget'] > 0:
+            print(data)
+            await save_json(ticker, data)
+        else:
+            await asyncio.to_thread(os.remove, file_path)
     
     except Exception as e:
-        print(e)
+        try:
+            await asyncio.to_thread(os.remove, file_path)
+        except FileNotFoundError:
+            pass  # The file might not exist, so we ignore the error
 
 
 async def run():
@@ -79,12 +92,16 @@ async def run():
 
     total_symbols = stock_symbols
     print(f"Total tickers: {len(total_symbols)}")
-    start_date = datetime(2017, 1, 1).strftime("%Y-%m-%d")
+    start_date = datetime(2015, 1, 1).strftime("%Y-%m-%d")
     end_date = datetime.today().strftime("%Y-%m-%d")
+
+    df_sp500 = await download_data('SPY', start_date, end_date)
+    df_sp500 = df_sp500.rename(columns={"y": "sp500"})
+    #print(df_sp500)
 
     chunk_size = len(total_symbols) // 70  # Divide the list into N chunks
     chunks = [total_symbols[i:i + chunk_size] for i in range(0, len(total_symbols), chunk_size)]
-    #chunks = [['NVDA','GME','TSLA','AAPL']]
+    #chunks = [['GME']]
     for chunk in chunks:
         tasks = []
         for ticker in tqdm(chunk):
