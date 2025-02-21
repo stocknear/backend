@@ -67,35 +67,32 @@ def get_all_analyst_summary(res_list):
     # Get the latest summary of ratings from the last 12 months
     end_date = date.today()
    
-    # Filter the data for the last 12 months and consider the last N ratings
-    #Furthermore consider only the last rating of the analyst if he provided multiple in the last 12 months
-    #filtered data is needed for the recommendation list
-    filtered_data = [item for item in res_list if start_date_12m <= datetime.strptime(item['date'], '%Y-%m-%d').date() <= end_date]
-    #unique list is needed for analyst summary rating
+    # Filter data to include only ratings within the last 12 months
+    filtered_data = [
+        item for item in res_list
+        if start_date_12m <= datetime.strptime(item['date'], '%Y-%m-%d').date() <= end_date
+    ]
+    # Use only the latest rating per analyst and limit to 60 entries
     unique_filtered_data = filter_latest_entries(filtered_data)[:60]
 
-    # Initialize dictionary to store the latest price target for each analyst
+    # Collect the latest price target for each analyst
     latest_pt_current = defaultdict(list)
-    
-    # Iterate through the filtered data to collect pt_current for each analyst
     for item in unique_filtered_data:
         if 'adjusted_pt_current' in item and item['adjusted_pt_current']:
             analyst_name = item['analyst_name']
             try:
                 pt_current_value = float(item['adjusted_pt_current'])
-                # Collect all pt_current values for each analyst
                 latest_pt_current[analyst_name].append(pt_current_value)
             except (ValueError, TypeError):
                 print(f"Invalid pt_current value for analyst '{analyst_name}': {item['adjusted_pt_current']}")
     
     # Compute statistics for price targets
     pt_current_values = [val for sublist in latest_pt_current.values() for val in sublist]
-    #remove outliers to keep high and low price target reasonable
+    # Remove outliers using the IQR method
     q1, q3 = np.percentile(pt_current_values, [25, 75])
     iqr = q3 - q1
     pt_current_values = [x for x in pt_current_values if (q1 - 1.5 * iqr) <= x <= (q3 + 1.5 * iqr)]
 
-    # Compute different price target metrics if there are values, otherwise set to 0
     if pt_current_values:
         median_pt_current = statistics.median(pt_current_values)
         avg_pt_current = statistics.mean(pt_current_values)
@@ -104,80 +101,60 @@ def get_all_analyst_summary(res_list):
     else:
         median_pt_current = avg_pt_current = low_pt_current = high_pt_current = 0
     
-    # Initialize recommendation tracking
+    # Define rating hierarchy for conversion
     rating_hierarchy = {'Strong Sell': 0, 'Sell': 1, 'Hold': 2, 'Buy': 3, 'Strong Buy': 4}
     
-    # Track monthly recommendations
+    # Track monthly recommendations for visualization
     monthly_recommendations = {}
-    
-    # Iterate through the filtered data to track monthly recommendations
     for item in filtered_data:
-        # Extract month from the date
         item_date = datetime.strptime(item['date'], '%Y-%m-%d')
         month_key = item_date.strftime('%Y-%m-01')
-        
-        # Initialize month's recommendation counts if not exists
         if month_key not in monthly_recommendations:
-            monthly_recommendations[month_key] = {
-                'Strong Sell': 0,
-                'Sell': 0,
-                'Hold': 0,
-                'Buy': 0,
-                'Strong Buy': 0
-            }
-        
-        # Check and increment recommendation count for the month
+            monthly_recommendations[month_key] = {key: 0 for key in rating_hierarchy.keys()}
         if 'rating_current' in item and item['rating_current'] in rating_hierarchy:
             monthly_recommendations[month_key][item['rating_current']] += 1
     
-    # Convert monthly recommendations to a sorted list
     recommendation_list = []
     for month in sorted(monthly_recommendations.keys()):
         month_data = monthly_recommendations[month]
         recommendation_list.append({
             'date': month,
-            'Strong Sell': month_data['Strong Sell'],
-            'Sell': month_data['Sell'],
-            'Hold': month_data['Hold'],
-            'Buy': month_data['Buy'],
-            'Strong Buy': month_data['Strong Buy']
+            **month_data
         })
     
-    # Compute consensus ratings (similar to previous implementation)
-    consensus_ratings = defaultdict(str)
+    # Build a dictionary with the latest rating per analyst
+    consensus_ratings = {}
     for item in unique_filtered_data:
-        if 'rating_current' in item and item['rating_current'] and 'analyst_name' in item and item['analyst_name']:
-            try:
-                analyst_name = item['analyst_name']
-                current_rating = item['rating_current']
-                if current_rating in rating_hierarchy:
-                    consensus_ratings[analyst_name] = current_rating
-            except:
-                pass
+        if item.get('rating_current') and item.get('analyst_name'):
+            current_rating = item['rating_current']
+            if current_rating in rating_hierarchy:
+                consensus_ratings[item['analyst_name']] = current_rating
+
+    # --- New Robust Consensus Rating Calculation ---
+    # Convert each valid rating into its numeric value
+    rating_values = [rating_hierarchy[r] for r in consensus_ratings.values() if r in rating_hierarchy]
+    if rating_values:
+        # Compute the median and round it to the nearest integer
+        consensus_numeric = round(statistics.median(rating_values))
+        # Map the numeric consensus back to its corresponding rating string
+        inverse_rating_hierarchy = {v: k for k, v in rating_hierarchy.items()}
+        consensus_rating = inverse_rating_hierarchy.get(consensus_numeric, 'Hold')
+    else:
+        consensus_rating = 'Hold'
+    # -------------------------------------------------
     
-    # Compute the consensus rating based on the most frequent rating among analysts
-    consensus_rating_counts = defaultdict(int)
-    for rating in consensus_ratings.values():
-        consensus_rating_counts[rating] += 1
-    consensus_rating = max(consensus_rating_counts, key=consensus_rating_counts.get)
-    
-    # Sum up all Buy, Sell, Hold for the progress bar in sveltekit
-    data_dict = dict(consensus_rating_counts)
+    # Build aggregated counts for Buy, Sell, and Hold (for the progress bar)
+    data_dict = {key: 0 for key in rating_hierarchy.keys()}
+    for r in consensus_ratings.values():
+        data_dict[r] += 1
     buy_total = data_dict.get('Strong Buy', 0) + data_dict.get('Buy', 0)
     sell_total = data_dict.get('Strong Sell', 0) + data_dict.get('Sell', 0)
     hold_total = data_dict.get('Hold', 0)
     
     # Count unique analysts
-    unique_analyst_names = set()
     numOfAnalyst = len(unique_filtered_data)
-    '''
-    for item in filtered_data:
-        if item['analyst_name'] not in unique_analyst_names:
-            unique_analyst_names.add(item['analyst_name'])
-            numOfAnalyst += 1
-    '''
     
-    # Update stats dictionary with new keys including recommendationList
+    # Update stats dictionary with computed metrics and the recommendation list
     stats = {
         'numOfAnalyst': numOfAnalyst, 
         'consensusRating': consensus_rating, 
@@ -193,40 +170,36 @@ def get_all_analyst_summary(res_list):
     res = {**stats, **categorical_ratings}
     return res
 
+
+
 def get_top_analyst_summary(res_list):
     # Get the latest summary of ratings from the last 12 months
     end_date = date.today()
     res_list = [item for item in res_list if item['analystScore'] >= 4]
-    # Filter the data for the last 12 months and consider the last N ratings
-    #Furthermore consider only the last rating of the analyst if he provided multiple in the last 12 months
-    #filtered data is needed for the recommendation list
+    
+    # Filter data to only include ratings from the last 12 months
     filtered_data = [item for item in res_list if start_date_12m <= datetime.strptime(item['date'], '%Y-%m-%d').date() <= end_date]
-    #unique list is needed for analyst summary rating
+    # Ensure only the latest rating per analyst is used
     unique_filtered_data = filter_latest_entries(filtered_data)
 
-    print(unique_filtered_data)
-    # Initialize dictionary to store the latest price target for each analyst
+    # Collect the latest price target for each analyst
     latest_pt_current = defaultdict(list)
-    
-    # Iterate through the filtered data to collect pt_current for each analyst
     for item in unique_filtered_data:
         if 'adjusted_pt_current' in item and item['adjusted_pt_current']:
             analyst_name = item['analyst_name']
             try:
                 pt_current_value = float(item['adjusted_pt_current'])
-                # Collect all pt_current values for each analyst
                 latest_pt_current[analyst_name].append(pt_current_value)
             except (ValueError, TypeError):
                 print(f"Invalid pt_current value for analyst '{analyst_name}': {item['adjusted_pt_current']}")
     
-    # Compute statistics for price targets
+    # Compute statistics for price targets (removing outliers)
     pt_current_values = [val for sublist in latest_pt_current.values() for val in sublist]
-    #remove outliers to keep high and low price target reasonable
-    q1, q3 = np.percentile(pt_current_values, [25, 75])
-    iqr = q3 - q1
-    pt_current_values = [x for x in pt_current_values if (q1 - 1.5 * iqr) <= x <= (q3 + 1.5 * iqr)]
-
-    # Compute different price target metrics if there are values, otherwise set to 0
+    if pt_current_values:
+        q1, q3 = np.percentile(pt_current_values, [25, 75])
+        iqr = q3 - q1
+        pt_current_values = [x for x in pt_current_values if (q1 - 1.5 * iqr) <= x <= (q3 + 1.5 * iqr)]
+    
     if pt_current_values:
         median_pt_current = statistics.median(pt_current_values)
         avg_pt_current = statistics.mean(pt_current_values)
@@ -235,75 +208,60 @@ def get_top_analyst_summary(res_list):
     else:
         median_pt_current = avg_pt_current = low_pt_current = high_pt_current = 0
     
-    # Initialize recommendation tracking
+    # Define the rating hierarchy
     rating_hierarchy = {'Strong Sell': 0, 'Sell': 1, 'Hold': 2, 'Buy': 3, 'Strong Buy': 4}
     
-    # Track monthly recommendations
+    # Track monthly recommendations for visualization
     monthly_recommendations = {}
-    
-    # Iterate through the filtered data to track monthly recommendations
     for item in filtered_data:
-        # Extract month from the date
         item_date = datetime.strptime(item['date'], '%Y-%m-%d')
         month_key = item_date.strftime('%Y-%m-01')
-        
-        # Initialize month's recommendation counts if not exists
         if month_key not in monthly_recommendations:
-            monthly_recommendations[month_key] = {
-                'Strong Sell': 0,
-                'Sell': 0,
-                'Hold': 0,
-                'Buy': 0,
-                'Strong Buy': 0
-            }
+            monthly_recommendations[month_key] = {key: 0 for key in rating_hierarchy.keys()}
         
-        # Check and increment recommendation count for the month
         if 'rating_current' in item and item['rating_current'] in rating_hierarchy:
             monthly_recommendations[month_key][item['rating_current']] += 1
-    
-    # Convert monthly recommendations to a sorted list
+
     recommendation_list = []
     for month in sorted(monthly_recommendations.keys()):
         month_data = monthly_recommendations[month]
         recommendation_list.append({
             'date': month,
-            'Strong Sell': month_data['Strong Sell'],
-            'Sell': month_data['Sell'],
-            'Hold': month_data['Hold'],
-            'Buy': month_data['Buy'],
-            'Strong Buy': month_data['Strong Buy']
+            **month_data
         })
     
-    # Compute consensus ratings (similar to previous implementation)
-    consensus_ratings = defaultdict(str)
+    # Build a dictionary with the latest rating per analyst
+    consensus_ratings = {}
     for item in unique_filtered_data:
-        if 'rating_current' in item and item['rating_current'] and 'analyst_name' in item and item['analyst_name']:
-            try:
-                analyst_name = item['analyst_name']
-                current_rating = item['rating_current']
-                if current_rating in rating_hierarchy:
-                    consensus_ratings[analyst_name] = current_rating
-            except:
-                pass
+        if item.get('rating_current') and item.get('analyst_name'):
+            current_rating = item['rating_current']
+            if current_rating in rating_hierarchy:
+                consensus_ratings[item['analyst_name']] = current_rating
+
+    # --- New Robust Consensus Rating Calculation ---
+    # Convert each valid rating into its numeric score and compute the median
+    rating_values = [rating_hierarchy[r] for r in consensus_ratings.values() if r in rating_hierarchy]
+    if rating_values:
+        consensus_numeric = round(statistics.median(rating_values))
+        # Map the numeric consensus back to its corresponding rating string
+        inverse_rating_hierarchy = {v: k for k, v in rating_hierarchy.items()}
+        consensus_rating = inverse_rating_hierarchy.get(consensus_numeric, 'Hold')
+    else:
+        consensus_rating = 'Hold'
+    # -------------------------------------------------
     
-    # Compute the consensus rating based on the most frequent rating among analysts
-    consensus_rating_counts = defaultdict(int)
-    for rating in consensus_ratings.values():
-        consensus_rating_counts[rating] += 1
-    consensus_rating = max(consensus_rating_counts, key=consensus_rating_counts.get)
-    
-    # Sum up all Buy, Sell, Hold for the progress bar in sveltekit
-    data_dict = dict(consensus_rating_counts)
+    # Sum up the recommendation counts for Buy, Sell, and Hold for progress bar purposes
+    data_dict = {key: 0 for key in rating_hierarchy.keys()}
+    for r in consensus_ratings.values():
+        data_dict[r] += 1
     buy_total = data_dict.get('Strong Buy', 0) + data_dict.get('Buy', 0)
     sell_total = data_dict.get('Strong Sell', 0) + data_dict.get('Sell', 0)
     hold_total = data_dict.get('Hold', 0)
     
-    # Count unique analysts
-    unique_analyst_names = set()
+    # Count the unique analysts used in the unique filtered data
     numOfAnalyst = len(unique_filtered_data)
-
     
-    # Update stats dictionary with new keys including recommendationList
+    # Prepare the stats dictionary with all the computed values
     stats = {
         'numOfAnalyst': numOfAnalyst, 
         'consensusRating': consensus_rating, 
@@ -315,7 +273,6 @@ def get_top_analyst_summary(res_list):
     }
     
     categorical_ratings = {'Buy': buy_total, 'Sell': sell_total, 'Hold': hold_total}
-    
     res = {**stats, **categorical_ratings}
     return res
 
@@ -465,7 +422,6 @@ def run(chunk, analyst_list, con):
             print(e)
 
 
-
 try:
     con = sqlite3.connect('stocks.db')
     stock_cursor = con.cursor()
@@ -479,7 +435,7 @@ try:
 
     chunk_size = len(stock_symbols) // 300  # Divide the list into N chunks
     chunks = [stock_symbols[i:i + chunk_size] for i in range(0, len(stock_symbols), chunk_size)]
-    chunks = [['AAPL']]
+    #chunks = [['AAPL']]
     for chunk in chunks:
         run(chunk, analyst_stats_list, con)
 
