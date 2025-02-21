@@ -248,7 +248,7 @@ def get_market_flow():
     for rank, item in enumerate(top_neg_tickers, 1):
         item['rank'] = rank
 
-    data = {'marketTide': market_tide, 'topPosNetPremium': top_pos_tickers[:10], 'topNegNetPremium': top_neg_tickers[:10]}
+    data = {'marketTide': market_tide, 'topPosNetPremium': top_pos_tickers[:5], 'topNegNetPremium': top_neg_tickers[:5]}
     if data:
         save_json(data, 'overview')
 
@@ -267,8 +267,8 @@ def get_sector_flow():
             item['rank'] = rank
         
         sector_dict[sector_ticker] = sector_data
-        top_pos_tickers_dict[sector_ticker] = top_pos_tickers[:10]
-        top_neg_tickers_dict[sector_ticker] = top_neg_tickers[:10]
+        top_pos_tickers_dict[sector_ticker] = top_pos_tickers[:5]
+        top_neg_tickers_dict[sector_ticker] = top_neg_tickers[:5]
 
 
     data = {
