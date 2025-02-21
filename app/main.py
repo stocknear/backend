@@ -1213,7 +1213,24 @@ async def get_analyst_rating(data: TickerData, api_key: str = Security(get_api_k
     if cached_result:
         return orjson.loads(cached_result)
     try:
-        with open(f"json/analyst/summary/{ticker}.json", 'rb') as file:
+        with open(f"json/analyst/summary/all_analyst/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
+    except:
+        res = {}
+
+    redis_client.set(cache_key, orjson.dumps(res))
+    redis_client.expire(cache_key, 60*60)  # Set cache expiration time to 1 day
+    return res
+
+@app.post("/top-analyst-summary-rating")
+async def get_analyst_rating(data: TickerData, api_key: str = Security(get_api_key)):
+    ticker = data.ticker.upper()
+    cache_key = f"top-analyst-summary-rating-{ticker}"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return orjson.loads(cached_result)
+    try:
+        with open(f"json/analyst/summary/top_analyst/{ticker}.json", 'rb') as file:
             res = orjson.loads(file.read())
     except:
         res = {}
