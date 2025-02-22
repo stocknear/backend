@@ -24,15 +24,6 @@ async def save_as_json(symbol, data, file_name):
     with open(f"{file_name}/{symbol}.json", 'w') as file:
         ujson.dump(data, file)
 
-def delete_files_in_directory(directory):
-    for filename in os.listdir(directory):
-        file_path = os.path.join(directory, filename)
-        try:
-            if os.path.isfile(file_path):
-                os.remove(file_path)
-        except Exception as e:
-            print(f"Failed to delete {file_path}. Reason: {e}")
-
 async def get_data(ticker, con, etf_con, stock_symbols, etf_symbols):
     try:
         if ticker in etf_symbols:
@@ -57,23 +48,20 @@ async def get_data(ticker, con, etf_con, stock_symbols, etf_symbols):
         res = dividend_data.get('historical', [])
         filtered_res = [item for item in res if item['recordDate'] and item['paymentDate']]
     
-        # Dynamically compute the current and previous year based on New York timezone
-        current_year = str(datetime.now(ny_tz).year)
-        previous_year = str(datetime.now(ny_tz).year - 1)
+        # Get the current and previous year
+        today = datetime.today()
+        current_year = str(today.year)
+        previous_year = str(today.year - 1)
     
-        # Filter records for the current year
+        # Compute the previous year's total dividend (strictly based on last year)
+        previous_year_records = [item for item in filtered_res if previous_year in item['recordDate']]
+        previous_annual_dividend = round(sum(float(item['adjDividend']) for item in previous_year_records), 2) if previous_year_records else 0
+
+        # Estimate the payout frequency dynamically from the current year's dividends
         current_year_records = [item for item in filtered_res if current_year in item['recordDate']]
-        dividends_current_year = [float(item['adjDividend']) for item in current_year_records]
-    
-        # Compute the estimated payout frequency using the intervals between record dates
-        record_dates = []
-        for item in current_year_records:
-            try:
-                record_date = datetime.strptime(item['recordDate'], '%Y-%m-%d')
-                record_dates.append(record_date)
-            except Exception as e:
-                continue
-        record_dates.sort()
+        record_dates = sorted(
+            [datetime.strptime(item['recordDate'], '%Y-%m-%d') for item in current_year_records]
+        )
     
         if len(record_dates) > 1:
             total_days = (record_dates[-1] - record_dates[0]).days
@@ -81,39 +69,19 @@ async def get_data(ticker, con, etf_con, stock_symbols, etf_symbols):
             average_interval = total_days / intervals if intervals > 0 else None
             estimated_frequency = round(365 / average_interval) if average_interval and average_interval > 0 else len(record_dates)
         else:
-            # If there's only one record, assume weekly (52 payments) as a fallback;
-            # if no record exists, frequency remains 0.
-            estimated_frequency = 52 if record_dates else 0
-    
-        # Project the annual dividend using the average dividend amount
-        if dividends_current_year:
-            avg_dividend = sum(dividends_current_year) / len(dividends_current_year)
-            annual_dividend = round(avg_dividend * estimated_frequency, 2)
-        else:
-            annual_dividend = 0
-    
-        # For the previous year, assume the data is complete and sum the dividends
-        dividends_previous_year = [
-            float(item['adjDividend'])
-            for item in filtered_res
-            if previous_year in item['recordDate']
-        ]
-        previous_annual_dividend = round(sum(dividends_previous_year), 2) if dividends_previous_year else 0
+            estimated_frequency = 52 if record_dates else 0  # Default to weekly if only one record exists
     
         quote_data = orjson.loads(df['quote'].iloc[0])[0]
         eps = quote_data.get('eps')
         current_price = quote_data.get('price')
     
-        dividend_yield = round((annual_dividend / current_price) * 100, 2) if current_price else None
-        payout_ratio = round((1 - (eps - annual_dividend) / eps) * 100, 2) if eps else None
-        dividend_growth = (
-            round(((annual_dividend - previous_annual_dividend) / previous_annual_dividend) * 100, 2)
-            if previous_annual_dividend else None
-        )
+        dividend_yield = round((previous_annual_dividend / current_price) * 100, 2) if current_price else None
+        payout_ratio = round((1 - (eps - previous_annual_dividend) / eps) * 100, 2) if eps else None
+        dividend_growth = None  # No calculation since we are strictly using the past year's data
     
         return {
             'payoutFrequency': estimated_frequency,
-            'annualDividend': annual_dividend,
+            'annualDividend': previous_annual_dividend,  # Strictly using past year’s data
             'dividendYield': dividend_yield,
             'payoutRatio': payout_ratio,
             'dividendGrowth': dividend_growth,
@@ -123,6 +91,7 @@ async def get_data(ticker, con, etf_con, stock_symbols, etf_symbols):
     except Exception as e:
         print(f"Error processing ticker {ticker}: {e}")
         return {}
+
 
 async def run():
     con = sqlite3.connect('stocks.db')
@@ -142,7 +111,6 @@ async def run():
         res = await get_data(ticker, con, etf_con, stock_symbols, etf_symbols)
         try:
             if len(res.get('history', [])) > 0:
-                print(res)
                 await save_as_json(ticker, res, 'json/dividends/companies')
         except Exception as e:
             print(f"Error saving data for {ticker}: {e}")
