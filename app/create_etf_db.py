@@ -187,7 +187,7 @@ class ETFDatabase:
                 f"https://financialmodelingprep.com/api/v3/etf-holder/{symbol}?apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v3/etf-country-weightings/{symbol}?apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v3/quote/{symbol}?apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v3/historical-price-full/stock_dividend/{symbol}?apikey={api_key}",
+                f"https://financialmodelingprep.com/stable/dividends?symbol={symbol}&apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v4/institutional-ownership/institutional-holders/symbol-ownership-percent?date=2023-09-30&symbol={symbol}&page=0&apikey={api_key}",
             ]
 
@@ -235,7 +235,7 @@ class ETFDatabase:
                         elif isinstance(parsed_data, list) and "etf-country-weightings" in url:
                             fundamental_data['country_weightings'] = ujson.dumps(parsed_data)
                         
-                        elif "stock_dividend" in url:
+                        elif "dividends" in url:
                             fundamental_data['etf_dividend'] = ujson.dumps(parsed_data)
         
                         elif "institutional-ownership/institutional-holders" in url:

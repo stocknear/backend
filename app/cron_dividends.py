@@ -34,64 +34,73 @@ async def get_data(ticker, con, etf_con, stock_symbols, etf_symbols):
             column_name = 'stock_dividend'
 
         query_template = f"""
-        SELECT 
-            {column_name}, quote
-        FROM 
-            {table_name}
-        WHERE
-            symbol = ?
+            SELECT {column_name}, quote 
+            FROM {table_name}
+            WHERE symbol = ?
         """
-
-        df = pd.read_sql_query(query_template, etf_con if table_name == 'etfs' else con, params=(ticker,))
-    
+        
+        df = pd.read_sql_query(query_template, 
+                             etf_con if table_name == 'etfs' else con,
+                             params=(ticker,))
+        
         dividend_data = orjson.loads(df[column_name].iloc[0])
         res = dividend_data.get('historical', [])
         filtered_res = [item for item in res if item['recordDate'] and item['paymentDate']]
-    
+
         # Get the current and previous year
         today = datetime.today()
         current_year = str(today.year)
         previous_year = str(today.year - 1)
-    
-        # Compute the previous year's total dividend (strictly based on last year)
+
+        # Compute the previous year's total dividend
         previous_year_records = [item for item in filtered_res if previous_year in item['recordDate']]
         previous_annual_dividend = round(sum(float(item['adjDividend']) for item in previous_year_records), 2) if previous_year_records else 0
 
-        # Estimate the payout frequency dynamically from the current year's dividends
+        # Calculate payout frequency
         current_year_records = [item for item in filtered_res if current_year in item['recordDate']]
-        record_dates = sorted(
-            [datetime.strptime(item['recordDate'], '%Y-%m-%d') for item in current_year_records]
-        )
-    
+        record_dates = sorted([datetime.strptime(item['recordDate'], '%Y-%m-%d') for item in current_year_records])
+        
+        def map_frequency_to_standard(calculated_frequency):
+            if calculated_frequency >= 45:  # Approximately weekly
+                return 5
+            elif calculated_frequency >= 10:  # More frequent than quarterly but less than weekly
+                return 5  # Default to weekly for very frequent payments
+            elif calculated_frequency >= 3:  # Approximately quarterly
+                return 4
+            elif calculated_frequency >= 1.5:  # Approximately semi-annual
+                return 2
+            else:  # Annual or less frequent
+                return 1
+
         if len(record_dates) > 1:
             total_days = (record_dates[-1] - record_dates[0]).days
             intervals = len(record_dates) - 1
             average_interval = total_days / intervals if intervals > 0 else None
-            estimated_frequency = round(365 / average_interval) if average_interval and average_interval > 0 else len(record_dates)
+            raw_frequency = round(365 / average_interval) if average_interval and average_interval > 0 else len(record_dates)
+            estimated_frequency = map_frequency_to_standard(raw_frequency)
         else:
-            estimated_frequency = 52 if record_dates else 0  # Default to weekly if only one record exists
-    
+            estimated_frequency = 1  # Default to annual if only one record exists
+
+        # Process quote data
         quote_data = orjson.loads(df['quote'].iloc[0])[0]
         eps = quote_data.get('eps')
         current_price = quote_data.get('price')
-    
+        
         dividend_yield = round((previous_annual_dividend / current_price) * 100, 2) if current_price else None
         payout_ratio = round((1 - (eps - previous_annual_dividend) / eps) * 100, 2) if eps else None
-        dividend_growth = None  # No calculation since we are strictly using the past year's data
-    
+        
         return {
             'payoutFrequency': estimated_frequency,
-            'annualDividend': previous_annual_dividend,  # Strictly using past year’s data
+            'annualDividend': previous_annual_dividend,
             'dividendYield': dividend_yield,
             'payoutRatio': payout_ratio,
-            'dividendGrowth': dividend_growth,
+            'dividendGrowth': None,
             'history': filtered_res,
         }
-    
+        
     except Exception as e:
         print(f"Error processing ticker {ticker}: {e}")
         return {}
-
 
 async def run():
     con = sqlite3.connect('stocks.db')
@@ -105,10 +114,11 @@ async def run():
     etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
     etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
-    total_symbols = stock_symbols + etf_symbols
+    total_symbols = ['AAPL'] #stock_symbols + etf_symbols
     
     for ticker in tqdm(total_symbols):
         res = await get_data(ticker, con, etf_con, stock_symbols, etf_symbols)
+        print(res)
         try:
             if len(res.get('history', [])) > 0:
                 await save_as_json(ticker, res, 'json/dividends/companies')

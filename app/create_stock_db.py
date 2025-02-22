@@ -100,7 +100,7 @@ class StockDatabase:
             urls = [
                 f"https://financialmodelingprep.com/api/v3/profile/{symbol}?apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v3/quote/{symbol}?apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v3/historical-price-full/stock_dividend/{symbol}?limit=400&apikey={api_key}",
+                f"https://financialmodelingprep.com/stable/dividends?symbol={symbol}&apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v4/historical/employee_count?symbol={symbol}&apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v3/historical-price-full/stock_split/{symbol}?apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v4/stock_peers?symbol={symbol}&apikey={api_key}",
@@ -153,7 +153,7 @@ class StockDatabase:
 
                             fundamental_data.update(data_dict)
                        
-                        elif "stock_dividend" in url:
+                        elif "dividends" in url:
                             # Handle list response, save as JSON object
                             fundamental_data['stock_dividend'] = ujson.dumps(parsed_data)
                         elif "employee_count" in url:
