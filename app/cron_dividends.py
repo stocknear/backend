@@ -131,7 +131,7 @@ async def run():
     etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
     etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
-    total_symbols = ['QQQY'] #stock_symbols + etf_symbols
+    total_symbols = stock_symbols + etf_symbols
     
     for ticker in tqdm(total_symbols):
         res = await get_data(ticker, con, etf_con, stock_symbols, etf_symbols)
