@@ -135,7 +135,7 @@ async def run():
     
     for ticker in tqdm(total_symbols):
         res = await get_data(ticker, con, etf_con, stock_symbols, etf_symbols)
-        print(res)
+
         try:
             if len(res.get('history', [])) > 0:
                 await save_as_json(ticker, res, 'json/dividends/companies')

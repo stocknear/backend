@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 import requests
 from pathlib import Path
 import asyncio
+import httpx
 
 # Database related imports
 import sqlite3
@@ -42,6 +43,7 @@ from datetime import datetime
 from utils.helper import load_latest_json
 
 # DB constants & context manager
+API_URL = "http://localhost:8000"
 
 STOCK_DB = 'stocks'
 ETF_DB = 'etf'
@@ -4256,6 +4258,39 @@ async def get_data(data:TickerData, api_key: str = Security(get_api_key)):
     )
 
 
+async def fetch_data(client, endpoint, ticker):
+    url = f"{API_URL}{endpoint}"
+    try:
+        response = await client.post(url, json={"ticker": ticker}, headers={"X-API-KEY": STOCKNEAR_API_KEY})
+        response.raise_for_status()
+        return {endpoint: response.json()}
+    except Exception as e:
+        return {endpoint: {"error": str(e)}}
+
+@app.post("/stock-data")
+async def get_stock_data(data:TickerData, api_key: str = Security(get_api_key)):
+    ticker = data.ticker.upper()
+    endpoints = [
+        "/stockdeck",
+        "/analyst-summary-rating",
+        "/stock-quote",
+        "/pre-post-quote",
+        "/wiim",
+        "/one-day-price",
+        "/next-earnings",
+        "/earnings-surprise",
+        "/stock-news",
+    ]
+    
+    async with httpx.AsyncClient() as client:
+        tasks = [fetch_data(client, endpoint, ticker) for endpoint in endpoints]
+        results = await asyncio.gather(*tasks)
+
+    # Combine results
+    data = {k: v for result in results for k, v in result.items()}
+    return data
+
+
 @app.get("/newsletter")
 async def get_newsletter():
     try:
@@ -4264,3 +4299,4 @@ async def get_newsletter():
     except:
         res = []
     return res
+
