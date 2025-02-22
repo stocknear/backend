@@ -328,7 +328,7 @@ async def get_analyst_report():
 
         # If the latest report and symbol are found, add additional data from the summary file
         if latest_symbol and latest_data:
-            summary_path = Path(f"json/analyst/summary/{latest_symbol}.json")
+            summary_path = Path(f"json/analyst/summary/all_analyst/{latest_symbol}.json")
             if summary_path.is_file():  # Ensure the summary file exists
                 async with aiofiles.open(summary_path, mode='r') as file:
                     summary_data = ujson.loads(await file.read())
