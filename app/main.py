@@ -395,6 +395,9 @@ class HistoricalDate(BaseModel):
 class OptionsWatchList(BaseModel):
     optionsIdList: list
 
+class BulkList(BaseModel):
+    ticker: str
+    endpoints: list
 
 # Replace NaN values with None in the resulting JSON object
 def replace_nan_inf_with_none(obj):
@@ -856,7 +859,6 @@ async def stock_dividend(data: TickerData, api_key: str = Security(get_api_key))
 @app.post("/stock-quote")
 async def stock_dividend(data: TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
-    print(ticker)
     cache_key = f"stock-quote-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -868,7 +870,6 @@ async def stock_dividend(data: TickerData, api_key: str = Security(get_api_key))
     except:
         res = {}
 
-    print(ticker)
     redis_client.set(cache_key, orjson.dumps(res))
     redis_client.expire(cache_key, 60)
     return res
@@ -917,7 +918,6 @@ async def stock_income(data: TickerData, api_key: str = Security(get_api_key)):
             media_type="application/json",
             headers={"Content-Encoding": "gzip"}
         )
-
     try:
         with open(f"json/financial-statements/income-statement/quarter/{ticker}.json", 'rb') as file:
             quarter_res = orjson.loads(file.read())
@@ -1696,7 +1696,6 @@ async def stock_finder(data:StockScreenerData, api_key: str = Security(get_api_k
     )
 
 
-
 @app.post("/congress-trading-ticker")
 async def get_fair_price(data: TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
@@ -1704,7 +1703,11 @@ async def get_fair_price(data: TickerData, api_key: str = Security(get_api_key))
     cache_key = f"get-congress-trading-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return orjson.loads(cached_result)
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
 
     try:
         with open(f"json/congress-trading/company/{ticker}.json", 'rb') as file:
@@ -1712,10 +1715,17 @@ async def get_fair_price(data: TickerData, api_key: str = Security(get_api_key))
     except:
         res = []
 
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 15*60) # Set cache expiration time to Infinity
+    res = orjson.dumps(res)
+    compressed_data = gzip.compress(res)
 
-    return res
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
 
 
 
@@ -1990,7 +2000,6 @@ async def get_data(data: TickerData, api_key: str = Security(get_api_key)):
     except Exception as e:
         print(e)
         res = []
-    print(res)
     data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
 
@@ -3151,7 +3160,6 @@ async def get_all_analysts(data:AnalystId, api_key: str = Security(get_api_key))
 async def get_wiim(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     cache_key = f"wiim-{ticker}"
-    print(ticker)
     cached_result = redis_client.get(cache_key)
     if cached_result:
         return StreamingResponse(
@@ -4267,20 +4275,10 @@ async def fetch_data(client, endpoint, ticker):
     except Exception as e:
         return {endpoint: {"error": str(e)}}
 
-@app.post("/stock-data")
-async def get_stock_data(data:TickerData, api_key: str = Security(get_api_key)):
+@app.post("/bulk-data")
+async def get_stock_data(data:BulkList, api_key: str = Security(get_api_key)):
+    endpoints = data.endpoints
     ticker = data.ticker.upper()
-    endpoints = [
-        "/stockdeck",
-        "/analyst-summary-rating",
-        "/stock-quote",
-        "/pre-post-quote",
-        "/wiim",
-        "/one-day-price",
-        "/next-earnings",
-        "/earnings-surprise",
-        "/stock-news",
-    ]
     
     async with httpx.AsyncClient() as client:
         tasks = [fetch_data(client, endpoint, ticker) for endpoint in endpoints]
