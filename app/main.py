@@ -62,6 +62,8 @@ PRIORITY_STRATEGIES = {
     'name_contains': 5
 }
 
+client = httpx.AsyncClient(http2=True, timeout=10.0)
+
 def calculate_score(item: Dict, search_query: str) -> int:
     name_lower = item['name'].lower()
     symbol_lower = item['symbol'].lower()
@@ -4269,24 +4271,29 @@ async def get_data(data:TickerData, api_key: str = Security(get_api_key)):
 async def fetch_data(client, endpoint, ticker):
     url = f"{API_URL}{endpoint}"
     try:
-        response = await client.post(url, json={"ticker": ticker}, headers={"X-API-KEY": STOCKNEAR_API_KEY})
+        response = await client.post(
+            url,
+            json={"ticker": ticker},
+            headers={"X-API-KEY": STOCKNEAR_API_KEY}
+        )
         response.raise_for_status()
+        # Parse the JSON response
         return {endpoint: response.json()}
     except Exception as e:
         return {endpoint: {"error": str(e)}}
 
 @app.post("/bulk-data")
-async def get_stock_data(data:BulkList, api_key: str = Security(get_api_key)):
+async def get_stock_data(data: BulkList, api_key: str = Security(get_api_key)):
     endpoints = data.endpoints
     ticker = data.ticker.upper()
-    
-    async with httpx.AsyncClient() as client:
-        tasks = [fetch_data(client, endpoint, ticker) for endpoint in endpoints]
-        results = await asyncio.gather(*tasks)
 
-    # Combine results
-    data = {k: v for result in results for k, v in result.items()}
-    return data
+    # Create tasks for each endpoint concurrently.
+    tasks = [fetch_data(client, endpoint, ticker) for endpoint in endpoints]
+    results = await asyncio.gather(*tasks)
+
+    # Combine the results into a single dictionary.
+    combined_data = {k: v for result in results for k, v in result.items()}
+    return combined_data
 
 
 @app.get("/newsletter")
@@ -4298,3 +4305,6 @@ async def get_newsletter():
         res = []
     return res
 
+@app.on_event("shutdown")
+async def shutdown_event():
+    await client.aclose()

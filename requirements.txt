@@ -21,6 +21,7 @@ redis[hiredis]
 asyncio
 aiohttp
 httpx
+httpx[http2]
 prophet
 schedule
 pocketbase
