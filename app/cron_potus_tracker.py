@@ -15,7 +15,7 @@ import os
 import sqlite3
 import pandas as pd
 from openai import OpenAI
-from datetime import datetime
+from datetime import datetime, timedelta
 import hashlib
 
 def generate_unique_id(data):
@@ -176,7 +176,74 @@ def get_executive_orders():
     finally:
         driver.quit()
 
+
+
+async def get_historical_sector():
+    sector_list = ["SPY","XLB", "XLC", "XLY", "XLP", "XLE", "XLF", "XLV", "XLI", "XLRE", "XLK", "XLU"]
+    res_dict = {}
+    
+    def calculate_percentage_change(current_price, previous_price):
+        if previous_price == 0:
+            return 0
+        return ((current_price - previous_price) / previous_price) * 100
+    
+    def find_closest_date(data, target_date):
+        # Find the closest date entry equal to or before the target date
+        target_date = datetime.strptime(target_date, '%Y-%m-%d')
+        for entry in reversed(data):  # Reverse to search from newest to oldest
+            entry_date = datetime.strptime(entry['time'], '%Y-%m-%d')
+            if entry_date <= target_date:
+                return entry
+        return None
+
+    for symbol in sector_list:
+        try:
+            # Load historical data
+            with open(f"json/historical-price/max/{symbol}.json", "r") as file:
+                data = orjson.loads(file.read())
+            
+            # Load current data for 1D change
+            with open(f"json/quote/{symbol}.json", "r") as file:
+                current_data = round(orjson.loads(file.read()).get('changesPercentage', 0),2)
+            
+            if not data:
+                continue
+                
+            # Get the latest price (last item in the list)
+            latest_price = data[-1]['close']
+            
+            # Calculate dates for different periods
+            today = datetime.strptime(data[-1]['time'], '%Y-%m-%d')
+            dates = {
+                '1W': (today - timedelta(days=7)).strftime('%Y-%m-%d'),
+                '1M': (today - timedelta(days=30)).strftime('%Y-%m-%d'),
+                '3M': (today - timedelta(days=90)).strftime('%Y-%m-%d'),
+                '6M': (today - timedelta(days=180)).strftime('%Y-%m-%d'),
+                'Inauguration': '2025-01-20'
+            }
+            
+            changes = {'1D': current_data}
+            
+            # Calculate percentage changes for each period
+            for period, target_date in dates.items():
+                historical_entry = find_closest_date(data, target_date)
+                if historical_entry:
+                    change = calculate_percentage_change(latest_price, historical_entry['close'])
+                    changes[period] = round(change, 2)
+                else:
+                    changes[period] = 0
+            
+            res_dict[symbol] = changes
+            
+        except Exception as e:
+            print(f"Error processing {symbol}: {str(e)}")
+            continue
+    return res_dict
+
+
 async def get_data():
+    market_dict = await get_historical_sector()
+    
     executive_orders = get_executive_orders()
 
     executive_orders_summary = []
@@ -221,7 +288,6 @@ async def get_data():
         sp500_list = df.dropna().to_dict(orient="records")   # Drop NaN values and convert to list
     etf_con.close()
 
-    return_since = round((sp500_list[-1]['close']/sp500_list[0]['close']-1)*100,2)
 
     url = "https://media-cdn.factba.se/rss/json/trump/calendar-full.json"
     async with aiohttp.ClientSession() as session:
@@ -239,43 +305,13 @@ async def get_data():
                 print(f"Failed to fetch data. HTTP status code: {response.status}")
 
     if len(data) > 0 and len(executive_orders_summary) > 0:
-        # Latest location
-        details = data[0]['details']
-        location = data[0]['location']
-
-        city = None
-        longitude = None
-        latitude = None
-        for address in [details, location]:
-            try:
-                if any(place in address for place in ["Oval Office","White House", "Blair House","Washington DC", "East Room"]):
-                    location = "Washington, DC"
-                else:
-                    location = address  # Otherwise, use the full address string
-
-                # Geocode the processed address
-                location_data = geolocator.geocode(location)
-                city = location_data.address.split(',', 1)[0]
-                if location_data:
-                    
-                    # Extract city from the address components
-                    address_components = location_data.raw.get('address', {})
-                    
-                   
-                    # Extract latitude and longitude
-                    latitude = location_data.latitude
-                    longitude = location_data.longitude
-                    print(f"Latitude: {latitude}, Longitude: {longitude}")
-                    break
-            except:
-                pass
-
+        
         for item in data:
             for price_item in sp500_list:
                 if item['date'] == price_item['date']:
                     item['changesPercentage'] = price_item['changesPercentage']
                     break
-        res_dict = {'returnSince': return_since,'city': city, 'lon': longitude, 'lat': latitude, 'history': data, 'executiveOrders': executive_orders_summary}
+        res_dict = {'marketPerformance': market_dict, 'history': data, 'executiveOrders': executive_orders_summary}
         save_json(res_dict)
     
     
