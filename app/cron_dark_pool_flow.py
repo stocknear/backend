@@ -27,6 +27,9 @@ stock_screener_data_dict = {item['symbol']: item for item in stock_screener_data
 
 quote_cache = {}
 
+print(stock_screener_data_dict.get('AAPL', {}))
+
+
 def get_quote_data(symbol):
     """Get quote data for a symbol from JSON file"""
     if symbol in quote_cache:

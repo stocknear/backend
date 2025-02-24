@@ -22,7 +22,7 @@ with open(f"json/stock-screener/data.json", 'rb') as file:
     stock_screener_data = orjson.loads(file.read())
 stock_screener_data_dict = {item['symbol']: item for item in stock_screener_data}
 
-screener_columns = ['forwardPE','revenueTTM',"netIncomeTTM"]
+screener_columns = ['floatShares', 'forwardPE','shortOutStandingPercent','shortFloatPercent','revenuePerEmployee','profitPerEmployee','revenueTTM',"netIncomeTTM"]
 
 async def get_data(ticker):
     try: 
@@ -67,15 +67,18 @@ async def get_data(ticker):
                     'beta': company_profile[0]['beta'],
                     'marketCap': company_profile[0]['mktCap'],
                     'avgVolume': company_profile[0]['volAvg'],
+                    'country': company_profile[0]['country'],
                     'exchange': company_profile[0]['exchangeShortName'],
                     'earning': company_quote['earningsAnnouncement'],
                     'pe': company_quote['pe'],
                     'eps': company_quote['eps'],
+                    'sharesOutstanding': company_quote['sharesOutstanding'],
                     'score': score,
                     'previousClose': company_quote['price'], #This is true because I update my db before the market opens hence the price will be the previousClose price.
                     'website': company_profile[0]['website'],
                     'description': company_profile[0]['description'],
                     'fullTimeEmployees': company_profile[0]['fullTimeEmployees'],
+                    'stockSplits': company_stock_split,
                 }
 
             return res_list

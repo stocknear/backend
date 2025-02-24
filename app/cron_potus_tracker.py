@@ -274,7 +274,6 @@ async def get_data():
         except Exception as e:
             print(f"Error processing item {item}: {e}")
 
-
     
     query = query_template.format(symbol='SPY')
 
