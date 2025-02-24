@@ -243,7 +243,9 @@ async def get_data():
         details = data[0]['details']
         location = data[0]['location']
 
-        
+        city = None
+        longitude = None
+        latitude = None
         for address in [details, location]:
             try:
                 if any(place in address for place in ["Oval Office","White House", "Blair House","Washington DC", "East Room"]):
