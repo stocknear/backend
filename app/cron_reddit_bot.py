@@ -115,7 +115,7 @@ def format_upcoming_earnings_data(earnings_data):
             )
             formatted_items.append(entry)
     
-    support_message = "\nIf you don’t want Stocknear to go bankrupt, it would be awesome if you could [support me](https://stocknear.com/pricing)! 🙌"
+    support_message = "\nInvest in yourself and embrace data-driven decisions to minimize losses, identify opportunities and achieve consistent growth with [Stocknear](https://stocknear.com/pricing) 🚀"
     
     return "".join(formatted_items) + support_message
 
@@ -166,7 +166,7 @@ def format_recent_earnings_data(earnings_data):
 
             formatted_items.append(entry)
     
-    support_message = "\nIf you don’t want Stocknear to go bankrupt, it would be awesome if you could [support me](https://stocknear.com/pricing)! 🙌"
+    support_message = "\nInvest in yourself and embrace data-driven decisions to minimize losses, identify opportunities and achieve consistent growth with [Stocknear](https://stocknear.com/pricing) 🚀"
     
     return "".join(formatted_items) + support_message
 
