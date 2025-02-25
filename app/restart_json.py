@@ -1309,6 +1309,7 @@ async def get_economic_calendar():
 
 def replace_representative(office):
     replacements = {
+        'Moody, Ashley B. (Senator)': 'Ashley Moody',
         'McCormick, Dave H. (Senator)': 'Dave McCormick',
         'McCormick, Dave H.': 'Dave McCormick',
         'Carper, Thomas R. (Senator)': 'Tom Carper',
