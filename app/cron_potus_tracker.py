@@ -4,6 +4,7 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import NoSuchElementException
 from webdriver_manager.chrome import ChromeDriverManager
 from geopy.geocoders import Nominatim
 import aiohttp
@@ -240,8 +241,87 @@ async def get_historical_sector():
             continue
     return res_dict
 
+async def get_truth_social_post():
+    
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--no-sandbox")
+
+    service = Service(ChromeDriverManager().install())
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+
+    driver.get("https://trumpstruth.org/?per_page=40")
+
+    wait = WebDriverWait(driver, 20)
+    statuses = wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, 'status')))
+
+    posts_data = []
+
+    for status in statuses:
+        try:
+            # Extract username
+            username = status.find_element(By.CLASS_NAME, 'status-info__account-name').text
+        except NoSuchElementException:
+            username = "N/A"
+        
+        try:
+            # Extract date (second meta item)
+            meta_items = status.find_elements(By.CLASS_NAME, 'status-info__meta-item')
+            date = meta_items[1].text if len(meta_items) >= 2 else "N/A"
+        except (NoSuchElementException, IndexError):
+            date = "N/A"
+        
+        try:
+            # Extract content text
+            content_element = status.find_element(By.CLASS_NAME, 'status__content')
+            content = content_element.text.strip()
+        except NoSuchElementException:
+            content = ""
+        
+        # Extract video URL if present
+        video_url = ""
+        try:
+            video_element = status.find_element(By.CSS_SELECTOR, '.status-attachment--video video')
+            video_url = video_element.get_attribute('src')
+        except NoSuchElementException:
+            pass
+        
+        # Extract external link details if present
+        external_link = ""
+        link_title = ""
+        link_description = ""
+        try:
+            card = status.find_element(By.CLASS_NAME, 'status-card')
+            external_link = card.get_attribute('href')
+            link_title = card.find_element(By.CLASS_NAME, 'status-card__title').text
+            link_description = card.find_element(By.CLASS_NAME, 'status-card__description').text
+        except NoSuchElementException:
+            pass
+        
+        # Extract original post URL
+        try:
+            original_post_url = status.find_element(By.CLASS_NAME, 'status__external-link').get_attribute('href')
+        except NoSuchElementException:
+            original_post_url = ""
+
+        posts_data.append({
+            'date': date,
+            'content': content,
+            'videoUrl': video_url,
+            'externalLink': external_link,
+            'title': link_title,
+            'source': original_post_url
+        })
+
+    posts_data = [item for item in posts_data if item['videoUrl'] == "" and "youtube" not in item['content'] and item['content'] != ""]
+    return posts_data
+
+
 
 async def get_data():
+
+    post_list = await get_truth_social_post()
     market_dict = await get_historical_sector()
     
     executive_orders = get_executive_orders()
@@ -310,8 +390,9 @@ async def get_data():
                 if item['date'] == price_item['date']:
                     item['changesPercentage'] = price_item['changesPercentage']
                     break
-        res_dict = {'marketPerformance': market_dict, 'history': data, 'executiveOrders': executive_orders_summary}
+        res_dict = {'posts': post_list, 'marketPerformance': market_dict, 'history': data, 'executiveOrders': executive_orders_summary}
         save_json(res_dict)
+
     
     
 asyncio.run(get_data())
