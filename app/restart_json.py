@@ -67,19 +67,22 @@ def calculate_price_changes(symbol, item, con):
     try:
         # Loop through each time frame to calculate the change
         for name, date in time_frames.items():
-            item[name] = None  # Initialize to None
+            try:
+                item[name] = None  # Initialize to None
 
-            query = query_price.format(symbol=symbol)
-            data = pd.read_sql_query(query, con, params=(date,))
-            
-            # Check if data was retrieved and calculate the percentage change
-            if not data.empty:
-                past_price = data.iloc[0]['close']
-                current_price = item['price']
-                change = round(((current_price - past_price) / past_price) * 100, 2)
+                query = query_price.format(symbol=symbol)
+                data = pd.read_sql_query(query, con, params=(date,))
                 
-                # Set item[name] to None if the change is -100
-                item[name] = None if change == -100 else change
+                # Check if data was retrieved and calculate the percentage change
+                if not data.empty:
+                    past_price = data.iloc[0]['close']
+                    current_price = item['price']
+                    change = round(((current_price - past_price) / past_price) * 100, 2)
+                    
+                    # Set item[name] to None if the change is -100
+                    item[name] = None if change == -100 else change
+            except:
+                item[name] = None
                 
     except:
         # Handle exceptions by setting all fields to None
@@ -167,15 +170,18 @@ def count_consecutive_growth_years(financial_data, key_element):
     prev_val = None
 
     for data in financial_data:
-        current_val = data[key_element] #e.g. revenue
-        
-        if current_val is not None:
-            if prev_val is not None:
-                if current_val > prev_val:
-                    consecutive_years += 1
-                else:
-                    consecutive_years = 0
-            prev_val = current_val
+        try:
+            current_val = data[key_element] #e.g. revenue
+            
+            if current_val is not None:
+                if prev_val is not None:
+                    if current_val > prev_val:
+                        consecutive_years += 1
+                    else:
+                        consecutive_years = 0
+                prev_val = current_val
+        except:
+            pass
 
     # Check one last time in case the streak continues to the end
     
@@ -528,7 +534,10 @@ def get_financial_statements(item, symbol):
 
     # Process each financial statement
     for file_path, key_list in statements:
-        item.update(check_and_process(file_path, key_list))
+        try:
+            item.update(check_and_process(file_path, key_list))
+        except:
+            pass
     
     try:
         item['freeCashFlowMargin'] = round((item['freeCashFlow'] / item['revenue']) * 100,2)
@@ -675,7 +684,7 @@ async def get_stock_screener(con):
 
     # Iterate through stock_screener_data and update 'price' and 'changesPercentage' if symbols match
     #test mode
-    #filtered_data = [item for item in stock_screener_data if item['symbol'] == 'AMD']
+    #filtered_data = [item for item in stock_screener_data if item['symbol'] == 'MCD']
 
     for item in tqdm(stock_screener_data):
         symbol = item['symbol']
@@ -739,7 +748,7 @@ async def get_stock_screener(con):
 
         #Financial Statements
         item.update(get_financial_statements(item, symbol))
- 
+    
 
         try:
             with open(f"json/financial-statements/income-statement/annual/{symbol}.json", 'r') as file:
@@ -747,14 +756,15 @@ async def get_stock_screener(con):
             
             # Ensure there are enough elements in the list
             if len(res) >= 5:
-                latest_revenue = int(res[0].get('revenue', 0))
-                revenue_3_years_ago = int(res[2].get('revenue', 0))
-                revenue_5_years_ago = int(res[4].get('revenue', 0))
+                latest_revenue = int(res[0].get('revenue', 0) or 0)
+                revenue_3_years_ago = int(res[2].get('revenue', 0) or 0)
+                revenue_5_years_ago = int(res[4].get('revenue', 0) or 0)
 
-                latest_eps = int(res[0].get('eps', 0))
-                eps_3_years_ago = int(res[2].get('eps', 0))  # eps 3 years ago
-                eps_5_years_ago = int(res[4].get('eps', 0))  # eps 5 years ago
-                
+                latest_eps = int(res[0].get('eps', 0) or 0)
+                eps_3_years_ago = int(res[2].get('eps', 0) or 0)  # eps 3 years ago
+                eps_5_years_ago = int(res[4].get('eps', 0) or 0)  # eps 5 years ago
+
+
                 item['cagr3YearRevenue'] = calculate_cagr(revenue_3_years_ago, latest_revenue, 3)
                 item['cagr5YearRevenue'] = calculate_cagr(revenue_5_years_ago, latest_revenue, 5)
                 item['cagr3YearEPS'] = calculate_cagr(eps_3_years_ago, latest_eps, 3)
@@ -771,11 +781,13 @@ async def get_stock_screener(con):
             item['cagr3YearEPS'] = None
             item['cagr5YearEPS'] = None
 
+
         try:
             with open(f"json/var/{symbol}.json", 'r') as file:
                 item['var'] = orjson.loads(file.read())['history'][-1]['var']
         except:
             item['var'] = None
+
 
         try:
             with open(f"json/enterprise-values/{symbol}.json", 'r') as file:
@@ -794,14 +806,15 @@ async def get_stock_screener(con):
             item['evEBIT'] = None
             item['evFCF'] = None
 
+
         try:
-            with open(f"json/analyst/summary/{symbol}.json", 'r') as file:
+            with open(f"json/analyst/summary/all_analyst/{symbol}.json", 'r') as file:
                 res = orjson.loads(file.read())
                 item['analystRating'] = res['consensusRating']
                 item['analystCounter'] = res['numOfAnalyst']
                 item['priceTarget'] = res['medianPriceTarget']
                 item['upside'] = round((item['priceTarget']/item['price']-1)*100, 1) if item['price'] else None
-        except Exception as e:
+        except:
             item['analystRating'] = None
             item['analystCounter'] = None
             item['priceTarget'] = None
@@ -829,7 +842,7 @@ async def get_stock_screener(con):
                 res = orjson.loads(file.read())[-1]
                 item['failToDeliver'] = res['failToDeliver']
                 item['relativeFTD'] = round((item['failToDeliver']/item['avgVolume'] )*100,2)
-        except Exception as e:
+        except:
             item['failToDeliver'] = None
             item['relativeFTD'] = None
 
@@ -840,7 +853,7 @@ async def get_stock_screener(con):
                     item['institutionalOwnership'] = 99.99
                 else:
                     item['institutionalOwnership'] = round(res['ownershipPercent'],2)
-        except Exception as e:
+        except:
             item['institutionalOwnership'] = None
 
         try:
@@ -1002,10 +1015,13 @@ async def get_stock_screener(con):
 
     for item in stock_screener_data:
         for key, value in item.items():
-            if isinstance(value, float):
-                if math.isnan(value) or math.isinf(value):
-                    item[key] = None
-                    print(key)
+            try:
+                if isinstance(value, float):
+                    if math.isnan(value) or math.isinf(value):
+                        item[key] = None
+                        print(key)
+            except:
+                pass
 
     return stock_screener_data
 
