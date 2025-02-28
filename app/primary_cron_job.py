@@ -100,7 +100,6 @@ def run_options_jobs():
         run_command(["python3", "cron_options_hottest_contracts.py"])
         run_command(["python3", "cron_implied_volatility.py"])
         run_command(["python3", "cron_options_gex_dex.py"])
-        run_command(["python3", "cron_options_oi.py"])
 
 
 def run_cron_insider_trading():
@@ -177,13 +176,7 @@ def run_press_releases():
         run_command(["python3", "cron_press_releases.py"])
 
 def run_cron_options_flow():
-    week = datetime.today().weekday()
-    current_time = datetime.now().time()
-    start_time = datetime_time(15, 30)
-    end_time = datetime_time(22, 30)
-
-    if week <= 4 and start_time <= current_time < end_time:
-        run_command(["python3", "cron_options_flow.py"])
+    run_command(["python3", "cron_options_flow.py"])
 
         
 def run_ta_rating():
@@ -340,6 +333,7 @@ def run_ai_score():
     run_command(["python3", "cron_stockdeck.py"])
     run_command(["python3", "restart_json.py"])
     run_command(["python3", "cron_statistics.py"])
+    run_command(["python3", "cron_options_oi.py"])
 
 def run_push_notifications():
     now = datetime.now(ny_tz)
@@ -428,7 +422,7 @@ schedule.every(10).minutes.do(run_threaded, run_dark_pool_flow).tag('dark_pool_f
 schedule.every(2).minutes.do(run_threaded, run_dashboard).tag('dashboard_job')
 
 
-schedule.every(10).seconds.do(run_threaded, run_if_not_running(run_cron_options_flow, 'options_flow_job')).tag('options_flow_job')
+schedule.every(15).seconds.do(run_threaded, run_if_not_running(run_cron_options_flow, 'options_flow_job')).tag('options_flow_job')
 
 
 
