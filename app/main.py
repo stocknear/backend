@@ -1071,8 +1071,6 @@ async def stock_cash_flow(data: TickerData, api_key: str = Security(get_api_key)
     ) 
 
 
-
-
 @app.get("/economic-calendar")
 async def economic_calendar(api_key: str = Security(get_api_key)):
 
@@ -1095,7 +1093,7 @@ async def economic_calendar(api_key: str = Security(get_api_key)):
     compressed_data = gzip.compress(res)
 
     redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
+    redis_client.expire(cache_key, 60 * 15)  # Set cache expiration time to 1 day
 
     return StreamingResponse(
         io.BytesIO(compressed_data),
