@@ -1255,11 +1255,11 @@ async def get_economic_calendar():
     ny_tz = pytz.timezone('America/New_York')
     today = datetime.now(ny_tz)
 
-    start_date = (today - timedelta(weeks=4)).strftime("%Y-%m-%d")
+    start_date = (today - timedelta(weeks=2)).strftime("%Y-%m-%d")
     end_date = (today + timedelta(weeks=4)).strftime("%Y-%m-%d")
 
     async with aiohttp.ClientSession() as session:
-        url = f"https://financialmodelingprep.com/api/v3/economic_calendar?from={start_date}&to={end_date}&apikey={api_key}"
+        url = f"https://financialmodelingprep.com/stable/economic-calendar?from={start_date}&to={end_date}&apikey={api_key}"
         async with session.get(url) as response:
             data = await response.json()
             print(f"Fetched data: {len(data)} events")
@@ -1268,16 +1268,20 @@ async def get_economic_calendar():
     # Iterate over the fetched data directly
     for item in data:
         try:
-            matching_country = next((c['short'] for c in country_list if c['long'] == item['country']), None)
-            print(matching_country)
-            # Special case for USA
-            if item['country'] == 'USA':
+            country = item['country']
+            if country == 'USA':
                 country_code = 'us'
-            elif matching_country:
-                country_code = matching_country.lower()
+            elif len(country) in (2, 3):
+                # Assume country is already a code
+                country_code = country.lower()
             else:
-                continue
-            
+                # Attempt to match full country name
+                matching_country = next((c['short'] for c in country_list if c['long'].lower() == country.lower()), None)
+                if matching_country:
+                    country_code = matching_country.lower()
+                else:
+                    continue
+
             impact = item.get('impact', None)
             if impact == 'High':
                 importance = 3
@@ -1289,7 +1293,7 @@ async def get_economic_calendar():
             dt = datetime.strptime(item['date'], "%Y-%m-%d %H:%M:%S")
             filtered_data.append({
                 'countryCode': country_code,
-                'country': item['country'],
+                'country': country,
                 'time': dt.strftime("%H:%M"),
                 'date': dt.strftime("%Y-%m-%d"),
                 'prior': item['previous'],  
@@ -1301,6 +1305,7 @@ async def get_economic_calendar():
             
         except Exception as e:
             print(f"Error processing item: {e}")
+
 
     return filtered_data
 
@@ -1662,6 +1667,7 @@ async def save_json_files():
         with open(f"json/economic-calendar/calendar.json", 'w') as file:
             ujson.dump(economic_list, file)
 
+
     stock_screener_data = await get_stock_screener(con)
     with open(f"json/stock-screener/data.json", 'w') as file:
         ujson.dump(stock_screener_data, file)
@@ -1689,7 +1695,6 @@ async def save_json_files():
     with open(f"json/all-etf-providers/data.json", 'w') as file:
         ujson.dump(data, file)
 
-        
 
     con.close()
     etf_con.close()
