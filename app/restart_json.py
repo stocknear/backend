@@ -1271,6 +1271,8 @@ async def get_economic_calendar():
             country = item['country']
             if country == 'USA':
                 country_code = 'us'
+            elif country == 'US':
+                country_code = 'us'
             elif len(country) in (2, 3):
                 # Assume country is already a code
                 country_code = country.lower()
@@ -1281,7 +1283,6 @@ async def get_economic_calendar():
                     country_code = matching_country.lower()
                 else:
                     continue
-
             impact = item.get('impact', None)
             if impact == 'High':
                 importance = 3
