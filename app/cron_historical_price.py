@@ -34,8 +34,8 @@ async def get_historical_data(ticker, query_con, session):
     try:
         # Form API request URLs
     
-        url_1w = f"https://financialmodelingprep.com/api/v3/historical-chart/30min/{ticker}?from={start_date_1w}&to={end_date}&apikey={api_key}"
-        url_1m = f"https://financialmodelingprep.com/api/v3/historical-chart/1hour/{ticker}?from={start_date_1m}&to={end_date}&apikey={api_key}"
+        url_1w = f"https://financialmodelingprep.com/stable/historical-chart/5min?symbol={ticker}&from={start_date_1w}&to={end_date}&apikey={api_key}"
+        url_1m = f"https://financialmodelingprep.com/stable/historical-chart/1hour?symbol={ticker}&from={start_date_1m}&to={end_date}&apikey={api_key}"
         
         async with session.get(url_1w) as response_1w, session.get(url_1m) as response_1m:
             data = []
@@ -111,13 +111,13 @@ async def run():
         return
 
     try:
-        connector = aiohttp.TCPConnector(limit=100)  # Adjust the limit as needed
+        connector = aiohttp.TCPConnector(limit=300)  # Adjust the limit as needed
         async with aiohttp.ClientSession(connector=connector) as session:
             for i in range(0, len(total_symbols), chunk_size):
                 symbols_chunk = total_symbols[i:i + chunk_size]
                 await fetch_and_save_symbols_data(symbols_chunk, etf_symbols, index_symbols, session)
                 print('sleeping for 30 sec')
-                await asyncio.sleep(30)  # Wait for 60 seconds between chunks
+                await asyncio.sleep(60)
     except Exception as e:
         print(f"Failed to run fetch and save data: {e}")
 
@@ -128,7 +128,7 @@ try:
 
     berlin_tz = pytz.timezone('Europe/Berlin')
     end_date = datetime.now(berlin_tz)
-    start_date_1w = (end_date - timedelta(days=7)).strftime("%Y-%m-%d")
+    start_date_1w = (end_date - timedelta(days=5)).strftime("%Y-%m-%d")
     start_date_1m = (end_date - timedelta(days=30)).strftime("%Y-%m-%d")
     start_date_6m = (end_date - timedelta(days=180)).strftime("%Y-%m-%d")
     start_date_1y = (end_date - timedelta(days=365)).strftime("%Y-%m-%d")
