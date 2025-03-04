@@ -329,11 +329,11 @@ def run_ai_score():
     week = now.weekday()
     if week == 5:
         run_command(["python3", "cron_ai_score.py"])
+        run_command(["python3", "cron_options_oi.py"])
     
     run_command(["python3", "cron_stockdeck.py"])
     run_command(["python3", "restart_json.py"])
     run_command(["python3", "cron_statistics.py"])
-    run_command(["python3", "cron_options_oi.py"])
 
 def run_push_notifications():
     now = datetime.now(ny_tz)
