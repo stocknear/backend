@@ -197,7 +197,7 @@ if __name__ == '__main__':
     cursor.execute("SELECT DISTINCT cik FROM institutes")
     cik_symbols = [row[0] for row in cursor.fetchall()]
     #Test mode
-    cik_symbols = ['0001067983']
+    #cik_symbols = ['0001067983']
     try:
         stock_cursor = stock_con.cursor()
         stock_cursor.execute("SELECT DISTINCT symbol, sector FROM stocks")
