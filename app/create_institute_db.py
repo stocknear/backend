@@ -49,20 +49,14 @@ etf_dict = {normalize_name(etf['name']): etf['symbol'] for etf in etf_data}
 etf_symbols = [item['symbol'] for item in etf_data]
 
 
-crypto_cursor = crypto_con.cursor()
-crypto_cursor.execute("PRAGMA journal_mode = wal")
-crypto_cursor.execute("SELECT DISTINCT symbol FROM cryptos")
-crypto_symbols = [row[0] for row in crypto_cursor.fetchall()]
-
-total_symbols = stock_symbols + etf_symbols + crypto_symbols
+total_symbols = stock_symbols + etf_symbols
 con.close()
 etf_con.close()
-crypto_con.close()
 
 
 load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
-quarter_date = '2024-09-30'
+quarter_date = '2024-12-31'
 
 
 

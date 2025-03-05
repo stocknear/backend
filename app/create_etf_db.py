@@ -25,6 +25,22 @@ warnings.filterwarnings("ignore", category=RuntimeWarning, message="invalid valu
 start_date = datetime(2015, 1, 1).strftime("%Y-%m-%d")
 end_date = datetime.today().strftime("%Y-%m-%d")
 
+def get_last_completed_quarter():
+    today = datetime.today()
+    year = today.year
+    month = today.month
+    # Calculate the current quarter (1 to 4)
+    current_quarter = (month - 1) // 3 + 1
+
+    # The previous quarter is the last completed quarter.
+    # If we're in Q1, the previous quarter is Q4 of last year.
+    if current_quarter == 1:
+        return 4, year - 1
+    else:
+        return current_quarter - 1, year
+
+# Get last completed quarter and its year
+quarter, year = get_last_completed_quarter()
 
 
 if os.path.exists("backup_db/etf.db"):
@@ -188,7 +204,7 @@ class ETFDatabase:
                 f"https://financialmodelingprep.com/api/v3/etf-country-weightings/{symbol}?apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v3/quote/{symbol}?apikey={api_key}",
                 f"https://financialmodelingprep.com/stable/dividends?symbol={symbol}&apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v4/institutional-ownership/institutional-holders/symbol-ownership-percent?date=2023-09-30&symbol={symbol}&page=0&apikey={api_key}",
+                f"https://financialmodelingprep.com/stable/institutional-ownership/symbol-positions-summary?symbol={symbol}&year={year}&quarter={quarter}&apikey={api_key}",
             ]
 
             fundamental_data = {}
@@ -238,7 +254,7 @@ class ETFDatabase:
                         elif "dividends" in url:
                             fundamental_data['etf_dividend'] = ujson.dumps(parsed_data)
         
-                        elif "institutional-ownership/institutional-holders" in url:
+                        elif "institutional-ownership" in url:
                             fundamental_data['shareholders'] = ujson.dumps(parsed_data)
 
                     except:

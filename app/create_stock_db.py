@@ -27,8 +27,22 @@ warnings.filterwarnings("ignore", category=RuntimeWarning, message="invalid valu
 start_date = datetime(2015, 1, 1).strftime("%Y-%m-%d")
 end_date = datetime.today().strftime("%Y-%m-%d")
 
-quarter_date = '2024-06-30'
+def get_last_completed_quarter():
+    today = datetime.today()
+    year = today.year
+    month = today.month
+    # Calculate the current quarter (1 to 4)
+    current_quarter = (month - 1) // 3 + 1
 
+    # The previous quarter is the last completed quarter.
+    # If we're in Q1, the previous quarter is Q4 of last year.
+    if current_quarter == 1:
+        return 4, year - 1
+    else:
+        return current_quarter - 1, year
+
+# Get last completed quarter and its year
+quarter, year = get_last_completed_quarter()
 
 if os.path.exists("backup_db/stocks.db"):
     os.remove('backup_db/stocks.db')
@@ -104,7 +118,7 @@ class StockDatabase:
                 f"https://financialmodelingprep.com/api/v4/historical/employee_count?symbol={symbol}&apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v3/historical-price-full/stock_split/{symbol}?apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v4/stock_peers?symbol={symbol}&apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v4/institutional-ownership/institutional-holders/symbol-ownership-percent?date={quarter_date}&symbol={symbol}&page=0&apikey={api_key}",
+                f"https://financialmodelingprep.com/stable/institutional-ownership/symbol-positions-summary?symbol={symbol}&year={year}&quarter={quarter}&apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v4/historical/shares_float?symbol={symbol}&apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v4/revenue-product-segmentation?symbol={symbol}&structure=flat&period=annual&apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v4/revenue-geographic-segmentation?symbol={symbol}&structure=flat&apikey={api_key}",
@@ -165,7 +179,7 @@ class StockDatabase:
                         elif "stock_peers" in url:
                             # Handle list response, save as JSON object
                             fundamental_data['stock_peers'] = ujson.dumps([item for item in parsed_data[0]['peersList'] if item != ""])
-                        elif "institutional-ownership/institutional-holders" in url:
+                        elif "institutional-ownership" in url:
                             # Handle list response, save as JSON object
                             fundamental_data['shareholders'] = ujson.dumps(parsed_data)
                         elif "historical/shares_float" in url:

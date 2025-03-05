@@ -114,23 +114,10 @@ def get_data(cik, stock_sectors):
         'marketValue': row[5],
         'winRate': row[6],
         'holdings': orjson.loads(row[7]),
-    } for row in cik_data]
+    } for row in cik_data][0]
 
     if not res:
         return None  # Exit if no data is found
-
-    '''
-    filtered_data = []
-    for item in res:
-        try:
-            filtered_data+=item['holdings']
-        except:
-            pass
-    filtered_data = [item for item in filtered_data if datetime.strptime(item['date'], "%Y-%m-%d") >= cutoff_date]
-    print(filtered_data)
-    '''
-
-    res = res[0] #latest data
 
     filtered_holdings = [
         {key: holding[key] for key in keys_to_keep}
@@ -162,9 +149,10 @@ def get_data(cik, stock_sectors):
             if quote_data:
                 item['price'] = quote_data.get('price',None)
                 item['changesPercentage'] = round(quote_data.get('changesPercentage'), 2) if quote_data.get('changesPercentage') is not None else None
+                item['name'] = quote_data.get('name')
         except:
             pass
-    #stock_screener_data_dict
+
     res['holdings'] = filtered_holdings
     for rank, item in enumerate(res['holdings'], 1):
         item['rank'] = rank
@@ -209,7 +197,7 @@ if __name__ == '__main__':
     cursor.execute("SELECT DISTINCT cik FROM institutes")
     cik_symbols = [row[0] for row in cursor.fetchall()]
     #Test mode
-    #cik_symbols = ['0001649339']
+    cik_symbols = ['0001067983']
     try:
         stock_cursor = stock_con.cursor()
         stock_cursor.execute("SELECT DISTINCT symbol, sector FROM stocks")
