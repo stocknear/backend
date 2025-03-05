@@ -156,7 +156,6 @@ class InstituteDatabase:
 
                         parsed_data = [
                             {**item, 'type': ('stocks' if item['symbol'] in stock_symbols else
-                                              'crypto' if item['symbol'] in crypto_symbols else
                                               'etf' if item['symbol'] in etf_symbols else None)}
                             for item in parsed_data
                             if 'symbol' in item and item['symbol'] is not None and item['symbol'] in total_symbols
