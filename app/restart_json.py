@@ -1251,6 +1251,7 @@ async def get_stock_splits_calendar(con,symbols):
 
 
 
+
 async def get_economic_calendar():
     ny_tz = pytz.timezone('America/New_York')
     today = datetime.now(ny_tz)
@@ -1265,38 +1266,32 @@ async def get_economic_calendar():
             print(f"Fetched data: {len(data)} events")
       
     filtered_data = []
-    # Iterate over the fetched data directly
     for item in data:
         try:
             country = item['country']
-            if country == 'USA':
-                country_code = 'us'
-            elif country == 'US':
+            if country == 'USA' or country == 'US':
                 country_code = 'us'
             elif len(country) in (2, 3):
-                # Assume country is already a code
                 country_code = country.lower()
             else:
-                # Attempt to match full country name
                 matching_country = next((c['short'] for c in country_list if c['long'].lower() == country.lower()), None)
                 if matching_country:
                     country_code = matching_country.lower()
                 else:
                     continue
-            impact = item.get('impact', None)
-            if impact == 'High':
-                importance = 3
-            elif impact == 'Medium':
-                importance = 2
-            else:
-                importance = 1
 
-            dt = datetime.strptime(item['date'], "%Y-%m-%d %H:%M:%S")
+            impact = item.get('impact', None)
+            importance = 3 if impact == 'High' else 2 if impact == 'Medium' else 1
+
+            # Convert to UTC
+            dt_ny = ny_tz.localize(datetime.strptime(item['date'], "%Y-%m-%d %H:%M:%S"))  # Assume given time is NY time
+            dt_utc = dt_ny.astimezone(pytz.UTC)  # Convert to UTC
+
             filtered_data.append({
                 'countryCode': country_code,
                 'country': country,
-                'time': dt.strftime("%H:%M"),
-                'date': dt.strftime("%Y-%m-%d"),
+                'time': dt_utc.strftime("%H:%M"),  # UTC Time
+                'date': dt_utc.strftime("%Y-%m-%d"),  # UTC Date
                 'prior': item['previous'],  
                 'consensus': item['estimate'],  
                 'actual': item['actual'],  
@@ -1307,8 +1302,8 @@ async def get_economic_calendar():
         except Exception as e:
             print(f"Error processing item: {e}")
 
-
     return filtered_data
+
 
 def replace_representative(office):
     replacements = {
@@ -1669,7 +1664,7 @@ async def save_json_files():
         with open(f"json/economic-calendar/calendar.json", 'w') as file:
             ujson.dump(economic_list, file)
 
-
+    
     stock_screener_data = await get_stock_screener(con)
     with open(f"json/stock-screener/data.json", 'w') as file:
         ujson.dump(stock_screener_data, file)
@@ -1696,6 +1691,7 @@ async def save_json_files():
     data = await etf_providers(etf_con, etf_symbols)
     with open(f"json/all-etf-providers/data.json", 'w') as file:
         ujson.dump(data, file)
+
 
 
     con.close()
