@@ -20,14 +20,12 @@ today_date = datetime.now(timezone.utc).strftime('%Y-%m-%d')
 
 start_date = today_date
 end_date = today_date
-
 with open(f"json/stock-screener/data.json", 'rb') as file:
     stock_screener_data = orjson.loads(file.read())
 stock_screener_data_dict = {item['symbol']: item for item in stock_screener_data}
 
 quote_cache = {}
 
-print(stock_screener_data_dict.get('AAPL', {}))
 
 
 def get_quote_data(symbol):
