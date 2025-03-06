@@ -3,8 +3,10 @@ import sqlite3
 import asyncio
 import pandas as pd
 from tqdm import tqdm
+
 import requests
 import re
+
 
 
 async def save_as_json(symbol, data):
@@ -26,9 +28,16 @@ async def get_data(ticker, con):
     try:
         df = pd.read_sql_query(query_template, con, params=(ticker,))
         shareholders_list = ujson.loads(df.to_dict()['shareholders'][0])
+        # Keys to keep
+        keys_to_keep = ["cik","ownership", "investorName", "changeInSharesNumberPercentage", "weight", "sharesNumber", "marketValue"]
 
+        # Create new list with only the specified keys
+        shareholders_list = [
+            {key: d[key] for key in keys_to_keep}
+            for d in shareholders_list
+        ]
     except Exception as e:
-        print(e)
+        #print(e)
         shareholders_list = []
 
     return shareholders_list
