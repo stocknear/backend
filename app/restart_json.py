@@ -1251,7 +1251,6 @@ async def get_stock_splits_calendar(con,symbols):
 
 
 
-
 async def get_economic_calendar():
     ny_tz = pytz.timezone('America/New_York')
     today = datetime.now(ny_tz)
@@ -1283,15 +1282,17 @@ async def get_economic_calendar():
             impact = item.get('impact', None)
             importance = 3 if impact == 'High' else 2 if impact == 'Medium' else 1
 
-            # Convert to UTC
-            dt_ny = ny_tz.localize(datetime.strptime(item['date'], "%Y-%m-%d %H:%M:%S"))  # Assume given time is NY time
-            dt_utc = dt_ny.astimezone(pytz.UTC)  # Convert to UTC
+            # Parse date as UTC (naive)
+            dt_utc = datetime.strptime(item['date'], "%Y-%m-%d %H:%M:%S")
+
+            # Convert to New York time
+            dt_ny = dt_utc - timedelta(hours=5)
 
             filtered_data.append({
                 'countryCode': country_code,
                 'country': country,
-                'time': dt_utc.strftime("%H:%M"),  # UTC Time
-                'date': dt_utc.strftime("%Y-%m-%d"),  # UTC Date
+                'time': dt_ny.strftime("%H:%M"),  
+                'date': dt_ny.strftime("%Y-%m-%d"),  
                 'prior': item['previous'],  
                 'consensus': item['estimate'],  
                 'actual': item['actual'],  
@@ -1303,6 +1304,7 @@ async def get_economic_calendar():
             print(f"Error processing item: {e}")
 
     return filtered_data
+
 
 
 def replace_representative(office):
@@ -1691,7 +1693,6 @@ async def save_json_files():
     data = await etf_providers(etf_con, etf_symbols)
     with open(f"json/all-etf-providers/data.json", 'w') as file:
         ujson.dump(data, file)
-
 
 
     con.close()
