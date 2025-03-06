@@ -78,3 +78,18 @@ def load_latest_json(directory: str, find=True):
     except Exception as e:
         print(f"Error loading JSON file: {e}")
         return []
+
+
+def get_last_completed_quarter():
+    today = datetime.today()
+    year = today.year
+    month = today.month
+    # Calculate the current quarter (1 to 4)
+    current_quarter = (month - 1) // 3 + 1
+
+    # The previous quarter is the last completed quarter.
+    # If we're in Q1, the previous quarter is Q4 of last year.
+    if current_quarter == 1:
+        return 4, year - 1
+    else:
+        return current_quarter - 1, year

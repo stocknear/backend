@@ -7,6 +7,7 @@ import asyncio
 import aiohttp
 import random
 from tqdm import tqdm
+from utils.helper import get_last_completed_quarter
 
 from dotenv import load_dotenv
 import os
@@ -16,11 +17,11 @@ load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
 
 
-include_current_quarter = True
+quarter, year = get_last_completed_quarter()
 
 
 async def get_data(session, symbol, max_retries=3, initial_delay=1):
-    url = f"https://financialmodelingprep.com/api/v4/institutional-ownership/symbol-ownership?symbol={symbol}&includeCurrentQuarter={include_current_quarter}&apikey={api_key}"
+    url = f"https://financialmodelingprep.com/stable/institutional-ownership/symbol-positions-summary?symbol={symbol}&year={year}&quarter={quarter}&apikey={api_key}"
     
     for attempt in range(max_retries):
         try:
@@ -31,6 +32,7 @@ async def get_data(session, symbol, max_retries=3, initial_delay=1):
                         data = await response.json()
                         if len(data) > 0:
                             await save_json(symbol, data[0])
+                            print(data[0])
                         return
                     else:
                         print(f"Unexpected content type for {symbol}: {content_type}")

@@ -14,6 +14,7 @@ from ta.momentum import *
 from ta.trend import *
 from ta.volume import *
 import warnings
+from utils.helper import get_last_completed_quarter
 
 from dotenv import load_dotenv
 import os
@@ -26,23 +27,8 @@ warnings.filterwarnings("ignore", category=RuntimeWarning, message="invalid valu
 
 start_date = datetime(2015, 1, 1).strftime("%Y-%m-%d")
 end_date = datetime.today().strftime("%Y-%m-%d")
-
-def get_last_completed_quarter():
-    today = datetime.today()
-    year = today.year
-    month = today.month
-    # Calculate the current quarter (1 to 4)
-    current_quarter = (month - 1) // 3 + 1
-
-    # The previous quarter is the last completed quarter.
-    # If we're in Q1, the previous quarter is Q4 of last year.
-    if current_quarter == 1:
-        return 4, year - 1
-    else:
-        return current_quarter - 1, year
-
-# Get last completed quarter and its year
 quarter, year = get_last_completed_quarter()
+
 
 if os.path.exists("backup_db/stocks.db"):
     os.remove('backup_db/stocks.db')
@@ -118,7 +104,7 @@ class StockDatabase:
                 f"https://financialmodelingprep.com/api/v4/historical/employee_count?symbol={symbol}&apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v3/historical-price-full/stock_split/{symbol}?apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v4/stock_peers?symbol={symbol}&apikey={api_key}",
-                f"https://financialmodelingprep.com/stable/institutional-ownership/symbol-positions-summary?symbol={symbol}&year={year}&quarter={quarter}&apikey={api_key}",
+                f"https://financialmodelingprep.com/stable/institutional-ownership/extract-analytics/holder?symbol={symbol}&year={year}&quarter={quarter}&apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v4/historical/shares_float?symbol={symbol}&apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v4/revenue-product-segmentation?symbol={symbol}&structure=flat&period=annual&apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v4/revenue-geographic-segmentation?symbol={symbol}&structure=flat&apikey={api_key}",
@@ -182,6 +168,7 @@ class StockDatabase:
                         elif "institutional-ownership" in url:
                             # Handle list response, save as JSON object
                             fundamental_data['shareholders'] = ujson.dumps(parsed_data)
+
                         elif "historical/shares_float" in url:
                             # Handle list response, save as JSON object
                             fundamental_data['historicalShares'] = ujson.dumps(parsed_data)
@@ -315,7 +302,7 @@ class StockDatabase:
             self._create_ticker_table(symbol)  # Ensure the table exists
 
             # Fetch OHLC data from the API
-            url = f"https://financialmodelingprep.com/api/v3/historical-price-full/{symbol}?serietype=bar&from={start_date}&apikey={api_key}"
+            url = f"https://financialmodelingprep.com/api/v3/historical-price-full/{symbol}?serietype=bar&from={start_date}&to={end_date}&apikey={api_key}"
             async with session.get(url) as response:
                 data = await response.text()
             
