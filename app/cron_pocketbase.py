@@ -115,7 +115,7 @@ async def downgrade_user():
 
     user_data =  pb.collection('users').get_full_list()
     for item in tqdm(user_data):
-        if item.tier != 'Pro':
+        if item.tier != 'Pro' or item.tier != 'Plus':
             stock_screener_data = pb.collection("stockscreener").get_full_list(query_params = {"filter": f"user = '{item.id}'"})
             for screener in stock_screener_data:
                 pb.collection('stockscreener').delete(screener.id)
