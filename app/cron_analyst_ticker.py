@@ -147,10 +147,13 @@ def get_all_analyst_summary(res_list):
     data_dict = {key: 0 for key in rating_hierarchy.keys()}
     for r in consensus_ratings.values():
         data_dict[r] += 1
-    buy_total = data_dict.get('Strong Buy', 0) + data_dict.get('Buy', 0)
-    sell_total = data_dict.get('Strong Sell', 0) + data_dict.get('Sell', 0)
-    hold_total = data_dict.get('Hold', 0)
     
+    strong_buy_total = data_dict.get('Strong Buy', 0)
+    buy_total = data_dict.get('Buy', 0)
+    sell_total = data_dict.get('Strong Sell', 0) + data_dict.get('Sell', 0)
+    strong_sell_total = data_dict.get('Strong Sell', 0)
+    hold_total = data_dict.get('Hold', 0)
+
     # Count unique analysts
     numOfAnalyst = len(unique_filtered_data)
     
@@ -165,7 +168,7 @@ def get_all_analyst_summary(res_list):
         'recommendationList': recommendation_list
     }
     
-    categorical_ratings = {'Buy': buy_total, 'Sell': sell_total, 'Hold': hold_total}
+    categorical_ratings = {'strongBuy': strong_buy_total, 'buy': buy_total, 'sell': sell_total, 'strongSell': strong_sell_total, 'hold': hold_total}
     
     res = {**stats, **categorical_ratings}
     return res
