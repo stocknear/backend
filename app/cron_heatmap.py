@@ -124,8 +124,14 @@ def create_treemap(time_period):
         <html>
         <head>
             <style>
-                .container {{
-                background-color: #09090B;
+                body {{
+                    background-color: white;
+                }}
+                
+                @media (prefers-color-scheme: dark) {{
+                    body {{
+                        background-color: #09090B;
+                    }}
                 }}
 
                 .plot-container {{
