@@ -4283,7 +4283,8 @@ async def get_data(data:TickerData, api_key: str = Security(get_api_key)):
             res = orjson.loads(file.read())
     except:
         res = {}
-        
+    
+    print(res)
     data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
 

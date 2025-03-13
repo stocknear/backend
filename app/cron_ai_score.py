@@ -83,7 +83,7 @@ async def download_data(ticker, con, start_date, end_date, skip_downloading, sav
             ]
 
             # Async loading and filtering
-            ignore_keys = ["symbol", "reportedCurrency", "calendarYear", "fillingDate", "acceptedDate", "period", "cik", "link", "finalLink","pbRatio","ptbRatio"]
+            ignore_keys = ["symbol", "reportedCurrency", "calendarYear", "fillingDate", "acceptedDate", "period", "cik", "link", "finalLink","pbRatio","ptbRatio","grahamNumber"]
             async def load_and_filter_json(path):
                 async with aiofiles.open(path, 'r') as f:
                     data = orjson.loads(await f.read())
@@ -133,7 +133,6 @@ async def download_data(ticker, con, start_date, end_date, skip_downloading, sav
 
             # Concatenate df with the filtered df_stats and df_ta
             df = pd.concat([df, df_ta_filtered, df_stats_filtered], axis=1)
-
             # Set up a dictionary for faster lookup of close prices and columns by date
             df_dict = df.set_index('date').to_dict(orient='index')
 
@@ -167,8 +166,12 @@ async def download_data(ticker, con, start_date, end_date, skip_downloading, sav
             # Sort the combined data by date
             combined_data = sorted(combined_data, key=lambda x: x['date'])
             # Convert combined data to a DataFrame and drop rows with NaN values
-            df_combined = pd.DataFrame(combined_data).dropna()
+            df_combined = pd.DataFrame(combined_data)
             
+
+            #nan_columns = df_combined.isna().sum()
+            #print(nan_columns[nan_columns > 0])  # Show only columns with NaNs
+
             fundamental_columns = [
                 'revenue', 'costOfRevenue', 'grossProfit', 'netIncome', 'operatingIncome', 'operatingExpenses',
                 'researchAndDevelopmentExpenses', 'ebitda', 'freeCashFlow', 'incomeBeforeTax', 'incomeTaxExpense',
@@ -302,7 +305,6 @@ async def fine_tune_and_evaluate(ticker, con, start_date, end_date, skip_downloa
         test_data = df.iloc[split_size:]
         
         #selected_features = [col for col in df.columns if col not in ['date','price','Target']]
-        
         # Fine-tune the model
         predictor = ScorePredictor()
         #predictor.fine_tune_model(train_data[selected_features], train_data['Target'])
@@ -350,7 +352,7 @@ async def run():
         stock_symbols = [row[0] for row in cursor.fetchall()]
         
         #Test Mode
-        #stock_symbols = ['AAPL','TSLA']
+        #stock_symbols = ['MCD']
         
         print('Training for', len(stock_symbols))
         predictor = await warm_start_training(stock_symbols, con, skip_downloading, save_data)
