@@ -311,8 +311,8 @@ async def fine_tune_and_evaluate(ticker, con, start_date, end_date, skip_downloa
         
         if (data['precision'] >= 50 and data['accuracy'] >= 50 and
         data['accuracy'] < 100 and data['precision'] < 100 and
-        data['f1_score'] >= 50 and data['recall_score'] >= 50 and
-        data['roc_auc_score'] >= 50):
+        data['f1_score'] >= 20 and data['recall_score'] >= 20 and
+        data['roc_auc_score'] >= 50) and len(data.get('backtest',[])) > 0:
             await save_json(ticker, data)
             data['backtest'] = [
                 {'date': entry['date'], 'yTest': entry['y_test'], 'yPred': entry['y_pred'], 'score': entry['score']}
@@ -346,11 +346,13 @@ async def run():
     
     if train_mode:
         # Warm start training
-        stock_symbols = cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 500E6 AND symbol NOT LIKE '%.%'") #list(set(['CB','LOW','PFE','RTX','DIS','MS','BHP','BAC','PG','BABA','ACN','TMO','LLY','XOM','JPM','UNH','COST','HD','ASML','BRK-A','BRK-B','CAT','TT','SAP','APH','CVS','NOG','DVN','COP','OXY','MRO','MU','AVGO','INTC','LRCX','PLD','AMT','JNJ','ACN','TSM','V','ORCL','MA','BAC','BA','NFLX','ADBE','IBM','GME','NKE','ANGO','PNW','SHEL','XOM','WMT','BUD','AMZN','PEP','AMD','NVDA','AWR','TM','AAPL','GOOGL','META','MSFT','LMT','TSLA','DOV','PG','KO']))
+        stock_symbols = cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 300E6 AND symbol NOT LIKE '%.%'") #list(set(['CB','LOW','PFE','RTX','DIS','MS','BHP','BAC','PG','BABA','ACN','TMO','LLY','XOM','JPM','UNH','COST','HD','ASML','BRK-A','BRK-B','CAT','TT','SAP','APH','CVS','NOG','DVN','COP','OXY','MRO','MU','AVGO','INTC','LRCX','PLD','AMT','JNJ','ACN','TSM','V','ORCL','MA','BAC','BA','NFLX','ADBE','IBM','GME','NKE','ANGO','PNW','SHEL','XOM','WMT','BUD','AMZN','PEP','AMD','NVDA','AWR','TM','AAPL','GOOGL','META','MSFT','LMT','TSLA','DOV','PG','KO']))
         stock_symbols = [row[0] for row in cursor.fetchall()]
+        
         #Test Mode
         #stock_symbols = ['AAPL','TSLA']
-        print('Training for:', len(stock_symbols))
+        
+        print('Training for', len(stock_symbols))
         predictor = await warm_start_training(stock_symbols, con, skip_downloading, save_data)
     
     #else:

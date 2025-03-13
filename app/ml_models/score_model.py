@@ -22,8 +22,8 @@ class ScorePredictor:
         self.model = lgb.LGBMClassifier(
             n_estimators=1_000,
             learning_rate=0.001,
-            max_depth=10,
-            num_leaves=2**10-1,
+            max_depth=12,
+            num_leaves=2**12-1,
             n_jobs=10,
             random_state=42
         )
