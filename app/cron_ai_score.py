@@ -283,8 +283,10 @@ async def warm_start_training(tickers, con, skip_downloading, save_data):
     
     predictor = ScorePredictor()
     selected_features = [col for col in df_train if col not in ['price', 'date', 'Target']]
+    
     predictor.warm_start_training(df_train[selected_features], df_train['Target'])
-    predictor.evaluate_model(df_test[selected_features], df_test['Target'])
+    predictor.evaluate_model(df_test)
+    
     return predictor
 
 async def fine_tune_and_evaluate(ticker, con, start_date, end_date, skip_downloading, save_data):
@@ -299,20 +301,30 @@ async def fine_tune_and_evaluate(ticker, con, start_date, end_date, skip_downloa
         train_data = df.iloc[:split_size]
         test_data = df.iloc[split_size:]
         
-        selected_features = [col for col in df.columns if col not in ['date','price','Target']]
+        #selected_features = [col for col in df.columns if col not in ['date','price','Target']]
+        
         # Fine-tune the model
         predictor = ScorePredictor()
         #predictor.fine_tune_model(train_data[selected_features], train_data['Target'])
-        
         print(f"Evaluating fine-tuned model for {ticker}")
-        data = predictor.evaluate_model(test_data[selected_features], test_data['Target'])
+        data = predictor.evaluate_model(test_data)
         
         if (data['precision'] >= 50 and data['accuracy'] >= 50 and
         data['accuracy'] < 100 and data['precision'] < 100 and
         data['f1_score'] >= 50 and data['recall_score'] >= 50 and
         data['roc_auc_score'] >= 50):
             await save_json(ticker, data)
+            data['backtest'] = [
+                {'date': entry['date'], 'yTest': entry['y_test'], 'yPred': entry['y_pred'], 'score': entry['score']}
+                for entry in data['backtest']
+            ]
+            #print(data)
             print(f"Saved results for {ticker}")
+        else:
+            try:
+                os.remove(f"json/ai-score/companies/{ticker}.json")
+            except:
+                pass
         
     except Exception as e:
         print(f"Error processing {ticker}: {e}")
@@ -336,7 +348,9 @@ async def run():
         # Warm start training
         stock_symbols = cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 500E6 AND symbol NOT LIKE '%.%'") #list(set(['CB','LOW','PFE','RTX','DIS','MS','BHP','BAC','PG','BABA','ACN','TMO','LLY','XOM','JPM','UNH','COST','HD','ASML','BRK-A','BRK-B','CAT','TT','SAP','APH','CVS','NOG','DVN','COP','OXY','MRO','MU','AVGO','INTC','LRCX','PLD','AMT','JNJ','ACN','TSM','V','ORCL','MA','BAC','BA','NFLX','ADBE','IBM','GME','NKE','ANGO','PNW','SHEL','XOM','WMT','BUD','AMZN','PEP','AMD','NVDA','AWR','TM','AAPL','GOOGL','META','MSFT','LMT','TSLA','DOV','PG','KO']))
         stock_symbols = [row[0] for row in cursor.fetchall()]
-        print('Training for:', stock_symbols)
+        #Test Mode
+        #stock_symbols = ['AAPL','TSLA']
+        print('Training for:', len(stock_symbols))
         predictor = await warm_start_training(stock_symbols, con, skip_downloading, save_data)
     
     #else:

@@ -36,7 +36,11 @@ class ScorePredictor:
         X = self.scaler.fit_transform(X)
         return X #self.pca.fit_transform(X)
 
-    def preprocess_test_data(self, X):
+    def preprocess_test_data(self, df):
+        selected_features = [col for col in df.columns if col not in ['date','price','Target']]
+
+        X = df[selected_features]
+
         X = np.where(np.isinf(X), np.nan, X)
         X = np.nan_to_num(X)
         X = self.scaler.fit_transform(X)
@@ -61,8 +65,10 @@ class ScorePredictor:
         self.model.fit(X_train, y_train, epochs=100, batch_size=128, validation_split=0.1, callbacks=[early_stopping, reduce_lr])
         print("Model fine-tuned (not saved).")
 
-    def evaluate_model(self, X_test, y_test):
-        X_test = self.preprocess_test_data(X_test)
+    def evaluate_model(self, df):
+
+        X_test = self.preprocess_test_data(df)
+        y_test = df['Target']
         
         with open(self.warm_start_model_path, 'rb') as f:
             self.model = pickle.load(f)
@@ -85,8 +91,9 @@ class ScorePredictor:
         print(f"ROC AUC: {round(test_roc_auc_score * 100)}%")
 
         last_prediction_prob = class_1_probabilities[-1]
-        print(pd.DataFrame({'y_test': y_test, 'y_pred': binary_predictions}))
-        print(f"Last prediction probability: {last_prediction_prob}")
+        backtest_results = pd.DataFrame({'date': df['date'], 'y_test': y_test, 'y_pred': binary_predictions, 'score': class_1_probabilities})
+
+        print(f"Last prediction probability: {round(last_prediction_prob,2)}")
 
         thresholds = [0.8, 0.75, 0.7, 0.6, 0.5, 0.45, 0.4, 0.35, 0.3, 0]
         scores = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
@@ -97,13 +104,18 @@ class ScorePredictor:
                 score = value
                 break
 
+        conditions = [backtest_results['score'] >= t for t in thresholds]
+        backtest_results['score'] = np.select(conditions, scores, default=1)  # Default score if no condition matches
+
+
         return {
             'accuracy': round(test_accuracy * 100),
             'precision': round(test_precision * 100),
             'f1_score': round(test_f1_score * 100),
             'recall_score': round(test_recall_score * 100),
             'roc_auc_score': round(test_roc_auc_score * 100),
-            'score': score
+            'score': score,
+            'backtest': backtest_results.to_dict(orient="records")
         }
     def feature_selection(self, X_train, y_train, k=100):
         print('Feature selection:')
