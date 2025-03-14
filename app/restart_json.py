@@ -1621,7 +1621,7 @@ async def get_ipo_calendar(con, symbols):
                     "name": entry.get("company"),
                     "ipoDate": entry.get("date"),
                     "ipoPrice": entry.get("ipoPrice"),
-                    "currentPrice": entry.get("currentPrice"),
+                    "currentPrice": round(entry.get("currentPrice"), 2) if entry.get("currentPrice") is not None else None,
                     "return": entry.get("return"),
                 })
         except Exception as e:
