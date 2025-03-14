@@ -1550,99 +1550,86 @@ async def etf_providers(etf_con, etf_symbols):
 
 
 async def get_ipo_calendar(con, symbols):
-    # Define function to get end date of each quarter
-    import datetime
-    def get_end_of_quarter(year, quarter):
-        month = quarter * 3
-        return datetime.date(year, month, 1) + datetime.timedelta(days=30)
-
-    start_date = datetime.date(2019, 1, 1)
-    end_date = datetime.date.today()+timedelta(2)
-    urls = []
     combined_data = []
     query_open_price = """
         SELECT open
         FROM "{ticker}"
         LIMIT 1
     """
-
-    # Iterate through quarters
-    current_date = start_date
-    while current_date < end_date:
-        # Get end date of current quarter
-        end_of_quarter = get_end_of_quarter(current_date.year, (current_date.month - 1) // 3 + 1)
-        
-        # Ensure end date does not exceed end_date
-        if end_of_quarter > end_date:
-            end_of_quarter = end_date
-        
-        # Construct URL with current quarter's start and end dates
-        url = f"https://financialmodelingprep.com/api/v3/ipo_calendar?from={current_date}&to={end_of_quarter}&apikey={api_key}"
-        
-        # Append URL to list
-        urls.append(url)
-        
-        # Move to next quarter
-        current_date = end_of_quarter + datetime.timedelta(days=1)
-
-
-    #print(urls)
-    async with aiohttp.ClientSession() as session:
-        tasks = [session.get(url) for url in urls]
-        responses = await asyncio.gather(*tasks)
-        data = [await response.json() for response in responses]
     
-    for sublist in data:
-        for item in sublist:
-            try:
-                if (
-                    item not in combined_data
-                    and not any(excluded in item['company'] for excluded in ['USD', 'Funds', 'Trust', 'ETF', 'Rupee'])
-                    and any(item['exchange'].lower() == exchange for exchange in ['nasdaq global', 'nasdaq capital', 'nasdaq global select', 'nyse', 'nasdaq', 'amex'])
-                ):
-
-                    if item['priceRange'] != None:
-                        item['priceRange'] = round(float(item['priceRange'].split('-')[0]),2)
-                    elif item['shares'] != None and item['marketCap'] != None:
-                        item['priceRange'] = round(item['marketCap']/item['shares'],2)
-                    combined_data.append(item)
-            except:
-                pass
+    # Ensure api_key is defined in your context
+    url = f"https://financialmodelingprep.com/stable/ipos-calendar?from=2015-01-01&apikey={api_key}"
+    
+    async with aiohttp.ClientSession() as session:
+        response = await session.get(url)
+        data = await response.json()
+    
+    # In case the API returns a dict with a key like 'ipoCalendar'
+    if isinstance(data, dict) and 'ipoCalendar' in data:
+        data = data['ipoCalendar']
+    
+    # Loop directly over the list of IPO items
+    for item in data:
+        try:
+            if (
+                item not in combined_data
+                and not any(excluded in item.get('company', '') for excluded in ['USD', 'Funds', 'Trust', 'ETF', 'Rupee'])
+                and any(item.get('exchange', '').lower() == exchange for exchange in ['nasdaq global', 'nasdaq capital', 'nasdaq global select', 'nyse', 'nasdaq', 'amex'])
+            ):
+                if item.get('priceRange') is not None:
+                    # Assume priceRange is a string like "12.5-15.0"
+                    item['priceRange'] = round(float(item['priceRange'].split('-')[0]), 2)
+                elif item.get('shares') is not None and item.get('marketCap') is not None:
+                    item['priceRange'] = round(item['marketCap'] / item['shares'], 2)
+                combined_data.append(item)
+        except Exception as e:
+            continue
 
     res = []
     for entry in combined_data:
         try:
-            symbol = entry['symbol']
+            symbol = entry.get('symbol')
+            # Try to load local quote data; if it fails, use defaults.
             try:
-                with open(f"json/quote/{symbol}.json","r") as file:
+                with open(f"json/quote/{symbol}.json", "r") as file:
                     quote_data = ujson.load(file)
-            except:
+            except Exception as e:
                 quote_data = {'price': None, 'changesPercentage': None}
             
-            entry['currentPrice'] = quote_data.get('price',None)
+            entry['currentPrice'] = quote_data.get('price', None)
             try:
-                df =  pd.read_sql_query(query_open_price.format(ticker = entry['symbol']), con)
-                entry['ipoPrice'] = round(df['open'].iloc[0], 2) if df['open'].iloc[0] else None
+                query = query_open_price.format(ticker=entry['symbol'])
+                df = pd.read_sql_query(query, con)
+                if not df.empty and df['open'].iloc[0]:
+                    entry['ipoPrice'] = round(df['open'].iloc[0], 2)
+                else:
+                    entry['ipoPrice'] = None
             except Exception as e:
-                entry['ipoPrice'] = round(entry['priceRange'], 2) if entry['priceRange'] else None
+                # Fallback to calculated priceRange if SQL fails
+                entry['ipoPrice'] = round(entry['priceRange'], 2) if entry.get('priceRange') is not None else None
 
-            if entry['ipoPrice'] != None:
+            if entry['ipoPrice'] is not None:
                 try:
-                    entry['return'] = None if (entry['ipoPrice'] in (0, None) or entry['currentPrice'] in (0, None)) else round(((entry['currentPrice'] / entry['ipoPrice'] - 1) * 100), 2)
-                except:
+                    if entry['ipoPrice'] in (0, None) or entry['currentPrice'] in (0, None):
+                        entry['return'] = None
+                    else:
+                        entry['return'] = round(((entry['currentPrice'] / entry['ipoPrice'] - 1) * 100), 2)
+                except Exception as e:
                     entry['return'] = None
                 res.append({
-                    "symbol": entry["symbol"],
-                    "name": entry["company"],
-                    "ipoDate": entry["date"],
-                    "ipoPrice": entry["ipoPrice"],
-                    "currentPrice": entry["currentPrice"],
-                    "return": entry["return"],
+                    "symbol": entry.get("symbol"),
+                    "name": entry.get("company"),
+                    "ipoDate": entry.get("date"),
+                    "ipoPrice": entry.get("ipoPrice"),
+                    "currentPrice": entry.get("currentPrice"),
+                    "return": entry.get("return"),
                 })
-        except:
-            pass
-    
-    res_sorted = sorted(res, key=lambda x: x['ipoDate'], reverse=True)
+        except Exception as e:
+            continue
+
+    # Sort results by ipoDate descending
+    res_sorted = sorted(res, key=lambda x: x.get('ipoDate'), reverse=True)
+
     return res_sorted
 
 
@@ -1661,6 +1648,11 @@ async def save_json_files():
     etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
 
+    data = await get_ipo_calendar(con, symbols)
+    with open(f"json/ipo-calendar/data.json", 'w') as file:
+        ujson.dump(data, file)
+
+
     economic_list = await get_economic_calendar()
     if len(economic_list) > 0:
         with open(f"json/economic-calendar/calendar.json", 'w') as file:
@@ -1676,10 +1668,6 @@ async def save_json_files():
     with open(f"json/congress-trading/rss-feed/data.json", 'w') as file:
         ujson.dump(data, file)
     
-
-    data = await get_ipo_calendar(con, symbols)
-    with open(f"json/ipo-calendar/data.json", 'w') as file:
-        ujson.dump(data, file)
     
     earnings_list = await get_earnings_calendar(con,symbols)
     with open(f"json/earnings-calendar/calendar.json", 'w') as file:
