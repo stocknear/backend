@@ -1313,6 +1313,10 @@ async def get_indicator(data: IndicatorListData, api_key: str = Security(get_api
                 # Only merge screener data for keys that are not price, volume, or changesPercentage
                 result.update(screener_dict[symbol])
 
+    # Ensure all keys in rule_of_list are present, setting missing ones to None
+    for result in combined_results:
+        for key in rule_of_list:
+            result.setdefault(key, None)
             
     # Serialize and compress the response
     res = orjson.dumps(combined_results)
@@ -1325,9 +1329,8 @@ async def get_indicator(data: IndicatorListData, api_key: str = Security(get_api
     )
 
 
-
 async def process_watchlist_ticker(ticker, rule_of_list, quote_keys_to_include, screener_dict, etf_set):
-    """Optimized single ticker processing with reduced I/O and memory overhead."""
+    """Optimized single ticker processing with guaranteed rule_of_list keys."""
     ticker = ticker.upper()
     ticker_type = 'stocks'
     if ticker in etf_set:
@@ -1341,112 +1344,91 @@ async def process_watchlist_ticker(ticker, rule_of_list, quote_keys_to_include, 
             load_json_async(f"json/earnings/next/{ticker}.json")
         )
     except Exception:
-        # Gracefully handle missing files
         return None, [], None
 
-    # Early return if no quote data
     if not quote_dict:
         return None, [], None
 
-    # Optimized quote filtering with dict comprehension
+    # Merge data from multiple sources
     filtered_quote = {
         key: quote_dict.get(key) 
         for key in rule_of_list + quote_keys_to_include 
         if key in quote_dict
     }
     
-    # Efficiently add core quote data
+    # Add core fields with priority to quote data
     core_keys = ['price', 'volume', 'changesPercentage', 'symbol']
-    for key in core_keys:
-        if key in quote_dict:
-            filtered_quote[key] = quote_dict[key]
+    filtered_quote.update({k: quote_dict[k] for k in core_keys if k in quote_dict})
+    
+    # Merge screener data for non-core fields
+    symbol = filtered_quote.get('symbol')
+    if symbol and symbol in screener_dict:
+        filtered_quote.update({
+            k: v for k, v in screener_dict[symbol].items() 
+            if k not in filtered_quote
+        })
+
+    # Ensure all rule_of_list keys exist with None as default
+    for key in rule_of_list:
+        filtered_quote.setdefault(key, None)
     
     filtered_quote['type'] = ticker_type
 
-    # Efficient screener data merge
-    symbol = filtered_quote.get('symbol')
-    if symbol and symbol in screener_dict:
-        # Use dict.update() for faster merging
-        screener_data = {
-            k: v for k, v in screener_dict[symbol].items() 
-            if k not in filtered_quote
-        }
-        filtered_quote.update(screener_data)
-
-    # Lightweight news processing
+    # Process supplemental data
     news = [
         {k: v for k, v in item.items() if k not in ['image', 'text']}
         for item in (news_dict or [])[:5]
     ]
-
-    # Compact earnings processing
     earnings = {**earnings_dict, 'symbol': symbol} if earnings_dict else None
 
     return filtered_quote, news, earnings
 
 @app.post("/get-watchlist")
 async def get_watchlist(data: GetWatchList, api_key: str = Security(get_api_key)):
-    """Further optimized watchlist endpoint with concurrent processing."""
+    """Optimized endpoint with complete key enforcement."""
     try:
         watchlist = pb.collection("watchlist").get_one(data.watchListId)
         ticker_list = watchlist.ticker
     except Exception:
         raise HTTPException(status_code=404, detail="Watchlist not found")
 
-    # Predefined configurations
-    quote_keys_to_include = ['volume', 'marketCap', 'changesPercentage', 'price', 'symbol', 'name']
+    # Configure data collection parameters
     rule_of_list = list(set(
         (data.ruleOfList or []) + 
-        ['symbol', 'name']
+        ['symbol', 'name']  # Ensure mandatory fields
     ))
+    quote_keys_to_include = ['volume', 'marketCap', 'changesPercentage', 'price']
 
-    # Prepare screener dictionary with efficient lookup
+    # Preprocess screener data for O(1) lookups
     screener_dict = {
-        item['symbol']: {
-            key: item.get(key) 
-            for key in rule_of_list if key in item
-        }
+        item['symbol']: {k: item.get(k) for k in rule_of_list if k in item}
         for item in stock_screener_data
     }
 
-    # Use concurrent processing with more efficient method
-    results_and_extras = await asyncio.gather(
-        *[
-            process_watchlist_ticker(
-                ticker, 
-                rule_of_list, 
-                quote_keys_to_include, 
-                screener_dict,
-                etf_set,  # Assuming these are pre-computed sets
-            ) 
-            for ticker in ticker_list
-        ]
-    )
+    # Parallel processing pipeline
+    results = await asyncio.gather(*[
+        process_watchlist_ticker(
+            ticker, 
+            rule_of_list,
+            quote_keys_to_include,
+            screener_dict,
+            etf_set
+        ) for ticker in ticker_list
+    ])
 
-    # Efficient list comprehensions for filtering
-    combined_results = [result for result in (r[0] for r in results_and_extras) if result]
-    combined_news = [
-        news_item 
-        for news_list in (r[1] for r in results_and_extras) 
-        for news_item in news_list
-    ]
-    combined_earnings = [earnings for earnings in (r[2] for r in results_and_extras) if earnings]
-
-    # Use orjson for faster JSON serialization
-    res = {
-        'data': combined_results, 
-        'news': combined_news,
-        'earnings': combined_earnings
+    # Efficient response assembly
+    response_data = {
+        'data': [r[0] for r in results if r[0]],
+        'news': [item for r in results for item in r[1]],
+        'earnings': [r[2] for r in results if r[2]]
     }
 
-    # Compress efficiently
-    compressed_data = gzip.compress(orjson.dumps(res), compresslevel=6)
-
     return StreamingResponse(
-        io.BytesIO(compressed_data),
+        io.BytesIO(gzip.compress(orjson.dumps(response_data))),
         media_type="application/json",
         headers={"Content-Encoding": "gzip"}
     )
+
 
 @app.post("/get-price-alert")
 async def get_price_alert(data: dict, api_key: str = Security(get_api_key)):
