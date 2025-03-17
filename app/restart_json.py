@@ -645,7 +645,18 @@ def calculate_cagr(start_value, end_value, periods):
     except:
         return None
 
+def clean_for_json(data):
+    if isinstance(data, dict):
+        return {k: clean_for_json(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [clean_for_json(item) for item in data]
+    elif isinstance(data, float):
+        if math.isnan(data) or math.isinf(data):
+            return None
+        return round(data, 4)
+    return data
 
+        
 async def get_stock_screener(con):
     #Stock Screener Data
     cursor = con.cursor()
@@ -1014,14 +1025,21 @@ async def get_stock_screener(con):
             item['grossProfitGrowthYears'] = None
 
     for item in stock_screener_data:
-        for key, value in item.items():
-            try:
-                if isinstance(value, float):
-                    if math.isnan(value) or math.isinf(value):
-                        item[key] = None
-                        print(key)
-            except:
-                pass
+        for key in list(item.keys()):
+            value = item[key]
+            if isinstance(value, float):
+                if math.isnan(value) or math.isinf(value):
+                    item[key] = None
+            elif isinstance(value, (dict, list)):
+                continue
+            elif not isinstance(value, (str, int, bool, type(None))):
+                try:
+                    # Force convert unsupported types to string
+                    item[key] = str(value)
+                except:
+                    item[key] = None
+
+    stock_screener_data = clean_for_json(stock_screener_data)
 
     return stock_screener_data
 
