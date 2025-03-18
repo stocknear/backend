@@ -37,8 +37,7 @@ async def fetch_options_activity(page):
     try:
         data = await asyncio.to_thread(fin.options_activity, date_from=start_date, date_to=end_date, page=page, pagesize=1000)
         return orjson.loads(fin.output(data))['option_activity']
-    except Exception as e:
-        print(f"Exception on page {page}: {e}")
+    except:
         return []
 
 # Asynchronous function to fetch multiple pages
@@ -79,7 +78,8 @@ def clean_and_filter_data(res_list):
                 filtered_list.append({key: value for key, value in item.items() if key not in ['description_extended', 'updated']})
         except Exception as e:
             print(f"Error processing item: {e}")
-            continue
+            pass
+
     return filtered_list
 
 # Main execution flow

@@ -178,78 +178,89 @@ fastify.register(async function (fastify) {
 });
 
 
+
 fastify.register(async function (fastify) {
   fastify.get("/options-flow-reader", { websocket: true }, (connection, req) => {
     let sendInterval;
+    let pingInterval;
+    let sendTimeout = null;
     let lastSentData = [];
-   
-    // Function to send data to the client
+
     const sendData = async () => {
-  const filePath = path.join(__dirname, "../app/json/options-flow/feed/data.json");
-  
-  try {
-    if (fs.existsSync(filePath)) {
-      const fileData = fs.readFileSync(filePath, "utf8").trim();
-
-      if (!fileData) {
-        console.error("File is empty:", filePath);
-        setTimeout(sendData, 2000);
-        return;
+      if (sendTimeout) {
+        clearTimeout(sendTimeout);
+        sendTimeout = null;
       }
 
-      let parsedData;
+      const filePath = path.join(__dirname, "../app/json/options-flow/feed/data.json");
+      
       try {
-        parsedData = JSON.parse(fileData);
-      } catch (jsonErr) {
-        console.error("Invalid JSON format:", jsonErr);
-        setTimeout(sendData, 2000);
-        return;
+        if (fs.existsSync(filePath)) {
+          const fileData = fs.readFileSync(filePath, "utf8").trim();
+
+          if (!fileData) {
+            sendTimeout = setTimeout(sendData, 2000);
+            return;
+          }
+
+          let parsedData;
+          try {
+            parsedData = JSON.parse(fileData);
+          } catch (jsonErr) {
+            sendTimeout = setTimeout(sendData, 2000);
+            return;
+          }
+
+          if (parsedData.length > lastSentData.length && connection.socket.readyState === 1) {
+            connection.socket.send(JSON.stringify(parsedData));
+            lastSentData = parsedData;
+          }
+        } else {
+          sendTimeout = setTimeout(sendData, 2000);
+        }
+      } catch (err) {
+        sendTimeout = setTimeout(sendData, 2000);
       }
+    };
 
-      // Send data only if the length has increased since the last send
-      if (parsedData.length > lastSentData.length) {
-        connection.socket.send(JSON.stringify(parsedData));
-        console.log("Options data sent: Length", parsedData.length);
-        lastSentData = parsedData;
-      }
-    } else {
-      console.error("File not found:", filePath);
-      setTimeout(sendData, 2000);
-    }
-  } catch (err) {
-    console.error("Error sending data to client:", err);
-    setTimeout(sendData, 2000);
-  }
-};
-
-
-    // Send data to the client initially
+    // Initial send and interval setup
     sendData();
-    
-    // Start sending data periodically
     sendInterval = setInterval(sendData, 500);
-    
-    // Handle client disconnect
-    connection.socket.on("close", () => {
-      console.log("Client disconnected");
-      clearInterval(sendInterval);
-    });
 
-    // Handle server crash cleanup
-    const closeHandler = () => {
-      console.log("Server is closing. Cleaning up resources...");
+    // Heartbeat mechanism
+    pingInterval = setInterval(() => {
+      if (connection.socket.readyState === 1) {
+        connection.socket.ping();
+      }
+    }, 25000);
+
+    // Cleanup function
+    const cleanup = () => {
       clearInterval(sendInterval);
-      if (connection.socket.readyState === connection.socket.OPEN) {
+      clearInterval(pingInterval);
+      if (sendTimeout) clearTimeout(sendTimeout);
+      [
+        'exit', 'SIGINT', 'SIGTERM',
+        'uncaughtException', 'unhandledRejection'
+      ].forEach(event => process.off(event, cleanup));
+      
+      if (connection.socket.readyState === 1) {
         connection.socket.close();
       }
     };
-    
-    // Add close handler to process events
-    process.on("exit", closeHandler);
-    process.on("SIGINT", closeHandler);
-    process.on("SIGTERM", closeHandler);
-    process.on("uncaughtException", closeHandler);
-    process.on("unhandledRejection", closeHandler);
+
+    // Process event handlers
+    process.on('exit', cleanup);
+    process.on('SIGINT', cleanup);
+    process.on('SIGTERM', cleanup);
+    process.on('uncaughtException', cleanup);
+    process.on('unhandledRejection', cleanup);
+
+    // WebSocket close handler
+    connection.socket.on('close', () => {
+      console.log('Client disconnected');
+      cleanup();
+    });
   });
 });
 
