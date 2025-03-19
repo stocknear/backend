@@ -38,17 +38,18 @@ async def get_pre_post_quote_of_stocks(ticker_list):
     ticker_str = ','.join(ticker_list)
     async with aiohttp.ClientSession() as session:
         #url = f"https://financialmodelingprep.com/api/v4/batch-pre-post-market/{ticker_str}?apikey={api_key}" 
-        url = f"https://financialmodelingprep.com/api/v4/batch-pre-post-market-trade/{ticker_str}?apikey={api_key}"
+        url = f"https://financialmodelingprep.com/stable/batch-aftermarket-trade?symbols={ticker_str}&apikey={api_key}"
         async with session.get(url) as response:
             if response.status == 200:
-                return await response.json()
+                data = await response.json()
+                return data
             else:
-                return {}
+                return []
 
 async def get_bid_ask_quote_of_stocks(ticker_list):
     ticker_str = ','.join(ticker_list)
     async with aiohttp.ClientSession() as session:
-        url = f"https://financialmodelingprep.com/api/v4/batch-pre-post-market/{ticker_str}?apikey={api_key}" 
+        url = f"https://financialmodelingprep.com/stable/batch-aftermarket-quote?symbols={ticker_str}&apikey={api_key}" 
         async with session.get(url) as response:
             if response.status == 200:
                 return await response.json()
@@ -83,8 +84,8 @@ async def save_bid_ask_as_json(symbol, data):
 
         # Update quote data with new price, ask, bid, changesPercentage, and timestamp
         quote_data.update({
-            'ask': round(data['ask'], 2),  # Add ask price
-            'bid': round(data['bid'], 2),   # Add bid price
+            'ask': round(data['askPrice'], 2),  # Add ask price
+            'bid': round(data['bidPrice'], 2),   # Add bid price
         })
 
         # Save the updated quote data back to the same JSON file
