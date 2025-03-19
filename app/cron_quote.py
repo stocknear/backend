@@ -54,7 +54,7 @@ async def get_bid_ask_quote_of_stocks(ticker_list):
             if response.status == 200:
                 return await response.json()
             else:
-                return {}
+                return []
 
 async def save_quote_as_json(symbol, data):
     with open(f"json/quote/{symbol}.json", 'w') as file:
@@ -71,8 +71,11 @@ async def save_pre_post_quote_as_json(symbol, data):
             with open(f"json/pre-post-quote/{symbol}.json", 'w') as file:
                 dt = datetime.fromtimestamp(data['timestamp']/1000, ny_timezone)
                 formatted_date = dt.strftime("%b %d, %Y, %I:%M %p %Z")
-                res = {'symbol': symbol, 'price': round(data['price'],2), 'changesPercentage': changes_percentage, 'time': formatted_date}
-                file.write(orjson.dumps(res).decode())
+
+                #Bugfixing: pre-filter to fight against FMP bug that shows -30% drop sometimes in the premarket
+                if abs(changes_percentage) <= 15:
+                    res = {'symbol': symbol, 'price': round(data['price'],2), 'changesPercentage': changes_percentage, 'time': formatted_date}
+                    file.write(orjson.dumps(res).decode())
     except Exception as e:
         pass
 
@@ -82,11 +85,21 @@ async def save_bid_ask_as_json(symbol, data):
         with open(f"json/quote/{symbol}.json", 'r') as file:
             quote_data = orjson.loads(file.read())
 
-        # Update quote data with new price, ask, bid, changesPercentage, and timestamp
-        quote_data.update({
-            'ask': round(data['askPrice'], 2),  # Add ask price
-            'bid': round(data['bidPrice'], 2),   # Add bid price
-        })
+        ask_price = round(data['askPrice'], 2)
+        bid_price = round(data['bidPrice'], 2)
+        
+        #Bugfixing: pre-filter to fight against FMP bug that shows -30% drop sometimes in the premarket
+        
+        mean_price = (ask_price+bid_price)/2
+        current_price = quote_data['price']
+
+        changes_percentage = (mean_price/current_price -1 ) *100
+
+        if abs(changes_percentage) <= 15:
+            quote_data.update({
+                'ask': ask_price,  # Add ask price
+                'bid': bid_price,   # Add bid price
+            })
 
         # Save the updated quote data back to the same JSON file
         with open(f"json/quote/{symbol}.json", 'w') as file:
