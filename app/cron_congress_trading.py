@@ -46,6 +46,8 @@ def generate_id(name):
 
 def replace_representative(office):
     replacements = {
+        'Banks, James E. (Senator)': 'James Banks',
+        'Banks, James (Senator)': 'James Banks',
         'Knott, Brad (Senator)': 'Brad Knott',
         'Moody, Ashley B. (Senator)': 'Ashley Moody',
         'McCormick, David H. (Senator)': 'Dave McCormick',
