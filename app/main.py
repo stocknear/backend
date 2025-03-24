@@ -2,6 +2,7 @@
 import random
 import io
 import gzip
+import csv
 import re
 import os
 import secrets
@@ -9,6 +10,7 @@ from benzinga import financial_data
 from typing import List, Dict, Set
 # Third-party library imports
 import numpy as np
+import zipfile
 import pandas as pd
 import orjson
 import aiohttp
@@ -297,6 +299,9 @@ class OptionsFlowData(BaseModel):
 class HistoricalPrice(BaseModel):
     ticker: str
     timePeriod: str
+
+class BulkDownload(BaseModel):
+    tickers: list
 
 class AnalystId(BaseModel):
     analystId: str
@@ -4306,6 +4311,50 @@ async def get_stock_data(data: BulkList, api_key: str = Security(get_api_key)):
     combined_data = {k: v for result in results for k, v in result.items()}
     return combined_data
 
+
+@app.post("/bulk-download")
+async def get_stock(data: BulkDownload, api_key: str = Security(get_api_key)):
+    # Ensure tickers is a list
+    tickers = [ticker.upper() for ticker in data.tickers]
+
+    # Create an in-memory binary stream for the zip archive
+    memory_file = io.BytesIO()
+
+    # Open a zipfile for writing into that memory stream
+    with zipfile.ZipFile(memory_file, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for ticker in tickers:
+            try:
+                with open(f"json/historical-price/max/{ticker}.json", 'rb') as file:
+                    # Load the JSON data for the ticker
+                    data_list = orjson.loads(file.read())
+            except Exception:
+                data_list = []
+
+            # Convert the JSON data to CSV format. Adjust the keys as needed.
+            csv_buffer = io.StringIO()
+            csv_writer = csv.writer(csv_buffer)
+
+            if data_list:
+                # Write headers using keys from the first record
+                headers = list(data_list[0].keys())
+                csv_writer.writerow(headers)
+                # Write each row
+                for row in data_list:
+                    csv_writer.writerow([row.get(key, "") for key in headers])
+            else:
+                csv_writer.writerow(["No data available"])
+
+            zf.writestr(f"{ticker}.csv", csv_buffer.getvalue())
+
+    # Seek back to the start of the BytesIO stream before returning it.
+    memory_file.seek(0)
+
+    # Return the zip file as a StreamingResponse.
+    return StreamingResponse(
+        memory_file,
+        media_type="application/zip",
+        headers={"Content-Disposition": "attachment; filename=bulk_data.zip"}
+    )
 
 @app.get("/newsletter")
 async def get_newsletter():
