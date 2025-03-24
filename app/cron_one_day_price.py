@@ -29,66 +29,71 @@ async def fetch_and_save_symbols_data(symbols):
             await save_price_data(symbol, response)
 
 async def get_todays_data(ticker):
-
+    # Assuming GetStartEndDate().run() returns today's start and end datetime objects
     start_date_1d, end_date_1d = GetStartEndDate().run()
-
-
+    
+    # Format today's date as string "YYYY-MM-DD"
+    today_str = start_date_1d.strftime("%Y-%m-%d")
+    
     current_weekday = end_date_1d.weekday()
-
     start_date = start_date_1d.strftime("%Y-%m-%d")
     end_date = end_date_1d.strftime("%Y-%m-%d")
-
+    
+    # Make sure your URL is correctly constructed (note: query parameter concatenation may need adjustment)
     url = f"https://financialmodelingprep.com/stable/historical-chart/1min?symbol={ticker}&from={start_date}&to={end_date}&apikey={api_key}"
-
+    
     df_1d = pd.DataFrame()
-
     current_date = start_date_1d
-    target_time = time(9,30)
-
-    extract_date = current_date.strftime('%Y-%m-%d')
-
+    target_time = time(9, 30)
+    
+    # Async HTTP request
     async with aiohttp.ClientSession() as session:
         responses = await asyncio.gather(session.get(url))
-
+    
         for response in responses:
             try:
                 json_data = await response.json()
+                # Create DataFrame and reverse order if needed
                 df_1d = pd.DataFrame(json_data).iloc[::-1].reset_index(drop=True)
+                
+                # Filter out rows not matching today's date.
+                # If the column is "date":
+                df_1d = df_1d[df_1d['date'].str.startswith(today_str)]
+                
+                # If you want to rename "date" to "time", do that after filtering:
                 df_1d = df_1d.drop(['volume'], axis=1)
                 df_1d = df_1d.round(2).rename(columns={"date": "time"})
+                
+                # Update the first row 'close' with previousClose from your stored json if available
                 try:
                     with open(f"json/quote/{ticker}.json", 'r') as file:
                         res = ujson.load(file)
                         df_1d.loc[df_1d.index[0], 'close'] = res['previousClose']
-                except:
+                except Exception as e:
                     pass
-
-                if current_weekday == 5 or current_weekday == 6:
-                    pass
-                else:
-                    if current_date.time() < target_time:
-                        pass                    
-                    else:
+    
+                # The following block handles non-weekend logic and appends additional rows if needed.
+                if current_weekday not in (5, 6):
+                    if current_date.time() >= target_time:
+                        extract_date = current_date.strftime('%Y-%m-%d')
                         end_time = pd.to_datetime(f'{extract_date} 16:00:00')
                         new_index = pd.date_range(start=df_1d['time'].iloc[-1], end=end_time, freq='1min')
                         
-                        remaining_df = pd.DataFrame(index=new_index, columns=['open', 'high', 'low','close'])
+                        remaining_df = pd.DataFrame(index=new_index, columns=['open', 'high', 'low', 'close'])
                         remaining_df = remaining_df.reset_index().rename(columns={"index": "time"})
                         remaining_df['time'] = remaining_df['time'].dt.strftime('%Y-%m-%d %H:%M:%S')
-                        remainind_df = remaining_df.set_index('time')
-
+                        remaining_df = remaining_df.set_index('time')
+                        
+                        # Concatenate the remaining_df (skipping the first row as in your original code)
                         df_1d = pd.concat([df_1d, remaining_df[1::]], ignore_index=True)
-                        #To-do FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
     
+                # Convert DataFrame back to JSON list format
                 df_1d = ujson.loads(df_1d.to_json(orient="records"))
             except Exception as e:
                 print(e)
                 df_1d = []
-
-    res = df_1d
-
-    return res
-
+    
+    return df_1d
 async def run():
     con = sqlite3.connect('stocks.db')
     etf_con = sqlite3.connect('etf.db')
@@ -111,12 +116,12 @@ async def run():
     total_symbols = stocks_symbols + etf_symbols + index_symbols
     total_symbols = sorted(total_symbols, key=lambda x: '.' in x)
     
-    chunk_size = 1000
+    chunk_size = 500
     for i in range(0, len(total_symbols), chunk_size):
         symbols_chunk = total_symbols[i:i+chunk_size]
         await fetch_and_save_symbols_data(symbols_chunk)
         print('sleeping...')
-        await asyncio.sleep(60)  # Wait for 60 seconds between chunks
+        await asyncio.sleep(30)  # Wait for 60 seconds between chunks
 
 
 try:
