@@ -1,3 +1,4 @@
+import sys
 import pytz
 from datetime import datetime, timedelta
 from urllib.request import urlopen
@@ -115,18 +116,25 @@ async def downgrade_user():
     user_data =  pb.collection('users').get_full_list()
     for item in tqdm(user_data):
         if item.tier not in ['Pro', 'Plus']:
-            stock_screener_data = pb.collection("stockscreener").get_full_list(query_params = {"filter": f"user = '{item.id}'"})
-            for screener in stock_screener_data:
-                pb.collection('stockscreener').delete(screener.id)
+            try:
+                pb.collection("users").update(item.id, {
+                        "credits": 10,
+                    })
 
-            options_watchlist_data = pb.collection("optionsWatchlist").get_full_list(query_params = {"filter": f"user = '{item.id}'"})
-            for watchlist in options_watchlist_data:
-                pb.collection('optionsWatchlist').delete(watchlist.id)
+                stock_screener_data = pb.collection("stockscreener").get_full_list(query_params = {"filter": f"user = '{item.id}'"})
+                for screener in stock_screener_data:
+                    pb.collection('stockscreener').delete(screener.id)
+
+                options_watchlist_data = pb.collection("optionsWatchlist").get_full_list(query_params = {"filter": f"user = '{item.id}'"})
+                for watchlist in options_watchlist_data:
+                    pb.collection('optionsWatchlist').delete(watchlist.id)
 
 
-            payment_data = pb.collection("payments").get_full_list(query_params = {"filter": f"user = '{item.id}'"})
-            for item in payment_data:
-                pb.collection('payments').delete(item.id)
+                payment_data = pb.collection("payments").get_full_list(query_params = {"filter": f"user = '{item.id}'"})
+                for item in payment_data:
+                    pb.collection('payments').delete(item.id)
+            except:
+                pass
 
 
 async def delete_old_notifications():
@@ -145,13 +153,38 @@ async def delete_old_notifications():
         except:
             pass
 
+async def refresh_bulk_credits():
+    user_data =  pb.collection('users').get_full_list()
+    for item in tqdm(user_data):
+        try:
+            if item.tier == 'Plus':
+                pb.collection("users").update(item.id, {
+                    "credits": 500,
+                })
+            elif item.tier == 'Pro':
+                pb.collection("users").update(item.id, {
+                    "credits": 1000,
+                })
+
+            else:
+                pb.collection("users").update(item.id, {
+                    "credits": 10,
+                })
+        except Exception as e:
+            print(e)
 
 
 
-async def run():
-
+async def run_all_except_refresh():
     await update_free_trial()
     await downgrade_user()
     await delete_old_notifications()
 
-asyncio.run(run())
+def main():
+    if '--refresh' in sys.argv:
+        asyncio.run(refresh_bulk_credits())
+    else:
+        asyncio.run(run_all_except_refresh())
+
+if __name__ == '__main__':
+    main()
