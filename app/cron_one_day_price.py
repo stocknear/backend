@@ -73,6 +73,7 @@ async def get_todays_data(ticker):
                     pass
     
                 # The following block handles non-weekend logic and appends additional rows if needed.
+                '''
                 if current_weekday not in (5, 6):
                     if current_date.time() >= target_time:
                         extract_date = current_date.strftime('%Y-%m-%d')
@@ -86,7 +87,7 @@ async def get_todays_data(ticker):
                         
                         # Concatenate the remaining_df (skipping the first row as in your original code)
                         df_1d = pd.concat([df_1d, remaining_df[1::]], ignore_index=True)
-    
+                '''
                 # Convert DataFrame back to JSON list format
                 df_1d = ujson.loads(df_1d.to_json(orient="records"))
             except Exception as e:
