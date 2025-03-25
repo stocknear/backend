@@ -51,7 +51,7 @@ def run_threaded(job_func):
 schedule.every().day.at("06:30").do(run_threaded, run_pocketbase).tag('pocketbase_job')
 schedule.every().day.at("15:31").do(run_threaded, run_restart_cache)
 schedule.every().day.at("23:00").do(run_threaded, run_restart_cache)
-schedule.every(2).hours.do(run_threaded, run_json_job).tag('json_job')
+schedule.every(3).hours.do(run_threaded, run_json_job).tag('json_job')
 schedule.every(1).minutes.do(run_threaded, run_cron_price_alert).tag('price_alert_job')
 
 schedule.every().day.at("00:00").do(run_threaded, run_refresh_pocketbase)
