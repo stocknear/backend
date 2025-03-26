@@ -215,6 +215,7 @@ def run_analyst_rating():
         run_command(["python3", "cron_analyst_insight.py"])
         run_command(["python3", "cron_analyst_db.py"])
         run_command(["python3", "cron_analyst_ticker.py"])
+        run_command(["python3", "cron_analyst_flow.py"])
 
 def run_market_moods():
     week = datetime.today().weekday()
