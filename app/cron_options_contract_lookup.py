@@ -101,7 +101,7 @@ if __name__ == "__main__":
             res["Call"] = dict(sorted(res["Call"].items()))
             res["Put"] = dict(sorted(res["Put"].items()))
 
-            if res:
+            if res and res != {"Call": {}, "Put": {}}:
                 save_json(res, symbol)
 
 

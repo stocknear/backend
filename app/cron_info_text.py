@@ -633,6 +633,16 @@ data = {
     "pcRatio": {
         "text": "The Put/Call Ratio (P/C Ratio) measures the volume of put options traded relative to call options. A higher ratio suggests more bearish sentiment, while a lower ratio indicates more bullish sentiment, helping traders gauge market outlook and investor sentiment."
     },
+    "dateExpiration": {  
+        "text": "The expiration represents the expiration date of an options contract, indicating the last day the option can be exercised. Options lose value as they approach expiration, making this a crucial factor for traders assessing time decay and contract viability."
+    },
+    "optionType": {  
+        "text": "The option type specifies whether an options contract is a Call or a Put. A Call option gives the holder the right to buy the underlying asset at a set price before expiration, while a Put option grants the right to sell, helping traders hedge risk or speculate on price movements."  
+    },
+    "strikePrice": {  
+        "text": "The strike price is the predetermined price at which the holder of an options contract can buy (Call) or sell (Put) the underlying asset. It plays a key role in determining an option's intrinsic value and profitability relative to the market price."  
+    },  
+
 
 }
 
