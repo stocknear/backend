@@ -1,32 +1,30 @@
-import requests
-import json
 import os
-from dotenv import load_dotenv
+import requests
+from PIL import Image
+from io import BytesIO
 
-load_dotenv()
-api_key = os.getenv('STOCKNEAR_API_KEY')
+# List of stock symbols
+total_symbols = ["AAPL", "GOOGL", "MSFT"]  # Add more symbols as needed
 
-# Define the URL and the API key
-origin = "http://localhost:5173"
-url = f"{origin}/api/sendPushSubscription"
+# Create output directory if it doesn't exist
+output_dir = "json/logos/"
+os.makedirs(output_dir, exist_ok=True)
 
-# Define the data payload for the notification
-data = {
-    "title": "fs",
-    "body": "",
-    "url": f"{origin}/stocks/nvda",
-    "userId": "",
-    "key": api_key,
-}
+for symbol in total_symbols:
+    url = f"https://financialmodelingprep.com/image-stock/{symbol}.png"
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()  # Raise error for failed requests
 
-# Set headers
-headers = {
-    "Content-Type": "application/json"
-}
+        # Convert to WebP
+        image = Image.open(BytesIO(response.content))
+        output_path = os.path.join(output_dir, f"{symbol}.webp")
+        image.save(output_path, "WEBP")
 
-# Make the POST request with the API key in the payload
-response = requests.post(url, headers=headers, data=json.dumps(data))
+        print(f"Successfully converted {symbol} to WebP.")
 
-# Print the response from the server
-print(response.status_code)
-print(response.json())
+    except requests.exceptions.RequestException as e:
+        print(f"Failed to download {symbol}: {e}")
+
+    except Exception as e:
+        print(f"Error processing {symbol}: {e}")
