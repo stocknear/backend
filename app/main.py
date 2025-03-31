@@ -881,35 +881,38 @@ async def stock_dividend(data: TickerData, api_key: str = Security(get_api_key))
     redis_client.expire(cache_key, 60)
     return res
 
-@app.post("/history-employees")
-async def history_employees(data: TickerData, api_key: str = Security(get_api_key)):
-    data = data.dict()
-    ticker = data['ticker'].upper()
+@app.post("/historical-employees")
+async def economic_calendar(data:TickerData, api_key: str = Security(get_api_key)):
 
-    cache_key = f"history-employees-{ticker}"
+    ticker = data.ticker.upper()
+    
+    cache_key = f"historical-employees-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        return orjson.loads(cached_result)
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
 
-    query_template = """
-    SELECT 
-        history_employee_count
-    FROM 
-        stocks 
-    WHERE
-        symbol = ?
-    """
-
-    df = pd.read_sql_query(query_template,con, params=(ticker,))
     try:
-        history_employee_count = orjson.loads(df['history_employee_count'].iloc[0])
-        res = sorted([entry for entry in history_employee_count if entry["employeeCount"] != 0], key=lambda x: x["filingDate"])
+        with open(f"json/historical-employees/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
     except:
         res = []
 
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 3600*3600) # Set cache expiration time to 1 hour
-    return res
+    res = orjson.dumps(res)
+    compressed_data = gzip.compress(res)
+
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 60 * 15)  # Set cache expiration time to 1 day
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
+
 
 @app.post("/stock-income")
 async def stock_income(data: TickerData, api_key: str = Security(get_api_key)):

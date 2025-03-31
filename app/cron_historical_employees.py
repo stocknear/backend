@@ -13,7 +13,7 @@ api_key = os.getenv('FMP_API_KEY')
 
 
 async def save_json_data(symbol, data):
-    folder_path = "json/enterprise-values"
+    folder_path = "json/historical-employees"
     os.makedirs(folder_path, exist_ok=True)  # Ensure the folder exists
 
     file_path = f"{folder_path}/{symbol}.json"
@@ -32,30 +32,25 @@ async def get_data(symbols, session):
             if response:
                 await save_json_data(symbol, response)
 
-async def replace_date_with_fiscal_year(data):
-    res_list = []
-    for entry in data[-10:]:
-        # Extract year from the date
-        year = entry["date"].split("-")[0]
-        # Convert year to fiscal year format (e.g., FY23)
-        fiscal_year = "FY" + str(int(year[-2:]) + 1)
-        # Update the "date" key with fiscal year
-        entry["date"] = fiscal_year
-        res_list.append(entry)
-    return res_list
-
 async def get_endpoints(symbol, session):
     data = []
     try:
-        # Form API request URLs
-        url= f"https://financialmodelingprep.com/stable/enterprise-values?symbol={symbol}&apikey={api_key}"
+        url= f"https://financialmodelingprep.com/stable/employee-count?symbol={symbol}&apikey={api_key}"
         
         async with session.get(url) as response:
             data = []
             data = await response.json()
-            data = sorted(data, key=lambda x: x['date'])
-            data =  await replace_date_with_fiscal_year(data)
-                
+
+            res = []
+
+            for item in data:
+                try:
+                    res.append({'date': item['periodOfReport'], 'employeeCount': item['employeeCount']})
+                except:
+                    pass
+
+            return res
+
                 
     except Exception as e:
         print(f"Failed to fetch data for {symbol}: {e}")

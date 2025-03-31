@@ -102,6 +102,11 @@ def run_options_jobs():
         run_command(["python3", "cron_options_gex_dex.py"])
         run_command(["python3", "cron_options_contract_lookup.py"])
 
+def run_historical_employees():
+    now = datetime.now(ny_tz)
+    week = now.weekday()
+    if week <= 5:
+        run_command(["python3", "cron_historical_employees.py"])
 
 def run_cron_insider_trading():
     week = datetime.today().weekday()
@@ -355,6 +360,7 @@ def run_threaded(job_func):
 
 schedule.every().day.at("01:00").do(run_threaded, run_db_schedule_job)
 schedule.every().day.at("22:30").do(run_threaded, run_options_jobs).tag('options_job')
+schedule.every().day.at("22:30").do(run_threaded, run_historical_employees).tag('employees_job')
 schedule.every().day.at("05:00").do(run_threaded, run_options_historical_flow).tag('options_historical_flow_job')
 
 
