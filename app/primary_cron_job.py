@@ -231,7 +231,7 @@ def run_db_schedule_job():
 
 def run_ownership_stats():
     week = datetime.today().weekday()
-    if week <= 4:
+    if week <= 5:
         run_command(["python3", "cron_ownership_stats.py"])
 
 
@@ -286,7 +286,7 @@ def run_list():
 
 def run_financial_statements():
     week = datetime.today().weekday()
-    if week <= 4:
+    if week <= 5:
         run_command(["python3", "cron_financial_statements.py"])
 
 def run_financial_score():
@@ -366,7 +366,7 @@ schedule.every().day.at("08:00").do(run_threaded, run_price_reaction).tag('price
 schedule.every().day.at("08:00").do(run_threaded, run_dark_pool_ticker).tag('dark_pool_ticker_job')
 schedule.every().day.at("09:00").do(run_threaded, run_hedge_fund).tag('hedge_fund_job')
 schedule.every().day.at("07:30").do(run_threaded, run_financial_statements).tag('financial_statements_job')
-schedule.every().day.at("08:00").do(run_threaded, run_economy_indicator).tag('economy_indicator_job')
+#schedule.every().day.at("08:00").do(run_threaded, run_economy_indicator).tag('economy_indicator_job')
 schedule.every().day.at("08:00").do(run_threaded, run_cron_insider_trading).tag('insider_trading_job')
 schedule.every().day.at("08:30").do(run_threaded, run_dividends).tag('dividends_job')
 schedule.every().day.at("09:00").do(run_threaded, run_shareholders).tag('shareholders_job')

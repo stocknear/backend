@@ -84,7 +84,7 @@ async def run():
     con.close()
     
     #Testing mode
-    total_symbols = ['AAPL']
+    #total_symbols = ['AAPL']
     for symbol in tqdm(total_symbols):
         try:
             await get_data(symbol)
