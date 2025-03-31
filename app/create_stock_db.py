@@ -101,7 +101,7 @@ class StockDatabase:
                 f"https://financialmodelingprep.com/api/v3/profile/{symbol}?apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v3/quote/{symbol}?apikey={api_key}",
                 f"https://financialmodelingprep.com/stable/dividends?symbol={symbol}&apikey={api_key}",
-                f"https://financialmodelingprep.com/api/v4/historical/employee_count?symbol={symbol}&apikey={api_key}",
+                f"https://financialmodelingprep.com/stable/employee-count?symbol={symbol}&apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v3/historical-price-full/stock_split/{symbol}?apikey={api_key}",
                 f"https://financialmodelingprep.com/api/v4/stock_peers?symbol={symbol}&apikey={api_key}",
                 f"https://financialmodelingprep.com/stable/institutional-ownership/extract-analytics/holder?symbol={symbol}&year={year}&quarter={quarter}&apikey={api_key}",
@@ -156,7 +156,7 @@ class StockDatabase:
                         elif "dividends" in url:
                             # Handle list response, save as JSON object
                             fundamental_data['stock_dividend'] = ujson.dumps(parsed_data)
-                        elif "employee_count" in url:
+                        elif "employee-count" in url:
                             # Handle list response, save as JSON object
                             fundamental_data['history_employee_count'] = ujson.dumps(parsed_data)
                         elif "stock_split" in url:
