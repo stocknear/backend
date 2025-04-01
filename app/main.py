@@ -885,7 +885,7 @@ async def stock_dividend(data: TickerData, api_key: str = Security(get_api_key))
 async def economic_calendar(data:TickerData, api_key: str = Security(get_api_key)):
 
     ticker = data.ticker.upper()
-    
+
     cache_key = f"historical-employees-{ticker}"
     cached_result = redis_client.get(cache_key)
     if cached_result:

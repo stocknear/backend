@@ -100,7 +100,7 @@ async def calculate_margins(symbol):
             print(f"Error calculating margins for {symbol}: {e}")
 
 async def get_financial_statements(session, symbol, semaphore, rate_limiter):
-    base_url = "https://financialmodelingprep.com/stable"
+    base_url = "https://financialmodelingprep.com/api/v3"
     periods = ['quarter', 'annual']
     financial_data_types = ['key-metrics', 'income-statement', 'balance-sheet-statement', 'cash-flow-statement', 'ratios']
     growth_data_types = ['income-statement-growth', 'balance-sheet-statement-growth', 'cash-flow-statement-growth']
@@ -109,26 +109,26 @@ async def get_financial_statements(session, symbol, semaphore, rate_limiter):
         for period in periods:
             # Fetch regular financial statements
             for data_type in financial_data_types:
-                url = f"{base_url}/{data_type}/?symbol={symbol}&period={period}&apikey={api_key}"
+                url = f"{base_url}/{data_type}/{symbol}?period={period}&apikey={api_key}"
                 data = await fetch_data(session, url, symbol, rate_limiter)
                 if data:
                     await save_json(symbol, period, data_type, data)
             
             # Fetch financial statement growth data
             for growth_type in growth_data_types:
-                growth_url = f"{base_url}/{growth_type}/?symbol={symbol}&period={period}&apikey={api_key}"
+                growth_url = f"{base_url}/{growth_type}/{symbol}?period={period}&apikey={api_key}"
                 growth_data = await fetch_data(session, growth_url, symbol, rate_limiter)
                 if growth_data:
                     await save_json(symbol, period, growth_type, growth_data)
 
         # Fetch TTM metrics
-        url = f"https://financialmodelingprep.com/stable/key-metrics-ttm/?symbol={symbol}&apikey={api_key}"
+        url = f"https://financialmodelingprep.com/api/v3/key-metrics-ttm/{symbol}?apikey={api_key}"
         data = await fetch_data(session, url, symbol, rate_limiter)
         if data:
             await save_json(symbol, 'ttm', 'key-metrics', data)
 
         # Fetch owner earnings data
-        owner_earnings_url = f"https://financialmodelingprep.com/stable/owner-earnings?symbol={symbol}&apikey={api_key}"
+        owner_earnings_url = f"https://financialmodelingprep.com/api/v4/owner_earnings?symbol={symbol}&apikey={api_key}"
         owner_earnings_data = await fetch_data(session, owner_earnings_url, symbol, rate_limiter)
         if owner_earnings_data:
             await save_json(symbol, 'quarter', 'owner-earnings', owner_earnings_data)
