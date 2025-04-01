@@ -29,7 +29,7 @@ class RateLimiter:
         if self.requests >= self.max_requests:
             wait_time = self.time_window - (current_time - self.last_reset)
             if wait_time > 0:
-                print(f"\nRate limit reached. Waiting {wait_time:.2f} seconds...")
+                #print(f"\nRate limit reached. Waiting {wait_time:.2f} seconds...")
                 await asyncio.sleep(wait_time)
                 self.requests = 0
                 self.last_reset = asyncio.get_event_loop().time()
@@ -43,10 +43,10 @@ async def fetch_data(session, url, symbol, rate_limiter):
             if response.status == 200:
                 return await response.json()
             else:
-                print(f"Error fetching data for {symbol}: HTTP {response.status}")
+                #print(f"Error fetching data for {symbol}: HTTP {response.status}")
                 return None
     except Exception as e:
-        print(f"Exception during fetching data for {symbol}: {e}")
+        #print(f"Exception during fetching data for {symbol}: {e}")
         return None
 
 async def save_json(symbol, period, data_type, data):
@@ -100,7 +100,7 @@ async def calculate_margins(symbol):
             print(f"Error calculating margins for {symbol}: {e}")
 
 async def get_financial_statements(session, symbol, semaphore, rate_limiter):
-    base_url = "https://financialmodelingprep.com/api/v3"
+    base_url = "https://financialmodelingprep.com/stable"
     periods = ['quarter', 'annual']
     financial_data_types = ['key-metrics', 'income-statement', 'balance-sheet-statement', 'cash-flow-statement', 'ratios']
     growth_data_types = ['income-statement-growth', 'balance-sheet-statement-growth', 'cash-flow-statement-growth']
@@ -109,26 +109,26 @@ async def get_financial_statements(session, symbol, semaphore, rate_limiter):
         for period in periods:
             # Fetch regular financial statements
             for data_type in financial_data_types:
-                url = f"{base_url}/{data_type}/{symbol}?period={period}&apikey={api_key}"
+                url = f"{base_url}/{data_type}/?symbol={symbol}&limit=2000&period={period}&apikey={api_key}"
                 data = await fetch_data(session, url, symbol, rate_limiter)
                 if data:
                     await save_json(symbol, period, data_type, data)
             
             # Fetch financial statement growth data
             for growth_type in growth_data_types:
-                growth_url = f"{base_url}/{growth_type}/{symbol}?period={period}&apikey={api_key}"
+                growth_url = f"{base_url}/{growth_type}/?symbol={symbol}&limit=2000&period={period}&apikey={api_key}"
                 growth_data = await fetch_data(session, growth_url, symbol, rate_limiter)
                 if growth_data:
                     await save_json(symbol, period, growth_type, growth_data)
 
         # Fetch TTM metrics
-        url = f"https://financialmodelingprep.com/api/v3/key-metrics-ttm/{symbol}?apikey={api_key}"
+        url = f"https://financialmodelingprep.com/stable/key-metrics-ttm/?symbol={symbol}&limit=2000&apikey={api_key}"
         data = await fetch_data(session, url, symbol, rate_limiter)
         if data:
             await save_json(symbol, 'ttm', 'key-metrics', data)
 
         # Fetch owner earnings data
-        owner_earnings_url = f"https://financialmodelingprep.com/api/v4/owner_earnings?symbol={symbol}&apikey={api_key}"
+        owner_earnings_url = f"https://financialmodelingprep.com/stable/owner-earnings?symbol={symbol}&apikey={api_key}"
         owner_earnings_data = await fetch_data(session, owner_earnings_url, symbol, rate_limiter)
         if owner_earnings_data:
             await save_json(symbol, 'quarter', 'owner-earnings', owner_earnings_data)
@@ -143,7 +143,7 @@ async def run():
     symbols = [row[0] for row in cursor.fetchall()]
     con.close()
 
-    rate_limiter = RateLimiter(max_requests=500, time_window=60)
+    rate_limiter = RateLimiter(max_requests=1000, time_window=60)
     semaphore = asyncio.Semaphore(max_concurrent_requests)
 
     async with aiohttp.ClientSession() as session:
