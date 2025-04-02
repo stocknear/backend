@@ -240,13 +240,17 @@ data = {
     },
     'returnOnInvestedCapital': {
         'text': 'Return on invested capital (ROIC) measures how effective a company is at investing its capital in order to increase profits. It is calculated by dividing the NOPAT (Net Operating Profit After Tax) by the invested capital.',
-        'equation': 'ROIC = (NOPAT / (Debt + Equity)) * 100%'
+        'equation': 'ROIC = (NOPAT / (Debt + Equity))'
     },
     'relativeVolume': {
         'text': 'The relative daily volume is the current day`s trading volume compared to the stocks 30-day average trading volume.',
     },
     'institutionalOwnership': {
         'text': 'Institutional Ownership Percentage indicates the proportion of a company’s shares that are owned by institutional investors, such as mutual funds, hedge funds and insurance companies. A higher percentage suggests strong institutional confidence in the company.',
+    },
+    'priceToEarningsRatio': {
+        'text': 'The price-to-earnings (P/E) ratio is a valuation metric that shows how expensive a stock is relative to earnings.',
+        'equation': 'PE Ratio = Stock Price / Earnings Per Share'
     },
     'pe': {
         'text': 'The price-to-earnings (P/E) ratio is a valuation metric that shows how expensive a stock is relative to earnings.',
@@ -379,7 +383,7 @@ data = {
     'operatingCashFlowSalesRatio': {
         'text': 'The Operating Cash Flow / Sales Ratio measures the proportion of operating cash flow relative to total sales. It indicates how efficiently a company is converting its sales into cash flow from operations, reflecting its operational efficiency.',
     },
-    'priceCashFlowRatio': {
+    'priceToOperatingCashFlowRatio': {
         'text': 'The Price to Cash Flow Ratio measures the price of a company’s stock relative to its operating cash flow per share. It helps assess whether the stock is overvalued or undervalued based on the cash flow it generates.',
     },
     'priceEarningsRatio': {
@@ -512,27 +516,31 @@ data = {
         "text": "EBIT stands for Earnings Before Interest and Taxes and is a commonly used measure of earnings or profits. It is similar to operating income.",
         'equation': 'EBIT = Net Income + Interest + Taxes',
     },
+    "priceToEarningsGrowthRatio": {
+        "text": "The price/earnings to growth (PEG) ratio is calculated by dividing a company's PE ratio by its expected earnings growth next year.",
+        "equation": "PEG Ratio = PE Ratio / Expected Earnings Growth"
+    },
     "peg": {
         "text": "The price/earnings to growth (PEG) ratio is calculated by dividing a company's PE ratio by its expected earnings growth next year.",
         "equation": "PEG Ratio = PE Ratio / Expected Earnings Growth"
     },
-    "evSales": {
+    "evToSales": {
         "text": "The enterprise value to sales (EV/Sales) ratio is similar to the price-to-sales ratio, but the price is adjusted for the company's debt and cash levels.",
         "equation": "EV/Sales Ratio = Enterprise Value / Revenue"
     },
-    "evEarnings": {
+    "evToEarnings": {
         "text": "The enterprise value to earnings (EV/Earnings) ratio measures valuation, but the price is adjusted for the company's levels of cash and debt.",
         "equation": "EV/Earnings Ratio = Enterprise Value / Net Income"
     },
-    "evEBITDA": {
+    "evToEBITDA": {
         "text": "The EV/EBITDA ratio measures a company's valuation relative to its EBITDA, or Earnings Before Interest, Taxes, Depreciation, and Amortization.",
         "equation": "EV/EBITDA Ratio = Enterprise Value / EBITDA"
     },
-    "evEBIT": {
+    "evToEBIT": {
         "text": "The EV/EBIT is a valuation metric that measures a company's price relative to EBIT, or Earnings Before Interest and Taxes.",
         "equation": "EV/EBIT Ratio = Enterprise Value / EBIT"
     },
-    "evFCF": {
+    "evToFCF": {
         "text": "The enterprise value to free cash flow (EV/FCF) ratio is similar to the price to free cash flow ratio, except the price is adjusted for the company's cash and debt.",
         "equation": "EV/FCF Ratio = Enterprise Value / Free Cash Flow", 
     },

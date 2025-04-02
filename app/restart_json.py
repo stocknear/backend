@@ -988,6 +988,7 @@ async def get_stock_screener(con):
                 item['enterpriseValue'] = res['enterpriseValue']
                 item['evToSales'] = round(res['evToSales'],2)
                 item['evToOperatingCashFlow'] = round(res['evToOperatingCashFlow'],2)
+                item['evToEBIT'] = round(res['evToOperatingCashFlow'],2)
                 item['evToFreeCashFlow'] = round(res['evToFreeCashFlow'],2)
                 item['evToEBITDA'] = round(res['evToEBITDA'],2)
 
