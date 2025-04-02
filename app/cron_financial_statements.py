@@ -54,22 +54,13 @@ async def save_json(symbol, period, data_type, data):
     with open(f"json/financial-statements/{data_type}/{period}/{symbol}.json", 'w') as file:
         ujson.dump(data, file)
 
-async def calculate_margins(symbol):
+async def add_ratio_elements(symbol):
     for period in ['annual', 'quarter']:
         try:
-            # Load income statement data
-            income_path = f"json/financial-statements/income-statement/{period}/{symbol}.json"
-            with open(income_path, "r") as file:
-                income_data = ujson.load(file)
-
-            # Load cash flow statement data
-            cash_flow_path = f"json/financial-statements/cash-flow-statement/{period}/{symbol}.json"
-            with open(cash_flow_path, "r") as file:
-                cash_flow_data = ujson.load(file)
 
             # Load key-metrics data
-            cash_flow_path = f"json/financial-statements/key-metrics/{period}/{symbol}.json"
-            with open(cash_flow_path, "r") as file:
+            key_metrics_path = f"json/financial-statements/key-metrics/{period}/{symbol}.json"
+            with open(key_metrics_path, "r") as file:
                 key_metrics_data = ujson.load(file)
 
             # Load ratios data
@@ -78,11 +69,8 @@ async def calculate_margins(symbol):
                 ratio_data = ujson.load(file)
 
             if income_data and cash_flow_data and ratio_data and key_metrics_data:
-                for ratio_item, income_item, cash_flow_item, key_metrics_item in zip(ratio_data, income_data, cash_flow_data, key_metrics_data):
+                for ratio_item, key_metrics_item in zip(ratio_data,key_metrics_data):
                     try:
-                        revenue = income_item.get('revenue', 0)
-                        ebitda = income_item.get('ebitda', 0)
-                        free_cash_flow = cash_flow_item.get('freeCashFlow', 0)
                         ratio_item['returnOnEquity'] = round(key_metrics_item.get('returnOnEquity',0),2)
                         ratio_item['returnOnAssets'] = round(key_metrics_item.get('returnOnAssets',0),2)
                         ratio_item['returnOnInvestedCapital'] = round(key_metrics_item.get('returnOnInvestedCapital',0),2)
@@ -92,10 +80,6 @@ async def calculate_margins(symbol):
                         ratio_item['earningsYield'] = round(key_metrics_item.get('earningsYield',0),2)
                         ratio_item['freeCashFlowYield'] = round(key_metrics_item.get('freeCashFlowYield',0),2)
 
-                        if revenue != 0:
-                            ratio_item['freeCashFlowMargin'] = round((free_cash_flow / revenue) * 100, 2)
-                        else:
-                            ratio_item['freeCashFlowMargin'] = None
                     except:
                         pass
 
@@ -141,7 +125,7 @@ async def get_financial_statements(session, symbol, semaphore, rate_limiter):
             await save_json(symbol, 'quarter', 'owner-earnings', owner_earnings_data)
 
     
-    await calculate_margins(symbol)
+    await add_ratio_elements(symbol)
 
 async def run():
     con = sqlite3.connect('stocks.db')

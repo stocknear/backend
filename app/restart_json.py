@@ -333,7 +333,7 @@ def process_financial_data(file_path, key_list):
                 if key in res:
                     try:
                         value = float(res[key])
-                        if 'growth' in file_path or key in ['longTermDebtToCapitalization','totalDebtToCapitalization']:
+                        if 'growth' in file_path or key in ['effectiveTaxRate','grossProfitMargin','freeCashFlowMargin',"ebitMargin","ebitdaMargin","netProfitMargin","operatingProfitMargin","pretaxProfitMargin"]:
                             value = value*100  # Multiply by 100 for percentage
 
                         data[key] = round(value, 2) if value is not None else None
@@ -686,9 +686,13 @@ def get_financial_statements(item, symbol):
         item['freeCashFlowMargin'] = None
 
     try:
-        item['ebitdaMargin'] = round((item['ebitda'] / item['revenue']) * 100,2)
+        item['debtToFreeCashFlowRatio'] = round((item['totalDebt'] / item['freeCashFlow']),2)
     except:
-        item['ebitdaMargin'] = None
+        item['debtToFreeCashFlowRatio'] = None
+    try:
+        item['debtToEBITDARatio'] = round((item['totalDebt'] / item['ebitda']),2)
+    except:
+        item['debtToEBITDARatio'] = None
     try:
         item['revenuePerEmployee'] = round((item['revenue'] / item['employees']),2)
     except:
@@ -978,12 +982,13 @@ async def get_stock_screener(con):
         try:
             with open(f"json/financial-statements/key-metrics/annual/{symbol}.json", 'r') as file:
                 res = orjson.loads(file.read())[0]
-                item['returnOnEquity'] = round(res['returnOnEquity'],2)
-                item['returnOnInvestedCapital'] = round(res['returnOnInvestedCapital'],2)
-                item['returnOnAssets'] = round(res['returnOnAssets'],2)
+                item['returnOnEquity'] = round(res['returnOnEquity']*100,2)
+                item['returnOnInvestedCapital'] = round(res['returnOnInvestedCapital']*100,2)
+                item['returnOnCapitalEmployed'] = round(res['returnOnCapitalEmployed']*100,2)
+                item['returnOnAssets'] = round(res['returnOnAssets']*100,2)
 
-                item['earningsYield'] = round(res['earningsYield'],2)
-                item['freeCashFlowYield'] = round(res['freeCashFlowYield'],2)
+                item['earningsYield'] = round(res['earningsYield']*100,2)
+                item['freeCashFlowYield'] = round(res['freeCashFlowYield']*100,2)
 
                 item['enterpriseValue'] = res['enterpriseValue']
                 item['evToSales'] = round(res['evToSales'],2)
@@ -1001,6 +1006,7 @@ async def get_stock_screener(con):
         except:
             item['returnOnEquity'] = None
             item['returnOnInvestedCapital'] = None
+            item['returnOnCapitalEmployed'] = None
             item['returnOnAssets'] = None
             item['earningsYield'] = None
             item['freeCashFlowYield'] = None
@@ -1131,10 +1137,12 @@ async def get_stock_screener(con):
             item['forwardPS'] = None
             #item['peg'] = None
 
+        '''
         try:
             item['halalStocks'] = get_halal_compliant(item)
         except:
             item['halalStocks'] = None
+        '''
 
         try:
             with open(f"json/financial-statements/income-statement/annual/{symbol}.json", "r") as file:

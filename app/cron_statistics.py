@@ -23,7 +23,7 @@ async def get_data(symbol):
     'priceToEarningsGrowthRatio','priceToEarningsRatio','forwardPE','priceToSalesRatio','forwardPS','priceToBookRatio','priceToFreeCashFlowRatio',
     'sharesShort','shortOutStandingPercent','shortFloatPercent','shortRatio',
     'enterpriseValue','evToSales','evToEBITDA','evToOperatingCashFlow','evToFreeCashFlow',
-    'currentRatio','quickRatio','debtRatio','debtToEquityRatio','interestCoverageRatio','cashFlowToDebtRatio','debtToMarketCap',
+    'currentRatio','quickRatio','debtToFreeCashFlowRatio','debtToEBITDARatio','debtToEquityRatio','interestCoverageRatio','cashFlowToDebtRatio','debtToMarketCap',
     'returnOnEquity','returnOnAssets','returnOnInvestedCapital','revenuePerEmployee','profitPerEmployee',
     'employees','assetTurnover','inventoryTurnover','incomeTaxExpense','effectiveTaxRate','beta',
     'change1Y','sma50','sma200','rsi','avgVolume','revenue','netIncome','grossProfit','operatingIncome','ebitda','ebit','eps',
