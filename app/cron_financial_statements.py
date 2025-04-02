@@ -154,8 +154,6 @@ async def run():
     rate_limiter = RateLimiter(max_requests=1000, time_window=60)
     semaphore = asyncio.Semaphore(max_concurrent_requests)
 
-    symbols = ['NVDA']
-
     async with aiohttp.ClientSession() as session:
         tasks = []
         for symbol in tqdm(symbols):
