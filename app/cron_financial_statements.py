@@ -67,31 +67,37 @@ async def calculate_margins(symbol):
             with open(cash_flow_path, "r") as file:
                 cash_flow_data = ujson.load(file)
 
+            # Load key-metrics data
+            cash_flow_path = f"json/financial-statements/key-metrics/{period}/{symbol}.json"
+            with open(cash_flow_path, "r") as file:
+                key_metrics_data = ujson.load(file)
+
             # Load ratios data
             ratios_path = f"json/financial-statements/ratios/{period}/{symbol}.json"
             with open(ratios_path, "r") as file:
                 ratio_data = ujson.load(file)
 
-            if income_data and cash_flow_data and ratio_data:
-                for ratio_item, income_item, cash_flow_item in zip(ratio_data, income_data, cash_flow_data):
-                    revenue = income_item.get('revenue', 0)
-                    ebitda = income_item.get('ebitda', 0)
-                    free_cash_flow = cash_flow_item.get('freeCashFlow', 0)
+            if income_data and cash_flow_data and ratio_data and key_metrics_data:
+                for ratio_item, income_item, cash_flow_item, key_metrics_item in zip(ratio_data, income_data, cash_flow_data, key_metrics_data):
+                    try:
+                        revenue = income_item.get('revenue', 0)
+                        ebitda = income_item.get('ebitda', 0)
+                        free_cash_flow = cash_flow_item.get('freeCashFlow', 0)
+                        ratio_item['returnOnEquity'] = round(key_metrics_item.get('returnOnEquity',0),2)
+                        ratio_item['returnOnAssets'] = round(key_metrics_item.get('returnOnAssets',0),2)
+                        ratio_item['returnOnInvestedCapital'] = round(key_metrics_item.get('returnOnInvestedCapital',0),2)
+                        ratio_item['evToSales'] = round(key_metrics_item.get('evToSales',0),2)
+                        ratio_item['evToEBITDA'] = round(key_metrics_item.get('evToEBITDA',0),2)
+                        ratio_item['evToFreeCashFlow'] = round(key_metrics_item.get('evToFreeCashFlow',0),2)
+                        ratio_item['earningsYield'] = round(key_metrics_item.get('earningsYield',0),2)
+                        ratio_item['freeCashFlowYield'] = round(key_metrics_item.get('freeCashFlowYield',0),2)
 
-                    if revenue != 0:
-                        ratio_item['freeCashFlowMargin'] = round((free_cash_flow / revenue) * 100, 2)
-                        ratio_item['ebitdaMargin'] = round((ebitda / revenue) * 100, 2)
-                        ratio_item['grossProfitMargin'] = round(ratio_item['grossProfitMargin'] * 100, 2)
-                        ratio_item['operatingProfitMargin'] = round(ratio_item['operatingProfitMargin'] * 100, 2)
-                        ratio_item['pretaxProfitMargin'] = round(ratio_item['pretaxProfitMargin'] * 100, 2)
-                        ratio_item['netProfitMargin'] = round(ratio_item['netProfitMargin'] * 100, 2)
-                    else:
-                        ratio_item['freeCashFlowMargin'] = None
-                        ratio_item['ebitdaMargin'] = None
-                        ratio_item['grossProfitMargin'] = None
-                        ratio_item['operatingProfitMargin'] = None
-                        ratio_item['pretaxProfitMargin'] = None
-                        ratio_item['netProfitMargin'] = None
+                        if revenue != 0:
+                            ratio_item['freeCashFlowMargin'] = round((free_cash_flow / revenue) * 100, 2)
+                        else:
+                            ratio_item['freeCashFlowMargin'] = None
+                    except:
+                        pass
 
                 with open(ratios_path, "w") as file:
                     ujson.dump(ratio_data, file)
@@ -100,6 +106,7 @@ async def calculate_margins(symbol):
             print(f"Error calculating margins for {symbol}: {e}")
 
 async def get_financial_statements(session, symbol, semaphore, rate_limiter):
+
     base_url = "https://financialmodelingprep.com/stable"
     periods = ['quarter', 'annual']
     financial_data_types = ['key-metrics', 'income-statement', 'balance-sheet-statement', 'cash-flow-statement', 'ratios']
@@ -133,7 +140,8 @@ async def get_financial_statements(session, symbol, semaphore, rate_limiter):
         if owner_earnings_data:
             await save_json(symbol, 'quarter', 'owner-earnings', owner_earnings_data)
 
-        await calculate_margins(symbol)
+    
+    await calculate_margins(symbol)
 
 async def run():
     con = sqlite3.connect('stocks.db')
@@ -145,6 +153,8 @@ async def run():
 
     rate_limiter = RateLimiter(max_requests=1000, time_window=60)
     semaphore = asyncio.Semaphore(max_concurrent_requests)
+
+    symbols = ['NVDA']
 
     async with aiohttp.ClientSession() as session:
         tasks = []
