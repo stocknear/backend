@@ -363,61 +363,202 @@ def get_financial_statements(item, symbol):
     """
     # Define the keys to be extracted for each type of statement
     key_ratios = [
-        "currentRatio", "quickRatio", "cashRatio", "daysOfSalesOutstanding",
-        "daysOfInventoryOutstanding", "operatingCycle", "daysOfPayablesOutstanding",
-        "cashConversionCycle", "grossProfitMargin", "operatingProfitMargin",
-        "pretaxProfitMargin", "netProfitMargin", "effectiveTaxRate", "returnOnAssets",
-        "returnOnEquity", "returnOnCapitalEmployed", "netIncomePerEBT", "ebtPerEbit",
-        "ebitPerRevenue", "debtRatio", "debtEquityRatio", "longTermDebtToCapitalization",
-        "totalDebtToCapitalization", "interestCoverage", "cashFlowToDebtRatio",
-        "companyEquityMultiplier", "receivablesTurnover", "payablesTurnover",
-        "inventoryTurnover", "fixedAssetTurnover", "assetTurnover",
-        "operatingCashFlowPerShare", "freeCashFlowPerShare", "cashPerShare", "payoutRatio",
-        "operatingCashFlowSalesRatio", "freeCashFlowOperatingCashFlowRatio",
-        "cashFlowCoverageRatios", "shortTermCoverageRatios", "capitalExpenditureCoverageRatio",
-        "dividendPaidAndCapexCoverageRatio", "dividendPayoutRatio", "priceBookValueRatio",
-        "priceToBookRatio", "priceToSalesRatio", "priceEarningsRatio", "priceToFreeCashFlowsRatio",
-        "priceToOperatingCashFlowsRatio", "priceCashFlowRatio", "priceEarningsToGrowthRatio",
-        "priceSalesRatio", "dividendYield", "enterpriseValueMultiple", "priceFairValue"
-    ]
-    
-    key_cash_flow = [
-        "netIncome", "depreciationAndAmortization", "deferredIncomeTax", "stockBasedCompensation",
-        "changeInWorkingCapital", "accountsReceivables", "inventory", "accountsPayables",
-        "otherWorkingCapital", "otherNonCashItems", "netCashProvidedByOperatingActivities",
-        "investmentsInPropertyPlantAndEquipment", "acquisitionsNet", "purchasesOfInvestments",
-        "salesMaturitiesOfInvestments", "otherInvestingActivites", "netCashUsedForInvestingActivites",
-        "debtRepayment", "commonStockIssued", "commonStockRepurchased", "dividendsPaid",
-        "otherFinancingActivites", "netCashUsedProvidedByFinancingActivities", "effectOfForexChangesOnCash",
-        "netChangeInCash", "cashAtEndOfPeriod", "cashAtBeginningOfPeriod", "operatingCashFlow",
-        "capitalExpenditure", "freeCashFlow"
+        "grossProfitMargin",
+        "ebitMargin",
+        "ebitdaMargin",
+        "operatingProfitMargin",
+        "pretaxProfitMargin",
+        "continuousOperationsProfitMargin",
+        "netProfitMargin",
+        "bottomLineProfitMargin",
+        "receivablesTurnover",
+        "payablesTurnover",
+        "inventoryTurnover",
+        "fixedAssetTurnover",
+        "assetTurnover",
+        "currentRatio",
+        "quickRatio",
+        "solvencyRatio",
+        "cashRatio",
+        "priceToEarningsRatio",
+        "priceToEarningsGrowthRatio",
+        "forwardPriceToEarningsGrowthRatio",
+        "priceToBookRatio",
+        "priceToSalesRatio",
+        "priceToFreeCashFlowRatio",
+        "priceToOperatingCashFlowRatio",
+        "debtToAssetsRatio",
+        "debtToEquityRatio",
+        "debtToCapitalRatio",
+        "longTermDebtToCapitalRatio",
+        "financialLeverageRatio",
+        "workingCapitalTurnoverRatio",
+        "operatingCashFlowRatio",
+        "operatingCashFlowSalesRatio",
+        "freeCashFlowOperatingCashFlowRatio",
+        "debtServiceCoverageRatio",
+        "interestCoverageRatio",
+        "shortTermOperatingCashFlowCoverageRatio",
+        "operatingCashFlowCoverageRatio",
+        "capitalExpenditureCoverageRatio",
+        "dividendPaidAndCapexCoverageRatio",
+        "dividendPayoutRatio",
+        "dividendYield",
+        "dividendYieldPercentage",
+        "revenuePerShare",
+        "netIncomePerShare",
+        "interestDebtPerShare",
+        "cashPerShare",
+        "bookValuePerShare",
+        "tangibleBookValuePerShare",
+        "shareholdersEquityPerShare",
+        "operatingCashFlowPerShare",
+        "capexPerShare",
+        "freeCashFlowPerShare",
+        "netIncomePerEBT",
+        "ebtPerEbit",
+        "priceToFairValue",
+        "debtToMarketCap",
+        "effectiveTaxRate",
+        "enterpriseValueMultiple",
+        "dividendPerShare"
     ]
 
+    
+    key_cash_flow = [
+        "netIncome",
+        "depreciationAndAmortization",
+        "deferredIncomeTax",
+        "stockBasedCompensation",
+        "changeInWorkingCapital",
+        "accountsReceivables",
+        "inventory",
+        "accountsPayables",
+        "otherWorkingCapital",
+        "otherNonCashItems",
+        "netCashProvidedByOperatingActivities",
+        "investmentsInPropertyPlantAndEquipment",
+        "acquisitionsNet",
+        "purchasesOfInvestments",
+        "salesMaturitiesOfInvestments",
+        "otherInvestingActivities",
+        "netCashProvidedByInvestingActivities",
+        "netDebtIssuance",
+        "longTermNetDebtIssuance",
+        "shortTermNetDebtIssuance",
+        "netStockIssuance",
+        "netCommonStockIssuance",
+        "commonStockIssuance",
+        "commonStockRepurchased",
+        "netPreferredStockIssuance",
+        "netDividendsPaid",
+        "commonDividendsPaid",
+        "preferredDividendsPaid",
+        "otherFinancingActivities",
+        "netCashProvidedByFinancingActivities",
+        "effectOfForexChangesOnCash",
+        "netChangeInCash",
+        "cashAtEndOfPeriod",
+        "cashAtBeginningOfPeriod",
+        "operatingCashFlow",
+        "capitalExpenditure",
+        "freeCashFlow",
+        "incomeTaxesPaid",
+        "interestPaid"
+    ]
+
+
     key_income = [
-        "revenue", "costOfRevenue", "grossProfit", "grossProfitRatio",
-        "researchAndDevelopmentExpenses", "generalAndAdministrativeExpenses", "sellingAndMarketingExpenses",
-        "sellingGeneralAndAdministrativeExpenses", "otherExpenses", "operatingExpenses",
-        "costAndExpenses", "interestIncome", "interestExpense", "depreciationAndAmortization",
-        "ebitda", "ebitdaratio", "operatingIncome", "operatingIncomeRatio",
-        "totalOtherIncomeExpensesNet", "incomeBeforeTax", "incomeBeforeTaxRatio", "incomeTaxExpense",
-        "netIncome", "netIncomeRatio", "eps", "epsdiluted", "weightedAverageShsOut",
+        "revenue",
+        "costOfRevenue",
+        "grossProfit",
+        "researchAndDevelopmentExpenses",
+        "generalAndAdministrativeExpenses",
+        "sellingAndMarketingExpenses",
+        "sellingGeneralAndAdministrativeExpenses",
+        "otherExpenses",
+        "operatingExpenses",
+        "costAndExpenses",
+        "netInterestIncome",
+        "interestIncome",
+        "interestExpense",
+        "depreciationAndAmortization",
+        "ebitda",
+        "ebit",
+        "nonOperatingIncomeExcludingInterest",
+        "operatingIncome",
+        "totalOtherIncomeExpensesNet",
+        "incomeBeforeTax",
+        "incomeTaxExpense",
+        "netIncomeFromContinuingOperations",
+        "netIncomeFromDiscontinuedOperations",
+        "otherAdjustmentsToNetIncome",
+        "netIncome",
+        "netIncomeDeductions",
+        "bottomLineNetIncome",
+        "eps",
+        "epsDiluted",
+        "weightedAverageShsOut",
         "weightedAverageShsOutDil"
     ]
 
+
     key_balance_sheet = [
-        "cashAndCashEquivalents", "shortTermInvestments", "cashAndShortTermInvestments",
-        "netReceivables", "inventory", "otherCurrentAssets", "totalCurrentAssets",
-        "propertyPlantEquipmentNet", "goodwill", "intangibleAssets", "goodwillAndIntangibleAssets",
-        "longTermInvestments", "taxAssets", "otherNonCurrentAssets", "totalNonCurrentAssets",
-        "otherAssets", "totalAssets", "accountPayables", "shortTermDebt", "taxPayables",
-        "deferredRevenue", "otherCurrentLiabilities", "totalCurrentLiabilities", "longTermDebt",
-        "deferredRevenueNonCurrent", "deferredTaxLiabilitiesNonCurrent", "otherNonCurrentLiabilities",
-        "totalNonCurrentLiabilities", "otherLiabilities", "capitalLeaseObligations", "totalLiabilities",
-        "preferredStock", "commonStock", "retainedEarnings", "accumulatedOtherComprehensiveIncomeLoss",
-        "othertotalStockholdersEquity", "totalStockholdersEquity", "totalEquity",
-        "totalLiabilitiesAndStockholdersEquity", "minorityInterest", "totalLiabilitiesAndTotalEquity",
-        "totalInvestments", "totalDebt", "netDebt"
+        "cashAndCashEquivalents",
+        "shortTermInvestments",
+        "cashAndShortTermInvestments",
+        "netReceivables",
+        "accountsReceivables",
+        "otherReceivables",
+        "inventory",
+        "prepaids",
+        "otherCurrentAssets",
+        "totalCurrentAssets",
+        "propertyPlantEquipmentNet",
+        "goodwill",
+        "intangibleAssets",
+        "goodwillAndIntangibleAssets",
+        "longTermInvestments",
+        "taxAssets",
+        "otherNonCurrentAssets",
+        "totalNonCurrentAssets",
+        "otherAssets",
+        "totalAssets",
+        "totalPayables",
+        "accountPayables",
+        "otherPayables",
+        "accruedExpenses",
+        "shortTermDebt",
+        "capitalLeaseObligationsCurrent",
+        "taxPayables",
+        "deferredRevenue",
+        "otherCurrentLiabilities",
+        "totalCurrentLiabilities",
+        "longTermDebt",
+        "capitalLeaseObligationsNonCurrent",
+        "deferredRevenueNonCurrent",
+        "deferredTaxLiabilitiesNonCurrent",
+        "otherNonCurrentLiabilities",
+        "totalNonCurrentLiabilities",
+        "otherLiabilities",
+        "capitalLeaseObligations",
+        "totalLiabilities",
+        "treasuryStock",
+        "preferredStock",
+        "commonStock",
+        "retainedEarnings",
+        "additionalPaidInCapital",
+        "accumulatedOtherComprehensiveIncomeLoss",
+        "otherTotalStockholdersEquity",
+        "totalStockholdersEquity",
+        "totalEquity",
+        "minorityInterest",
+        "totalLiabilitiesAndTotalEquity",
+        "totalInvestments",
+        "totalDebt",
+        "netDebt"
     ]
+
 
     key_income_growth = [
         "growthRevenue",
@@ -543,14 +684,7 @@ def get_financial_statements(item, symbol):
         item['freeCashFlowMargin'] = round((item['freeCashFlow'] / item['revenue']) * 100,2)
     except:
         item['freeCashFlowMargin'] = None
-    try:
-        item['earningsYield'] = round((item['eps'] / item['price']) * 100,2)
-    except:
-        item['earningsYield'] = None
-    try:
-        item['freeCashFlowYield'] = round((item['freeCashFlow'] / item['marketCap']) * 100,2)
-    except:
-        item['freeCashFlowYield'] = None
+
     try:
         item['ebitdaMargin'] = round((item['ebitda'] / item['revenue']) * 100,2)
     except:
@@ -563,13 +697,6 @@ def get_financial_statements(item, symbol):
         item['profitPerEmployee'] = round((item['netIncome'] / item['employees']),2)
     except:
         item['profitPerEmployee'] = None
-    try:
-        tax_rate = item['incomeTaxExpense'] / item['incomeBeforeTax'] if item['incomeBeforeTax'] != 0 else 0
-        nopat = item['operatingIncome'] * (1 - tax_rate)
-        invested_capital = item['totalDebt'] + item['totalEquity']
-        item['returnOnInvestedCapital'] = round((nopat / invested_capital)*100,2) if invested_capital != 0 else None
-    except:
-        item['returnOnInvestedCapital'] = None
     try:
         item['researchDevelopmentRevenueRatio'] = round((item['researchAndDevelopmentExpenses'] / item['revenue']) * 100,2)
     except:
@@ -584,11 +711,9 @@ def get_financial_statements(item, symbol):
         item['interestIncomeToCapitalization'] = None
 
     try:
-        item['ebit'] = item['operatingIncome']
         item['operatingMargin'] = round((item['operatingIncome'] / item['revenue']) * 100,2)
         item['ebitMargin'] = item['operatingMargin']
     except:
-        item['ebit'] = None
         item['operatingMargin'] = None
         item['ebitMargin'] = None
 
@@ -800,23 +925,6 @@ async def get_stock_screener(con):
             item['var'] = None
 
 
-        try:
-            with open(f"json/enterprise-values/{symbol}.json", 'r') as file:
-                ev = orjson.loads(file.read())[-1]['enterpriseValue']
-                item['enterpriseValue'] = ev
-                item['evSales'] = round(ev / item['revenue'],2)
-                item['evEarnings'] = round(ev / item['netIncome'],2)
-                item['evEBITDA'] = round(ev / item['ebitda'],2)
-                item['evEBIT'] = round(ev / item['ebit'],2)
-                item['evFCF'] = round(ev / item['freeCashFlow'],2)
-        except:
-            item['enterpriseValue'] = None
-            item['evSales'] = None
-            item['evEarnings'] = None
-            item['evEBITDA'] = None
-            item['evEBIT'] = None
-            item['evFCF'] = None
-
 
         try:
             with open(f"json/analyst/summary/all_analyst/{symbol}.json", 'r') as file:
@@ -870,21 +978,37 @@ async def get_stock_screener(con):
         try:
             with open(f"json/financial-statements/key-metrics/annual/{symbol}.json", 'r') as file:
                 res = orjson.loads(file.read())[0]
-                item['revenuePerShare'] = round(res['revenuePerShare'],2)
-                item['netIncomePerShare'] = round(res['netIncomePerShare'],2)
-                item['shareholdersEquityPerShare'] = round(res['shareholdersEquityPerShare'],2)
-                item['interestDebtPerShare'] = round(res['interestDebtPerShare'],2)
-                item['capexPerShare'] = round(res['capexPerShare'],2)
+                item['returnOnEquity'] = round(res['returnOnEquity'],2)
+                item['returnOnInvestedCapital'] = round(res['returnOnInvestedCapital'],2)
+                item['returnOnAssets'] = round(res['returnOnAssets'],2)
+
+                item['earningsYield'] = round(res['earningsYield'],2)
+                item['freeCashFlowYield'] = round(res['freeCashFlowYield'],2)
+
+                item['enterpriseValue'] = res['enterpriseValue']
+                item['evToSales'] = round(res['evToSales'],2)
+                item['evToOperatingCashFlow'] = round(res['evToOperatingCashFlow'],2)
+                item['evToFreeCashFlow'] = round(res['evToFreeCashFlow'],2)
+                item['evToEBITDA'] = round(res['evToEBITDA'],2)
+
                 item['tangibleAssetValue'] = round(res['tangibleAssetValue'],2)
                 item['returnOnTangibleAssets'] = round(res['returnOnTangibleAssets'],2)
                 item['grahamNumber'] = round(res['grahamNumber'],2)
 
+
+
         except:
-            item['revenuePerShare'] = None
-            item['netIncomePerShare'] = None
-            item['shareholdersEquityPerShare'] = None
-            item['interestDebtPerShare'] = None
-            item['capexPerShare'] = None
+            item['returnOnEquity'] = None
+            item['returnOnInvestedCapital'] = None
+            item['returnOnAssets'] = None
+            item['earningsYield'] = None
+            item['freeCashFlowYield'] = None
+            item['enterpriseValue'] = None
+            item['evToSales'] = None
+            item['evToOperatingCashFlow'] = None
+            item['evToFreeCashFlow'] = None
+            item['evToEBITDA'] = None
+
             item['tangibleAssetValue'] = None
             item['returnOnTangibleAssets'] = None
             item['grahamNumber'] = None

@@ -20,12 +20,12 @@ async def save_json(symbol, data):
 async def get_data(symbol):
     """Extract specified columns data for a given symbol."""
     columns = ['sharesOutStanding', 'sharesQoQ', 'sharesYoY','institutionalOwnership','floatShares',
-    'priceEarningsToGrowthRatio','priceEarningsRatio','forwardPE','priceToSalesRatio','forwardPS','priceToBookRatio','priceToFreeCashFlowsRatio',
+    'priceToEarningsGrowthRatio','priceToEarningsRatio','forwardPE','priceToSalesRatio','forwardPS','priceToBookRatio','priceToFreeCashFlowRatio',
     'sharesShort','shortOutStandingPercent','shortFloatPercent','shortRatio',
-    'enterpriseValue','evEarnings','evSales','evEBITDA','evEBIT','evFCF',
-    'currentRatio','quickRatio','debtRatio','debtEquityRatio','interestCoverage','cashFlowToDebtRatio','totalDebtToCapitalization',
-    'returnOnEquity','returnOnAssets','returnOnCapital','revenuePerEmployee','profitPerEmployee',
-    'employees','assetTurnover','inventoryTurnover','incomeTaxExpense','effectiveTaxRate','beta','returnOnInvestedCapital',
+    'enterpriseValue','evToSales','evToEBITDA','evToOperatingCashFlow','evToFreeCashFlow',
+    'currentRatio','quickRatio','debtRatio','debtToEquityRatio','interestCoverageRatio','cashFlowToDebtRatio','debtToMarketCap',
+    'returnOnEquity','returnOnAssets','returnOnInvestedCapital','revenuePerEmployee','profitPerEmployee',
+    'employees','assetTurnover','inventoryTurnover','incomeTaxExpense','effectiveTaxRate','beta',
     'change1Y','sma50','sma200','rsi','avgVolume','revenue','netIncome','grossProfit','operatingIncome','ebitda','ebit','eps',
     'cashAndCashEquivalents','totalDebt','retainedEarnings','totalAssets','workingCapital','operatingCashFlow',
     'capitalExpenditure','freeCashFlow','freeCashFlowPerShare','grossProfitMargin','operatingProfitMargin','pretaxProfitMargin',
