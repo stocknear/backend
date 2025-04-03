@@ -649,7 +649,36 @@ data = {
     },
     "strikePrice": {  
         "text": "The strike price is the predetermined price at which the holder of an options contract can buy (Call) or sell (Put) the underlying asset. It plays a key role in determining an option's intrinsic value and profitability relative to the market price."  
-    },  
+    },
+    "interestExpense": {
+        "text": "Interest expense is the amount that the company paid in interest.",
+    },
+    "incomeTaxExpense": {
+        "text": "Income tax is the amount of corporate income tax that the company has incurred during the fiscal period.",
+    },
+    "weightedAverageShsOut": {
+        "text": "Basic shares outstanding is the total amount of common stock held by all of a company's shareholders.",
+    },
+    "weightedAverageShsOutDil": {
+        "text": "Diluted shares outstanding is the total amount of common stock that will be outstanding if all stock options, warrants and convertible securities are exercised.",
+    },
+    "epsDiluted": {
+        "text": "Earnings per share is the portion of a company's profit that is allocated to each individual stock. Diluted EPS is calculated by dividing net income by `diluted` shares outstanding.",
+        "equation": "Diluted EPS = Net Income / Shares Outstanding (Diluted)",
+    },
+    "sellingGeneralAndAdministrativeExpenses": {
+        "text": "Selling, general and administrative (SG&A) is an operating expense. It involves various company expenses that are not related to production."
+    },
+    "incomeBeforeTax": {
+        "text": "Pretax income is a company's profits before accounting for income taxes.",
+        "equation": "Pretax Income = Net Income + Income Taxes",
+    },
+    "sellingAndMarketingExpenses": {
+        "text": "Selling & Marketing Expenses encompass the costs related to promoting and selling a company’s products or services. This includes advertising, sales commissions, promotional campaigns, and market research. These expenses are essential for driving revenue and enhancing brand visibility, yet they are not directly linked to the production process."
+    },
+    "otherExpenses": {
+        "text": "Other Expenses encompass costs that fall outside the primary operational activities of the company. This category includes non-recurring items such as restructuring charges, asset impairments, legal settlements, and losses from discontinued operations. These expenses are reported separately to provide a clearer picture of the company's core operational performance."
+    },
 
 
 }
