@@ -69,7 +69,6 @@ async def get_data(symbol):
     ]
 
     stats = await get_statistics(symbol)
-    print(stats)
     res_dict = {**stats, 'annual': annual_data, 'quarter': quarter_data}
 
     if annual_data and quarter_data:
@@ -84,7 +83,8 @@ async def run():
     con.close()
     
     #Testing mode
-    #total_symbols = ['AAPL']
+    #total_symbols = ['DGICA']
+    
     for symbol in tqdm(total_symbols):
         try:
             await get_data(symbol)

@@ -12,6 +12,8 @@ from dotenv import load_dotenv
 load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
 
+current_year = datetime.today().year
+
 # Helper to ensure directories exist and write JSON files asynchronously
 async def write_json(path, data):
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -65,10 +67,14 @@ async def get_historical_data(ticker, query_con, session):
         df_max = pd.read_sql_query(query, query_con, params=(start_date_max, end_date))
         df_max = df_max.round(2).rename(columns={"date": "time"})
 
+        max_list = ujson.loads(df_max.to_json(orient="records"))
+        ytd_data = [entry for entry in max_list if datetime.strptime(entry["time"], "%Y-%m-%d").year == current_year]
+
         # Prepare file-writing tasks
         tasks = [
             write_json(f"json/historical-price/one-week/{ticker}.json", ujson.loads(data[0])),
             write_json(f"json/historical-price/one-month/{ticker}.json", ujson.loads(data[1])),
+            write_json(f"json/historical-price/ytd/{ticker}.json", ytd_data),
             write_json(f"json/historical-price/six-months/{ticker}.json", ujson.loads(df_6m.to_json(orient="records"))),
             write_json(f"json/historical-price/one-year/{ticker}.json", ujson.loads(df_1y.to_json(orient="records"))),
             write_json(f"json/historical-price/five-years/{ticker}.json", ujson.loads(df_5y.to_json(orient="records"))),
