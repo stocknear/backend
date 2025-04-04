@@ -1,4 +1,5 @@
 import ujson
+import orjson
 import asyncio
 import aiohttp
 import sqlite3
@@ -11,6 +12,7 @@ import os
 load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
 
+market_caps = {}
 
 async def save_price_data(symbol, data):
     with open(f"json/one-day-price/{symbol}.json", 'w') as file:
@@ -114,9 +116,22 @@ async def run():
 
     index_symbols = ['^SPX','^VIX']
 
-    total_symbols = stocks_symbols + etf_symbols + index_symbols
-    total_symbols = sorted(total_symbols, key=lambda x: '.' in x)
     
+    for symbol in stocks_symbols:
+        try:
+            with open(f"json/quote/{symbol}.json", "r") as file:
+                quote_data = orjson.loads(file.read())
+                # Get market cap (default to 0 if not found)
+                market_caps[symbol] = quote_data.get('marketCap', 0)
+        except FileNotFoundError:
+            market_caps[symbol] = 0
+
+    # Sort symbols by market cap in descending order (largest first)
+    stocks_symbols = sorted(stocks_symbols, key=lambda s: market_caps[s], reverse=True)
+    stocks_symbols = sorted(stocks_symbols, key=lambda x: '.' in x)
+
+    total_symbols = stocks_symbols+ etf_symbols + index_symbols
+
     chunk_size = 500
     for i in range(0, len(total_symbols), chunk_size):
         symbols_chunk = total_symbols[i:i+chunk_size]
