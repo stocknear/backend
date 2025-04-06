@@ -17,15 +17,17 @@ def clean_link(url):
     return url
 
 def main():
-    # Load environment variables
+    # Load stock symbols from the database
     con = sqlite3.connect('stocks.db')
     cursor = con.cursor()
     cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
     stock_symbols = [row[0] for row in cursor.fetchall()]
     con.close()
 
+    # Optionally load environment variables; you may also hardcode the URL below.
     load_dotenv()
-    url = os.getenv('IPO_NEWS')  # IPO news URL
+    # Use the correct URL for scraping IPO news:
+    url = os.getenv('IPO_NEWS', 'https://stockanalysis.com/ipos/news/')
 
     # Set up the WebDriver options
     options = Options()
@@ -42,35 +44,39 @@ def main():
     try:
         # Fetch the website
         driver.get(url)
-        # Wait for the page to load
-        driver.implicitly_wait(5)
+        driver.implicitly_wait(20)
 
-        # Updated selector for news containers
-        news_items = driver.find_elements(By.CSS_SELECTOR, "div.gap-4.border-gray-300.bg-white.p-4.shadow")
+        # Use a flexible selector for news containers
+        news_items = driver.find_elements(
+            By.CSS_SELECTOR, 
+            "div[class*='border-gray-300'][class*='bg-white'][class*='p-4']"
+        )
 
-        # Extract data from the containers
         news_data = []
         for item in news_items:
             try:
-                # Updated selectors
+                # Extract elements using flexible selectors
                 title_element = item.find_element(By.CSS_SELECTOR, "h3 a")
                 description_element = item.find_element(By.CSS_SELECTOR, "p.overflow-auto")
                 timestamp_element = item.find_element(By.CSS_SELECTOR, "div.text-sm.text-faded")
-                stocks_element = item.find_elements(By.CSS_SELECTOR, "a.ticker")
+                stocks_elements = item.find_elements(By.CSS_SELECTOR, "a.ticker")
                 img_element = item.find_element(By.CSS_SELECTOR, "img.w-full.rounded.object-cover")
 
-                # Get element data
-                title = title_element.text
-                description = description_element.text
-                timestamp = timestamp_element.text
+                # Use textContent and strip whitespace
+                title = title_element.get_attribute("textContent").strip()
+                description = description_element.get_attribute("textContent").strip()
+                timestamp = timestamp_element.get_attribute("textContent").strip()
                 link = title_element.get_attribute("href")
-                stocks = [stock.text for stock in stocks_element]
+                stocks = [stock.text.strip() for stock in stocks_elements]
                 img_link = img_element.get_attribute("src")
 
-                # Filter stocks that exist in the database
+                # Skip the news item if the title is empty
+                if not title:
+                    continue
+
+                # Filter stocks that exist in your database
                 stock_list = [symbol for symbol in stocks if symbol in stock_symbols]
 
-                # Add to news data
                 news_data.append({
                     "title": title,
                     "description": description,
@@ -83,17 +89,14 @@ def main():
             except Exception as e:
                 print(f"Error extracting news item: {e}")
 
-        # Convert the data into a DataFrame
+        # Convert the collected data into a DataFrame and save it to a JSON file if not empty
         df = pd.DataFrame(news_data)
-
-        # Save the DataFrame to a JSON file
         if not df.empty:
             df.to_json(json_file_path, orient='records', indent=2)
-
+        else:
+            print("No news items were found.")
     finally:
-        # Ensure the WebDriver is closed
         driver.quit()
-
 
 if __name__ == '__main__':
     main()
