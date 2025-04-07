@@ -1022,11 +1022,11 @@ async def get_stock_screener(con):
 
 
         try:
-            with open(f"json/financial-statements/key-metrics/ttm/{symbol}.json", 'r') as file:
+            with open(f"json/financial-statements/income-statement/ttm/{symbol}.json", 'r') as file:
                 res = orjson.loads(file.read())[0]
-                item['revenueTTM'] = round(res['revenuePerShareTTM']*item['sharesOutStanding'],2)
-                item['netIncomeTTM'] = round(res['netIncomePerShareTTM']*item['sharesOutStanding'],2)
-         
+                item['revenueTTM'] = int(res['revenue'])
+                item['netIncomeTTM'] = int(res['netIncome'])
+
         except:
             item['revenueTTM'] = None
             item['netIncomeTTM'] = None
