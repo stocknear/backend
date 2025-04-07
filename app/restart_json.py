@@ -1544,6 +1544,7 @@ def replace_representative(office):
         'Barbara J Honorable Comstock': 'Barbara Comstock',
         'Darin McKay LaHood': 'Darin LaHood',
         'Harold Dallas Rogers': 'Hal Rogers',
+        'April McClain Delaney': 'April Delaney',
         'Mr ': '',
         'Mr. ': '',
         'Dr ': '',
