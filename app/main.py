@@ -922,7 +922,7 @@ async def economic_calendar(data:TickerData, api_key: str = Security(get_api_key
 async def get_data(data: FinancialStatement, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     statement = data.statement.lower()
-    cache_key = f"financial-statement-{ticker}"
+    cache_key = f"financial-statement-{ticker}-{statement}"
 
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -932,7 +932,7 @@ async def get_data(data: FinancialStatement, api_key: str = Security(get_api_key
             headers={"Content-Encoding": "gzip"}
         )
 
-    keys_to_remove = {"symbol","reportedCurrency", "cik", "filingDate", "acceptedDate"}
+    keys_to_remove = {"symbol", "cik", "filingDate", "acceptedDate"}
     base_path = f"json/financial-statements/{statement}"
 
     def load_and_clean(path: str):
@@ -942,23 +942,38 @@ async def get_data(data: FinancialStatement, api_key: str = Security(get_api_key
             raw_data = orjson.loads(f.read())
             cleaned = []
             for sublist in raw_data:
-                # Ensure sublist is a list; if not, skip or wrap in a list as appropriate.
                 if isinstance(sublist, list):
-                    cleaned_sublist = [
-                        {k: v for k, v in item.items() if k not in keys_to_remove} 
-                        if isinstance(item, dict) else item
-                        for item in sublist
-                    ]
+                    cleaned_sublist = []
+                    for item in sublist:
+                        if isinstance(item, dict):
+                            cleaned_item = {}
+                            for k, v in item.items():
+                                if k in keys_to_remove:
+                                    continue
+                                # Remove "TTM" from the key
+                                new_key = k.replace("TTM", "")
+                                # Optionally, if you want to remove "TTM" from string values of a specific key,
+                                # you could also do:
+                                if new_key == "key" and isinstance(v, str):
+                                    v = v.replace("TTM", "")
+                                cleaned_item[new_key] = v
+                            cleaned_sublist.append(cleaned_item)
+                        else:
+                            cleaned_sublist.append(item)
                     cleaned.append(cleaned_sublist)
+                elif isinstance(sublist, dict):
+                    cleaned_item = {}
+                    for k, v in sublist.items():
+                        if k in keys_to_remove:
+                            continue
+                        new_key = k.replace("TTM", "")
+                        if new_key == "key" and isinstance(v, str):
+                            v = v.replace("TTM", "")
+                        cleaned_item[new_key] = v
+                    cleaned.append(cleaned_item)
                 else:
-                    # If sublist isn't a list, we can choose to ignore it or process it as a single dict.
-                    if isinstance(sublist, dict):
-                        cleaned.append({k: v for k, v in sublist.items() if k not in keys_to_remove})
-                    else:
-                        # Append as is if it's neither a list nor a dict.
-                        cleaned.append(sublist)
+                    cleaned.append(sublist)
             return cleaned
-
 
     quarter_res = load_and_clean(f"{base_path}/quarter/{ticker}.json")
     annual_res = load_and_clean(f"{base_path}/annual/{ticker}.json")
