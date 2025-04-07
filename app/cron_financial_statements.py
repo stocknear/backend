@@ -68,7 +68,7 @@ async def add_ratio_elements(symbol):
             with open(ratios_path, "r") as file:
                 ratio_data = ujson.load(file)
 
-            if income_data and cash_flow_data and ratio_data and key_metrics_data:
+            if ratio_data and key_metrics_data:
                 for ratio_item, key_metrics_item in zip(ratio_data,key_metrics_data):
                     try:
                         ratio_item['returnOnEquity'] = round(key_metrics_item.get('returnOnEquity',0),2)
@@ -95,6 +95,7 @@ async def get_financial_statements(session, symbol, semaphore, rate_limiter):
     periods = ['quarter', 'annual']
     financial_data_types = ['key-metrics', 'income-statement', 'balance-sheet-statement', 'cash-flow-statement', 'ratios']
     growth_data_types = ['income-statement-growth', 'balance-sheet-statement-growth', 'cash-flow-statement-growth']
+    ttm_data_types = ['income-statement-ttm', 'balance-sheet-statement-ttm', 'cash-flow-statement-ttm', 'ratios-ttm']
     
     async with semaphore:
         for period in periods:
@@ -111,6 +112,13 @@ async def get_financial_statements(session, symbol, semaphore, rate_limiter):
                 growth_data = await fetch_data(session, growth_url, symbol, rate_limiter)
                 if growth_data:
                     await save_json(symbol, period, growth_type, growth_data)
+
+        for ttm_type in ttm_data_types:
+            url = f"{base_url}/{ttm_type}/?symbol={symbol}&limit=2000&apikey={api_key}"
+            data = await fetch_data(session, url, symbol, rate_limiter)
+            if data:
+                await save_json(symbol, 'ttm', ttm_type.replace("-ttm",''), data)
+
 
         # Fetch TTM metrics
         url = f"https://financialmodelingprep.com/stable/key-metrics-ttm/?symbol={symbol}&limit=2000&apikey={api_key}"
