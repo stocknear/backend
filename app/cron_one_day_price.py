@@ -88,7 +88,7 @@ async def get_todays_data(ticker, semaphore):
 async def run():
     # Create a semaphore to limit the number of concurrent connections
     # Adjust this number based on your system's limits
-    connection_limit = 50
+    connection_limit = 1500
     semaphore = asyncio.Semaphore(connection_limit)
     
     con = sqlite3.connect('stocks.db')
@@ -126,7 +126,7 @@ async def run():
     total_symbols = stocks_symbols + etf_symbols + index_symbols
 
     # Reduce chunk size to avoid too many concurrent requests
-    chunk_size = 100
+    chunk_size = 250
     for i in range(0, len(total_symbols), chunk_size):
         symbols_chunk = total_symbols[i:i+chunk_size]
         await fetch_and_save_symbols_data(symbols_chunk, semaphore)
