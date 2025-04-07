@@ -399,6 +399,10 @@ class InfoText(BaseModel):
 class HistoricalDate(BaseModel):
     date: str
 
+class FinancialStatement(BaseModel):
+    ticker: str
+    statement: str
+
 class OptionsWatchList(BaseModel):
     optionsIdList: list
 
@@ -914,39 +918,57 @@ async def economic_calendar(data:TickerData, api_key: str = Security(get_api_key
     )
 
 
-@app.post("/stock-income")
-async def stock_income(data: TickerData, api_key: str = Security(get_api_key)):
-    data = data.dict()
-    ticker = data['ticker'].upper()
+@app.post("/financial-statement")
+async def get_data(data: FinancialStatement, api_key: str = Security(get_api_key)):
+    ticker = data.ticker.upper()
+    statement = data.statement.lower()
+    cache_key = f"financial-statement-{ticker}"
 
-    cache_key = f"stock-income-{ticker}"
     cached_result = redis_client.get(cache_key)
-
     if cached_result:
         return StreamingResponse(
             io.BytesIO(cached_result),
             media_type="application/json",
             headers={"Content-Encoding": "gzip"}
         )
-    try:
-        with open(f"json/financial-statements/income-statement/quarter/{ticker}.json", 'rb') as file:
-            quarter_res = orjson.loads(file.read())
-    except:
-        quarter_res = []
 
-    try:
-        with open(f"json/financial-statements/income-statement/annual/{ticker}.json", 'rb') as file:
-            annual_res = orjson.loads(file.read())
-    except:
-        annual_res = []
+    keys_to_remove = {"symbol","reportedCurrency", "cik", "filingDate", "acceptedDate"}
+    base_path = f"json/financial-statements/{statement}"
 
-    res = {'quarter': quarter_res, 'annual': annual_res}
+    def load_and_clean(path: str):
+        if not os.path.exists(path):
+            return []
+        with open(path, "rb") as f:
+            raw_data = orjson.loads(f.read())
+            cleaned = []
+            for sublist in raw_data:
+                # Ensure sublist is a list; if not, skip or wrap in a list as appropriate.
+                if isinstance(sublist, list):
+                    cleaned_sublist = [
+                        {k: v for k, v in item.items() if k not in keys_to_remove} 
+                        if isinstance(item, dict) else item
+                        for item in sublist
+                    ]
+                    cleaned.append(cleaned_sublist)
+                else:
+                    # If sublist isn't a list, we can choose to ignore it or process it as a single dict.
+                    if isinstance(sublist, dict):
+                        cleaned.append({k: v for k, v in sublist.items() if k not in keys_to_remove})
+                    else:
+                        # Append as is if it's neither a list nor a dict.
+                        cleaned.append(sublist)
+            return cleaned
 
-    res = orjson.dumps(res)
-    compressed_data = gzip.compress(res)
 
-    redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
+    quarter_res = load_and_clean(f"{base_path}/quarter/{ticker}.json")
+    annual_res = load_and_clean(f"{base_path}/annual/{ticker}.json")
+    ttm_res = load_and_clean(f"{base_path}/ttm/{ticker}.json")
+
+    compressed_data = gzip.compress(
+        orjson.dumps({'quarter': quarter_res, 'annual': annual_res, 'ttm': ttm_res})
+    )
+
+    redis_client.setex(cache_key, 86400, compressed_data)  # 1 day expiry
 
     return StreamingResponse(
         io.BytesIO(compressed_data),
@@ -954,46 +976,6 @@ async def stock_income(data: TickerData, api_key: str = Security(get_api_key)):
         headers={"Content-Encoding": "gzip"}
     )
 
-@app.post("/stock-balance-sheet")
-async def stock_balance_sheet(data: TickerData, api_key: str = Security(get_api_key)):
-    data = data.dict()
-    ticker = data['ticker'].upper()
-
-    cache_key = f"stock-balance-sheet-{ticker}"
-    cached_result = redis_client.get(cache_key)
-
-    if cached_result:
-        return StreamingResponse(
-            io.BytesIO(cached_result),
-            media_type="application/json",
-            headers={"Content-Encoding": "gzip"}
-        )
-
-    try:
-        with open(f"json/financial-statements/balance-sheet-statement/quarter/{ticker}.json", 'rb') as file:
-            quarter_res = orjson.loads(file.read())
-    except:
-        quarter_res = []
-
-    try:
-        with open(f"json/financial-statements/balance-sheet-statement/annual/{ticker}.json", 'rb') as file:
-            annual_res = orjson.loads(file.read())
-    except:
-        annual_res = []
-
-    res = {'quarter': quarter_res, 'annual': annual_res}
-
-    res = orjson.dumps(res)
-    compressed_data = gzip.compress(res)
-
-    redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
-
-    return StreamingResponse(
-        io.BytesIO(compressed_data),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"}
-    ) 
 
 @app.post("/stock-ratios")
 async def stock_ratios(data: TickerData, api_key: str = Security(get_api_key)):
@@ -1036,47 +1018,6 @@ async def stock_ratios(data: TickerData, api_key: str = Security(get_api_key)):
         headers={"Content-Encoding": "gzip"}
     ) 
 
-
-@app.post("/stock-cash-flow")
-async def stock_cash_flow(data: TickerData, api_key: str = Security(get_api_key)):
-    data = data.dict()
-    ticker = data['ticker'].upper()
-
-    cache_key = f"stock-cash-flow-{ticker}"
-    cached_result = redis_client.get(cache_key)
-
-    if cached_result:
-        return StreamingResponse(
-            io.BytesIO(cached_result),
-            media_type="application/json",
-            headers={"Content-Encoding": "gzip"}
-        )
-
-    try:
-        with open(f"json/financial-statements/cash-flow-statement/quarter/{ticker}.json", 'rb') as file:
-            quarter_res = orjson.loads(file.read())
-    except:
-        quarter_res = []
-
-    try:
-        with open(f"json/financial-statements/cash-flow-statement/annual/{ticker}.json", 'rb') as file:
-            annual_res = orjson.loads(file.read())
-    except:
-        annual_res = []
-
-    res = {'quarter': quarter_res, 'annual': annual_res}
-
-    res = orjson.dumps(res)
-    compressed_data = gzip.compress(res)
-
-    redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
-
-    return StreamingResponse(
-        io.BytesIO(compressed_data),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"}
-    ) 
 
 
 @app.get("/economic-calendar")
