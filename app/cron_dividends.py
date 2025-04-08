@@ -10,10 +10,7 @@ import orjson
 import os
 from dotenv import load_dotenv
 
-headers = {"accept": "application/json"}
-url = "https://api.benzinga.com/api/v2.1/calendar/dividends"
 load_dotenv()
-api_key = os.getenv('BENZINGA_API_KEY')
 
 ny_tz = pytz.timezone('America/New_York')
 today = datetime.now(ny_tz).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -21,9 +18,11 @@ N_days_ago = today - timedelta(days=10)
 
 
 async def save_as_json(symbol, data, file_name):
-    with open(f"{file_name}/{symbol}.json", 'w') as file:
+    # Ensure the directory exists
+    os.makedirs(file_name, exist_ok=True)
+    file_path = os.path.join(file_name, f"{symbol}.json")
+    with open(file_path, 'w') as file:
         ujson.dump(data, file)
-
 
 async def get_data(ticker, con, etf_con, stock_symbols, etf_symbols):
     try:
@@ -75,15 +74,18 @@ async def get_data(ticker, con, etf_con, stock_symbols, etf_symbols):
         previous_year_dividend = None
         
         for record in sorted_records:
-            record_date = datetime.fromisoformat(record['recordDate'])
-            if record_date.year == latest_year and latest_dividend is None:
-                latest_dividend = record['adjDividend']
-            elif record_date.year == latest_year - 1 and previous_year_dividend is None:
-                previous_year_dividend = record['adjDividend']
-            
-            # Break if we found both dividends
-            if latest_dividend is not None and previous_year_dividend is not None:
-                break
+            try:
+                record_date = datetime.fromisoformat(record['recordDate'])
+                if record_date.year == latest_year and latest_dividend is None:
+                    latest_dividend = record['adjDividend']
+                elif record_date.year == latest_year - 1 and previous_year_dividend is None:
+                    previous_year_dividend = record['adjDividend']
+                
+                # Break if we found both dividends
+                if latest_dividend is not None and previous_year_dividend is not None:
+                    break
+            except:
+                pass
         
         # Calculate growth rate if both values exist
         dividend_growth = None
@@ -134,9 +136,8 @@ async def run():
     total_symbols = stock_symbols + etf_symbols
     
     for ticker in tqdm(total_symbols):
-        res = await get_data(ticker, con, etf_con, stock_symbols, etf_symbols)
-
         try:
+            res = await get_data(ticker, con, etf_con, stock_symbols, etf_symbols)
             if len(res.get('history', [])) > 0:
                 await save_as_json(ticker, res, 'json/dividends/companies')
         except Exception as e:
