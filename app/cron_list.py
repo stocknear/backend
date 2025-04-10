@@ -598,15 +598,16 @@ async def get_highest_revenue():
                     marketCap = quote_data.get('marketCap')
                     name = quote_data.get('name')
 
-                    # Append stock data to res_list if it meets the criteria
-                    res_list.append({
-                        'symbol': symbol,
-                        'name': name,
-                        'price': price,
-                        'changesPercentage': changesPercentage,
-                        'marketCap': marketCap,
-                        'revenue': revenue
-                    })
+                    if marketCap >= 1E9:
+                        # Append stock data to res_list if it meets the criteria
+                        res_list.append({
+                            'symbol': symbol,
+                            'name': name,
+                            'price': price,
+                            'changesPercentage': changesPercentage,
+                            'marketCap': marketCap,
+                            'revenue': revenue
+                        })
         except:
             pass
 
