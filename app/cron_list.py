@@ -644,15 +644,15 @@ async def get_highest_income_tax():
                     marketCap = quote_data.get('marketCap')
                     name = quote_data.get('name')
 
-                    # Append stock data to res_list if it meets the criteria
-                    res_list.append({
-                        'symbol': symbol,
-                        'name': name,
-                        'price': price,
-                        'changesPercentage': changesPercentage,
-                        'marketCap': marketCap,
-                        'incomeTaxExpense': income_tax
-                    })
+                    if marketCap >= 1E9:
+                        res_list.append({
+                            'symbol': symbol,
+                            'name': name,
+                            'price': price,
+                            'changesPercentage': changesPercentage,
+                            'marketCap': marketCap,
+                            'incomeTaxExpense': income_tax
+                        })
         except:
             pass
 

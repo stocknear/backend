@@ -96,6 +96,7 @@ def get_last_completed_quarter():
 '''
 
 def get_last_completed_quarter():
+    #return last two quarters ago
     today = datetime.today()
     year = today.year
     month = today.month
