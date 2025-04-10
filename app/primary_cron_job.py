@@ -288,6 +288,11 @@ def run_list():
         run_command(["python3", "cron_list.py"])
         run_command(["python3", "cron_heatmap.py"])
 
+def run_discord_bot():
+    week = datetime.today().weekday()
+    if week <= 4:
+        run_command(["python3", "cron_discord_bot.py"])
+
 
 def run_financial_statements():
     week = datetime.today().weekday()
@@ -422,6 +427,7 @@ schedule.every(5).minutes.do(run_threaded, run_push_notifications).tag('push_not
 
 schedule.every(5).minutes.do(run_threaded, run_market_flow).tag('market_flow_job')
 schedule.every(5).minutes.do(run_threaded, run_list).tag('stock_list_job')
+schedule.every(5).minutes.do(run_threaded, run_discord_bot).tag('discord_bot')
 
 
 
