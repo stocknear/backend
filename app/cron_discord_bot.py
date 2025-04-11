@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 import asyncio
 import sqlite3
 import hashlib
+import glob
 
 load_dotenv()
 
@@ -23,6 +24,8 @@ N_minutes_ago = now - timedelta(minutes=30)
 DARK_POOL_WEBHOOK_URL = os.getenv("DISCORD_DARK_POOL_WEBHOOK")
 OPTIONS_FLOW_WEBHOOK_URL = os.getenv("DISCORD_OPTIONS_FLOW_WEBHOOK")
 RECENT_EARNINGS_WEBHOOK_URL = os.getenv("DISCORD_RECENT_EARNINGS_WEBHOOK")
+EXECUTIVE_ORDER_WEBHOOK_URL = os.getenv("DISCORD_EXECUTIVE_ORDER_WEBHOOK")
+
 BENZINGA_API_KEY = os.getenv('BENZINGA_API_KEY')
 
 headers = {"accept": "application/json"}
@@ -479,11 +482,95 @@ async def recent_earnings_message():
         except:
             pass
 
+def executive_order_message():
+
+    try:
+        with open(f"json/discord/executive_order.json", "r") as file:
+            seen_list = orjson.loads(file.read())
+            seen_list = [item for item in seen_list if datetime.fromisoformat(item['date']).date() == today]
+    except:
+        seen_list = []
+
+    res_list = []
+    json_files = glob.glob("json/executive-orders/*.json")
+    for filepath in json_files:
+        try:
+            file_id = os.path.basename(filepath)
+            
+            with open(filepath, "r") as file:
+                # Load the JSON data from the file using orjson
+                data = orjson.loads(file.read())
+            
+                if datetime.fromisoformat(item['date']).date() == today:
+                    data['id'] = file_id.replace(".json","")
+
+                res_list.append(data)
+        except:
+            pass
+
+    if res_list:
+    
+        if seen_list:
+            seen_ids = {item['id'] for item in seen_list}
+        else:
+            seen_ids = {}
+
+        for item in res_list:
+            try:
+                if item['id'] not in seen_ids:
+                    title = item['title']
+                    description = item['description']
+                    date = item['date']
+                    date = datetime.strptime(date, "%Y-%m-%d")
+                    date = date.strftime("%B %d, %Y")
+                    source = f"[Source]({item['link']})"
+
+                    message_timestamp = int((datetime.now() - timedelta(minutes=0)).timestamp())
+                    
+
+                    embed = {
+                        "color": 0xFF0000, 
+                        "thumbnail": {"url": "https://stocknear.com/pwa-64x64.png"},
+                        "title": title,
+                        "description": f"Signed on {date}",
+                        "fields": [
+                            {"name": "", "value": description, "inline": False},
+                            {"name": "", "value": source, "inline": False},
+                            {"name": f"Data by Stocknear - <t:{message_timestamp}:R>", "value": "", "inline": False}
+                        ],
+                        "footer": {"text": ""}
+                    }
+
+                    payload = {
+                        "content": "",
+                        "embeds": [embed]
+                    }
+
+                    response = requests.post(EXECUTIVE_ORDER_WEBHOOK_URL, json=payload)
+
+                    if response.status_code in (200, 204):
+                        seen_list.append({'date': item['date'], 'id': item['id']})
+                        with open("json/discord/executive_order.json","wb") as file:
+                            file.write(orjson.dumps(seen_list))
+                        print("Embed sent successfully!")
+
+                    else:
+                        print(f"Failed to send embed. Status code: {response.status_code}")
+                        print("Response content:", response.text)
+        
+                else:
+                    print("Executive Order already sent!")
+
+            except Exception as e:
+                print(e)
+
+       
 
 async def main():
     options_flow()
     dark_pool_flow()
     await recent_earnings_message()
+    executive_order_message()
 
 try:
     con = sqlite3.connect('stocks.db')
