@@ -427,7 +427,7 @@ schedule.every(5).minutes.do(run_threaded, run_push_notifications).tag('push_not
 
 schedule.every(5).minutes.do(run_threaded, run_market_flow).tag('market_flow_job')
 schedule.every(5).minutes.do(run_threaded, run_list).tag('stock_list_job')
-schedule.every(5).minutes.do(run_threaded, run_discord_bot).tag('discord_bot')
+schedule.every(2).minutes.do(run_threaded, run_discord_bot).tag('discord_bot')
 
 
 
