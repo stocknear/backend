@@ -200,6 +200,7 @@ def run_historical_price():
     week = datetime.today().weekday()
     if week <= 5:
         run_command(["python3", "cron_historical_price.py"])
+        run_command(["python3","cron_historical_adj_price.py"])
 
 def run_one_day_price():
     now = datetime.now(ny_tz)

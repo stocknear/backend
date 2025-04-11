@@ -491,6 +491,61 @@ async def rating_stock(data: TickerData, api_key: str = Security(get_api_key)):
     redis_client.expire(cache_key, 3600*24)  # Set cache expiration time to 1 day
     return res
 
+@app.post("/historical-adj-price")
+async def get_stock(data: TickerData, api_key: str = Security(get_api_key)):
+    ticker = data.ticker.upper()
+
+    cache_key = f"historical-adj-price-{ticker}"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
+
+    try:
+        with open(f"json/historical-price/max/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
+    except Exception as e:
+        # if file reading fails, initialize to an empty list
+        res = []
+    
+    try:
+        with open(f"json/historical-price/adj/{ticker}.json", 'rb') as file:
+            adj_res = orjson.loads(file.read())
+    except Exception as e:
+        # if file reading fails, initialize to an empty list
+        adj_res = []
+
+    # Create a dictionary mapping date (or time) to the corresponding adj price entry.
+    # Assuming "date" in adj_res corresponds to "time" in res.
+    adj_by_date = { entry["date"]: entry for entry in adj_res if "date" in entry }
+
+    # Loop over the historical price records and add the adjusted prices if the date matches.
+    for record in res:
+        date_key = record.get("time")
+        if date_key in adj_by_date:
+            adj_entry = adj_by_date[date_key]
+            # add adjusted data to record; adjust field names as necessary.
+            record["adjOpen"]  = adj_entry.get("adjOpen")
+            record["adjHigh"]  = adj_entry.get("adjHigh")
+            record["adjLow"]   = adj_entry.get("adjLow")
+            record["adjClose"] = adj_entry.get("adjClose")
+
+    # Serialize and cache the result.
+    res_json = orjson.dumps(res)
+    compressed_data = gzip.compress(res_json)
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 60*60*6)  # cache for 24 hours
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
+
+
 @app.post("/historical-price")
 async def get_stock(data: HistoricalPrice, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
