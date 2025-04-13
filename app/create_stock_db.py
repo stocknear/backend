@@ -181,6 +181,21 @@ class StockDatabase:
                         print(e)
                         pass
 
+            # --- New Code: Check marketCap for PNK stocks ---
+            # Query the exchange short name from the database for this symbol
+            self.cursor.execute("SELECT exchangeShortName FROM stocks WHERE symbol = ?", (symbol,))
+            row = self.cursor.fetchone()
+            if row and row[0] == "PNK":
+                market_cap = fundamental_data.get('marketCap')
+                if market_cap is not None and market_cap < 10E9:
+                    # Delete the stock record as market cap is below 1 billion
+                    self.cursor.execute("DELETE FROM stocks WHERE symbol = ?", (symbol,))
+                    self.conn.commit()
+                    # Optionally, drop the OHLC table for that symbol if it exists
+                    self.cursor.execute(f"DROP TABLE IF EXISTS '{symbol}'")
+                    self.conn.commit()
+                    print(f"Deleted {symbol} from database due to marketCap ({market_cap}) below 1B.")
+                    return  # Exit early without proceeding further
 
             # Check if columns already exist in the table
             self.cursor.execute("PRAGMA table_info(stocks)")
