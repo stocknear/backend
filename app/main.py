@@ -302,6 +302,7 @@ class HistoricalPrice(BaseModel):
 
 class BulkDownload(BaseModel):
     tickers: list
+    bulkData: list
 
 class AnalystId(BaseModel):
     analystId: str
@@ -4387,43 +4388,89 @@ async def get_stock_data(data: BulkList, api_key: str = Security(get_api_key)):
 
 
 @app.post("/bulk-download")
-async def get_stock(data: BulkDownload, api_key: str = Security(get_api_key)):
-    # Ensure tickers is a list
+async def get_data(data: BulkDownload, api_key: str = Security(get_api_key)):
+    # Ensure tickers are uppercase and unique if needed.
     tickers = [ticker.upper() for ticker in data.tickers]
+    selected_data_items = [item for item in data.bulkData if item.get("selected") is True]
 
-    # Create an in-memory binary stream for the zip archive
+    DATA_TYPE_PATHS = {
+        "Price Data": "json/historical-price/max/{ticker}.json",
+        "Dividends Data": "json/dividends/companies/{ticker}.json",
+        "Options Data": "json/options-historical-data/companies/{ticker}.json"
+    }
+
+    # Create an in-memory binary stream for the zip archive.
     memory_file = io.BytesIO()
 
-    # Open a zipfile for writing into that memory stream
+    # Open the zipfile for writing into the memory stream.
     with zipfile.ZipFile(memory_file, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
         for ticker in tickers:
-            try:
-                with open(f"json/historical-price/max/{ticker}.json", 'rb') as file:
-                    # Load the JSON data for the ticker
-                    data_list = orjson.loads(file.read())
-            except Exception:
-                data_list = []
+            for data_item in selected_data_items:
+                data_type_name = data_item.get("name")
+                
+                # For Price Data, we need to merge the adjusted price data.
+                if data_type_name == "Price Data":
+                    # Read historical price data.
+                    try:
+                        with open(f"json/historical-price/max/{ticker}.json", 'rb') as file:
+                            res = orjson.loads(file.read())
+                    except Exception as e:
+                        res = []
+                    
+                    # Read adjusted price data.
+                    try:
+                        with open(f"json/historical-price/adj/{ticker}.json", 'rb') as file:
+                            adj_res = orjson.loads(file.read())
+                    except Exception as e:
+                        adj_res = []
+                    
+                    # Create a dictionary mapping date (or time) to the corresponding adjusted price entry.
+                    # We assume "date" in adj_res corresponds to "time" in res.
+                    adj_by_date = {entry["date"]: entry for entry in adj_res if "date" in entry}
+                    
+                    # Loop over the historical price records and add the adjusted prices if available.
+                    for record in res:
+                        date_key = record.get("time")
+                        if date_key in adj_by_date:
+                            adj_entry = adj_by_date[date_key]
+                            record["adjOpen"]  = adj_entry.get("adjOpen")
+                            record["adjHigh"]  = adj_entry.get("adjHigh")
+                            record["adjLow"]   = adj_entry.get("adjLow")
+                            record["adjClose"] = adj_entry.get("adjClose")
+                    
+                    json_data = res  # Use the merged result.
+                else:
+                    # Fallback to the mapped file path for other data types.
+                    file_path_template = DATA_TYPE_PATHS.get(data_type_name)
+                    if not file_path_template:
+                        continue  # Skip if the data type is not mapped.
+                    try:
+                        with open(file_path_template.format(ticker=ticker), 'rb') as file:
+                            json_data = orjson.loads(file.read())
+                            if data_type_name == 'Dividends Data':
+                                json_data = json_data['history']
+                                json_data = sorted(json_data, key=lambda item: item['date'])
+                    except:
+                        json_data = []
 
-            # Convert the JSON data to CSV format. Adjust the keys as needed.
-            csv_buffer = io.StringIO()
-            csv_writer = csv.writer(csv_buffer)
+                # Convert the JSON data to CSV.
+                csv_buffer = io.StringIO()
+                csv_writer = csv.writer(csv_buffer)
 
-            if data_list:
-                # Write headers using keys from the first record
-                headers = list(data_list[0].keys())
-                csv_writer.writerow(headers)
-                # Write each row
-                for row in data_list:
-                    csv_writer.writerow([row.get(key, "") for key in headers])
-            else:
-                csv_writer.writerow(["No data available"])
+                if json_data and isinstance(json_data, list) and len(json_data) > 0:
+                    # Write headers based on the keys of the first record.
+                    headers = list(json_data[0].keys())
+                    csv_writer.writerow(headers)
+                    for row in json_data:
+                        csv_writer.writerow([row.get(key, "") for key in headers])
+                else:
+                    csv_writer.writerow(["No data available"])
 
-            zf.writestr(f"{ticker}.csv", csv_buffer.getvalue())
+                # Write the CSV content to the zip file under a folder named after the data type.
+                zip_csv_path = f"{data_type_name}/{ticker}.csv"
+                zf.writestr(zip_csv_path, csv_buffer.getvalue())
 
-    # Seek back to the start of the BytesIO stream before returning it.
     memory_file.seek(0)
-
-    # Return the zip file as a StreamingResponse.
     return StreamingResponse(
         memory_file,
         media_type="application/zip",
