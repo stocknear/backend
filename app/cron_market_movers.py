@@ -21,6 +21,7 @@ api_key = os.getenv('FMP_API_KEY')
 
 market_cap_threshold = 10E9
 volume_threshold = 50_000
+price_threshold = 10
 
 def check_market_hours():
 
@@ -89,7 +90,7 @@ async def get_gainer_loser_active_stocks(symbols):
                 price = data.get("price", None)
 
                 # Ensure the stock meets criteria
-                if market_cap >= market_cap_threshold:
+                if market_cap >= market_cap_threshold and price >= price_threshold:
                     if price and changes_percentage:
                         res_list.append({
                             "symbol": symbol,
