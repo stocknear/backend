@@ -390,7 +390,7 @@ def recent_earnings():
                         "embeds": [embed]
                     }
 
-                    #response = requests.post(RECENT_EARNINGS_WEBHOOK_URL, json=payload)
+                    response = requests.post(RECENT_EARNINGS_WEBHOOK_URL, json=payload)
 
                     if response.status_code in (200, 204):
                         seen_list.append({'date': item['date'], 'id': item['id'], 'symbol': symbol})
