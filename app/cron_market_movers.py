@@ -88,9 +88,10 @@ async def get_gainer_loser_active_stocks(symbols):
                 volume = data.get('volume', 0)
                 changes_percentage = data.get("changesPercentage", None)
                 price = data.get("price", None)
+                exchange = data.get('exchange',None)
 
                 # Ensure the stock meets criteria
-                if market_cap >= market_cap_threshold and price >= price_threshold:
+                if market_cap >= market_cap_threshold and price >= price_threshold and exchange in ['AMEX','NASDAQ','NYSE']:
                     if price and changes_percentage:
                         res_list.append({
                             "symbol": symbol,
@@ -192,6 +193,7 @@ async def get_pre_after_market_movers(symbols):
                 data = orjson.loads(file.read())
                 market_cap = int(data.get('marketCap', 0))
                 name = data.get('name',None)
+                exchange = data.get('exchange',None)
 
             if market_cap >= market_cap_threshold:
                 with open(f"json/pre-post-quote/{symbol}.json", "r") as file:
@@ -203,7 +205,7 @@ async def get_pre_after_market_movers(symbols):
                         # Filter out entries where 'close' is None
                         filtered_prices = [price for price in one_day_price if price['close'] is not None]
 
-                    if price and changes_percentage and len(filtered_prices) > 100: #300
+                    if price and price >= price_threshold and exchange in ['AMEX','NASDAQ','NYSE'] and changes_percentage and len(filtered_prices) > 100: #300
                         res_list.append({
                             "symbol": symbol,
                             "name": name,
