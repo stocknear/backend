@@ -187,7 +187,7 @@ def dark_pool_flow():
 
 def options_flow():
     now_ny = datetime.now(ny_tz)
-    N_minutes_ago = now_ny - timedelta(minutes=5)
+    N_minutes_ago = now_ny - timedelta(minutes=10)
     today = now_ny.date()
 
     # Load seen entries
@@ -332,9 +332,6 @@ def recent_earnings():
             res_list.append(item)
         except:
             pass
-
-    print(res_list)
-
     
     if res_list:
 
