@@ -25,6 +25,7 @@ DARK_POOL_WEBHOOK_URL = os.getenv("DISCORD_DARK_POOL_WEBHOOK")
 OPTIONS_FLOW_WEBHOOK_URL = os.getenv("DISCORD_OPTIONS_FLOW_WEBHOOK")
 RECENT_EARNINGS_WEBHOOK_URL = os.getenv("DISCORD_RECENT_EARNINGS_WEBHOOK")
 EXECUTIVE_ORDER_WEBHOOK_URL = os.getenv("DISCORD_EXECUTIVE_ORDER_WEBHOOK")
+ANALYST_REPORT_WEBHOOK_URL = os.getenv("DISCORD_ANALYST_REPORT_WEBHOOK")
 
 BENZINGA_API_KEY = os.getenv('BENZINGA_API_KEY')
 
@@ -389,6 +390,7 @@ def options_flow():
     except Exception as e:
         print(f"Error sending message: {e}")
 
+
 async def recent_earnings_message():
 
     try:
@@ -564,13 +566,89 @@ def executive_order_message():
             except Exception as e:
                 print(e)
 
-       
+
+def analyst_report():
+
+    try:
+        with open(f"json/discord/analyst_report.json", "r") as file:
+            seen_list = orjson.loads(file.read())
+            seen_list = [item for item in seen_list if datetime.fromisoformat(item['date']).date() == today]
+    except:
+        seen_list = []
+
+    with open(f"json/dashboard/data.json", 'rb') as file:
+        data = orjson.loads(file.read())['analystReport']
+        date_obj = datetime.strptime(data['date'], '%b %d, %Y')
+        data['date'] = date_obj.strftime('%Y-%m-%d')
+
+    if datetime.fromisoformat(data['date']).date() == today:
+    
+        if seen_list:
+            seen_ids = {item['id'] for item in seen_list}
+        else:
+            seen_ids = {}
+
+        if data['id'] not in seen_ids:
+            symbol = data['symbol']
+            insight = data['insight']
+            message_timestamp = int((datetime.now() - timedelta(minutes=0)).timestamp())
+
+            with open(f"json/quote/{symbol}.json","r") as file:
+                quote_data = orjson.loads(file.read())
+
+            market_cap = abbreviate_number(quote_data.get('marketCap',0))
+            eps = round(quote_data.get('eps',0),2)
+            changes_percentage = round(quote_data.get('changesPercentage',0),2)
+            summary = (
+                f"According to {data['numOfAnalyst']} analyst ratings, the average rating for {symbol} stock is '{data['consensusRating']}'. "
+                f"The 12-month stock price forecast is {data['highPriceTarget']}, which is an "
+                f"{'increase' if data['highPriceChange'] > 0 else 'decrease'} of {abs(data['highPriceChange'])}% from the latest price."
+            )
+
+            embed = {
+                "color": 0xFFA500, 
+                "thumbnail": {"url": "https://stocknear.com/pwa-64x64.png"},
+                "title": "",
+                "fields": [
+                    {"name": "Symbol", "value": symbol, "inline": True},
+                    {"name": "", "value": "", "inline": True},
+                    {"name": "Market Cap", "value": str(market_cap), "inline": True},
+                    {"name": "EPS", "value": str(eps), "inline": True},
+                    {"name": "", "value": "", "inline": True},
+                    {"name": "% Change", "value": str(changes_percentage)+"%", "inline": True},
+                    {"name": "Analyst Insight Report", "value": insight, "inline": False},
+                    {"name": "", "value": summary, "inline": False},
+                    {"name": f"Data by Stocknear - <t:{message_timestamp}:R>", "value": "", "inline": False}
+                ],
+                "footer": {"text": ""}
+            }
+            payload = {
+                "content": "",
+                "embeds": [embed]
+            }
+
+            response = requests.post(ANALYST_REPORT_WEBHOOK_URL, json=payload)
+
+            if response.status_code in (200, 204):
+                seen_list.append({'date': data['date'], 'id': data['id']})
+                with open("json/discord/analyst_report.json","wb") as file:
+                    file.write(orjson.dumps(seen_list))
+                print("Embed sent successfully!")
+
+            else:
+                print(f"Failed to send embed. Status code: {response.status_code}")
+                print("Response content:", response.text)
+        
+        else:
+            print("Analyst Report already sent!")
+
 
 async def main():
     options_flow()
     dark_pool_flow()
     await recent_earnings_message()
     executive_order_message()
+    analyst_report()
 
 try:
     con = sqlite3.connect('stocks.db')
