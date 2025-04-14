@@ -329,7 +329,9 @@ def recent_earnings():
 
             unique_str = f"{item['date']}-{item['symbol']}"
             item['id'] = hashlib.md5(unique_str.encode()).hexdigest()
-            res_list.append(item)
+            
+            if item['marketCap'] > 1E9:
+                res_list.append(item)
         except:
             pass
     
