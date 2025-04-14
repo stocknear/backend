@@ -217,6 +217,7 @@ async def get_recent_earnings(session):
                             
                             res_list.append({
                                 'symbol': symbol,
+                                'date': item['date'],
                                 'name': name,
                                 'time': time,
                                 'marketCap': market_cap,
