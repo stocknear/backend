@@ -557,7 +557,7 @@ def analyst_report():
             print("Analyst Report already sent!")
 
 
-if __name__ == "__main__"
+if __name__ == "__main__":
     options_flow()
     dark_pool_flow()
     recent_earnings()
