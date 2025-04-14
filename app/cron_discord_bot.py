@@ -106,93 +106,6 @@ def weekday():
 
     return yesterday.strftime('%Y-%m-%d')
 
-
-async def get_recent_earnings(session):
-    today = datetime.today().strftime('%Y-%m-%d')
-    yesterday = weekday()
-
-    url = "https://api.benzinga.com/api/v2.1/calendar/earnings"
-    res_list = []
-    importance_list = ["1","2","3","4","5"]
-    
-    for importance in importance_list:
-        querystring = {
-            "token": BENZINGA_API_KEY,
-            "parameters[importance]": importance, 
-            "parameters[date_from]": yesterday,
-            "parameters[date_to]": today,
-            "parameters[date_sort]": "date"
-        }
-        try:
-            async with session.get(url, params=querystring, headers=headers) as response:
-                res = orjson.loads(await response.text())['earnings']
-                for item in res:
-                    try:
-                        symbol = item['ticker']
-                        name = item['name']
-                        time = item['time']
-                        date = item['date']
-                        updated = int(item['updated'])  # Convert to integer for proper comparison
-                        
-                        # Convert numeric fields, handling empty strings
-                        eps_prior = float(item['eps_prior']) if item['eps_prior'] != '' else None
-                        eps_surprise = float(item['eps_surprise']) if item['eps_surprise'] != '' else None
-                        eps = float(item['eps']) if item['eps'] != '' else 0
-                        revenue_prior = float(item['revenue_prior']) if item['revenue_prior'] != '' else None
-                        revenue_surprise = float(item['revenue_surprise']) if item['revenue_surprise'] != '' else None
-                        revenue = float(item['revenue']) if item['revenue'] != '' else None
-                        
-                        if (symbol in stock_symbols and 
-                            revenue is not None and 
-                            revenue_prior is not None and 
-                            eps_prior is not None and 
-                            eps is not None and 
-                            revenue_surprise is not None and 
-                            eps_surprise is not None):
-                            
-                            with open(f"json/quote/{symbol}.json","r") as file:
-                                quote_data = orjson.loads(file.read())
-
-                            market_cap = quote_data.get('marketCap',0)
-                            price = quote_data.get('price',0)
-                            changes_percentage = quote_data.get('changesPercentage',0)
-                            
-                            res_list.append({
-                                'symbol': symbol,
-                                'name': name,
-                                'time': time,
-                                'date': date,
-                                'marketCap': market_cap,
-                                'epsPrior': eps_prior,
-                                'epsSurprise': eps_surprise,
-                                'eps': eps,
-                                'revenuePrior': revenue_prior,
-                                'revenueSurprise': revenue_surprise,
-                                'revenue': revenue,
-                                'price': price,
-                                'changesPercentage': changes_percentage,
-                                'updated': updated
-                            })
-                    except Exception as e:
-                        print('Recent Earnings:', e)
-                        pass
-        except Exception as e:
-            print('API Request Error:', e)
-            pass
-    
-    # Remove duplicates
-    res_list = remove_duplicates(res_list)
-    
-    # Sort first by the most recent 'updated' timestamp, then by market cap
-    res_list.sort(key=lambda x: (-x['updated'], -x['marketCap']))
-    
-    # Remove market cap before returning and limit to top 10
-    res_list = [{k: v for k, v in d.items() if k not in ['updated']} for d in res_list]
-    
-    return res_list[:10]
-
-
-
 def dark_pool_flow():
 
     try:
@@ -391,7 +304,7 @@ def options_flow():
         print(f"Error sending message: {e}")
 
 
-async def recent_earnings_message():
+def recent_earnings():
 
     try:
         with open(f"json/discord/recent_earnings.json", "r") as file:
@@ -400,12 +313,13 @@ async def recent_earnings_message():
     except:
         seen_list = []
 
-    async with aiohttp.ClientSession() as session:
-        res_list = await get_recent_earnings(session)
-        for item in res_list:
-            
-            unique_str = f"{item['date']}-{item['symbol']}-{item['revenue']}-{item['eps']}"
-            item['id'] = hashlib.md5(unique_str.encode()).hexdigest()
+    with open(f"json/dashboard/data.json", 'rb') as file:
+        res_list = orjson.loads(file.read())['recentEarnings']
+
+    for item in res_list:
+        
+        unique_str = f"{item['date']}-{item['symbol']}-{item['revenue']}-{item['eps']}"
+        item['id'] = hashlib.md5(unique_str.encode()).hexdigest()
 
     
     if res_list:
@@ -643,22 +557,9 @@ def analyst_report():
             print("Analyst Report already sent!")
 
 
-async def main():
+if __name__ == "__main__"
     options_flow()
     dark_pool_flow()
-    await recent_earnings_message()
+    recent_earnings()
     executive_order_message()
     analyst_report()
-
-try:
-    con = sqlite3.connect('stocks.db')
-    cursor = con.cursor()
-    cursor.execute("PRAGMA journal_mode = wal")
-    cursor.execute("SELECT DISTINCT symbol FROM stocks")
-    stock_symbols = [row[0] for row in cursor.fetchall()]
-    con.close()
-
-    asyncio.run(main())
- 
-except Exception as e:
-    print(e)
