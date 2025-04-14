@@ -287,7 +287,7 @@ async def run():
         if matching_pe is not None:
             sector_data['pe'] = round(float(matching_pe), 2)
     sector_overview = sorted(sector_overview, key= lambda x: x['numStocks'], reverse=True)
-    
+    sector_overview = [entry for entry in sector_overview if all(value is not None for value in entry.values())]
     save_as_json(sector_overview, filename='sector-overview')
 
 loop = asyncio.get_event_loop()
