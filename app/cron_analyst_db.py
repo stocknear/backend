@@ -165,10 +165,12 @@ def calculate_rating(data):
             normalized_rating += 0.3
 
         # Apply additional conditions based on return and success rate thresholds
-        if overall_average_return <= 5:
+        if overall_average_return <= -10:
             normalized_rating = max(normalized_rating - 1.5, 0)
-        elif overall_average_return <= 10:
-            normalized_rating = max(normalized_rating - 1.0, 0)
+        if overall_average_return <= -5:
+            normalized_rating = max(normalized_rating - 0.5, 0)
+        elif overall_average_return <= 5:
+            normalized_rating = max(normalized_rating - 0.3, 0)
 
         if overall_success_rate < 50:
             normalized_rating = min(normalized_rating, 3.5)
@@ -486,7 +488,7 @@ async def run():
         return
 
     #Test Modes
-    #analyst_list = [ item for item in analyst_list if item['analystId'] =='5a02da51efacff00010633d2']
+    #analyst_list = [ item for item in analyst_list if item['analystId'] =='5e720d1d5f2b9b000114e970']
 
     # Step2: Get rating history for each individual analyst and score the analyst
     await get_single_analyst_data(analyst_list, con)
