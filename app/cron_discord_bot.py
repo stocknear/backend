@@ -26,6 +26,7 @@ OPTIONS_FLOW_WEBHOOK_URL = os.getenv("DISCORD_OPTIONS_FLOW_WEBHOOK")
 RECENT_EARNINGS_WEBHOOK_URL = os.getenv("DISCORD_RECENT_EARNINGS_WEBHOOK")
 EXECUTIVE_ORDER_WEBHOOK_URL = os.getenv("DISCORD_EXECUTIVE_ORDER_WEBHOOK")
 ANALYST_REPORT_WEBHOOK_URL = os.getenv("DISCORD_ANALYST_REPORT_WEBHOOK")
+WIIM_WEBHOOK_URL = os.getenv('DISCORD_WIIM_WEBHOOK')
 
 BENZINGA_API_KEY = os.getenv('BENZINGA_API_KEY')
 
@@ -571,9 +572,107 @@ def analyst_report():
             print("Analyst Report already sent!")
 
 
+def wiim():
+    try:
+        with open(f"json/discord/wiim.json", "r") as file:
+            seen_list = orjson.loads(file.read())
+            seen_list = [item for item in seen_list if datetime.fromisoformat(item['date']).date() == today]
+    except:
+        seen_list = []
+
+    with open(f"json/dashboard/data.json", 'rb') as file:
+        data = orjson.loads(file.read())['wiim']
+        data = [item for item in data if datetime.fromisoformat(item['date']).date() == today]
+
+    res_list = []
+    for item in data:
+        try:
+            with open(f"json/quote/{item['ticker']}.json","r") as file:
+                quote_data = orjson.loads(file.read())
+
+                item['price'] = round(quote_data.get('price',0),2)
+                item['changesPercentage'] = round(quote_data.get('changesPercentage',0),2)
+                item['marketCap'] = quote_data.get('marketCap',0)
+                item['eps'] = round(quote_data.get('eps',0),2)
+
+            unique_str = f"{item['date']}-{item['ticker']}-{item.get('text','')}"
+            item['id'] = hashlib.md5(unique_str.encode()).hexdigest()
+            
+            if item['marketCap'] > 1E9:
+                res_list.append(item)
+        except:
+            pass
+    
+    if res_list:
+
+        if seen_list:
+            seen_ids = {item['id'] for item in seen_list}
+        else:
+            seen_ids = {}
+
+        for item in res_list:
+            try:
+                if item != None and item['id'] not in seen_ids and item['marketCap']:
+                    symbol = item['ticker']
+                    price = item['price']
+                    changes_percentage = round(item['changesPercentage'],2)
+                    eps = item['eps']
+                    market_cap = abbreviate_number(item['marketCap'])
+                    description = item['text']
+                    message_timestamp = int((datetime.now() - timedelta(minutes=0)).timestamp())
+
+                    color = 0x39FF14 if 'higher' in description else 0xFF0000 if 'lower' in description else 0xFFFFFF
+
+                    embed = {
+                        "color": color,
+                        "thumbnail": {"url": "https://stocknear.com/pwa-64x64.png"},
+                        "title": "Why Priced Moved",
+                        "fields": [
+                            {"name": "Symbol", "value": symbol, "inline": True},
+                            {"name": "", "value": "", "inline": True},
+                            {"name": "Market Cap", "value": market_cap, "inline": True},
+                            {"name": "Price", "value": str(price), "inline": True},
+                            {"name": "", "value": "", "inline": True},
+                            {"name": "% Change", "value": str(changes_percentage)+"%", "inline": True},
+                            {"name": "", "value": "", "inline": False},
+                            {"name": f"{description}", "value": "", "inline": False},
+                            {"name": f"Data by Stocknear - <t:{message_timestamp}:R>", "value": "", "inline": False},
+                        ],
+                        "footer": {"text": ""}
+                    }
+
+                    payload = {
+                        "content": "",
+                        "embeds": [embed]
+                    }
+
+                    response = requests.post(WIIM_WEBHOOK_URL, json=payload)
+
+                    if response.status_code in (200, 204):
+                        seen_list.append({'date': item['date'], 'id': item['id'], 'symbol': symbol})
+                        print("Embed sent successfully!")
+
+                    else:
+                        print(f"Failed to send embed. Status code: {response.status_code}")
+                        print("Response content:", response.text)
+                
+                else:
+                    print("Earnings already sent!")
+
+
+            except Exception as e:
+                print(e)
+        try:
+            with open("json/discord/wiim.json","wb") as file:
+                file.write(orjson.dumps(seen_list))
+        except Exception as e:
+            print(e)
+
+
 if __name__ == "__main__":
     options_flow()
     dark_pool_flow()
     recent_earnings()
     executive_order_message()
     analyst_report()
+    wiim()

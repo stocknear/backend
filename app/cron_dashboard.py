@@ -425,6 +425,10 @@ async def get_latest_wiim():
         key=lambda item: datetime.strptime(item['date'], '%a, %d %b %Y %H:%M:%S %z'),
         reverse=True
     )
+    for item in res_list:
+        dt = datetime.strptime(item['date'], '%a, %d %b %Y %H:%M:%S %z')
+        item['date'] = dt.strftime('%Y-%m-%d')
+
     return res_list[:10]
 
 async def run():
