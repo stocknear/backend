@@ -315,6 +315,7 @@ def recent_earnings():
 
     with open(f"json/dashboard/data.json", 'rb') as file:
         data = orjson.loads(file.read())['recentEarnings']
+        data = [item for item in data if datetime.fromisoformat(item['date']).date() == today]
 
     res_list = []
     for item in data:
@@ -327,7 +328,7 @@ def recent_earnings():
                 item['marketCap'] = quote_data.get('marketCap',0)
                 item['eps'] = round(quote_data.get('eps',0),2)
 
-            unique_str = f"{item['date']}-{item['symbol']}"
+            unique_str = f"{item['date']}-{item['symbol']}-{item.get('revenueSurprise',0)}-{item.get('epsSurprise',0)}"
             item['id'] = hashlib.md5(unique_str.encode()).hexdigest()
             
             if item['marketCap'] > 1E9:
@@ -571,8 +572,8 @@ def analyst_report():
 
 
 if __name__ == "__main__":
-    #options_flow()
-    #dark_pool_flow()
+    options_flow()
+    dark_pool_flow()
     recent_earnings()
-    #executive_order_message()
-    #analyst_report()
+    executive_order_message()
+    analyst_report()
