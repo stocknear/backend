@@ -1,107 +1,134 @@
-import ujson
+import orjson
 import sqlite3
 import asyncio
 import pandas as pd
 from tqdm import tqdm
 from datetime import datetime
 import yfinance as yf
-import time
+import csv
+from io import StringIO
+from pathlib import Path
+import requests
 
+next_year = datetime.now().year + 1
 
 async def save_as_json(symbol, forward_pe_dict, short_dict):
-    with open(f"json/share-statistics/{symbol}.json", 'w') as file:
-        ujson.dump(short_dict, file)
-    with open(f"json/forward-pe/{symbol}.json", 'w') as file:
-        ujson.dump(forward_pe_dict, file)
+    with open(f"json/share-statistics/{symbol}.json", 'wb') as file:
+        file.write(orjson.dumps(short_dict))
+    with open(f"json/forward-pe/{symbol}.json", 'wb') as file:
+        file.write(orjson.dumps(forward_pe_dict))
 
+with open(f"json/stock-screener/data.json", 'rb') as file:
+    stock_screener_data = orjson.loads(file.read())
+stock_screener_data_dict = {item['symbol']: item for item in stock_screener_data}
 
-query_template = f"""
-    SELECT 
-        historicalShares
-    FROM 
-        stocks
-    WHERE
-        symbol = ?
-"""
-
-def filter_data_quarterly(data):
-    # Generate a range of quarter-end dates from the start to the end date
-    start_date = data[0]['date']
-    end_date = datetime.today().strftime('%Y-%m-%d')
-    quarter_ends = pd.date_range(start=start_date, end=end_date, freq='QE').strftime('%Y-%m-%d').tolist()
-
-    # Filter data to keep only entries with dates matching quarter-end dates
-    filtered_data = [entry for entry in data if entry['date'] in quarter_ends]
+def calculate_forward_pe(symbol):
+    estimates_path = Path("json/analyst-estimate") / f"{symbol}.json"
+    quote_path = Path("json/quote") / f"{symbol}.json"
     
-    return filtered_data
-
-def get_yahoo_data(ticker, outstanding_shares, float_shares):
     try:
-        data_dict = yf.Ticker(ticker).info
-        forward_pe = round(data_dict.get('forwardPE'), 2) if data_dict.get('forwardPE') is not None else None
-        short_outstanding_percent = round((data_dict['sharesShort']/outstanding_shares)*100,2)
-        short_float_percent = round((data_dict['sharesShort']/float_shares)*100,2)
-        return {'forwardPE': forward_pe}, {'sharesShort': data_dict['sharesShort'], 'shortRatio': data_dict['shortRatio'], 'sharesShortPriorMonth': data_dict['sharesShortPriorMonth'], 'shortOutStandingPercent': short_outstanding_percent, 'shortFloatPercent': short_float_percent}
-    except Exception as e:
-        print(e)
-        return {'forwardPE': 0}, {'sharesShort': 0, 'shortRatio': 0, 'sharesShortPriorMonth': 0, 'shortOutStandingPercent': 0, 'shortFloatPercent': 0}
-
-
-async def get_data(ticker, con):
-
-    try:
-        df = pd.read_sql_query(query_template, con, params=(ticker,))
-        shareholder_statistics = ujson.loads(df.to_dict()['historicalShares'][0])
-        # Keys to keep
-        keys_to_keep = ["date","floatShares", "outstandingShares"]
-
-        # Create new list with only the specified keys and convert floatShares and outstandingShares to integers
-        shareholder_statistics = [
-            {key: int(d[key]) if key in ["floatShares", "outstandingShares"] else d[key] 
-             for key in keys_to_keep}
-            for d in shareholder_statistics
-        ]
-
-        shareholder_statistics = sorted(shareholder_statistics, key=lambda x: datetime.strptime(x['date'], '%Y-%m-%d'), reverse=False)
+        with estimates_path.open('rb') as file:
+            estimates = orjson.loads(file.read())
         
-        latest_outstanding_shares = shareholder_statistics[-1]['outstandingShares']
-        latest_float_shares = shareholder_statistics[-1]['floatShares']
+        with quote_path.open('rb') as file:
+            price_data = orjson.loads(file.read())
+        price = price_data.get('price')
+        
+        estimate_item = next((item for item in estimates if item.get('date') == next_year), None)
+        if estimate_item:
+            eps = estimate_item.get('estimatedEpsAvg')
+            if eps and eps != 0:
+                return round(price / eps, 2)
+    except (FileNotFoundError, ValueError, KeyError):
+        return None
+    return None
 
-        # Filter out only quarter-end dates
-        historical_shares = filter_data_quarterly(shareholder_statistics)
+def download_csv_data(url):
+    response = requests.get(url)
+    response.raise_for_status()
+    return response.text
 
-        forward_pe_data, short_data = get_yahoo_data(ticker, latest_outstanding_shares, latest_float_shares)
-        short_data = {**short_data, 'latestOutstandingShares': latest_outstanding_shares, 'latestFloatShares': latest_float_shares,'historicalShares': historical_shares}
+def parse_csv_data(csv_text):
+    csv_file = StringIO(csv_text)
+    reader = csv.DictReader(csv_file, delimiter='|')
+    return list(reader)
+
+def get_short_data(ticker, outstanding_shares, float_shares, record_dict):
+    row = record_dict.get(ticker.upper())
+    if not row:
+        return {'sharesShort': None, 'shortRatio': None, 'sharesShortPriorMonth': None, 
+                'shortOutStandingPercent': None, 'shortFloatPercent': None}
+    
+    try:
+        shares_short = int(row.get('currentShortPositionQuantity', 0))
+    except ValueError:
+        shares_short = 0
+
+    try:
+        shares_short_prior = int(row.get('previousShortPositionQuantity', 0))
+    except ValueError:
+        shares_short_prior = 0
+
+    try:
+        short_ratio = float(row.get('daysToCoverQuantity', 0))
+    except ValueError:
+        short_ratio = 0.0
+
+    short_outstanding_percent = round((shares_short / outstanding_shares) * 100, 2) if outstanding_shares else 0
+    short_float_percent = round((shares_short / float_shares) * 100, 2) if float_shares else 0
+
+    return {
+        'sharesShort': shares_short,
+        'shortRatio': short_ratio,
+        'sharesShortPriorMonth': shares_short_prior,
+        'shortOutStandingPercent': short_outstanding_percent,
+        'shortFloatPercent': short_float_percent
+    }
+
+async def get_data(ticker, record_dict):
+    try:
+        latest_outstanding_shares = stock_screener_data_dict[ticker]['sharesOutStanding']
+        latest_float_shares = stock_screener_data_dict[ticker]['floatShares']
+
+        forward_pe = calculate_forward_pe(ticker)
+        forward_pe_dict = {'forwardPE': forward_pe}
+        short_data = get_short_data(ticker, latest_outstanding_shares, latest_float_shares, record_dict)
+        return forward_pe_dict, short_data
     except Exception as e:
         print(e)
-        short_data = {}
-        forward_pe_data = {}
-
-    return forward_pe_data, short_data
-
+        return {}, {}
 
 async def run():
+    url = "https://cdn.finra.org/equity/otcmarket/biweekly/shrt20250228.csv"
+    record_dict = {}
+    
+    try:
+        csv_text = download_csv_data(url)
+        records = parse_csv_data(csv_text)
+        record_dict = {}
+        for row in records:
+            symbol_code = row.get('symbolCode', '').strip().upper()
+            if symbol_code:
+                record_dict[symbol_code] = row
+    except Exception as e:
+        print(f"Error processing CSV data: {e}")
 
     con = sqlite3.connect('stocks.db')
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
     cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
     stock_symbols = [row[0] for row in cursor.fetchall()]
-
     
-    counter = 0
-
+    #Testing mode
+    #stock_symbols = ['NVDA','AAPL']
+    
     for ticker in tqdm(stock_symbols):
-        forward_pe_dict, short_dict = await get_data(ticker, con)
-        if forward_pe_dict.keys() and short_dict.keys():
-            await save_as_json(ticker, forward_pe_dict, short_dict)
-
-        counter += 1
-        if counter % 50 == 0:
-            print(f"Processed {counter} tickers, waiting for 60 seconds...")
-            await asyncio.sleep(60)
-
-    con.close()
+        try:
+            forward_pe_dict, short_dict = await get_data(ticker, record_dict)
+            if forward_pe_dict and short_dict:
+                await save_as_json(ticker, forward_pe_dict, short_dict)
+        except Exception as e:
+            print(f"Error processing {ticker}: {e}")
 
 try:
     asyncio.run(run())
