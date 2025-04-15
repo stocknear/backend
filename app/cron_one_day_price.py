@@ -132,7 +132,7 @@ async def run():
         await fetch_and_save_symbols_data(symbols_chunk, semaphore)
         print(f'Completed chunk {i//chunk_size + 1} of {(len(total_symbols) + chunk_size - 1) // chunk_size}')
         # No need to sleep as much since we're using a semaphore to control concurrency
-        await asyncio.sleep(5)
+        await asyncio.sleep(10)
 
 
 try:
