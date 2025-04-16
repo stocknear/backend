@@ -708,10 +708,10 @@ def congress_trading():
                 item['name'] = quote_data.get('name','n/a')
 
             item['amountInt'] = extract_first_value(item['amount'])
-            unique_str = f"{item['disclosureDate']}-{item['transactionDate']}-{item['amount']}-{item['representative']}"
+            unique_str = f"{item['disclosureDate']}-{item['transactionDate']}-{item['ticker']}-{item['amount']}-{item['representative']}"
             item['id'] = hashlib.md5(unique_str.encode()).hexdigest()
             
-            if item['amountInt'] >= 50_000:
+            if item['amountInt'] >= 15_000:
                 res_list.append(item)
 
         except Exception as e:
@@ -724,7 +724,7 @@ def congress_trading():
         else:
             seen_ids = {}
 
-        for item in res_list[:1]:
+        for item in res_list:
             try:
                 if item != None and item['id'] not in seen_ids:
                     symbol = item['ticker']
@@ -775,7 +775,7 @@ def congress_trading():
                         print("Response content:", response.text)
                 
                 else:
-                    print("Earnings already sent!")
+                    print("Congress Data already sent!")
 
 
             except Exception as e:
