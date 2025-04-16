@@ -164,7 +164,6 @@ def run_share_statistics():
     if week <= 4:
         run_command(["python3", "cron_share_statistics.py"])
 
-
 def run_cron_market_news():
     week = datetime.today().weekday()
     if week <= 4:
@@ -383,6 +382,7 @@ schedule.every().day.at("08:00").do(run_threaded, run_cron_insider_trading).tag(
 schedule.every().day.at("08:30").do(run_threaded, run_dividends).tag('dividends_job')
 schedule.every().day.at("09:00").do(run_threaded, run_shareholders).tag('shareholders_job')
 schedule.every().day.at("09:30").do(run_threaded, run_profile).tag('profile_job')
+schedule.every().day.at("10:00").do(run_threaded, run_share_statistics).tag('share_statistics_job')
 
 
 
@@ -417,7 +417,6 @@ schedule.every(20).minutes.do(run_threaded, run_tracker).tag('tracker_job')
 schedule.every(10).minutes.do(run_threaded, run_market_moods).tag('market_moods_job')
 schedule.every(10).minutes.do(run_threaded, run_earnings).tag('earnings_job')
 
-#schedule.every(4).hours.do(run_threaded, run_share_statistics).tag('share_statistics_job')
 
 schedule.every(2).hours.do(run_threaded, run_analyst_rating).tag('analyst_job')
 schedule.every(1).hours.do(run_threaded, run_company_news).tag('company_news_job')
