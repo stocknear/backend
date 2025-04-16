@@ -29,6 +29,7 @@ ANALYST_REPORT_WEBHOOK_URL = os.getenv("DISCORD_ANALYST_REPORT_WEBHOOK")
 WIIM_WEBHOOK_URL = os.getenv('DISCORD_WIIM_WEBHOOK')
 CONGRESS_TRADING_WEBHOOK_URL = os.getenv("DISCORD_CONGRESS_TRADING_WEBHOOK")
 
+
 BENZINGA_API_KEY = os.getenv('BENZINGA_API_KEY')
 
 headers = {"accept": "application/json"}
@@ -87,6 +88,22 @@ def abbreviate_number(n):
         return f"{n/1_000_000:.1f}M"
     else:
         return f"{n/1_000_000_000:.1f}B"
+
+def extract_first_value(s):
+    """
+    Extract the first value from a string like "$1K-$15K" or "$1M-$5M"
+    and return it as an integer.
+    """
+    s = s.upper().replace('$', '')
+    first_part = s.split('-')[0]
+
+    if 'K' in first_part:
+        return int(float(first_part.replace('K', '')) * 1_000)
+    elif 'M' in first_part:
+        return int(float(first_part.replace('M', '')) * 1_000_000)
+    else:
+        # If no K or M, just try converting directly
+        return int(first_part)
 
 def remove_duplicates(elements):
     seen = set()
@@ -672,15 +689,15 @@ def wiim():
 
 def congress_trading():
     try:
-        with open(f"json/discord/wiim.json", "r") as file:
+        with open(f"json/discord/congress_trading.json", "r") as file:
             seen_list = orjson.loads(file.read())
             seen_list = [item for item in seen_list if datetime.fromisoformat(item['date']).date() == today]
     except:
         seen_list = []
 
-    with open(f"json/dashboard/data.json", 'rb') as file:
-        data = orjson.loads(file.read())['wiim']
-        data = [item for item in data if datetime.fromisoformat(item['date']).date() == today]
+    with open(f"json/congress-trading/rss-feed/data.json", 'rb') as file:
+        data = orjson.loads(file.read())
+        data = [item for item in data if datetime.fromisoformat(item['disclosureDate']).date() == today]
 
     res_list = []
     for item in data:
@@ -688,18 +705,17 @@ def congress_trading():
             with open(f"json/quote/{item['ticker']}.json","r") as file:
                 quote_data = orjson.loads(file.read())
 
-                item['price'] = round(quote_data.get('price',0),2)
-                item['changesPercentage'] = round(quote_data.get('changesPercentage',0),2)
-                item['marketCap'] = quote_data.get('marketCap',0)
-                item['eps'] = round(quote_data.get('eps',0),2)
+                item['name'] = quote_data.get('name','n/a')
 
-            unique_str = f"{item['date']}-{item['ticker']}-{item.get('text','')}"
+            item['amountInt'] = extract_first_value(item['amount'])
+            unique_str = f"{item['disclosureDate']}-{item['transactionDate']}-{item['amount']}-{item['representative']}"
             item['id'] = hashlib.md5(unique_str.encode()).hexdigest()
             
-            if item['marketCap'] > 1E9:
+            if item['amountInt'] >= 50_000:
                 res_list.append(item)
-        except:
-            pass
+
+        except Exception as e:
+            print(e)
     
     if res_list:
 
@@ -708,32 +724,36 @@ def congress_trading():
         else:
             seen_ids = {}
 
-        for item in res_list:
+        for item in res_list[:1]:
             try:
-                if item != None and item['id'] not in seen_ids and item['marketCap']:
+                if item != None and item['id'] not in seen_ids:
                     symbol = item['ticker']
-                    price = item['price']
-                    changes_percentage = round(item['changesPercentage'],2)
-                    eps = item['eps']
-                    market_cap = abbreviate_number(item['marketCap'])
-                    description = item['text']
+                    name = item['name']
+                    representative = item['representative']
+                    amount = item['amount']
+                    transaction_type = item['type']
+                    transaction_date = datetime.strptime(item['transactionDate'], "%Y-%m-%d").strftime("%d/%m/%Y")
+                    disclosure_date = datetime.strptime(item['disclosureDate'], "%Y-%m-%d").strftime("%d/%m/%Y")
+
                     message_timestamp = int((datetime.now() - timedelta(minutes=0)).timestamp())
 
-                    color = 0x39FF14 if 'higher' in description else 0xFF0000 if 'lower' in description else 0xFFFFFF
+                    color = 0x39FF14 if transaction_type == 'Bought' else 0xFF0000
 
                     embed = {
                         "color": color,
                         "thumbnail": {"url": "https://stocknear.com/pwa-64x64.png"},
-                        "title": "Why Priced Moved",
+                        "title": "Congress Trading",
                         "fields": [
+                            {"name": "Politician", "value": representative, "inline": True},
+                            {"name": "", "value": "", "inline": True},
+                            {"name": "Amount", "value": amount, "inline": True},
                             {"name": "Symbol", "value": symbol, "inline": True},
                             {"name": "", "value": "", "inline": True},
-                            {"name": "Market Cap", "value": market_cap, "inline": True},
-                            {"name": "Price", "value": str(price), "inline": True},
+                            {"name": "Side", "value": transaction_type, "inline": True},
+                            {"name": "Trade Date", "value": transaction_date, "inline": True},
                             {"name": "", "value": "", "inline": True},
-                            {"name": "% Change", "value": str(changes_percentage)+"%", "inline": True},
+                            {"name": "Filing Date", "value": disclosure_date, "inline": True},
                             {"name": "", "value": "", "inline": False},
-                            {"name": f"{description}", "value": "", "inline": False},
                             {"name": f"Data by Stocknear - <t:{message_timestamp}:R>", "value": "", "inline": False},
                         ],
                         "footer": {"text": ""}
@@ -744,10 +764,10 @@ def congress_trading():
                         "embeds": [embed]
                     }
 
-                    response = requests.post(WIIM_WEBHOOK_URL, json=payload)
+                    response = requests.post(CONGRESS_TRADING_WEBHOOK_URL, json=payload)
 
                     if response.status_code in (200, 204):
-                        seen_list.append({'date': item['date'], 'id': item['id'], 'symbol': symbol})
+                        seen_list.append({'date': item['disclosureDate'], 'id': item['id'], 'symbol': symbol})
                         print("Embed sent successfully!")
 
                     else:
@@ -761,7 +781,7 @@ def congress_trading():
             except Exception as e:
                 print(e)
         try:
-            with open("json/discord/wiim.json","wb") as file:
+            with open("json/discord/congress_trading.json","wb") as file:
                 file.write(orjson.dumps(seen_list))
         except Exception as e:
             print(e)
@@ -774,3 +794,4 @@ if __name__ == "__main__":
     executive_order_message()
     analyst_report()
     wiim()
+    congress_trading()
