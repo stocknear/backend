@@ -431,7 +431,7 @@ def recent_earnings():
         except Exception as e:
             print(e)
 
-def executive_order_message():
+def executive_order():
 
     try:
         with open(f"json/discord/executive_order.json", "r") as file:
@@ -449,8 +449,8 @@ def executive_order_message():
             with open(filepath, "r") as file:
                 # Load the JSON data from the file using orjson
                 data = orjson.loads(file.read())
-            
-                if datetime.fromisoformat(item['date']).date() == today:
+                
+                if datetime.fromisoformat(data['date']).date() == today:
                     data['id'] = file_id.replace(".json","")
 
                 res_list.append(data)
@@ -510,8 +510,8 @@ def executive_order_message():
                 else:
                     print("Executive Order already sent!")
 
-            except Exception as e:
-                print(e)
+            except:
+                pass
 
 
 def analyst_report():
@@ -791,7 +791,7 @@ if __name__ == "__main__":
     options_flow()
     dark_pool_flow()
     recent_earnings()
-    executive_order_message()
     analyst_report()
     wiim()
     congress_trading()
+    executive_order()
