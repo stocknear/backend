@@ -130,7 +130,7 @@ async def run():
     total_symbols = get_total_symbols()
 
     #Testing mode
-    total_symbols = ['NVDA','GME']
+    #total_symbols = ['NVDA','GME']
     # Limit concurrent tasks
     concurrency = 10
     semaphore = asyncio.Semaphore(concurrency)
