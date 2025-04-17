@@ -28,6 +28,7 @@ EXECUTIVE_ORDER_WEBHOOK_URL = os.getenv("DISCORD_EXECUTIVE_ORDER_WEBHOOK")
 ANALYST_REPORT_WEBHOOK_URL = os.getenv("DISCORD_ANALYST_REPORT_WEBHOOK")
 WIIM_WEBHOOK_URL = os.getenv('DISCORD_WIIM_WEBHOOK')
 CONGRESS_TRADING_WEBHOOK_URL = os.getenv("DISCORD_CONGRESS_TRADING_WEBHOOK")
+TRUTH_SOCIAL_WEBHOOK_URL = os.getenv("DISCORD_TRUTH_SOCIAL_WEBHOOK")
 
 
 BENZINGA_API_KEY = os.getenv('BENZINGA_API_KEY')
@@ -787,6 +788,90 @@ def congress_trading():
             print(e)
 
 
+
+def truth_social():
+
+    try:
+        with open(f"json/discord/truth_social.json", "r") as file:
+            seen_list = orjson.loads(file.read())
+            seen_list = [item for item in seen_list if datetime.fromisoformat(item['date']).date() == today]
+    except:
+        seen_list = []
+
+    with open(f"json/tracker/potus/data.json", 'rb') as file:
+        data = orjson.loads(file.read())['posts']
+
+    for item in data:
+        dt = datetime.strptime(item["date"], "%B %d, %Y, %I:%M %p")
+        item['time'] = item['date']
+        item["date"] = dt.strftime("%Y-%m-%d")
+
+    data = [item for item in data if datetime.fromisoformat(item['date']).date() == today]
+
+    res_list = []
+    for item in data:
+        try:
+            unique_str = f"{item['date']}-{item['content']}"
+            item['id'] = hashlib.md5(unique_str.encode()).hexdigest()
+            
+            if item['externalLink'] == "" and len(item['content']) > 0:
+                res_list.append(item)
+        except Exception as e:
+            print(e)
+
+    if res_list:
+    
+        if seen_list:
+            seen_ids = {item['id'] for item in seen_list}
+        else:
+            seen_ids = {}
+
+        for item in res_list:
+            try:
+                if item['id'] not in seen_ids:
+                    time = item['time']
+                    description = item['content']
+                    source = f"[Source]({item['source']})"
+                    message_timestamp = int((datetime.now() - timedelta(minutes=0)).timestamp())
+                    
+
+                    embed = {
+                        "color": 0x5448EE, 
+                        "thumbnail": {"url": "https://stocknear.com/pwa-64x64.png"},
+                        "title": "Donald J. Trump",
+                        "description": time,
+                        "fields": [
+                            {"name": "", "value": description, "inline": False},
+                            {"name": "", "value": source, "inline": False},
+                            {"name": f"Data by Stocknear - <t:{message_timestamp}:R>", "value": "", "inline": False}
+                        ],
+                        "footer": {"text": ""}
+                    }
+
+                    payload = {
+                        "content": "",
+                        "embeds": [embed]
+                    }
+
+                    response = requests.post(TRUTH_SOCIAL_WEBHOOK_URL, json=payload)
+
+                    if response.status_code in (200, 204):
+                        seen_list.append({'date': item['date'], 'id': item['id']})
+                        with open("json/discord/truth_social.json","wb") as file:
+                            file.write(orjson.dumps(seen_list))
+                        print("Embed sent successfully!")
+
+                    else:
+                        print(f"Failed to send embed. Status code: {response.status_code}")
+                        print("Response content:", response.text)
+        
+                else:
+                    print("Truth Social Post already sent!")
+
+            except:
+                pass
+
+
 if __name__ == "__main__":
     options_flow()
     dark_pool_flow()
@@ -795,3 +880,4 @@ if __name__ == "__main__":
     wiim()
     congress_trading()
     executive_order()
+    truth_social()
