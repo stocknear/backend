@@ -33,8 +33,9 @@ def save_json(data, file):
 
 def wiim():
     try:
-        with open("json/bsyk/wiim.json", "r") as f:
+        with open("json/bsky/wiim.json", "r") as f:
             seen_list = orjson.loads(f.read())
+            print(seen_list)
             seen_list = [item for item in seen_list if datetime.fromisoformat(item['date']).date() == today]
     except Exception:
         seen_list = []
@@ -63,10 +64,12 @@ def wiim():
                 if item is not None and item['id'] not in seen_ids:
                     symbol = item['ticker']
                     description = item.get('text', '')
-                    message = f"#{symbol} {description}"
+                    message = f"${symbol} {description}"
                     post = client.send_post(message)
 
                     seen_list.append({'date': item['date'], 'id': item['id'], 'symbol': symbol})
+                else:
+                    print("WIIM already posted!")
             except Exception as e:
                 print(e)
 
