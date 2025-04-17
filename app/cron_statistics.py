@@ -21,7 +21,7 @@ async def get_data(symbol):
     """Extract specified columns data for a given symbol."""
     columns = ['sharesOutStanding', 'sharesQoQ', 'sharesYoY','institutionalOwnership','floatShares',
     'priceToEarningsGrowthRatio','priceToEarningsRatio','forwardPE','priceToSalesRatio','forwardPS','priceToBookRatio','priceToFreeCashFlowRatio',
-    'sharesShort','shortOutStandingPercent','shortFloatPercent','shortRatio',
+    'sharesShort','shortOutstandingPercent','shortFloatPercent','shortRatio',
     'enterpriseValue','evToSales','evToEBITDA','evToOperatingCashFlow','evToFreeCashFlow',
     'currentRatio','quickRatio','debtToFreeCashFlowRatio','debtToEBITDARatio','debtToEquityRatio','interestCoverageRatio','cashFlowToDebtRatio','debtToMarketCap',
     'returnOnEquity','returnOnAssets','returnOnInvestedCapital','revenuePerEmployee','profitPerEmployee',
