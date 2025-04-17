@@ -33,7 +33,6 @@ async def get_data(symbol):
         for column in columns:
             try:
                 result[column] = stock_screener_data_dict[symbol].get(column, None)
-                
             except:
                 pass
         return result
