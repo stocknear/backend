@@ -63,7 +63,7 @@ def format_name(name):
     return " ".join(formatted_parts)
 
 
-def aggregate_transactions(transactions, min_value=100_000):
+def aggregate_transactions(transactions, min_value=1E6):
 
     # Sort transactions by the keys we want to group by
     sorted_transactions = sorted(
@@ -127,9 +127,11 @@ async def get_data(session, symbols):
                             "shares": item.get("securitiesTransacted"),
                             "value": round(item.get("securitiesTransacted",0) * item.get("price",0),2),
                             "price": item.get("price",0),
-                            "transactionType": "Buy" if item.get("acquisitionOrDisposition") == "A" 
-                                                else "Sell" if item.get("acquisitionOrDisposition") == "D" 
-                                                else None,  # None if neither "A" nor "D"
+                            "transactionType": item.get("transactionType",None),
+                            
+                            #"transactionType": "Buy" if item.get("acquisitionOrDisposition") == "A" 
+                            #                    else "Sell" if item.get("acquisitionOrDisposition") == "D" 
+                            #                    else None,  # None if neither "A" nor "D"
                         }
                         for item in data
                         if item.get("acquisitionOrDisposition") in ["A", "D"] and item.get('price') > 0 and item.get("securitiesTransacted") > 0  # Filter out if not "A" or "D"
