@@ -123,8 +123,8 @@ async def process_symbol(ticker, semaphore):
             fpe_dict, short_dict = await get_data(ticker)
             if short_dict and fpe_dict:
                 await save_as_json(ticker, fpe_dict, short_dict)
-        except Exception as e:
-            print(f"Error processing {ticker}: {e}")
+        except:
+            pass
 
 async def run():
     total_symbols = get_total_symbols()
