@@ -1089,7 +1089,7 @@ async def get_stock_screener(con):
         try:
             with open(f"json/share-statistics/{symbol}.json", 'r') as file:
                 res = orjson.loads(file.read())
-                item['sharesShort'] = round(float(res['sharesShort']),2)
+                item['sharesShort'] = int(res['sharesShort'])
                 item['shortRatio'] = round(float(res['shortRatio']),2)
                 item['shortOutStandingPercent'] = round(float(res['shortOutStandingPercent']),2)
                 item['shortFloatPercent'] = round(float(res['shortFloatPercent']),2)
