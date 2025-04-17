@@ -161,7 +161,7 @@ def calculate_rating(data):
         elif total_ratings > 30 and overall_success_rate > 50 and overall_average_return > 50:
             normalized_rating += 0.5
 
-        elif total_ratings > 20 and overall_success_rate >= 50 and overall_average_return >= 15:
+        elif total_ratings >= 10 and overall_success_rate >= 50 and overall_average_return >= 15:
             normalized_rating += 0.3
 
         # Apply additional conditions based on return and success rate thresholds
