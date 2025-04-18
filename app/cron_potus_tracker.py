@@ -49,6 +49,8 @@ query_template = """
         date BETWEEN ? AND ?
 """
 
+today = datetime.now().date()
+cutoff = today - timedelta(days=9)
 
 def save_json(data):
     path = "json/tracker/potus"
@@ -374,6 +376,19 @@ async def get_data():
             if response.status == 200:
                 data = await response.json()
                 # Filter out items with None for date or time, then sort
+                data = [
+                    e for e in data
+                    if datetime.strptime(e['date'], '%Y-%m-%d').date() >= cutoff
+                ]
+
+                keys_to_remove = ['lastdaily', 'video_url', 'daycount', 'newmonth', 'url']
+
+                # produce a new list without those keys
+                data = [
+                    {k: v for k, v in entry.items() if k not in keys_to_remove}
+                    for entry in data
+                ]
+
                 data = sorted(
                     (item for item in data if item['date'] is not None and item['time'] is not None),
                     key=lambda x: (x['date'], x['time']),
