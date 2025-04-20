@@ -215,18 +215,18 @@ class StockDatabase:
             ticker_type = stock.get('type', '')
             if exchange_short_name in ['NYSE', 'NASDAQ','AMEX', 'PNK'] and ticker_type in ['stock']:
                 symbol = stock.get('symbol', '')
-                if exchange_short_name == 'PNK' and symbol not in ['VWAGY','SAABF','ODYS','FSRNQ','TSSI','DRSHF','NTDOY','OTGLF','TCEHY', 'KRKNF','BYDDY','XIACY','NSRGY','TLPFY','TLPFF']:
-                    pass
-                else:
-                    name = stock.get('name', '')
-                    exchange = stock.get('exchange', '')
+                #if exchange_short_name == 'PNK' and symbol not in ['VWAGY','SAABF','ODYS','FSRNQ','TSSI','DRSHF','NTDOY','OTGLF','TCEHY', 'KRKNF','BYDDY','XIACY','NSRGY','TLPFY','TLPFF']:
+                #    pass
+                #else:
+                name = stock.get('name', '')
+                exchange = stock.get('exchange', '')
 
-                    #if name and '-' not in symbol:
-                    if name:
-                        symbols.append(symbol)
-                        names.append(name)
+                #if name and '-' not in symbol:
+                if name:
+                    symbols.append(symbol)
+                    names.append(name)
 
-                        ticker_data.append((symbol, name, exchange, exchange_short_name, ticker_type))
+                    ticker_data.append((symbol, name, exchange, exchange_short_name, ticker_type))
         
 
         self.cursor.execute("BEGIN TRANSACTION")  # Begin a transaction
@@ -333,21 +333,50 @@ class StockDatabase:
 
 
 
-url = f"https://financialmodelingprep.com/api/v3/available-traded/list?apikey={api_key}"
 
-
-async def fetch_tickers():
+async def fetch_all_tickers(api_key: str):
+    url = f"https://financialmodelingprep.com/api/v3/stock/list?apikey={api_key}"
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
-            data = await response.text()
-            return get_jsonparsed_data(data)
+            data = await response.json()
+            return data
 
+async def fetch_pnk_tickers(api_key: str):
+    url = (
+        f"https://financialmodelingprep.com/stable/company-screener"
+        f"?exchange=PNK&marketCapMoreThan=1000000000&apikey={api_key}"
+    )
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            data = await response.json()
+            return data
 
-db = StockDatabase('backup_db/stocks.db')
-loop = asyncio.get_event_loop()
-all_tickers = loop.run_until_complete(fetch_tickers())
-all_tickers = [item for item in all_tickers if '-' not in item['symbol'] or item['symbol'] in ['BRK-A', 'BRK-B']]
+async def main():
+    db = StockDatabase('backup_db/stocks.db')
 
+    # Fetch all tickers and filter out symbols containing a dash (except BRK-A/BRK-B)
+    all_tickers = await fetch_all_tickers(api_key)
+    all_tickers = [
+        t for t in all_tickers
+        if ('-' not in t['symbol'] or t['symbol'] in ['BRK-A', 'BRK-B'])
+    ]
 
-loop.run_until_complete(db.save_stocks(all_tickers))
-db.close_connection()
+    # Fetch tickers on the PNK exchange with market cap > 1B
+    pnk_list = await fetch_pnk_tickers(api_key)
+    pnk_symbols = {item['symbol'] for item in pnk_list}
+
+    # If ticker is on PNK exchange, only keep it if it's in the PNK screener list
+    filtered = []
+    for t in all_tickers:
+        if t.get('exchangeShortName') == 'PNK':
+            if t['symbol'] in pnk_symbols:
+                filtered.append(t)
+        else:
+            filtered.append(t)
+
+    # Save the filtered list to the database
+    await db.save_stocks(filtered)
+    db.close_connection()
+
+if __name__ == '__main__':
+    asyncio.run(main())
