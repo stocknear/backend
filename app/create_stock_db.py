@@ -213,11 +213,9 @@ class StockDatabase:
         for stock in stocks:
             exchange_short_name = stock.get('exchangeShortName', '')
             ticker_type = stock.get('type', '')
-            if exchange_short_name in ['XETRA','NYSE', 'NASDAQ','AMEX', 'PNK','EURONEXT'] and ticker_type in ['stock']:
+            if exchange_short_name in ['NYSE', 'NASDAQ','AMEX', 'PNK'] and ticker_type in ['stock']:
                 symbol = stock.get('symbol', '')
-                if exchange_short_name == 'PNK' and symbol not in ['ODYS','FSRNQ','TSSI','DRSHF','NTDOY','OTGLF','TCEHY', 'KRKNF','BYDDY','XIACY','NSRGY','TLPFY','TLPFF']:
-                    pass
-                elif exchange_short_name == 'EURONEXT' and symbol not in ['ALEUP.PA','ALNEV.PA','ALGAU.PA','ALDRV.PA','ALHYG.PA','ALVMG.PA','TEP.PA']:
+                if exchange_short_name == 'PNK' and symbol not in ['VWAGY','SAABF','ODYS','FSRNQ','TSSI','DRSHF','NTDOY','OTGLF','TCEHY', 'KRKNF','BYDDY','XIACY','NSRGY','TLPFY','TLPFF']:
                     pass
                 else:
                     name = stock.get('name', '')
