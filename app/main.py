@@ -296,6 +296,9 @@ class OptionsFlowData(BaseModel):
     pagesize: int = Field(default=1000)
     page: int = Field(default=0)
 
+class OptionsFlowFeed(BaseModel):
+    orderList: List
+    
 class HistoricalPrice(BaseModel):
     ticker: str
     timePeriod: str
@@ -2984,50 +2987,23 @@ async def get_options_chain(data:HistoricalDate, api_key: str = Security(get_api
         headers={"Content-Encoding": "gzip"}
     )
 
-'''
+
+fields_to_remove = {'exchange', 'tradeCount', 'description', 'aggressor_ind'}
+
 @app.post("/options-flow-feed")
-async def get_options_flow_feed(data: LastOptionId, api_key: str = Security(get_api_key)):
-    last_option_id = data.lastId
+async def get_options_flow_feed(data: OptionsFlowFeed, api_key: str = Security(get_api_key)):
+    order_list = data.orderList
 
     try:
         with open(f"json/options-flow/feed/data.json", 'rb') as file:
-            all_data = orjson.loads(file.read())
+            data = orjson.loads(file.read())
+            if len(order_list) > 0:
+                data = [item for item in data if item['id'] not in order_list]
 
-        if len(last_option_id) == 0:
-            res_list = all_data[0:100]
-        else:
-            # Find the index of the element with the last known ID
-            start_index = next((i for i, item in enumerate(all_data) if item["id"] == last_option_id), -1)
-            if start_index == -1:
-                raise ValueError("Last known ID not found in data")
-
-            # Get the next 100 elements
-            res_list = all_data[start_index + 1:start_index + 101]
-
-        # Compress the data
-        compressed_data = gzip.compress(orjson.dumps(res_list))
-
-        return StreamingResponse(
-            io.BytesIO(compressed_data),
-            media_type="application/json",
-            headers={"Content-Encoding": "gzip"}
-        )
-    except Exception as e:
-        # Log the error for debugging
-        print(f"Error: {str(e)}")
-        return StreamingResponse(
-            io.BytesIO(gzip.compress(orjson.dumps([]))),
-            media_type="application/json",
-            headers={"Content-Encoding": "gzip"}
-        )
-'''
-@app.get("/options-flow-feed")
-async def get_options_flow_feed(api_key: str = Security(get_api_key)):
-    try:
-        with open(f"json/options-flow/feed/data.json", 'rb') as file:
-            res_list = orjson.loads(file.read())
+            res_list = [{k: v for k, v in item.items() if k not in fields_to_remove} for item in data]
     except:
         res_list = []
+
     data = orjson.dumps(res_list)
     compressed_data = gzip.compress(data)
     return StreamingResponse(
