@@ -108,16 +108,20 @@ async def run():
     etf_con.close()
 
     index_symbols = ['^SPX','^VIX']
-
     
     for symbol in stocks_symbols:
         try:
             with open(f"json/quote/{symbol}.json", "r") as file:
                 quote_data = orjson.loads(file.read())
-                # Get market cap (default to 0 if not found)
-                market_caps[symbol] = quote_data.get('marketCap', 0)
+                # Get market cap; if it's None (or not a number), force 0
+                raw_mcap = quote_data.get('marketCap')
+                if not isinstance(raw_mcap, (int, float)):
+                    raw_mcap = 0
+                market_caps[symbol] = raw_mcap
         except FileNotFoundError:
             market_caps[symbol] = 0
+
+
 
     # Sort symbols by market cap in descending order (largest first)
     stocks_symbols = sorted(stocks_symbols, key=lambda s: market_caps[s], reverse=True)
