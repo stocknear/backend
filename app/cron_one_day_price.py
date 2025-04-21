@@ -88,7 +88,7 @@ async def get_todays_data(ticker, semaphore):
 async def run():
     # Create a semaphore to limit the number of concurrent connections
     # Adjust this number based on your system's limits
-    connection_limit = 1500
+    connection_limit = 1000
     semaphore = asyncio.Semaphore(connection_limit)
     
     con = sqlite3.connect('stocks.db')
