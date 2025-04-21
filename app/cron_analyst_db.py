@@ -155,8 +155,8 @@ def calculate_rating(data):
         base_rating = sum(weighted_components)
         normalized_rating = min(max(base_rating / sum(weights.values()) * 5, 0), 5)
         # Encourage higher ratings for sufficient data and good performance
-        if total_ratings > 50 and overall_success_rate > 60 and overall_average_return > 60:
-            normalized_rating += 1.0
+        if total_ratings > 45 and overall_success_rate > 45 and overall_average_return > 45:
+            normalized_rating += 1.5
 
         elif total_ratings > 30 and overall_success_rate > 50 and overall_average_return > 50:
             normalized_rating += 0.5
