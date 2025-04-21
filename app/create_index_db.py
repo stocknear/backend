@@ -220,7 +220,9 @@ db = IndexDatabase('backup_db/index.db')
 loop = asyncio.get_event_loop()
 all_tickers = loop.run_until_complete(fetch_tickers())
 
-all_tickers = [item for item in all_tickers if item['symbol'] in ['^SPX','^VIX']]
+all_tickers = [item for item in all_tickers if item['currency'] == 'USD']
+print(len(all_tickers))
+
 try:
     loop.run_until_complete(db.save_index(all_tickers))
 except Exception as e:
