@@ -341,10 +341,7 @@ async def fetch_all_tickers(api_key: str):
             return data
 
 async def fetch_pnk_tickers(api_key: str):
-    url = (
-        f"https://financialmodelingprep.com/stable/company-screener"
-        f"?exchange=PNK&marketCapMoreThan=1000000000&apikey={api_key}"
-    )
+    url = f"https://financialmodelingprep.com/stable/company-screener?exchange=PNK&marketCapMoreThan=1000000000&isETF=false&limit=5000&volumeMoreThan=1000&apikey={api_key}"
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
             data = await response.json()
@@ -364,8 +361,6 @@ async def main():
     pnk_list = await fetch_pnk_tickers(api_key)
     pnk_symbols = {item['symbol'] for item in pnk_list}
 
-    # ensure VWAGY is in, and drop VLKAF, VLKPF
-    pnk_symbols |= {'VWAGY'}       # union: add VWAGY if missing
     pnk_symbols -= {'VLKAF','VLKPF','DTEGF','RNMBY'}  # difference: remove both
 
 
