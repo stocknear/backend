@@ -193,7 +193,7 @@ class IndexDatabase:
 
                 ohlc_data = get_jsonparsed_data(data)
                 if 'historical' in ohlc_data:
-                    ohlc_values = [(item['date'], item['open'], item['high'], item['low'], item['close'], item['volume'], round(item['changePercent'], 2)) for item in ohlc_data['historical'][::-1]]
+                    ohlc_values = [(item['date'], item['open'], item['high'], item['low'], item['close'], item['volume'], item['changePercent']) for item in ohlc_data['historical'][::-1]]
 
                     df = pd.DataFrame(ohlc_values, columns=['date', 'open', 'high', 'low', 'close', 'volume', 'change_percent'])
                 

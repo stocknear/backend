@@ -17,6 +17,9 @@ today = datetime.today().date()
 # Connect to the databases
 con = sqlite3.connect('stocks.db')
 etf_con = sqlite3.connect('etf.db')
+index_con = sqlite3.connect('index.db')
+
+
 cursor = con.cursor()
 cursor.execute("PRAGMA journal_mode = wal")
 #cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%' AND marketCap > 1E9")
@@ -29,11 +32,17 @@ etf_cursor.execute("PRAGMA journal_mode = wal")
 etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
 etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
-index_symbols =["^SPX","^VIX"]
 
+index_cursor = index_con.cursor()
+index_cursor.execute("PRAGMA journal_mode = wal")
+#index_cursor.execute("SELECT DISTINCT symbol FROM etfs WHERE marketCap > 1E9")
+index_cursor.execute("SELECT DISTINCT symbol FROM indices")
+index_symbols = [row[0] for row in index_cursor.fetchall()]
 
 con.close()
 etf_con.close()
+index_con.close()
+
 
 total_symbols = stocks_symbols+etf_symbols+index_symbols
 

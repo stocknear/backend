@@ -48,8 +48,11 @@ with sqlite3.connect('etf.db') as etf_con:
     etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
     etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
-index_symbols =["^SPX","^VIX"]
-
+with sqlite3.connect('index.db') as index_con:
+    index_cursor = index_con.cursor()
+    index_cursor.execute("PRAGMA journal_mode = wal")
+    index_cursor.execute("SELECT DISTINCT symbol FROM indices")
+    index_symbols = [row[0] for row in index_cursor.fetchall()]
 
 def generate_unique_id(date, text):
     # Concatenate the title and date to form a string

@@ -25,8 +25,13 @@ def get_total_symbols():
         etf_cursor.execute("PRAGMA journal_mode = wal")
         etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
         etf_symbols = [row[0] for row in etf_cursor.fetchall()]
+    
+    with sqlite3.connect('index.db') as index_con:
+        index_cursor = index_con.cursor()
+        index_cursor.execute("PRAGMA journal_mode = wal")
+        index_cursor.execute("SELECT DISTINCT symbol FROM indices")
+        index_symbols = [row[0] for row in index_cursor.fetchall()]
 
-    index_symbols =["^SPX","^VIX"]
     return stocks_symbols + etf_symbols +index_symbols
 
 

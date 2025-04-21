@@ -111,6 +111,7 @@ async def save_bid_ask_as_json(symbol, data):
 async def run():
     con = sqlite3.connect('stocks.db')
     etf_con = sqlite3.connect('etf.db')
+    index_con = sqlite3.connect('index.db')
 
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
@@ -122,11 +123,14 @@ async def run():
     etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
     etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
-
-    index_symbols = ['^SPX','^VIX']
+    index_cursor = index_con.cursor()
+    index_cursor.execute("PRAGMA journal_mode = wal")
+    index_cursor.execute("SELECT DISTINCT symbol FROM indices")
+    index_symbols = [row[0] for row in index_cursor.fetchall()]
 
     con.close()
     etf_con.close()
+    index_con.close()
 
     new_york_tz = pytz.timezone('America/New_York')
     current_time_new_york = datetime.now(new_york_tz)

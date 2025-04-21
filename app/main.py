@@ -1838,47 +1838,41 @@ async def get_stock(
     if not query:
         return JSONResponse(content=[])
 
-    # Handle special index cases
-    index_mappings = {
-        "SPX": "^SPX",
-        "VIX": "^VIX"
-    }
-    
-    # Check if query matches any index symbols
-    upper_query = query.upper()
-    if upper_query in index_mappings:
-        # Find the index data in searchbar_data
-        index_result = next(
-            (item for item in searchbar_data if item['symbol'] == index_mappings[upper_query]),
-            None
-        )
-        if index_result:
-            return JSONResponse(content=[index_result])
+    # Normalize query for index lookup: strip leading "^" then uppercase
+    idx_key = query.upper().lstrip("^")
+    candidate_symbol = f"^{idx_key}"
 
-    # Check for exact ISIN match first
-    exact_match = next((item for item in searchbar_data if item.get("isin",None) == query), None)
+    # Try to find an exact symbol match for an index (e.g. "^SPX", "^VIX", "^DJI", etc.)
+    index_result = next(
+        (item for item in searchbar_data if item.get("symbol", "").upper() == candidate_symbol),
+        None
+    )
+    if index_result:
+        return JSONResponse(content=[index_result])
+
+    # Exact ISIN match
+    exact_match = next((item for item in searchbar_data if item.get("isin") == query), None)
     if exact_match:
         return JSONResponse(content=[exact_match])
 
-    # Precompile case-insensitive regex for faster matching
-    search_pattern = re.compile(re.escape(query.lower()), re.IGNORECASE)
+    # Prepare case‑insensitive search regex
+    pattern = re.compile(re.escape(query), re.IGNORECASE)
 
-    # Filter items based on the search pattern
-    filtered_data = [
+    # Filter by name or symbol
+    filtered = [
         item for item in searchbar_data
-        if search_pattern.search(item['name']) or search_pattern.search(item['symbol'])
+        if pattern.search(item.get("name", "")) or pattern.search(item.get("symbol", ""))
     ]
 
-    # Sort by the calculated score, giving exact symbol matches the highest priority,
-    # and then by descending marketCap for other matches (if available)
+    # Score + sort: exact symbol hits first, then by descending marketCap
     results = sorted(
-        filtered_data,
+        filtered,
         key=lambda item: (
-            calculate_score(item, query),
-            0 if item.get('marketCap') is None else -item['marketCap']
+            0 if item.get("symbol", "").lower() == query.lower() else calculate_score(item, query),
+            0 if item.get("marketCap") is None else -item["marketCap"]
         )
     )[:5]
-    
+
     return JSONResponse(content=orjson.loads(orjson.dumps(results)))
 
 

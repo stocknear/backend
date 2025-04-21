@@ -93,6 +93,7 @@ async def run():
     
     con = sqlite3.connect('stocks.db')
     etf_con = sqlite3.connect('etf.db')
+    index_con = sqlite3.connect('index.db')
 
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
@@ -104,10 +105,16 @@ async def run():
     etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
     etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
+    index_cursor = index_con.cursor()
+    index_cursor.execute("PRAGMA journal_mode = wal")
+    index_cursor.execute("SELECT DISTINCT symbol FROM indices")
+    index_symbols = [row[0] for row in index_cursor.fetchall()]
+
     con.close()
     etf_con.close()
+    index_con.close()
 
-    index_symbols = ['^SPX','^VIX']
+
     
     for symbol in stocks_symbols:
         try:

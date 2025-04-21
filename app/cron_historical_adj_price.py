@@ -50,7 +50,7 @@ async def get_data(session, symbol):
 async def run():
     stock_symbols = get_symbols('stocks.db', 'stocks')
     etf_symbols = get_symbols('etf.db', 'etfs')
-    index_symbols = ['^SPX','^VIX']
+    index_symbols = get_symbols('index.db','indices')
     total_symbols = stock_symbols + etf_symbols + index_symbols
     async with aiohttp.ClientSession() as session:
         tasks = []
