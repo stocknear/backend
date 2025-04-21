@@ -3,27 +3,9 @@ let serverRunning = false;
 const fastify = require("fastify")({});
 const cors = require("@fastify/cors");
 
-//Load API KEYS
-require("dotenv").config({ path: "../app/.env" });
-const fmpAPIKey = process.env.FMP_API_KEY;
-//const mixpanelAPIKey =  process.env.MIXPANEL_API_KEY;
-
-//const Mixpanel = require('mixpanel');
-//const UAParser = require('ua-parser-js');
 
 const fs = require("fs");
 const path = require("path");
-//const pino = require('pino');
-
-//const mixpanel = Mixpanel.init(mixpanelAPIKey, { debug: false });
-
-//const PocketBase = require("pocketbase/cjs");
-//const pb = new PocketBase("http://127.0.0.1:8090");
-
-// globally disable auto cancellation
-//See https://github.com/pocketbase/js-sdk#auto-cancellation
-//Bug happens that get-post gives an error of auto-cancellation. Hence set it to false;
-//pb.autoCancellation(false);
 
 const { serialize } = require("object-to-formdata");
 
@@ -54,21 +36,10 @@ const corsMiddleware = (request, reply, done) => {
 };
 fastify.addHook("onRequest", corsMiddleware);
 
-
-function wait(ms) {
-  var start = new Date().getTime();
-  var end = start;
-  while (end < start + ms) {
-    end = new Date().getTime();
-  }
-}
-
 fastify.register(require("@fastify/websocket"));
 
 const WebSocket = require("ws");
 
-let isSend = false;
-let sendInterval;
 
 function formatTimestampNewYork(timestamp) {
   const d = new Date(timestamp / 1e6);
@@ -86,183 +57,6 @@ function formatTimestampNewYork(timestamp) {
     .replace(",", "");
 }
 
-
-fastify.register(async function (fastify) {
-  fastify.get(
-    "/realtime-crypto-data",
-    { websocket: true },
-    (connection, req) => {
-      // Send a welcome message to the client
-
-      // Listen for incoming messages from the client
-      connection.socket.on("message", (message) => {
-        symbol = message.toString("utf-8");
-        console.log("Received message from client:", symbol);
-
-        // If you want to dynamically update the subscription based on client's message
-        updateSubscription();
-      });
-
-      //======================
-      const login = {
-        event: "login",
-        data: {
-          apiKey: fmpAPIKey,
-        },
-      };
-
-      const subscribe = {
-        event: "subscribe",
-        data: {
-          ticker: "", // Initial value; will be updated dynamically
-        },
-      };
-
-      function updateSubscription() {
-        subscribe.data.ticker = symbol;
-      }
-
-      // Create a new WebSocket instance for your backend
-      const ws = new WebSocket("wss://crypto.financialmodelingprep.com");
-
-      // Handle WebSocket connection open
-
-      ws.on("open", function open() {
-        ws.send(JSON.stringify(login));
-        wait(2000); //2 seconds in milliseconds
-        ws.send(JSON.stringify(subscribe));
-      });
-
-      // Handle WebSocket errors
-      ws.on("error", function (error) {
-        console.error("WebSocket error:", error);
-        // Handle the error gracefully, you might want to notify the client or log it.
-        // For now, let's close the connection if an error occurs
-        connection.socket.close();
-      });
-
-      // Handle WebSocket messages
-      ws.on("message", function (data, flags) {
-        const stringData = data.toString("utf-8");
-
-        if (connection.socket.readyState === WebSocket.OPEN && !isSend) {
-          connection.socket.send(stringData);
-          //console.log(stringData)
-          isSend = true;
-          setTimeout(() => {
-            isSend = false;
-          }, 2000);
-
-          //wait(2000);
-        }
-        //wait(2000);
-      });
-
-      //======================
-
-      // Handle client disconnect
-      connection.socket.on("close", () => {
-        console.log("Client disconnected");
-        connection?.socket?.close();
-        // Check if the WebSocket is open before trying to close it
-        if (ws.readyState === WebSocket.OPEN) {
-          try {
-            ws.close();
-          } catch (e) {
-            console.error("Error while closing WebSocket:", e);
-          }
-        }
-      });
-    }
-  );
-});
-
-
-
-fastify.register(async function (fastify) {
-  fastify.get("/options-flow-reader", { websocket: true }, (connection, req) => {
-    let sendInterval;
-    let pingInterval;
-    let sendTimeout = null;
-    let lastSentData = [];
-
-    const sendData = async () => {
-      if (sendTimeout) {
-        clearTimeout(sendTimeout);
-        sendTimeout = null;
-      }
-
-      const filePath = path.join(__dirname, "../app/json/options-flow/feed/data.json");
-      
-      try {
-        if (fs.existsSync(filePath)) {
-          const fileData = fs.readFileSync(filePath, "utf8").trim();
-
-          if (!fileData) {
-            sendTimeout = setTimeout(sendData, 2000);
-            return;
-          }
-
-          let parsedData;
-          try {
-            parsedData = JSON.parse(fileData);
-          } catch (jsonErr) {
-            sendTimeout = setTimeout(sendData, 2000);
-            return;
-          }
-
-          if (parsedData.length > lastSentData.length && connection.socket.readyState === 1) {
-            connection.socket.send(JSON.stringify(parsedData));
-            lastSentData = parsedData;
-          }
-        } else {
-          sendTimeout = setTimeout(sendData, 2000);
-        }
-      } catch (err) {
-        sendTimeout = setTimeout(sendData, 2000);
-      }
-    };
-
-    // Initial send and interval setup
-    sendData();
-    sendInterval = setInterval(sendData, 500);
-
-    // Heartbeat mechanism
-    pingInterval = setInterval(() => {
-      if (connection.socket.readyState === 1) {
-        connection.socket.ping();
-      }
-    }, 25000);
-
-    // Cleanup function
-    const cleanup = () => {
-      clearInterval(sendInterval);
-      clearInterval(pingInterval);
-      if (sendTimeout) clearTimeout(sendTimeout);
-      [
-        'exit', 'SIGINT', 'SIGTERM',
-        'uncaughtException', 'unhandledRejection'
-      ].forEach(event => process.off(event, cleanup));
-      
-      if (connection.socket.readyState === 1) {
-        connection.socket.close();
-      }
-    };
-
-    // Process event handlers
-    process.on('exit', cleanup);
-    process.on('SIGINT', cleanup);
-    process.on('SIGTERM', cleanup);
-    process.on('uncaughtException', cleanup);
-    process.on('unhandledRejection', cleanup);
-
-    // WebSocket close handler
-    connection.socket.on('close', () => {
-      console.log('Client disconnected');
-      cleanup();
-    });
-  });
-});
 
 
 fastify.register(async function (fastify) {
