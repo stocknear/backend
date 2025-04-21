@@ -15,6 +15,7 @@ from ta.trend import *
 from ta.volume import *
 import warnings
 from utils.helper import get_last_completed_quarter
+import time
 
 from dotenv import load_dotenv
 import os
@@ -128,7 +129,6 @@ class StockDatabase:
                                         'country': parsed_data[0]['country'],
                                         'sector': parsed_data[0]['sector'],
                                         'industry': parsed_data[0]['industry'],
-                                        'discounted_cash_flow': round(parsed_data[0]['dcf'],2),
                                         }
                             fundamental_data.update(data_dict)
 
@@ -137,7 +137,7 @@ class StockDatabase:
                             fundamental_data['quote'] = ujson.dumps(parsed_data)
                             data_dict = {
                                         'price': parsed_data[0]['price'],
-                                        'changesPercentage': round(parsed_data[0]['changesPercentage'],2),
+                                        'changesPercentage':parsed_data[0]['changesPercentage'],
                                         'marketCap': parsed_data[0]['marketCap'],
                                         'volume': parsed_data[0]['volume'],
                                         'avgVolume': parsed_data[0]['avgVolume'],
@@ -179,7 +179,6 @@ class StockDatabase:
                             fundamental_data['analyst_estimates'] = ujson.dumps(parsed_data)
                     except Exception as e:
                         print(e)
-                        pass
 
 
             # Check if columns already exist in the table
@@ -365,7 +364,11 @@ async def main():
     pnk_list = await fetch_pnk_tickers(api_key)
     pnk_symbols = {item['symbol'] for item in pnk_list}
 
-    # If ticker is on PNK exchange, only keep it if it's in the PNK screener list
+    # ensure VWAGY is in, and drop VLKAF, VLKPF
+    pnk_symbols |= {'VWAGY'}       # union: add VWAGY if missing
+    pnk_symbols -= {'VLKAF','VLKPF','DTEGF','RNMBY'}  # difference: remove both
+
+
     filtered = []
     for t in all_tickers:
         if t.get('exchangeShortName') == 'PNK':
