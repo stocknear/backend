@@ -220,7 +220,11 @@ db = IndexDatabase('backup_db/index.db')
 loop = asyncio.get_event_loop()
 all_tickers = loop.run_until_complete(fetch_tickers())
 
-all_tickers = [item for item in all_tickers if item['currency'] == 'USD']
+all_tickers = [
+    item for item in all_tickers
+    if item['currency'] == 'USD' and '.' not in item['symbol'] and '-' not in item['symbol']
+]
+
 print(len(all_tickers))
 
 try:

@@ -49,7 +49,7 @@ API_URL = "http://localhost:8000"
 
 STOCK_DB = 'stocks'
 ETF_DB = 'etf'
-CRYPTO_DB = 'crypto'
+INDEX_DB = 'index'
 INSTITUTE_DB = 'institute'
 
 OPTIONS_WATCHLIST_DIR = Path("json/options-historical-data/watchlist")
@@ -147,21 +147,21 @@ with db_connection(ETF_DB) as cursor:
 #------End ETF DB------------#
 
 
-#------Start Crypto DB------------#
-'''
-with db_connection(CRYPTO_DB) as cursor:
-  cursor.execute("SELECT DISTINCT symbol FROM cryptos")
-  crypto_symbols = [row[0] for row in cursor.fetchall()]
+#------Start Index DB------------#
 
-  cursor.execute("SELECT symbol, name, type FROM cryptos")
+with db_connection(INDEX_DB) as cursor:
+  cursor.execute("SELECT DISTINCT symbol FROM indices")
+  index_symbols = [row[0] for row in cursor.fetchall()]
+
+  cursor.execute("SELECT symbol, name, type FROM indices")
   raw_data = cursor.fetchall()
-  crypto_list_data = [{
+  index_list_data = [{
     'symbol': row[0],
     'name': row[1],
-    'type': row[2].capitalize(),
+    'type': 'Index',
   } for row in raw_data]
-'''
-#------End Crypto DB------------#
+
+#------End Index DB------------#
 
 #------Start Institute DB------------#
 with db_connection(INSTITUTE_DB) as cursor:
@@ -178,7 +178,8 @@ stock_screener_data_dict = {item['symbol']: item for item in stock_screener_data
 #------End Stock Screener--------#
 
 #------Init Searchbar Data------------#
-index_list_data = [{'symbol': '^SPX','name': 'S&P 500 Index', 'type': 'Index'}, {'symbol': '^VIX','name': 'CBOE Volatility Index', 'type': 'Index'},]
+#index_list_data = [{'symbol': '^SPX','name': 'S&P 500 Index', 'type': 'Index'}, {'symbol': '^VIX','name': 'CBOE Volatility Index', 'type': 'Index'},]
+
 searchbar_data = stock_list_data + etf_list_data + index_list_data
 
 for item in searchbar_data:
@@ -1944,41 +1945,6 @@ async def revenue_segmentation(data: TickerData, api_key: str = Security(get_api
 
 
 
-@app.post("/crypto-profile")
-async def get_crypto_profile(data: TickerData, api_key: str = Security(get_api_key)):
-    ticker = data.ticker.upper()
-    cache_key = f"crypto-profile-{ticker}"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return orjson.loads(cached_result)
-
-    query_template = """
-        SELECT 
-            profile
-        FROM 
-            cryptos
-        WHERE
-            symbol = ?
-    """
-    query = query_template.format(ticker=ticker)
-    cur = crypto_con.cursor()
-    cur.execute(query, (ticker,))
-    result = cur.fetchone()  # Get the first row
-    profile_list = []
-
-    try:
-        if result is not None:
-            profile_list = orjson.loads(result[0])
-    except:
-        profile_list = []
-
-    redis_client.set(cache_key, orjson.dumps(profile_list))
-    redis_client.expire(cache_key, 3600 * 24) # Set cache expiration time to Infinity
-
-    return profile_list
-
-
-
 @app.post("/index-profile")
 async def get_data(data: TickerData, api_key: str = Security(get_api_key)):
 
@@ -2156,34 +2122,6 @@ async def get_all_etf_tickers(api_key: str = Security(get_api_key)):
         headers={"Content-Encoding": "gzip"}
     )
 
-@app.get("/all-crypto-tickers")
-async def get_all_crypto_tickers(api_key: str = Security(get_api_key)):
-    cache_key = f"all-crypto-tickers"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return StreamingResponse(
-        io.BytesIO(cached_result),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"})
-
-    try:
-        with open(f"json/all-symbols/cryptos.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = []
-
-    # Compress the JSON data
-    data = orjson.dumps(res)
-    compressed_data = gzip.compress(data)
-
-    redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
-
-    return StreamingResponse(
-        io.BytesIO(compressed_data),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"}
-    )
 
 @app.get("/congress-rss-feed")
 async def get_congress_rss_feed(api_key: str = Security(get_api_key)):
