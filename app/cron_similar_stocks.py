@@ -32,7 +32,7 @@ async def get_data(symbol):
         result = {}
         for column in columns:
             try:
-                result[column] = stock_screener_data_dict[symbol].get(column, None)
+                result[column] = stock_screener_data_dict[symbol][column]
             except:
                 pass
         return result
@@ -43,7 +43,7 @@ async def run():
     cursor.execute("PRAGMA journal_mode = wal")
     cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
     total_symbols = [row[0] for row in cursor.fetchall()]
-    #total_symbols = ['NVDA']  # For testing purposes
+    #total_symbols = ['MRIN']  # For testing purposes
     
     for ticker in tqdm(total_symbols):
         # Get peers for the current ticker
