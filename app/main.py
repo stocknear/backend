@@ -267,9 +267,9 @@ async def get_documentation(username: str = Depends(get_current_username)):
 async def openapi(username: str = Depends(get_current_username)):
     return get_openapi(title = "FastAPI", version="0.1.0", routes=app.routes)
 
-
 class TickerData(BaseModel):
     ticker: str
+
 
 class GeneralData(BaseModel):
     params: str
@@ -323,32 +323,8 @@ class GetWatchList(BaseModel):
     watchListId: str
     ruleOfList: list
 
-class EditWatchList(BaseModel):
-    watchListId: str
-    title: str
-
-class GetOnePost(BaseModel):
-    postId: str
-
-class UserPost(BaseModel):
-    postId: str
-    userId: str
-
-class CreateWatchList(BaseModel):
-    title: str
-    user: str
-    ticker: str
-
 class UserId(BaseModel):
     userId: str
-
-class GetLeaderBoard(BaseModel):
-    startDate: str
-    endDate: str
-
-
-class GetStrategy(BaseModel):
-    strategyId: str
 
 class GetCIKData(BaseModel):
     cik: str
@@ -357,15 +333,6 @@ class CreateStrategy(BaseModel):
     title: str
     user: str
     rules: str
-
-class SaveStrategy(BaseModel):
-    strategyId: str
-    rules: list
-
-class GetFeedback(BaseModel):
-    user: str
-    rating: str
-    description: str
 
 class GetBatchPost(BaseModel):
     userId: str
@@ -836,6 +803,7 @@ async def get_market_news(data: MarketNews, api_key: str = Security(get_api_key)
 @app.post("/stock-news")
 async def stock_news(data: TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
+
     cache_key = f"stock-news-{ticker}"
 
     cached_result = redis_client.get(cache_key)
@@ -855,7 +823,7 @@ async def stock_news(data: TickerData, api_key: str = Security(get_api_key)):
     data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
     redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 60*30)
+    redis_client.expire(cache_key, 60*5)
 
     return StreamingResponse(
         io.BytesIO(compressed_data),
@@ -863,6 +831,39 @@ async def stock_news(data: TickerData, api_key: str = Security(get_api_key)):
         headers={"Content-Encoding": "gzip"}
     )
 
+
+@app.post("/news-videos")
+async def stock_news(data: TickerData, api_key: str = Security(get_api_key)):
+    ticker = data.ticker.upper()
+
+    cache_key = f"news-video-{ticker}"
+
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+        io.BytesIO(cached_result),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"})
+
+
+    try:
+        with open(f"json/market-news/companies/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
+    except:
+        res = []
+
+    res = [item for item in res if 'youtube.com' in item['url'] or 'youtu.be' in item['url']]
+
+    data = orjson.dumps(res)
+    compressed_data = gzip.compress(data)
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 60*5)
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
 
 @app.post("/stock-press-release")
 async def stock_news(data: TickerData, api_key: str = Security(get_api_key)):
