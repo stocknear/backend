@@ -361,7 +361,7 @@ async def main():
     pnk_list = await fetch_pnk_tickers(api_key)
     pnk_symbols = {item['symbol'] for item in pnk_list}
 
-    pnk_symbols -= {'VWAPY','VLKAF','VLKPF','DTEGF','RNMBY'}  # difference: remove both
+    pnk_symbols -= {'VWAPY','VLKAF','VLKPF','DTEGF','RNMBY','RNMBF'}  # difference: remove both
 
 
     filtered = []
