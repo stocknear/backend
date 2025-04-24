@@ -2692,6 +2692,9 @@ async def get_data(data:GreekExposureData, api_key: str = Security(get_api_key))
     except:
         data = []
 
+    if category == 'expiry':
+        data = [item for item in data if item[f"call_{type}"] != 0 and item[f"put_{type}"] != 0]
+
     data = orjson.dumps(data)
     compressed_data = gzip.compress(data)
     redis_client.set(cache_key, compressed_data)

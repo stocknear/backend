@@ -1228,10 +1228,8 @@ async def get_all_stock_tickers():
                     if symbol in stock_screener_data_dict:
                         item['revenue'] = stock_screener_data_dict[symbol].get('revenue')
                     
-                    if item['marketCap'] > 0:
+                    if item['marketCap'] > 0 and item['revenue'] > 0 and item['exchange'] in ['NYSE','NASDAQ','AMEX']:
                         res_list.append(item)
-
-            
             except:
                 pass
             
