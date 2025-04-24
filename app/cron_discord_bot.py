@@ -688,7 +688,7 @@ def wiim():
             unique_str = f"{item['date']}-{item['ticker']}-{item.get('text','')}"
             item['id'] = hashlib.md5(unique_str.encode()).hexdigest()
             
-            if item['marketCap'] > 20E9:
+            if item['marketCap'] > 50E9:
                 res_list.append(item)
         except:
             pass
