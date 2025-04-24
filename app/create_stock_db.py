@@ -7,7 +7,7 @@ import pandas as pd
 import os
 from tqdm import tqdm
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timezone
 from ta.utils import *
 from ta.volatility import *
 from ta.momentum import *
@@ -121,6 +121,19 @@ class StockDatabase:
                     parsed_data = get_jsonparsed_data(data)
 
                     try:
+                        # ----- NEW: filter out stale quotes -----
+                        if isinstance(parsed_data, list) and "quote" in url:
+                            quote = parsed_data[0]
+                            quote_ts = quote.get("timestamp")
+                            now_ts = datetime.now(timezone.utc).timestamp()
+                            # If older than 5 days, delete symbol and stop processing
+                            if quote_ts and (now_ts - quote_ts) > 10 * 24 * 3600:
+                                self.cursor.execute("DELETE FROM stocks WHERE symbol = ?", (symbol,))
+                                self.cursor.execute(f"DROP TABLE IF EXISTS '{symbol}'")
+                                self.conn.commit()
+                                print(f"Deleting old outdated ticker {symbol}")
+                                return
+
                         if isinstance(parsed_data, list) and "profile" in url:
                             # Handle list response, save as JSON object
                             fundamental_data['profile'] = ujson.dumps(parsed_data)
@@ -372,7 +385,9 @@ async def main():
         else:
             filtered.append(t)
 
-    # Save the filtered list to the database
+    #testing mode
+    #filtered = [item for item in filtered if item['symbol'] in ['AAPL','AAC']]
+    
     await db.save_stocks(filtered)
     db.close_connection()
 
