@@ -1240,56 +1240,59 @@ async def get_all_stock_tickers():
 
 async def get_all_etf_tickers():
     try:
-        '''
-        with sqlite3.connect('etf.db') as etf_con:
-            etf_cursor = etf_con.cursor()
-            etf_cursor.execute("PRAGMA journal_mode = wal")
-            etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
-            etf_symbols = [row[0] for row in etf_cursor.fetchall()]
-        '''
+        # 1) load symbols + raw profile JSON from SQLite
         with sqlite3.connect('etf.db') as con:
             cursor = con.cursor()
             cursor.execute("PRAGMA journal_mode = wal")
-            cursor.execute("SELECT DISTINCT symbol FROM etfs")
-            etf_symbols = [row[0] for row in cursor.fetchall()]
+            cursor.execute("SELECT DISTINCT symbol, profile FROM etfs")
+            rows = cursor.fetchall()
 
-        res_list = []
-        for symbol in etf_symbols:
-            try:
-                
+        # 2) parse profiles into a list of dicts
+        etf_meta = []
+        for symbol, raw_profile in rows:
+            asset_class = aum = None
+            if raw_profile:
                 try:
-                    with open(f"json/quote/{symbol}.json", "rb") as file:
-                        quote_data = orjson.loads(file.read())
-                except (FileNotFoundError, orjson.JSONDecodeError):
-                    quote_data = None
+                    profiles = orjson.loads(raw_profile)
+                    first = profiles[0] if isinstance(profiles, list) and profiles else {}
+                    asset_class = first.get('assetClass')
+                    aum = first.get('aum')
+                    expense_ratio = first.get('expenseRatio')
 
-                if quote_data:
-                    item = {
+                except:
+                    pass
+            etf_meta.append({'symbol': symbol, 'assetClass': asset_class, 'aum': aum, 'expenseRatio': expense_ratio})
+
+        # 3) read each quote JSON, build output only if aum > 0
+        result = []
+        for meta in etf_meta:
+            try:
+                symbol, aum = meta['symbol'], meta['aum'] or 0
+                asset_class = meta['assetClass']
+                expense_ratio = meta['expenseRatio']
+                if aum > 0 and aum < 1E12 and asset_class in ['Equity', 'Fixed Income', 'Commodity','Currency','Asset Allocation']:
+                    with open(f"json/quote/{symbol}.json", 'rb') as file:
+                        quote = orjson.loads(file.read())
+                    result.append({
                         'symbol': symbol,
-                        'name': quote_data.get('name',None),
-                        'price': round(quote_data.get('price'), 2) if quote_data.get('price') is not None else None,
-                        'changesPercentage': round(quote_data.get('changesPercentage'), 2) if quote_data.get('changesPercentage') is not None else None,
-                        'marketCap': quote_data.get('marketCap', None),
-                    }
-                    
-                    if item['marketCap'] > 0:
-                        res_list.append(item)
-
-            
+                        'name': quote.get('name'),
+                        'assetClass': asset_class,
+                        'aum': aum,
+                        'expenseRatio': expense_ratio
+                    })
             except:
                 pass
-            
-        if res_list:
-            res_list = sorted(res_list, key=lambda x: x['symbol'], reverse=False)
-                
+
+        if result:
+            result.sort(key=lambda x: x['aum'], reverse=True)
             with open("json/stocks-list/list/all-etf-tickers.json", 'wb') as file:
-                file.write(orjson.dumps(res_list))
+                file.write(orjson.dumps(result))
 
-    except:
-        pass
-
+    except Exception as e:
+        print(e)
 
 async def run():
+    
     await asyncio.gather(
         get_ai_stocks(),
         get_clean_energy(),
@@ -1328,6 +1331,7 @@ async def run():
         get_etf_provider(),
         get_most_buybacks(),
     )
+    
 
 
     """Main function to run the analysis for all categories"""
