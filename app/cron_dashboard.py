@@ -342,21 +342,41 @@ async def get_latest_wiim():
                     continue
                 
                 data = ujson.loads(await response.text())
+
                 for item in data:
                     try:
-                        if len(item['stocks']) == 1:
-                            item['ticker'] = item['stocks'][0].get('name', None)
-
-                            with open(f"json/quote/{item['ticker']}.json", "r") as file:
-                                quote_data = ujson.load(file)
-                                item['marketCap'] = quote_data.get('marketCap', None)
-                            
+                        stocks = item.get('stocks', [])
+                        # Extract all tickers
+                        tickers = [s.get('name') for s in stocks if s.get('name')]
+                        # If at least one ticker, append an entry for each
+                        for ticker in tickers:
                             res_list.append({
                                 'date': item['created'],
                                 'text': item['title'],
-                                'marketCap': item['marketCap'],
-                                'ticker': item['ticker']
+                                'ticker': ticker,
                             })
+                    except Exception:
+                        # skip any malformed items
+                        continue
+
+                for item in data:
+                    try:
+                        stocks = item.get('stocks', [])
+                        tickers = [s.get('name') for s in stocks if s.get('name')]
+                        for ticker in tickers:
+                            try:
+                                with open(f"json/quote/{ticker}.json", "r") as file:
+                                    quote_data = ujson.load(file)
+                                    item['marketCap'] = quote_data.get('marketCap', None)
+                                
+                                res_list.append({
+                                    'date': item['created'],
+                                    'text': item['title'],
+                                    'marketCap': item['marketCap'],
+                                    'ticker': ticker
+                                })
+                            except:
+                                pass
                     except:
                         pass
                 
