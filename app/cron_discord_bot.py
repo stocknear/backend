@@ -607,9 +607,7 @@ def wiim():
 
     #Get data
     def get_latest_wiim():
-        #different today as in the beginning
         today = datetime.today().strftime('%Y-%m-%d')
-        tomorrow = (datetime.today() + timedelta(1))
         yesterday = weekday()
 
         url = "https://api.benzinga.com/api/v2/news"
@@ -617,7 +615,7 @@ def wiim():
             "token": BENZINGA_API_KEY,
             "dateFrom": yesterday,
             "dateTo": today,
-            "sort": "updated:desc",
+            "sort": "created:desc",
             "pageSize": 1000,
             "channels": "WIIM"
         }
@@ -634,37 +632,37 @@ def wiim():
                     continue
 
                 data = ujson.loads(response.text)
+                # Loop through each news item
                 for item in data:
                     try:
                         stocks = item.get('stocks', [])
-                        if len(stocks) == 1:
-                            ticker = stocks[0].get('name')
-                            item['ticker'] = ticker
-
-                           
-
+                        # Extract all tickers
+                        tickers = [s.get('name') for s in stocks if s.get('name')]
+                        # If at least one ticker, append an entry for each
+                        for ticker in tickers:
                             res_list.append({
                                 'date': item['created'],
                                 'text': item['title'],
                                 'ticker': ticker,
                             })
                     except Exception:
-                        pass
+                        # skip any malformed items
+                        continue
 
                 if res_list:
                     break  # success, exit retry loop
 
             except requests.RequestException:
-                # network error, wait then retry
                 time.sleep(retry_delay)
                 continue
 
-        # sort descending by date
+        # Sort descending by date
         res_list.sort(
             key=lambda itm: datetime.strptime(itm['date'], '%a, %d %b %Y %H:%M:%S %z'),
             reverse=True
         )
-        # normalize date format
+
+        # Normalize date format
         for itm in res_list:
             dt = datetime.strptime(itm['date'], '%a, %d %b %Y %H:%M:%S %z')
             itm['date'] = dt.strftime('%Y-%m-%d')
@@ -674,6 +672,7 @@ def wiim():
 
     data = get_latest_wiim()
     data = [item for item in data if datetime.fromisoformat(item['date']).date() == today]
+    
     
     res_list = []
     for item in data:
@@ -949,7 +948,7 @@ if __name__ == "__main__":
     dark_pool_flow()
     recent_earnings()
     analyst_report()
-    wiim()
     congress_trading()
     executive_order()
     truth_social()
+    wiim()
