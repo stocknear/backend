@@ -14,7 +14,7 @@ load_dotenv()
 next_year = datetime.now().year + 1
 start_date = "2015-01-01"
 end_date = datetime.today().strftime("%Y-%m-%d")
-api_key = os.getenv("benzinga_api_key")
+api_key = os.getenv("BENZINGA_API_KEY")
 
 def get_total_symbols():
     with sqlite3.connect('stocks.db') as con:
@@ -22,13 +22,7 @@ def get_total_symbols():
         cursor.execute("PRAGMA journal_mode = wal")
         cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
         stocks_symbols = [row[0] for row in cursor.fetchall()]
-
-    with sqlite3.connect('etf.db') as etf_con:
-        etf_cursor = etf_con.cursor()
-        etf_cursor.execute("PRAGMA journal_mode = wal")
-        etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
-        etf_symbols = [row[0] for row in etf_cursor.fetchall()]
-    return stocks_symbols + etf_symbols
+    return stocks_symbols
 
 def _save_files(symbol, forward_pe_dict, short_dict):
     Path("json/share-statistics").mkdir(parents=True, exist_ok=True)
