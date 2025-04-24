@@ -1191,13 +1191,6 @@ async def get_index_list():
 
 async def get_all_stock_tickers():
     try:
-        '''
-        with sqlite3.connect('etf.db') as etf_con:
-            etf_cursor = etf_con.cursor()
-            etf_cursor.execute("PRAGMA journal_mode = wal")
-            etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
-            etf_symbols = [row[0] for row in etf_cursor.fetchall()]
-        '''
         with sqlite3.connect('stocks.db') as con:
             cursor = con.cursor()
             cursor.execute("PRAGMA journal_mode = wal")
@@ -1218,23 +1211,26 @@ async def get_all_stock_tickers():
                     item = {
                         'symbol': symbol,
                         'name': quote_data.get('name',None),
-                        'price': round(quote_data.get('price'), 2) if quote_data.get('price') is not None else None,
-                        'changesPercentage': round(quote_data.get('changesPercentage'), 2) if quote_data.get('changesPercentage') is not None else None,
+                        #'price': round(quote_data.get('price'), 2) if quote_data.get('price') is not None else None,
+                        #'changesPercentage': round(quote_data.get('changesPercentage'), 2) if quote_data.get('changesPercentage') is not None else None,
                         'marketCap': quote_data.get('marketCap', None),
                         'revenue': None,
                     }
                     
+                    exchange = None
                     # Add screener data if available
                     if symbol in stock_screener_data_dict:
                         item['revenue'] = stock_screener_data_dict[symbol].get('revenue')
+                        item['industry'] = stock_screener_data_dict[symbol].get('industry')
+                        exchange = stock_screener_data_dict[symbol].get('exchange')
                     
-                    if item['marketCap'] > 0 and item['revenue'] > 0 and item['exchange'] in ['NYSE','NASDAQ','AMEX']:
-                        res_list.append(item)
+                        if item['marketCap'] > 0 and item['revenue'] > 0 and exchange in ['NYSE','NASDAQ','AMEX']:
+                            res_list.append(item)
             except:
                 pass
-            
+        
         if res_list:
-            res_list = sorted(res_list, key=lambda x: x['symbol'], reverse=False)
+            res_list = sorted(res_list, key=lambda x: x['marketCap'], reverse=True)
                 
             with open("json/stocks-list/list/all-stock-tickers.json", 'wb') as file:
                 file.write(orjson.dumps(res_list))

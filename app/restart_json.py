@@ -860,12 +860,14 @@ async def get_stock_screener(con):
                 item['country'] = get_country_name(res['country'])
                 item['sector'] = res['sector']
                 item['industry'] = res['industry']
+                item['exchange'] = res['exchange']
         except:
             item['employees'] = None
             item['sharesOutStanding'] = None
             item['country'] = None
             item['sector'] = None
             item['industry'] = None
+            item['exchange'] = None
 
         try:
             with open(f"json/profile/{symbol}.json", 'r') as file:
