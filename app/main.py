@@ -1109,7 +1109,7 @@ async def economic_calendar(api_key: str = Security(get_api_key)):
         )
 
     try:
-        with open(f"json/economic-calendar/calendar.json", 'rb') as file:
+        with open(f"json/economic-calendar/data.json", 'rb') as file:
             res = orjson.loads(file.read())
     except:
         res = []
@@ -1139,7 +1139,7 @@ async def earnings_calendar(api_key: str = Security(get_api_key)):
             headers={"Content-Encoding": "gzip"}
         )
     try:
-        with open(f"json/earnings-calendar/calendar.json", 'rb') as file:
+        with open(f"json/earnings-calendar/data.json", 'rb') as file:
             res = orjson.loads(file.read())
     except:
         res = []
@@ -1167,7 +1167,7 @@ async def dividends_calendar(api_key: str = Security(get_api_key)):
         )
 
     try:
-        with open(f"json/dividends-calendar/calendar.json", 'rb') as file:
+        with open(f"json/dividends-calendar/data.json", 'rb') as file:
             res = orjson.loads(file.read())
     except:
         res = []
@@ -1183,35 +1183,6 @@ async def dividends_calendar(api_key: str = Security(get_api_key)):
         media_type="application/json",
         headers={"Content-Encoding": "gzip"}
     )
-
-@app.get("/stock-splits-calendar")
-async def stock_splits_calendar(api_key: str = Security(get_api_key)):
-    cache_key = f"stock-splits-calendar"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return StreamingResponse(
-            io.BytesIO(cached_result),
-            media_type="application/json",
-            headers={"Content-Encoding": "gzip"}
-        )
-    try:
-        with open(f"json/stock-splits-calendar/calendar.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = []
-
-    res = orjson.dumps(res)
-    compressed_data = gzip.compress(res)
-
-    redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
-
-    return StreamingResponse(
-        io.BytesIO(compressed_data),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"}
-    )
-
 
 
 @app.post("/stockdeck")

@@ -1691,6 +1691,22 @@ async def get_ipo_calendar(con, symbols):
     return res_sorted
 
 
+def save_json(data, directory):
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    with open(f"{directory}/data.json","w") as file:
+        ujson.dump(data, file)
+
+
+def save_json(data, directory):
+    # Check if the directory exists, if not, create it
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    
+    # Save the data to the file
+    with open(f"{directory}/data.json", "w") as file:
+        ujson.dump(data, file)
+
 async def save_json_files():
     con = sqlite3.connect('stocks.db')
     etf_con = sqlite3.connect('etf.db')
@@ -1705,46 +1721,38 @@ async def save_json_files():
     etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
     etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
-
+    # Save IPO calendar
     data = await get_ipo_calendar(con, symbols)
-    with open(f"json/ipo-calendar/data.json", 'w') as file:
-        ujson.dump(data, file)
+    save_json(data, "json/ipo-calendar")
 
-
+    # Save economic calendar
     economic_list = await get_economic_calendar()
     if len(economic_list) > 0:
-        with open(f"json/economic-calendar/calendar.json", 'w') as file:
-            ujson.dump(economic_list, file)
-
+        save_json(economic_list, "json/economic-calendar")
     
+    # Save stock screener data
     stock_screener_data = await get_stock_screener(con)
-    with open(f"json/stock-screener/data.json", 'w') as file:
-        ujson.dump(stock_screener_data, file)
+    save_json(stock_screener_data, "json/stock-screener")
     
-    
+    # Save congress trading data
     data = await get_congress_rss_feed(symbols, etf_symbols)
-    with open(f"json/congress-trading/rss-feed/data.json", 'w') as file:
-        ujson.dump(data, file)
+    save_json(data, "json/congress-trading/rss-feed")
     
-    
-    earnings_list = await get_earnings_calendar(con,symbols)
-    with open(f"json/earnings-calendar/calendar.json", 'w') as file:
-        ujson.dump(earnings_list, file)
+    # Save earnings calendar
+    earnings_list = await get_earnings_calendar(con, symbols)
+    save_json(earnings_list, "json/earnings-calendar")
 
+    # Save dividends calendar
+    dividends_list = await get_dividends_calendar(con, symbols)
+    save_json(dividends_list, "json/dividends-calendar")
 
-    dividends_list = await get_dividends_calendar(con,symbols)
-    with open(f"json/dividends-calendar/calendar.json", 'w') as file:
-        ujson.dump(dividends_list, file)
-
+    # Save ETF providers data
     data = await etf_providers(etf_con, etf_symbols)
-    with open(f"json/all-etf-providers/data.json", 'w') as file:
-        ujson.dump(data, file)
+    save_json(data, "json/all-etf-providers")
 
-
+    # Close connections
     con.close()
-    etf_con.close()
-    
-        
+    etf_con.close() 
 try:
     loop = asyncio.get_event_loop()
     loop.run_until_complete(save_json_files())
