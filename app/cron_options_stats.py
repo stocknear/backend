@@ -177,114 +177,139 @@ def get_market_flow_data(ticker,interval_1m=True):
 
 
 async def main():
-    
-    with open(f"json/options-flow/feed/data.json", "r") as file:
+    # load today’s raw option‐flow data
+    with open("json/options-flow/feed/data.json", "r") as file:
         data = orjson.loads(file.read())
 
     total_symbols = get_total_symbols()
-    
+
     for symbol in tqdm(total_symbols):
         try:
-            #Start of daily stats
-            call_premium = 0
-            put_premium = 0
-            call_open_interest = 0
-            put_open_interest = 0
-            call_volume = 0
-            put_volume = 0
-            bearish_premium = 0
-            bullish_premium = 0
-            neutral_premium = 0
+            # ---- initialize your counters/pools ----
+            call_premium = put_premium = 0
+            # we’ll fill call_open_interest/put_open_interest below from deduped stats
+            call_open_interest = put_open_interest = 0
+            bullish_premium = bearish_premium = neutral_premium = 0
+            net_call_premium = net_put_premium = 0
 
-            net_call_premium = 0
-            net_put_premium = 0
-            net_premium = 0
-            
+            # temporary storage per option_symbol for the *latest* volume & OI
+            latest_stats = {}
+
+            # ---- single pass: 
+            #   (a) aggregate premiums & sentiment/netting 
+            #   (b) track latest volume+OI per symbol
             for item in data:
+                if item.get("ticker") != symbol:
+                    continue
+
+                # parse the trade time
                 try:
-                    if item['ticker'] == symbol:
-                        if item['put_call'] == 'Calls':
-                            call_premium += item['cost_basis']
-                            call_open_interest += int(item['open_interest'])
-                            call_volume += int(item['volume'])
-                        elif item['put_call'] == 'Puts':
-                            put_premium += item['cost_basis']
-                            put_open_interest += int(item['open_interest'])
-                            put_volume += int(item['volume'])
+                    t = datetime.strptime(item["time"], "%H:%M:%S")
+                except ValueError:
+                    continue
 
-                        if item['sentiment'] == 'Bullish':
-                            bullish_premium +=item['cost_basis']
-                            if item['put_call'] == 'Calls':
-                                net_call_premium +=item['cost_basis']
-                            elif item['put_call'] == 'Puts':
-                                net_put_premium +=item['cost_basis']
-                        
-                        if item['sentiment'] == 'Bearish':
-                            bearish_premium +=item['cost_basis']
-                            if item['put_call'] == 'Calls':
-                                net_call_premium -=item['cost_basis']
-                            elif item['put_call'] == 'Puts':
-                                net_put_premium -=item['cost_basis']
+                cost = item["cost_basis"]
+                oi   = int(item["open_interest"])
+                pc   = item["put_call"]
+                sent = item["sentiment"]
 
-                        if item['sentiment'] == 'Neutral':
-                            neutral_premium +=item['cost_basis']
-                except:
-                    pass
+                # ——— premiums & netting ———
+                if pc == "Calls":
+                    call_premium += cost
+                else:
+                    put_premium  += cost
 
-            with open(f"json/options-historical-data/companies/{symbol}.json", "r") as file:
-                past_data = orjson.loads(file.read())[0]
-                #previous_open_interest = past_data['total_open_interest']
-                iv_rank = past_data['iv_rank']
-                iv = past_data['iv']
+                if sent == "Bullish":
+                    bullish_premium += cost
+                    if pc == "Calls":
+                        net_call_premium += cost
+                    else:
+                        net_put_premium  += cost
 
-            total_open_interest = call_open_interest+put_open_interest
+                elif sent == "Bearish":
+                    bearish_premium += cost
+                    if pc == "Calls":
+                        net_call_premium -= cost
+                    else:
+                        net_put_premium  -= cost
 
-            #changesPercentageOI = round((total_open_interest/previous_open_interest-1)*100, 2) if previous_open_interest > 0 else 0
-            #changeOI = total_open_interest - previous_open_interest
-            put_call_ratio = round(put_volume/call_volume,2) if call_volume > 0 else 0
+                else:  # Neutral
+                    neutral_premium += cost
 
+                # ——— track latest volume & OI per option_symbol ———
+                opt = item["option_symbol"]
+                vol = int(item["volume"])
+                rec = latest_stats.get(opt)
+
+                if (rec is None) or (t > rec["time"]):
+                    latest_stats[opt] = {
+                        "time":         t,
+                        "put_call":     pc,
+                        "volume":       vol,
+                        "open_interest": oi
+                    }
+
+            # ---- after the loop, sum only the *latest* stats for volume & OI ----
+            call_volume = sum(r["volume"]       for r in latest_stats.values() if r["put_call"] == "Calls")
+            put_volume  = sum(r["volume"]       for r in latest_stats.values() if r["put_call"] == "Puts")
+            call_open_interest = sum(r["open_interest"] for r in latest_stats.values() if r["put_call"] == "Calls")
+            put_open_interest  = sum(r["open_interest"] for r in latest_stats.values() if r["put_call"] == "Puts")
+
+            # compute net premium as Calls minus Puts
             net_premium = net_call_premium - net_put_premium
+
+            # load yesterday’s stats for IV etc.
+            with open(f"json/options-historical-data/companies/{symbol}.json", "r") as file:
+                past_data   = orjson.loads(file.read())[0]
+                iv_rank     = past_data["iv_rank"]
+                iv          = past_data["iv"]
+
+            total_open_interest = call_open_interest + put_open_interest
+            put_call_ratio      = round(put_volume / call_volume, 2) if call_volume > 0 else 0
+
             premium_ratio = [
                 safe_round(bearish_premium),
                 safe_round(neutral_premium),
                 safe_round(bullish_premium)
             ]
+
             aggregate = {
-                "call_premium": round(call_premium,0),
-                "call_open_interest": round(call_open_interest,0),
-                "call_volume": round(call_volume,0),
-                "put_premium": round(put_premium,0),
-                "put_open_interest": round(put_open_interest,0),
-                "put_volume": round(put_volume,0),
-                "putCallRatio": round(put_volume/call_volume,0),
-                "total_open_interest": round(total_open_interest,0),
-                "iv": round(iv,2),
-                "iv_rank": round(iv_rank,2),
-                "putCallRatio": put_call_ratio,
-                "premium_ratio": premium_ratio,
-                "net_call_premium": round(net_call_premium),
-                "net_put_premium": round(net_put_premium),
-                "net_premium": round(net_premium),
+                "call_premium":       round(call_premium, 0),
+                "call_open_interest": round(call_open_interest, 0),
+                "call_volume":        round(call_volume, 0),
+                "put_premium":        round(put_premium, 0),
+                "put_open_interest":  round(put_open_interest, 0),
+                "put_volume":         round(put_volume, 0),
+                "putCallRatio":       put_call_ratio,
+                "total_open_interest":round(total_open_interest,0),
+                "iv":                 round(iv, 2),
+                "iv_rank":            round(iv_rank, 2),
+                "premium_ratio":      premium_ratio,
+                "net_call_premium":   round(net_call_premium),
+                "net_put_premium":    round(net_put_premium),
+                "net_premium":        round(net_premium)
             }
 
+            # save or remove if empty
             if aggregate:
-                save_json(aggregate, symbol,"json/options-stats/companies")
+                save_json(aggregate, symbol, "json/options-stats/companies")
             else:
                 os.remove(f"json/options-stats/companies/{symbol}.json")
 
-            #End of daily stats
+            # then do your market-flow snapshot
             flow_data = get_market_flow_data(symbol)
             if flow_data:
-                save_json(flow_data, symbol,"json/market-flow/companies")
+                save_json(flow_data, symbol, "json/market-flow/companies")
             else:
                 os.remove(f"json/market-flow/companies/{symbol}.json")
 
-        except:
+        except Exception:
+            # on *any* error, clean up partial outputs
             try:
                 os.remove(f"json/options-stats/companies/{symbol}.json")
                 os.remove(f"json/market-flow/companies/{symbol}.json")
-            except:
+            except OSError:
                 pass
-
+                
 if __name__ == "__main__":
     asyncio.run(main())
