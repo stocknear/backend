@@ -6,7 +6,7 @@ from datetime import datetime
 from GetStartEndDate import GetStartEndDate
 from dotenv import load_dotenv
 from benzinga import financial_data
-from utils.helper import check_market_hours
+from utils.helper import check_market_hours, compute_option_return
 
 # Load environment variables
 load_dotenv()
@@ -14,6 +14,22 @@ api_key = os.getenv('BENZINGA_API_KEY')
 
 # Initialize Benzinga API client
 fin = financial_data.Benzinga(api_key)
+quote_cache = {}
+
+
+async def get_quote_data(symbol):
+    """Get quote data for a symbol from JSON file"""
+    if symbol in quote_cache:
+        return quote_cache[symbol]
+    else:
+        try:
+            with open(f"json/quote/{symbol}.json") as file:
+                quote_data = orjson.loads(file.read())
+                quote_cache[symbol] = quote_data  # Cache the loaded data
+                return quote_data
+        except:
+            return None
+
 
 # Database connection and fetching stock/ETF symbols
 def get_symbols(db_path, table_name):
@@ -89,7 +105,19 @@ async def main():
 
     # Clean and filter the data
     filtered_data = clean_and_filter_data(options_data)
+    res_list = []
+    roi = None
+    for item in filtered_data:
+        try:
+            quote_data = await get_quote_data(item['ticker'])
+            current_price = quote_data.get('price')
 
+            if current_price:
+                roi = compute_option_return(item, current_price)
+            item['roi'] = roi
+        except:
+            item['roi'] = None
+    
     # Sort the data by time
     sorted_data = sorted(filtered_data, key=lambda x: x['time'], reverse=True)
 

@@ -217,3 +217,60 @@ def replace_representative(office):
         office = office.replace(old, new)
         office = ' '.join(office.split())
     return office
+
+
+def compute_option_return(option: dict, current_price: float) -> float:
+    """
+    Compute the return percentage of an option trade.
+
+    Parameters
+    ----------
+    option : dict
+        A dict containing at least the keys
+          - "put_call" (str): "CALL", "CALLS", "PUT", or "PUTS"
+          - "strike_price" (str or float)
+          - "price" (str or float): the premium paid (per share)
+          - "size" (str or int): number of contracts
+          - "cost_basis" (str or float, optional): total dollars paid; 
+              if missing, it's computed as price * size * 100
+    current_price : float
+        Current price of the underlying stock.
+
+    Returns
+    -------
+    float
+        Percentage return on cost basis (e.g. 56.8 for +56.8%).
+    """
+    # normalize and parse inputs
+    try:
+        pc = option["put_call"].strip().upper()
+        if pc.endswith("S"):  # handle "CALLS" and "PUTS"
+            pc = pc[:-1]
+        
+        strike = float(option["strike_price"])
+        premium = float(option["price"])
+        size = int(option["size"])
+        multiplier = 100  # standard options multiplier
+
+        # total cost basis
+        if "cost_basis" in option and option["cost_basis"] not in (None, ""):
+            cost_basis = float(option["cost_basis"])
+        else:
+            cost_basis = premium * size * multiplier
+
+        # intrinsic value per share
+        if pc == "CALL":
+            intrinsic_per_share = max(current_price - strike, 0)
+        elif pc == "PUT":
+            intrinsic_per_share = max(strike - current_price, 0)
+        else:
+            raise ValueError(f"Unknown put_call type: {option['put_call']}")
+
+        # total value now
+        total_value = intrinsic_per_share * size * multiplier
+
+        # profit and return %
+        profit = total_value - cost_basis
+        return round((profit / cost_basis) * 100,2)
+    except:
+        None
