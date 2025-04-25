@@ -1,7 +1,6 @@
 import requests
 import time
 import orjson
-import ujson
 import aiohttp
 import aiofiles
 from datetime import datetime, timedelta, timezone, date
@@ -35,18 +34,6 @@ TRUTH_SOCIAL_WEBHOOK_URL = os.getenv("DISCORD_TRUTH_SOCIAL_WEBHOOK")
 BENZINGA_API_KEY = os.getenv('BENZINGA_API_KEY')
 
 headers = {"accept": "application/json"}
-
-def weekday():
-    today = datetime.today()
-    if today.weekday() >= 5:  # 5 = Saturday, 6 = Sunday
-        yesterday = today - timedelta(2)
-    else:
-        yesterday = today - timedelta(1)
-
-    return yesterday.strftime('%Y-%m-%d')
-
-
-
 
 def save_json(data):
     directory = "json/discord"
@@ -130,7 +117,14 @@ def remove_duplicates(elements):
     
     return unique_elements
 
+def weekday():
+    today = datetime.today()
+    if today.weekday() >= 5:  # 5 = Saturday, 6 = Sunday
+        yesterday = today - timedelta(2)
+    else:
+        yesterday = today - timedelta(1)
 
+    return yesterday.strftime('%Y-%m-%d')
 
 def dark_pool_flow():
 
@@ -605,75 +599,10 @@ def wiim():
     except:
         seen_list = []
 
-    #Get data
-    def get_latest_wiim():
-        today = datetime.today().strftime('%Y-%m-%d')
-        yesterday = weekday()
+    with open(f"json/dashboard/data.json", 'rb') as file:
+        data = orjson.loads(file.read())['wiim']
+        data = [item for item in data if datetime.fromisoformat(item['date']).date() == today]
 
-        url = "https://api.benzinga.com/api/v2/news"
-        querystring = {
-            "token": BENZINGA_API_KEY,
-            "dateFrom": yesterday,
-            "dateTo": today,
-            "sort": "created:desc",
-            "pageSize": 1000,
-            "channels": "WIIM"
-        }
-        max_retries = 3
-        retry_delay = 2  # seconds
-        res_list = []
-
-        for attempt in range(max_retries):
-            try:
-                with requests.Session() as session:
-                    response = session.get(url, params=querystring, headers=headers)
-                if response.status_code != 200:
-                    time.sleep(retry_delay)
-                    continue
-
-                data = ujson.loads(response.text)
-                # Loop through each news item
-                for item in data:
-                    try:
-                        stocks = item.get('stocks', [])
-                        # Extract all tickers
-                        tickers = [s.get('name') for s in stocks if s.get('name')]
-                        # If at least one ticker, append an entry for each
-                        for ticker in tickers:
-                            res_list.append({
-                                'date': item['created'],
-                                'text': item['title'],
-                                'ticker': ticker,
-                            })
-                    except Exception:
-                        # skip any malformed items
-                        continue
-
-                if res_list:
-                    break  # success, exit retry loop
-
-            except requests.RequestException:
-                time.sleep(retry_delay)
-                continue
-
-        # Sort descending by date
-        res_list.sort(
-            key=lambda itm: datetime.strptime(itm['date'], '%a, %d %b %Y %H:%M:%S %z'),
-            reverse=True
-        )
-
-        # Normalize date format
-        for itm in res_list:
-            dt = datetime.strptime(itm['date'], '%a, %d %b %Y %H:%M:%S %z')
-            itm['date'] = dt.strftime('%Y-%m-%d')
-
-        return res_list
-
-
-    data = get_latest_wiim()
-    data = [item for item in data if datetime.fromisoformat(item['date']).date() == today]
-    
-    
     res_list = []
     for item in data:
         try:
@@ -692,7 +621,7 @@ def wiim():
                 res_list.append(item)
         except:
             pass
-
+    
     if res_list:
 
         if seen_list:
@@ -758,7 +687,7 @@ def wiim():
         except Exception as e:
             print(e)
 
-    
+
 def congress_trading():
     try:
         with open(f"json/discord/congress_trading.json", "r") as file:
@@ -948,7 +877,7 @@ if __name__ == "__main__":
     dark_pool_flow()
     recent_earnings()
     analyst_report()
+    wiim()
     congress_trading()
     executive_order()
     truth_social()
-    wiim()
