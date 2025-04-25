@@ -10,7 +10,7 @@ from collections import defaultdict, Counter
 from tqdm import tqdm
 from dotenv import load_dotenv
 import os
-
+from utils.helper import replace_representative
 
 with open(f"json/stock-screener/data.json", 'rb') as file:
     stock_screener_data = orjson.loads(file.read())
@@ -22,8 +22,14 @@ api_key = os.getenv('FMP_API_KEY')
 
 
 async def save_json_data(symbol, data):
-    async with aiofiles.open(f"json/congress-trading/company/{symbol}.json", 'w') as file:
-        await file.write(orjson.dumps(data).decode("utf-8"))
+    folder_path = "json/congress-trading/company"
+    os.makedirs(folder_path, exist_ok=True)  # Create the folder if it doesn't exist
+
+    file_path = os.path.join(folder_path, f"{symbol}.json")
+    async with aiofiles.open(file_path, 'wb') as file:
+        await file.write(orjson.dumps(data))
+
+
 
 async def get_congress_data(symbols, session):
     tasks = []
@@ -43,108 +49,6 @@ async def get_congress_data(symbols, session):
 def generate_id(name):
     hashed = hashlib.sha256(name.encode()).hexdigest()
     return hashed[:10]
-
-def replace_representative(office):
-    replacements = {
-        'Banks, James E. (Senator)': 'James Banks',
-        'Banks, James (Senator)': 'James Banks',
-        'Knott, Brad (Senator)': 'Brad Knott',
-        'Moody, Ashley B. (Senator)': 'Ashley Moody',
-        'McCormick, David H. (Senator)': 'Dave McCormick',
-        'McCormick, David H.': 'Dave McCormick',
-        'Carper, Thomas R. (Senator)': 'Tom Carper',
-        'Thomas R. Carper': 'Tom Carper',
-        'Tuberville, Tommy (Senator)': 'Tommy Tuberville',
-        'Ricketts, Pete (Senator)': 'John Ricketts',
-        'Pete Ricketts': 'John Ricketts',
-        'Moran, Jerry (Senator)': 'Jerry Moran',
-        'Fischer, Deb (Senator)': 'Deb Fischer',
-        'Mullin, Markwayne (Senator)': 'Markwayne Mullin',
-        'Whitehouse, Sheldon (Senator)': 'Sheldon Whitehouse',
-        'Toomey, Pat (Senator)': 'Pat Toomey',
-        'Sullivan, Dan (Senator)': 'Dan Sullivan',
-        'Capito, Shelley Moore (Senator)': 'Shelley Moore Capito',
-        'Roberts, Pat (Senator)': 'Pat Roberts',
-        'King, Angus (Senator)': 'Angus King',
-        'Hoeven, John (Senator)': 'John Hoeven',
-        'Duckworth, Tammy (Senator)': 'Tammy Duckworth',
-        'Perdue, David (Senator)': 'David Perdue',
-        'Inhofe, James M. (Senator)': 'James M. Inhofe',
-        'Murray, Patty (Senator)': 'Patty Murray',
-        'Boozman, John (Senator)': 'John Boozman',
-        'Loeffler, Kelly (Senator)': 'Kelly Loeffler',
-        'Reed, John F. (Senator)': 'John F. Reed',
-        'Collins, Susan M. (Senator)': 'Susan M. Collins',
-        'Cassidy, Bill (Senator)': 'Bill Cassidy',
-        'Wyden, Ron (Senator)': 'Ron Wyden',
-        'Hickenlooper, John (Senator)': 'John Hickenlooper',
-        'Booker, Cory (Senator)': 'Cory Booker',
-        'Donald Beyer, (Senator).': 'Donald Sternoff Beyer',
-        'Peters, Gary (Senator)': 'Gary Peters',
-        'Donald Sternoff Beyer, (Senator).': 'Donald Sternoff Beyer',
-        'Donald S. Beyer, Jr.': 'Donald Sternoff Beyer',
-        'Donald Sternoff Honorable Beyer': 'Donald Sternoff Beyer',
-        'K. Michael Conaway': 'Michael Conaway',
-        'C. Scott Franklin': 'Scott Franklin',
-        'Robert C. "Bobby" Scott': 'Bobby Scott',
-        'Madison Cawthorn': 'David Madison Cawthorn',
-        'Cruz, Ted (Senator)': 'Ted Cruz',
-        'Smith, Tina (Senator)': 'Tina Smith',
-        'Graham, Lindsey (Senator)': 'Lindsey Graham',
-        'Hagerty, Bill (Senator)': 'Bill Hagerty',
-        'Scott, Rick (Senator)': 'Rick Scott',
-        'Warner, Mark (Senator)': 'Mark Warner',
-        'McConnell, A. Mitchell Jr. (Senator)': 'Mitch McConnell',
-        'Mitchell McConnell': 'Mitch McConnell',
-        'Charles J. "Chuck" Fleischmann': 'Chuck Fleischmann',
-        'Vance, J.D. (Senator)': 'James Vance',
-        'Neal Patrick MD, Facs Dunn': 'Neal Dunn',
-        'Neal Patrick MD, Facs Dunn (Senator)': 'Neal Dunn',
-        'Neal Patrick Dunn, MD, FACS': 'Neal Dunn',
-        'Neal P. Dunn': 'Neal Dunn',
-        'Tillis, Thom (Senator)': 'Thom Tillis',
-        'W. Gregory Steube': 'Greg Steube',
-        'W. Grego Steube': 'Greg Steube',
-        'W. Greg Steube': 'Greg Steube',
-        'David David Madison Cawthorn': 'David Madison Cawthorn',
-        'Blunt, Roy (Senator)': 'Roy Blunt',
-        'Thune, John (Senator)': 'John Thune',
-        'Rosen, Jacky (Senator)': 'Jacky Rosen',
-        'Britt, Katie (Senator)': 'Katie Britt',
-        'Britt, Katie': 'Katie Britt',
-        'James Costa': 'Jim Costa',
-        'Lummis, Cynthia (Senator)': 'Cynthia Lummis',
-        'Coons, Chris (Senator)': 'Chris Coons',
-        'Udall, Tom (Senator)': 'Tom Udall',
-        'Kennedy, John (Senator)': 'John Kennedy',
-        'Bennet, Michael (Senator)': 'Michael Bennet',
-        'Casey, Robert P. Jr. (Senator)': 'Robert Casey',
-        'Van Hollen, Chris (Senator)': 'Chris Van Hollen',
-        'Manchin, Joe (Senator)': 'Joe Manchin',
-        'Cornyn, John (Senator)': 'John Cornyn',
-        'Enzy, Michael (Senator)': 'Michael Enzy',
-        'Cardin, Benjamin (Senator)': 'Benjamin Cardin',
-        'Kaine, Tim (Senator)': 'Tim Kaine',
-        'Joseph P. Kennedy III': 'Joe Kennedy',
-        'James E Hon Banks': 'Jim Banks',
-        'Michael F. Q. San Nicolas': 'Michael San Nicolas',
-        'Barbara J Honorable Comstock': 'Barbara Comstock',
-        'Darin McKay LaHood': 'Darin LaHood',
-        'Harold Dallas Rogers': 'Hal Rogers',
-        'April McClain Delaney': 'April Delaney',
-        'Mr ': '',
-        'Mr. ': '',
-        'Dr ': '',
-        'Dr. ': '',
-        'Mrs ': '',
-        'Mrs. ': '',
-        '(Senator)': '',
-    }
-
-    for old, new in replacements.items():
-        office = office.replace(old, new)
-        office = ' '.join(office.split())
-    return office
 
 async def get_endpoints(symbol, session):
     res_list = []
@@ -215,7 +119,7 @@ async def get_endpoints(symbol, session):
     return res_list
 
 
-def create_politician_db(data, stock_symbols, stock_raw_data, etf_symbols, etf_raw_data, crypto_symbols, crypto_raw_data):
+def create_politician_db(data, stock_symbols, stock_raw_data, etf_symbols, etf_raw_data):
     grouped_data = defaultdict(list)
     # Group elements by id
     for item in data:
@@ -234,13 +138,7 @@ def create_politician_db(data, stock_symbols, stock_raw_data, etf_symbols, etf_r
                     item['name'] = j['name']
                     item['assetType'] = 'etf'
                     break
-        elif ('ticker' in item and item['ticker'] in crypto_symbols) or ('symbol' in item and item['symbol'] in crypto_symbols):
-            for j in crypto_raw_data:
-                if (item.get('ticker') or (item.get('symbol'))) == j['symbol']:
-                    item['ticker'] = j['symbol']
-                    item['name'] = j['name']
-                    item['assetType'] = 'crypto'
-                    break
+       
 
         grouped_data[item['id']].append(item)
 
@@ -296,8 +194,13 @@ def create_politician_db(data, stock_symbols, stock_raw_data, etf_symbols, etf_r
 
             # Save to JSON file
             if result:
-                with open(f"json/congress-trading/politician-db/{item[0]['id']}.json", 'w') as file:
-                    file.write(orjson.dumps(result).decode("utf-8"))
+                folder_path = "json/congress-trading/politician-db"
+                os.makedirs(folder_path, exist_ok=True)  # Create folder if it doesn't exist
+
+                file_path = os.path.join(folder_path, f"{item[0]['id']}.json")
+                with open(file_path, 'wb') as file:
+                    file.write(orjson.dumps(result))
+
         except Exception as e:
             print(e)
 
@@ -342,12 +245,11 @@ def create_search_list():
     search_politician_list = sorted(search_politician_list, key=lambda x: x['lastTrade'], reverse=True)
 
     # Write the search list to a JSON file
-    with open('json/congress-trading/search_list.json', 'w') as file:
-        file.write(orjson.dumps(search_politician_list).decode("utf-8"))
+    with open('json/congress-trading/search_list.json', 'wb') as file:
+        file.write(orjson.dumps(search_politician_list))
 
 async def run():
     try:
-
         con = sqlite3.connect('stocks.db')
         cursor = con.cursor()
         cursor.execute("PRAGMA journal_mode = wal")
@@ -377,20 +279,9 @@ async def run():
         etf_symbols = [item['symbol'] for item in etf_raw_data]
         etf_con.close()
 
-        crypto_con = sqlite3.connect('crypto.db')
-        crypto_cursor = crypto_con.cursor()
-        crypto_cursor.execute("PRAGMA journal_mode = wal")
-        crypto_cursor.execute("SELECT DISTINCT symbol, name FROM cryptos")
-        crypto_raw_data = crypto_cursor.fetchall()
-        crypto_raw_data = [{
-            'symbol': row[0],
-            'name': row[1],
-        } for row in crypto_raw_data]
-        crypto_symbols = [item['symbol'] for item in crypto_raw_data]
-        crypto_con.close()
 
-        total_symbols = crypto_symbols +etf_symbols + stock_symbols
-        chunk_size = 100
+        total_symbols = etf_symbols + stock_symbols
+        chunk_size = 500
         politician_list = []
 
     except Exception as e:
@@ -413,7 +304,7 @@ async def run():
                     pass
         
         
-        create_politician_db(politician_list, stock_symbols, stock_raw_data, etf_symbols, etf_raw_data, crypto_symbols, crypto_raw_data)
+        create_politician_db(politician_list, stock_symbols, stock_raw_data, etf_symbols, etf_raw_data)
         create_search_list()
 
     except Exception as e:

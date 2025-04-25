@@ -18,6 +18,8 @@ import hashlib
 import glob
 from tqdm import tqdm
 from utils.country_list import country_list
+from utils.helper import replace_representative
+
 
 from dotenv import load_dotenv
 import os
@@ -1460,108 +1462,6 @@ async def get_economic_calendar():
 
     return filtered_data
 
-
-
-def replace_representative(office):
-    replacements = {
-        'Banks, James E. (Senator)': 'James Banks',
-        'Banks, James (Senator)': 'James Banks',
-        'Knott, Brad (Senator)': 'Brad Knott',
-        'Moody, Ashley B. (Senator)': 'Ashley Moody',
-        'McCormick, Dave H. (Senator)': 'Dave McCormick',
-        'McCormick, Dave H.': 'Dave McCormick',
-        'Carper, Thomas R. (Senator)': 'Tom Carper',
-        'Thomas R. Carper': 'Tom Carper',
-        'Tuberville, Tommy (Senator)': 'Tommy Tuberville',
-        'Ricketts, Pete (Senator)': 'John Ricketts',
-        'Pete Ricketts': 'John Ricketts',
-        'Moran, Jerry (Senator)': 'Jerry Moran',
-        'Fischer, Deb (Senator)': 'Deb Fischer',
-        'Mullin, Markwayne (Senator)': 'Markwayne Mullin',
-        'Whitehouse, Sheldon (Senator)': 'Sheldon Whitehouse',
-        'Toomey, Pat (Senator)': 'Pat Toomey',
-        'Sullivan, Dan (Senator)': 'Dan Sullivan',
-        'Capito, Shelley Moore (Senator)': 'Shelley Moore Capito',
-        'Roberts, Pat (Senator)': 'Pat Roberts',
-        'King, Angus (Senator)': 'Angus King',
-        'Hoeven, John (Senator)': 'John Hoeven',
-        'Duckworth, Tammy (Senator)': 'Tammy Duckworth',
-        'Perdue, David (Senator)': 'David Perdue',
-        'Inhofe, James M. (Senator)': 'James M. Inhofe',
-        'Murray, Patty (Senator)': 'Patty Murray',
-        'Boozman, John (Senator)': 'John Boozman',
-        'Loeffler, Kelly (Senator)': 'Kelly Loeffler',
-        'Reed, John F. (Senator)': 'John F. Reed',
-        'Collins, Susan M. (Senator)': 'Susan M. Collins',
-        'Cassidy, Bill (Senator)': 'Bill Cassidy',
-        'Wyden, Ron (Senator)': 'Ron Wyden',
-        'Hickenlooper, John (Senator)': 'John Hickenlooper',
-        'Booker, Cory (Senator)': 'Cory Booker',
-        'Donald Beyer, (Senator).': 'Donald Sternoff Beyer',
-        'Peters, Gary (Senator)': 'Gary Peters',
-        'Donald Sternoff Beyer, (Senator).': 'Donald Sternoff Beyer',
-        'Donald S. Beyer, Jr.': 'Donald Sternoff Beyer',
-        'Donald Sternoff Honorable Beyer': 'Donald Sternoff Beyer',
-        'K. Michael Conaway': 'Michael Conaway',
-        'C. Scott Franklin': 'Scott Franklin',
-        'Robert C. "Bobby" Scott': 'Bobby Scott',
-        'Madison Cawthorn': 'David Madison Cawthorn',
-        'Cruz, Ted (Senator)': 'Ted Cruz',
-        'Smith, Tina (Senator)': 'Tina Smith',
-        'Graham, Lindsey (Senator)': 'Lindsey Graham',
-        'Hagerty, Bill (Senator)': 'Bill Hagerty',
-        'Scott, Rick (Senator)': 'Rick Scott',
-        'Warner, Mark (Senator)': 'Mark Warner',
-        'McConnell, A. Mitchell Jr. (Senator)': 'Mitch McConnell',
-        'Mitchell McConnell': 'Mitch McConnell',
-        'Charles J. "Chuck" Fleischmann': 'Chuck Fleischmann',
-        'Vance, J.D. (Senator)': 'James Vance',
-        'Neal Patrick MD, Facs Dunn': 'Neal Dunn',
-        'Neal Patrick MD, Facs Dunn (Senator)': 'Neal Dunn',
-        'Neal Patrick Dunn, MD, FACS': 'Neal Dunn',
-        'Neal P. Dunn': 'Neal Dunn',
-        'Tillis, Thom (Senator)': 'Thom Tillis',
-        'W. Gregory Steube': 'Greg Steube',
-        'W. Grego Steube': 'Greg Steube',
-        'W. Greg Steube': 'Greg Steube',
-        'David David Madison Cawthorn': 'David Madison Cawthorn',
-        'Blunt, Roy (Senator)': 'Roy Blunt',
-        'Thune, John (Senator)': 'John Thune',
-        'Rosen, Jacky (Senator)': 'Jacky Rosen',
-        'Britt, Katie (Senator)': 'Katie Britt',
-        'James Costa': 'Jim Costa',
-        'Lummis, Cynthia (Senator)': 'Cynthia Lummis',
-        'Coons, Chris (Senator)': 'Chris Coons',
-        'Udall, Tom (Senator)': 'Tom Udall',
-        'Kennedy, John (Senator)': 'John Kennedy',
-        'Bennet, Michael (Senator)': 'Michael Bennet',
-        'Casey, Robert P. Jr. (Senator)': 'Robert Casey',
-        'Van Hollen, Chris (Senator)': 'Chris Van Hollen',
-        'Manchin, Joe (Senator)': 'Joe Manchin',
-        'Cornyn, John (Senator)': 'John Cornyn',
-        'Enzy, Michael (Senator)': 'Michael Enzy',
-        'Cardin, Benjamin (Senator)': 'Benjamin Cardin',
-        'Kaine, Tim (Senator)': 'Tim Kaine',
-        'Joseph P. Kennedy III': 'Joe Kennedy',
-        'James E Hon Banks': 'Jim Banks',
-        'Michael F. Q. San Nicolas': 'Michael San Nicolas',
-        'Barbara J Honorable Comstock': 'Barbara Comstock',
-        'Darin McKay LaHood': 'Darin LaHood',
-        'Harold Dallas Rogers': 'Hal Rogers',
-        'April McClain Delaney': 'April Delaney',
-        'Mr ': '',
-        'Mr. ': '',
-        'Dr ': '',
-        'Dr. ': '',
-        'Mrs ': '',
-        'Mrs. ': '',
-        '(Senator)': '',
-    }
-
-    for old, new in replacements.items():
-        office = office.replace(old, new)
-        office = ' '.join(office.split())
-    return office
 
 async def get_congress_rss_feed(symbols, etf_symbols):
 

@@ -426,6 +426,9 @@ async def run():
     
 
         market_status = check_market_hours()
+
+        print(market_status)
+        
         if market_status == 0:
             try:
                 with open("json/market-movers/markethours/gainers.json", 'r') as file:
