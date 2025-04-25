@@ -164,7 +164,7 @@ def recent_earnings():
         else:
             seen_ids = {}
 
-        for item in res_list[:1]:
+        for item in res_list:
             try:
                 if item != None and item['id'] not in seen_ids and item['marketCap']:
                     symbol = item['symbol']
