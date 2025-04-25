@@ -244,11 +244,11 @@ def get_top_tickers(sector_ticker):
 def get_market_flow():
     market_tide = get_sector_data(sector_ticker="SPY")
     top_pos_tickers = get_top_tickers(sector_ticker="SPY")
-    top_neg_tickers = sorted(get_top_tickers(sector_ticker="SPY"), key=lambda item: item['net_premium'])
-    for rank, item in enumerate(top_neg_tickers, 1):
-        item['rank'] = rank
+    #top_neg_tickers = sorted(get_top_tickers(sector_ticker="SPY"), key=lambda item: item['net_premium'])
+    #for rank, item in enumerate(top_neg_tickers, 1):
+    #    item['rank'] = rank
 
-    data = {'marketTide': market_tide, 'topPosNetPremium': top_pos_tickers[:5], 'topNegNetPremium': top_neg_tickers[:5]}
+    data = {'marketTide': market_tide, 'topPosNetPremium': top_pos_tickers[:20]}
     if data:
         save_json(data, 'overview')
 
@@ -256,25 +256,21 @@ def get_market_flow():
 def get_sector_flow():
     sector_dict = {}
     top_pos_tickers_dict = {}
-    top_neg_tickers_dict = {}
 
     for sector_ticker in ["XLB", "XLC", "XLY", "XLP", "XLE", "XLF", "XLV", "XLI", "XLRE", "XLK", "XLU"]:
         sector_data = get_sector_data(sector_ticker=sector_ticker)  
         top_pos_tickers = get_top_tickers(sector_ticker=sector_ticker)
-        top_neg_tickers = sorted(get_top_tickers(sector_ticker=sector_ticker), key=lambda item: item['net_premium'])
+        #top_neg_tickers = sorted(get_top_tickers(sector_ticker=sector_ticker), key=lambda item: item['net_premium'])
 
-        for rank, item in enumerate(top_neg_tickers, 1):
-            item['rank'] = rank
-        
+    
         sector_dict[sector_ticker] = sector_data
-        top_pos_tickers_dict[sector_ticker] = top_pos_tickers[:5]
-        top_neg_tickers_dict[sector_ticker] = top_neg_tickers[:5]
+        top_pos_tickers_dict[sector_ticker] = top_pos_tickers[:20]
+        #top_neg_tickers_dict[sector_ticker] = top_neg_tickers[:5]
 
 
     data = {
         'sectorFlow': sector_dict,
         'topPosNetPremium': top_pos_tickers_dict,
-        'topNegNetPremium': top_neg_tickers_dict
     }
 
     if data:
