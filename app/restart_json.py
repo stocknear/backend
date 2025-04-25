@@ -1354,60 +1354,6 @@ async def get_earnings_calendar(con, stock_symbols):
     return res_list
 
 
-async def get_stock_splits_calendar(con,symbols):
-
-    berlin_tz = pytz.timezone('Europe/Berlin')
-    today = datetime.now(berlin_tz)
-
-    # Calculate the start date (Monday) 4 weeks before
-    start_date = today - timedelta(weeks=4)
-    start_date = start_date - timedelta(days=(start_date.weekday() - 0) % 7)
-
-    # Calculate the end date (Friday) 4 weeks after
-    end_date = today + timedelta(weeks=4)
-    end_date = end_date + timedelta(days=(4 - end_date.weekday()) % 7)
-
-    # Format dates as strings in 'YYYY-MM-DD' format
-    start_date = start_date.strftime('%Y-%m-%d')
-    end_date = end_date.strftime('%Y-%m-%d')
-        
-    async with aiohttp.ClientSession() as session:
-
-        #Database read 1y and 3y data
-        query_template = """
-            SELECT 
-                name, marketCap,eps
-            FROM 
-                stocks 
-            WHERE
-                symbol = ?
-        """
-        
-        url = f"https://financialmodelingprep.com/api/v3/stock_split_calendar?from={start_date}&to={end_date}&apikey={api_key}"
-        async with session.get(url) as response:
-            data = await response.json()
-            filtered_data = [{k: v for k, v in stock.items() if stock['symbol'] in symbols} for stock in data]
-            filtered_data = [entry for entry in filtered_data if entry]
-
-            for entry in filtered_data:
-                try:
-                    symbol = entry['symbol']
-
-                    data = pd.read_sql_query(query_template, con, params=(symbol,))
-                    entry['name'] = data['name'].iloc[0]
-                    entry['marketCap'] = int(data['marketCap'].iloc[0])
-                    entry['eps'] = float(data['eps'].iloc[0])
-                except:
-                    entry['name'] = 'n/a'
-                    entry['marketCap'] = None
-                    entry['eps'] = None
-
-    filtered_data = [d for d in filtered_data if d['symbol'] in symbols]
-
-    return filtered_data
-
-
-
 async def get_economic_calendar():
     ny_tz = pytz.timezone('America/New_York')
     today = datetime.now(ny_tz)
