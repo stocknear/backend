@@ -1084,11 +1084,13 @@ async def get_stock_screener(con):
                 item['dividendYield'] = round(res['dividendYield'],2)
                 item['payoutRatio'] = round(res['payoutRatio'],2)
                 item['dividendGrowth'] = round(res['dividendGrowth'],2)
+                item['payoutFrequency'] = str(res['payoutFrequency']) if res['payoutFrequency'] != 'Special' else None
         except:
             item['annualDividend'] = None
             item['dividendYield'] = None
             item['payoutRatio'] = None
             item['dividendGrowth'] = None
+            item['payoutFrequency'] = None
 
         try:
             with open(f"json/share-statistics/{symbol}.json", 'r') as file:
@@ -1163,6 +1165,7 @@ async def get_stock_screener(con):
             item['netIncomeGrowthYears'] = None
             item['grossProfitGrowthYears'] = None
 
+            
     for item in stock_screener_data:
         for key in list(item.keys()):
             value = item[key]

@@ -1664,6 +1664,7 @@ async def stock_finder(data:StockScreenerData, api_key: str = Security(get_api_k
     except Exception as e:
         filtered_data = []
 
+    
     # Compress the JSON data
     res = orjson.dumps(filtered_data)
     compressed_data = gzip.compress(res)

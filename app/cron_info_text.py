@@ -730,6 +730,9 @@ data = {
     "changeInWorkingCapital": {
         "text": "Change in working capital is the difference between a company's short-term assets and liabilities over a specific period, reflecting how much cash flow is impacted by these changes."
     },
+    "payoutFrequency": {
+        "text": "Payout frequency is the schedule at which the dividends are paid. For example, a 'Quarterly' payout ratio implies that dividends are paid every three months."
+    },
 
 }
 
