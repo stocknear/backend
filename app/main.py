@@ -1650,12 +1650,16 @@ async def stock_finder(data:StockScreenerData, api_key: str = Security(get_api_k
             headers={"Content-Encoding": "gzip"}
         )
 
+    #For now consider only US Stocks
+    us_data_only = [item for item in stock_screener_data if item.get('exchange') != 'PNK']
+
+
     always_include = ['symbol', 'marketCap', 'price', 'changesPercentage', 'name','volume','pe']
 
     try:
         filtered_data = [
             {key: item.get(key) for key in set(always_include + rule_of_list) if key in item}
-            for item in stock_screener_data
+            for item in us_data_only
         ]
     except Exception as e:
         filtered_data = []
