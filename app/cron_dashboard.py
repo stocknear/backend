@@ -350,11 +350,17 @@ async def get_latest_wiim():
                             quote_data = ujson.load(file)
                             item['marketCap'] = quote_data.get('marketCap', None)
                         
+                        if item['ticker'] in stock_symbols:
+                            item['assetType'] = 'stocks'
+                        else:
+                            item['assetType'] = 'etf'
+
                         res_list.append({
                             'date': item['created'],
                             'text': item['title'],
                             'marketCap': item['marketCap'],
-                            'ticker': item['ticker']
+                            'ticker': item['ticker'],
+                            'assetType': item['assetType'],
                         })
                     except:
                         pass
@@ -501,6 +507,7 @@ try:
     cursor.execute("SELECT DISTINCT symbol FROM stocks")
     stock_symbols = [row[0] for row in cursor.fetchall()]
     con.close()
+
 
     asyncio.run(run())
 
