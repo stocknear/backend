@@ -98,11 +98,12 @@ async def update_free_trial():
     for item in data:
         created_date = item.created
         # Check if the created date is more than N days ago
-        if created_date < time_threshold:
+        if created_date.date() < time_threshold:
             # Update the user record
             pb.collection("users").update(item.id, {
                 "tier": 'Free',
                 "freeTrial": False,
+                "credits": 10,
             })
             try:
                 send_email(item.email)
