@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from benzinga import financial_data
 from utils.helper import check_market_hours, compute_option_return
 
+
 # Load environment variables
 load_dotenv()
 api_key = os.getenv('BENZINGA_API_KEY')
@@ -124,8 +125,8 @@ async def main():
     # Write the final data to a JSON file
     output_file = "json/options-flow/feed/data.json"
     if len(sorted_data) > 0:
-        with open(output_file, 'w') as file:
-            file.write(orjson.dumps(sorted_data).decode("utf-8"))
+        with open(output_file, 'wb') as file:
+            file.write(orjson.dumps(sorted_data))
 
     print(f"Data successfully written to {output_file}")
 
