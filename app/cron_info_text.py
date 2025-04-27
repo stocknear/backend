@@ -733,6 +733,13 @@ data = {
     "payoutFrequency": {
         "text": "Payout frequency is the schedule at which the dividends are paid. For example, a 'Quarterly' payout ratio implies that dividends are paid every three months."
     },
+    "returnOnCapitalEmployed": {
+        "text": "Return on capital employed (ROCE) is a financial ratio that measures a company's profitability and efficiency at deploying capital. The higher the value, the more effective a company is at generating profits from the capital it invests.",
+        "equation": "ROCE = EBIT / (Total Assets - Current Liabilities)",
+    },
+    "stockBasedCompensationToRevenue": {
+        "text": "The company's stock-based compensation expenses as a percentage of total revenue in the last 12 months."
+    },
 
 }
 

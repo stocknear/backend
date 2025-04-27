@@ -991,6 +991,7 @@ async def get_stock_screener(con):
                 item['returnOnCapitalEmployed'] = round(res['returnOnCapitalEmployed']*100,2)
                 item['returnOnAssets'] = round(res['returnOnAssets']*100,2)
                 item['returnOnTangibleAssets'] = round(res['returnOnTangibleAssets']*100,2)
+                item['stockBasedCompensationToRevenue'] = round(res['stockBasedCompensationToRevenue']*100,2)
 
                 item['earningsYield'] = round(res['earningsYield']*100,2)
                 item['freeCashFlowYield'] = round(res['freeCashFlowYield']*100,2)
@@ -1019,6 +1020,7 @@ async def get_stock_screener(con):
             item['evToOperatingCashFlow'] = None
             item['evToFreeCashFlow'] = None
             item['evToEBITDA'] = None
+            item['stockBasedCompensationToRevenue'] = None
 
             item['tangibleAssetValue'] = None
             item['returnOnTangibleAssets'] = None
