@@ -1654,7 +1654,7 @@ async def stock_finder(data:StockScreenerData, api_key: str = Security(get_api_k
     us_data_only = [item for item in stock_screener_data if item.get('exchange') != 'PNK']
 
 
-    always_include = ['symbol', 'marketCap', 'price', 'changesPercentage', 'name','volume','pe']
+    always_include = ['symbol', 'marketCap', 'price', 'changesPercentage', 'name','volume','priceToEarningsRatio']
 
     try:
         filtered_data = [
