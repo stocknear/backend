@@ -141,15 +141,26 @@ async def run():
             user = users_by_email.get(user_email)
             
             if status in ['expired', 'refunded']:
-                # Example logic: downgrade a Pro user if not lifetime and subscription is expired/refunded.
-                if user and getattr(user, 'tier', None) == 'Pro' and not getattr(user, 'lifetime', False):
+                # Example logic: downgrade a Pro/Plus user if not lifetime and subscription is expired/refunded.
+                if user and (getattr(user, 'tier', None) == 'Pro' or getattr(user, 'tier', None) == 'Plus') and not getattr(user, 'lifetime', False):
                     # Uncomment the line below to perform the update:
                     # pb.collection('users').update(user.id, {'tier': 'Free'})
                     print(f"Downgraded: {user_email}")
                     #print(attributes)
+
             
         except Exception as e:
             print(f"Error processing user {user_email}: {e}")
+
+
+    ##finding users who have no payment data but have been manually upgraded to pro or plus
+    all_payment_items = pb.collection('payments').get_full_list()
+    all_payment_user_id = [item.user for item in all_payment_items if hasattr(item, 'user')]
+    
+    print("====USERS WITHOUT PAYMENT DATA===")
+    for user in all_users:
+        if user.id not in all_payment_user_id and (getattr(user, 'tier', None) == 'Pro' or getattr(user, 'tier', None) == 'Plus'):
+            print(f"Downgraded: {user.email}")
 
 
 
