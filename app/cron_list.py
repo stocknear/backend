@@ -576,6 +576,54 @@ async def get_top_dividend_stocks():
         with open("json/stocks-list/list/top-rated-dividend-stocks.json", 'wb') as file:
             file.write(orjson.dumps(res_list))
 
+async def get_monthly_dividends():
+    with sqlite3.connect('stocks.db') as con:
+        cursor = con.cursor()
+        cursor.execute("PRAGMA journal_mode = wal")
+        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%' AND symbol NOT LIKE '%-%'")
+        symbols = [row[0] for row in cursor.fetchall()]
+
+    res_list = []
+    for symbol in symbols:
+        try:
+            # Load quote data from JSON file
+            payout_frequency = stock_screener_data_dict[symbol].get('payoutFrequency',None)
+            dividend_yield = stock_screener_data_dict[symbol].get('dividendYield',None)
+            exchange = stock_screener_data_dict[symbol].get('exchange',None)
+            if dividend_yield > 0  and exchange in ['NASDAQ','AMEX','NYSE'] and payout_frequency == 'Monthly':
+                quote_data = await get_quote_data(symbol)
+                # Assign price and volume, and check if they meet the penny stock criteria
+                if quote_data:
+                    price = round(quote_data.get('price',None), 2)
+                    changesPercentage = round(quote_data.get('changesPercentage'), 2)
+                    marketCap = quote_data.get('marketCap')
+                    name = quote_data.get('name')
+
+                    res_list.append({
+                        'symbol': symbol,
+                        'name': name,
+                        'dividendYield': dividend_yield,
+                        'price': price,
+                        'changesPercentage': changesPercentage,
+                        'marketCap': marketCap,
+                    })
+        except:
+            pass
+
+    if res_list:
+        # Sort by market cap in descending order
+        res_list = sorted(res_list, key=lambda x: x['marketCap'], reverse=True)
+        
+        # Assign rank to each stock
+        for rank, item in enumerate(res_list, start=1):
+            item['rank'] = rank
+
+        # Write the filtered and ranked penny stocks to a JSON file
+        with open("json/stocks-list/list/monthly-dividend-stocks.json", 'wb') as file:
+            file.write(orjson.dumps(res_list))
+
+
+
 async def get_highest_revenue():
     with sqlite3.connect('stocks.db') as con:
         cursor = con.cursor()
@@ -1330,6 +1378,7 @@ async def run():
         get_etf_holding(),
         get_etf_provider(),
         get_most_buybacks(),
+        get_monthly_dividends(),
     )
     
 
