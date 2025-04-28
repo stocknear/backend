@@ -2668,8 +2668,8 @@ async def get_data(data:GreekExposureData, api_key: str = Security(get_api_key))
     except:
         data = []
 
-    if category == 'expiry':
-        data = [item for item in data if item[f"call_{type}"] != 0 and item[f"put_{type}"] != 0]
+    if category in ['expiry','strike']:
+        data = [item for item in data if item[f"call_{type}"] + item[f"put_{type}"] != 0]
 
     data = orjson.dumps(data)
     compressed_data = gzip.compress(data)

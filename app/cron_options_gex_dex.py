@@ -270,18 +270,19 @@ def get_strike_data():
     directory_path = "json/gex-dex/strike/"
 
     #Test mode
-    #total_symbols = ['TSLA']
+    #total_symbols = ['SPY']
     for symbol in tqdm(total_symbols):
         try:
             data = aggregate_data_by_strike(symbol)
             if len(data) > 0:
                 for key_element in ['gex','dex']:
                     val_sums = [item[f"call_{key_element}"] + item[f"put_{key_element}"] for item in data]
-                    threshold = np.percentile(val_sums, 90)
-                    filtered_data = [item for item in data if (item[f"call_{key_element}"] + item[f"put_{key_element}"]) >= threshold]
-                    filtered_data = sorted(filtered_data, key=lambda x: x['strike'], reverse=True)
-                    if filtered_data:
-                        save_json(filtered_data, symbol, directory_path+key_element)
+                    #threshold = np.percentile(val_sums, 95)
+                    #filtered_data = [item for item in data if (item[f"call_{key_element}"] + item[f"put_{key_element}"]) >= threshold]
+                    #filtered_data = sorted(filtered_data, key=lambda x: x['strike'], reverse=True)
+                    data = sorted(data, key=lambda x: x['strike'], reverse=True)
+                    if data:
+                        save_json(data, symbol, directory_path+key_element)
         except:
             pass
 
@@ -289,18 +290,19 @@ def get_expiry_data():
     directory_path = "json/gex-dex/expiry/"
 
     #Test mode
-    #total_symbols = ['TSLA']
+    #total_symbols = ['SPY']
     for symbol in tqdm(total_symbols):
         try:
             data = aggregate_data_by_expiration(symbol)
             if len(data) > 0:
                 for key_element in ['gex','dex']:
-                    val_sums = [item[f"call_{key_element}"] + item[f"put_{key_element}"] for item in data]
-                    threshold = np.percentile(val_sums, 90)
-                    filtered_data = [item for item in data if (item[f"call_{key_element}"] + item[f"put_{key_element}"]) >= threshold]
-                    filtered_data = sorted(filtered_data, key=lambda x: x['expiry'], reverse=True)
-                    if filtered_data:
-                        save_json(filtered_data, symbol, directory_path+key_element)
+                    #val_sums = [item[f"call_{key_element}"] + item[f"put_{key_element}"] for item in data]
+                    #threshold = np.percentile(val_sums, 95)
+                    #filtered_data = [item for item in data if (item[f"call_{key_element}"] + item[f"put_{key_element}"]) >= threshold]
+                    #filtered_data = sorted(filtered_data, key=lambda x: x['expiry'], reverse=True)
+                    data = sorted(data, key=lambda x: x['strike'], reverse=True)
+                    if data:
+                        save_json(data, symbol, directory_path+key_element)
 
         except:
             pass

@@ -283,10 +283,8 @@ etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
 index_cursor = index_con.cursor()
 index_cursor.execute("PRAGMA journal_mode = wal")
-#index_cursor.execute("SELECT DISTINCT symbol FROM etfs WHERE marketCap > 1E9")
 index_cursor.execute("SELECT DISTINCT symbol FROM indices")
 index_symbols = [row[0] for row in index_cursor.fetchall()]
-
 
 total_symbols = stocks_symbols + etf_symbols + index_symbols
 
