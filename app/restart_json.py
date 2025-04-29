@@ -904,9 +904,9 @@ async def get_stock_screener(con):
                 revenue_3_years_ago = int(res[2].get('revenue', 0) or 0)
                 revenue_5_years_ago = int(res[4].get('revenue', 0) or 0)
 
-                latest_eps = int(res[0].get('eps', 0) or 0)
-                eps_3_years_ago = int(res[2].get('eps', 0) or 0)  # eps 3 years ago
-                eps_5_years_ago = int(res[4].get('eps', 0) or 0)  # eps 5 years ago
+                latest_eps = float(res[0].get('eps', 0) or 0)
+                eps_3_years_ago = float(res[2].get('eps', 0) or 0)  # eps 3 years ago
+                eps_5_years_ago = float(res[4].get('eps', 0) or 0)  # eps 5 years ago
 
 
                 item['cagr3YearRevenue'] = calculate_cagr(revenue_3_years_ago, latest_revenue, 3)
@@ -919,7 +919,7 @@ async def get_stock_screener(con):
                 item['cagr3YearEPS'] = None
                 item['cagr3YearEPS'] = None
 
-        except (FileNotFoundError, orjson.JSONDecodeError) as e:
+        except:
             item['cagr3YearRevenue'] = None
             item['cagr5YearRevenue'] = None
             item['cagr3YearEPS'] = None
