@@ -104,9 +104,21 @@ def get_current_price(item):
 
         # Find the record matching expiration date
         exp_iso = exp_date.isoformat()
+
+        # Try to find the exact match for the expiration date
         match = next((rec for rec in historical_list if rec.get('time') == exp_iso), None)
+
+        # If no exact match, fall back to the most recent previous close price
         if match is None:
-            raise LookupError(f"No historical price for {symbol} on {exp_iso}")
+            # Filter records before the expiration date
+            previous_records = [rec for rec in historical_list if rec.get('time') < exp_iso]
+            if previous_records:
+                # Pick the one with the latest 'time'
+                match = max(previous_records, key=lambda rec: rec.get('time'))
+            else:
+                # No previous data found; handle as needed (e.g., default value or error)
+                raise ValueError(f"No historical data available on or before {exp_iso}")
+
         current_price = match.get('close')
         if current_price is None:
             raise KeyError(f"Close price missing for {symbol} on {exp_iso}")
