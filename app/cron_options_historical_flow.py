@@ -1,14 +1,17 @@
 import time
 from benzinga import financial_data
 import ujson
+import orjson
 import numpy as np
 import sqlite3
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import concurrent.futures
 import os
 from GetStartEndDate import GetStartEndDate
 from dotenv import load_dotenv
+from utils.helper import compute_option_return
+
 
 # Load API key from .env
 load_dotenv()
@@ -31,15 +34,84 @@ stock_con.close()
 etf_con.close()
 
 
+
 # Define start and end dates for historical data
-start_date = datetime.strptime('2025-01-01', '%Y-%m-%d')
+start_date = datetime.strptime('2023-01-01', '%Y-%m-%d')
 end_date = datetime.now()
+
+today = date.today()
 
 # Directory to save the JSON files
 output_dir = "json/options-historical-data/flow-data/"
 
 # Ensure the output directory exists
 os.makedirs(output_dir, exist_ok=True)
+
+
+quote_cache = {}
+historical_cache = {}
+
+
+def get_quote_data(symbol):
+    """Get quote data for a symbol from JSON file"""
+    if symbol in quote_cache:
+        return quote_cache[symbol]
+    else:
+        try:
+            with open(f"json/quote/{symbol}.json") as file:
+                quote_data = orjson.loads(file.read())
+                quote_cache[symbol] = quote_data  # Cache the loaded data
+                return quote_data
+        except:
+            return None
+
+
+def get_current_price(item):
+    """
+    Given an item dict with 'ticker' and 'date_expiration' as 'YYYY-mm-dd' string,
+    returns the appropriate price: latest quote if expiration >= today,
+    otherwise the historical close price on date_expiration.
+    """
+    # Parse expiration date
+    exp_str = item.get('date_expiration')
+    try:
+        exp_date = datetime.strptime(exp_str, '%Y-%m-%d').date()
+    except (TypeError, ValueError):
+        raise ValueError(f"Invalid date_expiration format: {exp_str}")
+
+    symbol = item['ticker']
+    # Decide which price to fetch
+    if exp_date >= today:
+        # For future or today, get live quote
+        quote_data = get_quote_data(symbol)
+        current_price = quote_data.get('price')
+        if current_price is None:
+            raise KeyError(f"Price not found in quote data for {symbol}")
+    else:
+
+        if symbol in historical_cache:
+            return historical_cache[symbol]
+
+        # For past dates, load historical prices
+        hist_path = f"json/historical-price/max/{symbol}.json"
+        try:
+            with open(hist_path, 'rb') as f:
+                historical_list = orjson.loads(f.read())
+                historical_cache[symbol] = historical_list
+
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Historical file not found: {hist_path}")
+
+        # Find the record matching expiration date
+        exp_iso = exp_date.isoformat()
+        match = next((rec for rec in historical_list if rec.get('time') == exp_iso), None)
+        if match is None:
+            raise LookupError(f"No historical price for {symbol} on {exp_iso}")
+        current_price = match.get('close')
+        if current_price is None:
+            raise KeyError(f"Close price missing for {symbol} on {exp_iso}")
+
+    return current_price
 
 # Function to fetch options activity data for a specific day
 def process_page(page, date):
@@ -55,9 +127,9 @@ def process_page(page, date):
 def process_day(date_str):
     # Check if the file for this date already exists
     file_path = os.path.join(output_dir, f"{date_str}.json")
-    if os.path.exists(file_path):
+    #if os.path.exists(file_path):
         #print(f"File for {date_str} already exists. Skipping...")
-        return
+    #    return
 
     res_list = []
     max_workers = 6  # Adjust max_workers to control parallelism
@@ -111,6 +183,15 @@ def process_day(date_str):
     # Sort the list by time in reverse order
     filtered_list = sorted(filtered_list, key=lambda x: x['time'], reverse=True)
 
+    for item in filtered_list:
+        try:
+            current_price = get_current_price(item)
+            if current_price:
+                roi = compute_option_return(item, current_price)
+            item['roi'] = roi
+        except:
+            item['roi'] = None
+
     # Save the data to a JSON file named after the date
     if len(filtered_list) > 0:
         with open(file_path, 'w') as file:
@@ -121,11 +202,14 @@ def process_day(date_str):
 # Iterate through each weekday from the start_date to today
 current_date = start_date
 while current_date <= end_date:
-    # Check if it's a weekday (Monday=0, Sunday=6)
-    if current_date.weekday() < 5:  # Monday to Friday
-        date_str = current_date.strftime("%Y-%m-%d")
-        process_day(date_str)
-    
-    # Move to the next day
-    current_date += timedelta(days=1)
+    try:
+        # Check if it's a weekday (Monday=0, Sunday=6)
+        if current_date.weekday() < 5:  # Monday to Friday
+            date_str = current_date.strftime("%Y-%m-%d")
+            process_day(date_str)
+        
+        # Move to the next day
+        current_date += timedelta(days=1)
+    except:
+        pass
 
