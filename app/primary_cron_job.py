@@ -101,6 +101,7 @@ def run_options_jobs():
         run_command(["python3", "cron_implied_volatility.py"])
         run_command(["python3", "cron_options_gex_dex.py"])
         run_command(["python3", "cron_options_contract_lookup.py"])
+        run_command(["python3", "cron_options_max_pain.py"])
 
 def run_historical_employees():
     now = datetime.now(ny_tz)
