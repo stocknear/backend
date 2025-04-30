@@ -80,51 +80,46 @@ def get_current_price(item):
         raise ValueError(f"Invalid date_expiration format: {exp_str}")
 
     symbol = item['ticker']
-    # Decide which price to fetch
+
+    # Future or today → live quote
     if exp_date >= today:
-        # For future or today, get live quote
         quote_data = get_quote_data(symbol)
         current_price = quote_data.get('price')
         if current_price is None:
             raise KeyError(f"Price not found in quote data for {symbol}")
+        return current_price
+
+    # Past date → historical
+    # 1) Load from cache or file
+    if symbol in historical_cache:
+        historical_list = historical_cache[symbol]
     else:
-
-        if symbol in historical_cache:
-            return historical_cache[symbol]
-
-        # For past dates, load historical prices
         hist_path = f"json/historical-price/max/{symbol}.json"
         try:
             with open(hist_path, 'rb') as f:
                 historical_list = orjson.loads(f.read())
-                historical_cache[symbol] = historical_list
-
         except FileNotFoundError:
             raise FileNotFoundError(f"Historical file not found: {hist_path}")
+        historical_cache[symbol] = historical_list
 
-        # Find the record matching expiration date
-        exp_iso = exp_date.isoformat()
+    # 2) Find exact match
+    exp_iso = exp_date.isoformat()
+    match = next((rec for rec in historical_list if rec.get('time') == exp_iso), None)
 
-        # Try to find the exact match for the expiration date
-        match = next((rec for rec in historical_list if rec.get('time') == exp_iso), None)
+    # 3) If no exact match, pick the most recent prior
+    if match is None:
+        previous = [rec for rec in historical_list if rec.get('time') < exp_iso]
+        if not previous:
+            raise ValueError(f"No historical data available on or before {exp_iso}")
+        match = max(previous, key=lambda rec: rec.get('time'))
 
-        # If no exact match, fall back to the most recent previous close price
-        if match is None:
-            # Filter records before the expiration date
-            previous_records = [rec for rec in historical_list if rec.get('time') < exp_iso]
-            if previous_records:
-                # Pick the one with the latest 'time'
-                match = max(previous_records, key=lambda rec: rec.get('time'))
-            else:
-                # No previous data found; handle as needed (e.g., default value or error)
-                raise ValueError(f"No historical data available on or before {exp_iso}")
-
-        current_price = match.get('close')
-        if current_price is None:
-            raise KeyError(f"Close price missing for {symbol} on {exp_iso}")
+    # 4) Extract close price
+    current_price = match.get('close')
+    
+    if current_price is None:
+        raise KeyError(f"Close price missing for {symbol} on {exp_iso}")
 
     return current_price
-
 # Function to fetch options activity data for a specific day
 def process_page(page, date):
     try:
