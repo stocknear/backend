@@ -3425,6 +3425,37 @@ async def get_data(data:TickerData, api_key: str = Security(get_api_key)):
     )
 
 
+@app.post("/max-pain")
+async def get_data(data:TickerData, api_key: str = Security(get_api_key)):
+    ticker = data.ticker.upper()
+    cache_key = f"max-pain-{ticker}"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
+
+    try:
+        with open(f"json/max-pain/{ticker}.json", 'rb') as file:
+            res = orjson.loads(file.read())
+    except:
+        res = []
+
+    data = orjson.dumps(res)
+    compressed_data = gzip.compress(data)
+
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 60*180)
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
+
+
 
 @app.get("/reddit-tracker")
 async def get_reddit_tracker(api_key: str = Security(get_api_key)):
