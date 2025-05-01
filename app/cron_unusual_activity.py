@@ -47,7 +47,7 @@ async def get_dataset():
         try:
             with open(f"json/options-historical-data/flow-data/{date}.json", "r") as file:
                 data = orjson.loads(file.read())
-                data = [item for item in data if item['cost_basis'] >=1E6]
+                data = [item for item in data if item['cost_basis'] >=500_000]
                 for item in data:
                     if "id" in item:
                         unique_data[item["id"]] = item  # Store unique items based on "id"
@@ -57,7 +57,7 @@ async def get_dataset():
     try:
         with open(f"json/options-flow/feed/data.json", "r") as file:
             data = orjson.loads(file.read())
-            data = [item for item in data if item['cost_basis'] >=1E6]
+            data = [item for item in data if item['cost_basis'] >=500_000]
             for item in data:
                 if "id" in item:
                     unique_data[item["id"]] = item
