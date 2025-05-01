@@ -200,14 +200,15 @@ def run_historical_price():
     week = datetime.today().weekday()
     if week <= 5:
         run_command(["python3", "cron_historical_price.py"])
-        run_command(["python3","cron_historical_adj_price.py"])
+        #run_command(["python3","cron_historical_adj_price.py"])
 
 def run_one_day_price():
     now = datetime.now(ny_tz)
-    week = now.weekday()
-    hour = now.hour
-    if week <= 4 and 9 <= hour < 17:
-        run_command(["python3", "cron_one_day_price.py"])
+    # only Mon–Fri
+    if now.weekday() <= 4:
+        # between 09:00 (inclusive) and 16:30 (exclusive)
+        if datetime_time(9, 30) <= now.time() < datetime_time(16, 30):
+            run_command(["python3", "cron_one_day_price.py"])
 
 def run_sec_filings():
     week = datetime.today().weekday()

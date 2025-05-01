@@ -82,7 +82,7 @@ async def run():
     stock_symbols = [row[0] for row in cursor.fetchall()]
     con.close()
 
-    chunk_size = len(stock_symbols) // 70  # Divide the list into N chunks
+    chunk_size = len(stock_symbols) // 80  # Divide the list into N chunks
     chunks = [stock_symbols[i:i + chunk_size] for i in range(0, len(stock_symbols), chunk_size)]
 
     async with aiohttp.ClientSession() as session:

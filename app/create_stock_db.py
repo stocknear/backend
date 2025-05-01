@@ -277,7 +277,7 @@ class StockDatabase:
                 tasks.append(self.save_fundamental_data(session, symbol))
 
                 i += 1
-                if i % 40 == 0:
+                if i % 60 == 0:
                     await asyncio.gather(*tasks)
                     tasks = []
                     print('sleeping')
@@ -386,7 +386,7 @@ async def main():
             filtered.append(t)
 
     #testing mode
-    #filtered = [item for item in filtered if item['symbol'] in ['AAPL','AAC']]
+    #filtered = [item for item in filtered if item['symbol'] in ['AAPL','AMD']]
     
     await db.save_stocks(filtered)
     db.close_connection()
