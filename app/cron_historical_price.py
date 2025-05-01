@@ -119,7 +119,7 @@ async def run():
         index_cursor.execute("SELECT DISTINCT symbol FROM indices")
         index_symbols = [row[0] for row in index_cursor.fetchall()]
 
-        total_symbols = etf_symbols #stock_symbols + etf_symbols + index_symbols
+        total_symbols = stock_symbols + etf_symbols + index_symbols
     except Exception as e:
         print(f"Failed to fetch symbols: {e}")
         return
