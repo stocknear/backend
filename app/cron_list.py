@@ -1071,6 +1071,54 @@ async def get_highest_option_premium():
             file.write(orjson.dumps(res_list))
 
 
+async def get_highest_option_volume(volume_type):
+    with sqlite3.connect('stocks.db') as con:
+        cursor = con.cursor()
+        cursor.execute("PRAGMA journal_mode = wal")
+        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%' AND symbol NOT LIKE '%-%'")
+        symbols = [row[0] for row in cursor.fetchall()]
+
+    res_list = []
+    for symbol in symbols:
+        try:
+            # Load quote data from JSON file
+            call_volume = stock_screener_data_dict[symbol].get('callVolume',0)
+            put_volume = stock_screener_data_dict[symbol].get('putVolume',0)
+
+            if call_volume > 0 and put_volume > 0:
+                quote_data = await get_quote_data(symbol)
+                # Assign price and volume, and check if they meet the penny stock criteria
+                if quote_data:
+                    price = round(quote_data.get('price',None), 2)
+                    changesPercentage = round(quote_data.get('changesPercentage'), 2)
+                    name = quote_data.get('name')
+
+                    # Append stock data to res_list if it meets the criteria
+                    if changesPercentage != 0:
+                        res_list.append({
+                            'symbol': symbol,
+                            'name': name,
+                            'price': price,
+                            'changesPercentage': changesPercentage,
+                            'callVolume': call_volume,
+                            'putVolume': put_volume,
+                        })
+        except:
+            pass
+
+    if res_list:
+        # Sort by market cap in descending order
+        res_list = sorted(res_list, key=lambda x: x[volume_type], reverse=True)[:50]
+
+        # Assign rank to each stock
+        for rank, item in enumerate(res_list, start=1):
+            item['rank'] = rank
+
+        # Write the filtered and ranked penny stocks to a JSON file
+        with open(f"json/stocks-list/list/highest-{volume_type.replace('V', '-v')}.json", 'wb') as file:
+            file.write(orjson.dumps(res_list))
+
+
 async def etf_bitcoin_list():
     try:
         with sqlite3.connect('etf.db') as etf_con:
@@ -1375,6 +1423,8 @@ async def run():
         get_highest_oi_change(),
         get_highest_option_iv_rank(),
         get_highest_option_premium(),
+        get_highest_option_volume('callVolume'),
+        get_highest_option_volume('putVolume'),
         get_etf_holding(),
         get_etf_provider(),
         get_most_buybacks(),
