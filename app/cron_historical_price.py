@@ -17,8 +17,9 @@ current_year = datetime.today().year
 # Helper to ensure directories exist and write JSON files asynchronously
 async def write_json(path, data):
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    async with aiofiles.open(path, 'w') as file:
-        await file.write(ujson.dumps(data))
+    if data:
+        async with aiofiles.open(path, 'w') as file:
+            await file.write(ujson.dumps(data))
 
 async def get_historical_data(ticker, query_con, session):
     try:
@@ -118,7 +119,7 @@ async def run():
         index_cursor.execute("SELECT DISTINCT symbol FROM indices")
         index_symbols = [row[0] for row in index_cursor.fetchall()]
 
-        total_symbols = stock_symbols + etf_symbols + index_symbols
+        total_symbols = etf_symbols #stock_symbols + etf_symbols + index_symbols
     except Exception as e:
         print(f"Failed to fetch symbols: {e}")
         return
