@@ -106,16 +106,13 @@ async def main():
 
     # Clean and filter the data
     filtered_data = clean_and_filter_data(options_data)
+
     for item in filtered_data:
         try:
             quote_data = await get_quote_data(item['ticker'])
             current_price = quote_data.get('price')
             if current_price:
                 item['roi'] = compute_option_return(item, current_price)
-
-            if item['ticker'] == 'WOLF':
-                print(item)
-
         except:
             item['roi'] = None
     

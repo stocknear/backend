@@ -222,81 +222,33 @@ def replace_representative(office):
 
 
 def compute_option_return(option: dict, current_price: float) -> float:
-    """
-    Compute the return percentage of an option trade, considering sentiment
-    to determine long or short position, and marking to market using the
-    option's current premium (midpoint) if available, else falling back to intrinsic.
-
-    Parameters
-    ----------
-    option : dict
-        Keys:
-          - "put_call": "CALL"/"CALLS"/"PUT"/"PUTS"
-          - "strike_price": str or float
-          - "price": str or float (original premium per share)
-          - "size": str or int (contracts)
-          - "sentiment": "Bullish"/"Bearish"/"Neutral"
-          - "cost_basis": str or float, optional (total dollars)
-          - "midpoint": str or float, optional (current premium per share)
-    current_price : float
-        Current price of the underlying.
-
-    Returns
-    -------
-    float
-        Percentage return on cost basis (e.g. -44.44 for −44.44% loss),
-        or None if inputs are invalid.
-    """
+   
     try:
         # --- Parse and validate basic fields ---
-        pc_raw = option.get("put_call")
-        if not pc_raw:
-            return None
-        pc = str(pc_raw).strip().upper()
-        if pc.endswith("S"): pc = pc[:-1]
-        if pc not in ("CALL", "PUT"):
-            return None
+        pc = option.get("put_call")
 
-        try:
-            strike   = float(option["strike_price"])
-            premium  = float(option["price"])
-            size     = int(option["size"])
-            if size <= 0 or premium < 0:
-                return None
-        except (KeyError, ValueError, TypeError):
-            return None
-
+    
+        strike = float(option["strike_price"])
         sentiment = option.get("sentiment")
         if sentiment is None:
             return None
         sentiment = str(sentiment).strip().capitalize()
 
         # Determine long/short from sentiment
-        if pc == "CALL":
+        if pc == "Calls":
             is_long = sentiment in ("Bullish", "Neutral")
         else:  # PUT
             is_long = sentiment in ("Bearish", "Neutral")
 
         # --- Cost basis ---
         # If provided, use it; else calculate
-        cb_raw = option.get("cost_basis")
-        if cb_raw not in (None, ""):
-            try:
-                cost_basis = float(cb_raw)
-            except (ValueError, TypeError):
-                cost_basis = premium * size * 100
-        else:
-            cost_basis = premium * size * 100
-
-        if cost_basis <= 0:
-            return None
+        cost_basis = option.get("cost_basis")
+        size = option.get('size',0)
 
         multiplier = 100
 
-
-        # Fallback: use intrinsic if no current premium available
         intrinsic = 0.0
-        if pc == "CALL":
+        if pc == "Calls":
             intrinsic = max(current_price - strike, 0.0)
         else:
             intrinsic = max(strike - current_price, 0.0)
