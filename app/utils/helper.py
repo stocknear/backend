@@ -223,131 +223,99 @@ def replace_representative(office):
 
 def compute_option_return(option: dict, current_price: float) -> float:
     """
-    Compute the return percentage of an option trade, considering sentiment
-    to determine long or short position.
+    Compute the percentage return of an options position (long or short) 
+    based on intrinsic value only.
 
     Parameters
     ----------
     option : dict
-        A dict containing at least the keys:
-          - "put_call" (str): "CALL", "CALLS", "PUT", or "PUTS"
-          - "strike_price" (str or float)
-          - "price" (str or float): the premium per share (paid for long, received for short)
-          - "size" (str or int): number of contracts
-          - "sentiment" (str): "Bullish", "Bearish", or "Neutral". This is used
-            to infer if the position is long or short.
-          - "cost_basis" (str or float, optional): total dollars paid or received.
-            If missing or invalid, it's computed as price * size * 100. For short
-            positions, this represents the premium received.
-
+        Required keys:
+            - "put_call"      : "CALL", "CALLS", "PUT", or "PUTS"
+            - "strike_price"  : str or float
+            - "price"         : str or float, premium PER SHARE
+            - "size"          : str or int, number of contracts
+            - "sentiment"     : "Bullish", "Bearish", or "Neutral"
+        Optional:
+            - "cost_basis"    : total dollars paid/received (float or str)
+                                If missing or invalid, computed as price * size * 100.
     current_price : float
-        Current price of the underlying stock.
+        The current price of the underlying.
 
     Returns
     -------
     float
-        Percentage return on cost basis (e.g. 56.8 for +56.8%).
-        Returns None if input is invalid or calculation is not possible.
+        Percentage return (e.g. 56.8 for +56.8%). 
+        Returns None for invalid inputs or impossible calculations.
     """
+    # 1) Normalize option type
+    pc = option.get("put_call")
+    if not pc:
+        return None
+    pc = str(pc).strip().upper()
+    if pc.endswith("S"):
+        pc = pc[:-1]
+    if pc not in ("CALL", "PUT"):
+        return None
+
+    # 2) Parse numeric fields
     try:
-        # --- Normalize and parse inputs ---
-        pc_raw = option.get("put_call")
-        if pc_raw is None:
-            # put_call is a required field
-            return None
+        strike   = float(option["strike_price"])
+        premium  = float(option["price"])
+        size     = int(option["size"])
+    except (KeyError, ValueError, TypeError):
+        return None
+    if size <= 0 or premium < 0:
+        return None
 
-        pc = str(pc_raw).strip().upper()
-        if pc.endswith("S"):  # handle "CALLS" and "PUTS"
-            pc = pc[:-1]
-        if pc not in ("CALL", "PUT"):
-            # Handle unexpected put_call types
-            return None
+    # 3) Determine long vs. short from sentiment
+    sentiment = option.get("sentiment")
+    if not sentiment:
+        return None
+    sentiment = str(sentiment).strip().capitalize()
 
-        # Safely get and convert numeric values, handling potential errors
-        try:
-            strike = float(option.get("strike_price"))
-            premium = float(option.get("price"))
-            size = int(option.get("size"))
-            if size <= 0 or premium < 0: # Basic validation for size and premium
-                 return None
-        except (ValueError, TypeError):
-            # Handle cases where numeric conversion fails for required fields
-            return None
+    if pc == "CALL":
+        is_long = sentiment in ("Bullish", "Neutral")
+    else:  # PUT
+        is_long = sentiment in ("Bearish", "Neutral")
 
-        sentiment_raw = option.get("sentiment")
-        if sentiment_raw is None:
-            # Sentiment is required to determine long/short
-            return None
-        sentiment = str(sentiment_raw).strip().capitalize()
+    # A truly bearish call or truly bullish put => short
+    if pc == "CALL" and sentiment == "Bearish":
+        is_long = False
+    if pc == "PUT"  and sentiment == "Bullish":
+        is_long = False
 
-        multiplier = 100  # standard options multiplier
-
-        # total cost basis (premium paid for long, premium received for short)
-        # Handle potential None or empty string for cost_basis
-        cost_basis_raw = option.get("cost_basis")
+    # 4) Compute cost basis (total premium outlay or credit)
+    multiplier = 100
+    raw_cb = option.get("cost_basis")
+    try:
+        cost_basis = float(raw_cb) if raw_cb not in (None, "") else None
+    except (ValueError, TypeError):
         cost_basis = None
-        if cost_basis_raw is not None and cost_basis_raw != "":
-             try:
-                 cost_basis = float(cost_basis_raw)
-             except (ValueError, TypeError):
-                  # If provided cost_basis is invalid, we will calculate it later
-                  pass
 
-        # --- Determine if the position is likely long or short based on option type and sentiment ---
-        is_long = None # Use None initially to indicate undetermined
-        if pc == "CALL":
-            if sentiment == "Bullish" or sentiment == "Neutral":
-                is_long = True # Assume long call for bullish/neutral sentiment
-            elif sentiment == "Bearish":
-                is_long = False # Assume short call for bearish sentiment
-        elif pc == "PUT":
-            if sentiment == "Bearish" or sentiment == "Neutral":
-                is_long = True # Assume long put for bearish/neutral sentiment
-            elif sentiment == "Bullish":
-                is_long = False # Assume short put for bullish sentiment
+    if cost_basis is None:
+        cost_basis = premium * size * multiplier
 
-        if is_long is None:
-            # If we couldn't determine long/short based on input, return None
-            return None
+    if cost_basis <= 0:
+        return None  # nothing at stake
 
-        # If cost_basis was not provided or was invalid, calculate it
-        if cost_basis is None:
-             cost_basis = premium * size * multiplier
+    # 5) Calculate intrinsic value per share
+    if pc == "CALL":
+        intrinsic_per_share = max(current_price - strike, 0.0)
+    else:  # PUT
+        intrinsic_per_share = max(strike - current_price, 0.0)
 
-        # If cost basis is still non-positive (e.g., zero premium for a short), cannot calculate return percentage meaningfully
-        if cost_basis <= 0:
-             return None
+    total_intrinsic = intrinsic_per_share * size * multiplier
 
-        # --- Calculate intrinsic value per share (value from the perspective of a long holder) ---
-        intrinsic_per_share = 0.0
-        if pc == "CALL":
-            intrinsic_per_share = max(current_price - strike, 0.0)
-        elif pc == "PUT":
-            intrinsic_per_share = max(strike - current_price, 0.0)
+    # 6) Compute profit
+    if is_long:
+        profit = total_intrinsic - cost_basis
+    else:
+        # credit received minus cost to close
+        profit = cost_basis - total_intrinsic
 
-        # --- Calculate the current value of the position and the profit ---
-        profit = 0.0
-        if is_long:
-            # For a long position, current value is the intrinsic value
-            total_current_value = intrinsic_per_share * size * multiplier
-            profit = total_current_value - cost_basis
-        else: # is_short
-            # For a short position, the profit is the premium received minus
-            # the intrinsic value that would be paid if closed now.
-            # The cost_basis here represents the premium *received*.
-            total_value_against_short = intrinsic_per_share * size * multiplier
-            profit = cost_basis - total_value_against_short
+    # 7) Compute return percentage
+    ret_pct = (profit / cost_basis) * 100.0
+    if not math.isfinite(ret_pct):
+        return None
 
-        # --- Calculate return percentage ---
-        return_percentage = (profit / cost_basis) * 100.0
-
-        # Return None if the result is not a finite number (e.g., from extreme values)
-        if not math.isfinite(return_percentage):
-            return None
-
-        return round(return_percentage, 2)
-
-    except Exception as e:
-        # Catch any other unexpected errors during processing
-        # print(f"An error occurred: {e}") # Optional: log the error for debugging
-        return None # Return None in case of any unhandled exception
+    return round(ret_pct, 2)
