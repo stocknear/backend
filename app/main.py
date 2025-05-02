@@ -2902,7 +2902,7 @@ async def get_options_chain(data:HistoricalDate, api_key: str = Security(get_api
 
 
 
-fields_to_remove = {'exchange', 'tradeCount', 'description', 'aggressor_ind'}
+fields_to_remove = {'exchange', 'tradeCount', 'description', 'aggressor_ind',"ask","bid","midpoint","trade_count"}
 @app.post("/options-flow-feed")
 async def get_options_flow_feed(data: OptionsFlowFeed, api_key: str = Security(get_api_key)):
     order_list = data.orderList

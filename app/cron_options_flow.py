@@ -106,16 +106,16 @@ async def main():
 
     # Clean and filter the data
     filtered_data = clean_and_filter_data(options_data)
-    res_list = []
-    roi = None
     for item in filtered_data:
         try:
             quote_data = await get_quote_data(item['ticker'])
             current_price = quote_data.get('price')
-
             if current_price:
-                roi = compute_option_return(item, current_price)
-            item['roi'] = roi
+                item['roi'] = compute_option_return(item, current_price)
+
+            if item['ticker'] == 'WOLF':
+                print(item)
+
         except:
             item['roi'] = None
     
@@ -133,7 +133,7 @@ async def main():
 # Run the async event loop
 if __name__ == "__main__":
     market_open = check_market_hours()
-    if market_open:
-        asyncio.run(main())
-    else:
-        print('market closed')
+    #if market_open:
+    asyncio.run(main())
+    #else:
+    #    print('market closed')
