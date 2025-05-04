@@ -70,8 +70,8 @@ async def get_endpoints(symbol, session):
 
     try:
         # Form API request URLs
-        url_senate = f"https://financialmodelingprep.com/api/v4/senate-trading?symbol={symbol}&apikey={api_key}"
-        url_house = f"https://financialmodelingprep.com/api/v4/senate-disclosure?symbol={symbol}&apikey={api_key}"
+        url_senate = f"https://financialmodelingprep.com/stable/senate-trades?symbol={symbol}&apikey={api_key}"
+        url_house = f"https://financialmodelingprep.com/stable/house-trades?symbol={symbol}&apikey={api_key}"
         
         async with session.get(url_senate) as response_senate, session.get(url_house) as response_house:
             data = []
@@ -106,8 +106,6 @@ async def get_endpoints(symbol, session):
                         
                         # Replace 'district' value with the corresponding value from congressional_districts
                         item['district'] = f"{congressional_districts.get(state_code, state_code)}"
-                    if 'dateRecieved' in item:
-                        item['disclosureDate'] = item['dateRecieved']
 
                 res_list +=data
 
