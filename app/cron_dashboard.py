@@ -344,7 +344,7 @@ async def get_latest_wiim():
                 data = ujson.loads(await response.text())
                 for item in data:
                     try:
-                        item['ticker'] = item['stocks'][0].get('name', None)
+                        item['ticker'] = item['stocks'][0].get('name', None).replace('/', '-')  #important for BRK-A & BRK-B
 
                         with open(f"json/quote/{item['ticker']}.json", "r") as file:
                             quote_data = ujson.load(file)

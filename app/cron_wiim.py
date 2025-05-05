@@ -100,11 +100,13 @@ def check_existing_file(symbol):
             pass
 
 async def get_endpoint(session, symbol, con, semaphore):
+    api_symbol = symbol.replace('-', '/')
+    
     async with semaphore:
         url = "https://api.benzinga.com/api/v2/news"
         querystring = {
             "token": api_key,
-            "tickers": symbol,
+            "tickers": api_symbol,
             "channels": "WIIM",
             "pageSize": "20",
             "sort":"created:desc",
