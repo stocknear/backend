@@ -139,11 +139,21 @@ def get_data():
 
 
 
+def get_symbols(db_path, table_name):
+    con = sqlite3.connect(db_path)
+    cursor = con.cursor()
+    cursor.execute(f"SELECT DISTINCT symbol FROM {table_name}")
+    symbols = [row[0] for row in cursor.fetchall()]
+    con.close()
+    return symbols
 
 
 def main():
 
-    # Fetch new data from the API
+    stock_symbols = get_symbols('stocks.db', 'stocks')
+    etf_symbols = get_symbols('etf.db', 'etfs')
+    total_symbols = stock_symbols + etf_symbols
+    
     data = get_data()
     print(len(data))
     res = []
@@ -151,7 +161,7 @@ def main():
     for item in data:
         symbol = item['symbol']
         # Adjust ticker formatting for BRK-A/BRK-B if needed
-        ticker = symbol
+        ticker = item['symbol']
         if symbol.lower() == 'brk.b':
             ticker = 'BRK-B'
         elif symbol.lower() == 'brk.a':
@@ -174,19 +184,20 @@ def main():
                 size_volume_ratio = round((size / volume) * 100, 2) if volume else 0
                 size_avg_volume_ratio = round((size / quote_data.get('avgVolume', 1)) * 100, 2)
                 
-                res.append({
-                    'ticker': ticker,
-                    'date': item['timestamp'],
-                    'price': price,
-                    'size': size,
-                    'volume': volume,
-                    'premium': round(size*price,2),  # default to 0 if premium isn't provided
-                    'sector': sector,
-                    'assetType': 'Stock' if symbol in stock_screener_data_dict else 'ETF',
-                    'sizeVolRatio': size_volume_ratio,
-                    'sizeAvgVolRatio': size_avg_volume_ratio,
-                    'trackingID': tracking_id
-                })
+                if ticker in total_symbols:
+                    res.append({
+                        'ticker': ticker,
+                        'date': item['timestamp'],
+                        'price': price,
+                        'size': size,
+                        'volume': volume,
+                        'premium': round(size*price,2),  # default to 0 if premium isn't provided
+                        'sector': sector,
+                        'assetType': 'Stock' if symbol in stock_screener_data_dict else 'ETF',
+                        'sizeVolRatio': size_volume_ratio,
+                        'sizeAvgVolRatio': size_avg_volume_ratio,
+                        'trackingID': tracking_id
+                    })
         except Exception as e:
             print(f"Error processing {symbol}: {e}")
 
