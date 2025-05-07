@@ -23,7 +23,7 @@ with open(f"json/stock-screener/data.json", 'rb') as file:
     stock_screener_data = orjson.loads(file.read())
 stock_screener_data_dict = {item['symbol']: item for item in stock_screener_data}
 
-screener_columns = ['forwardPE','revenueTTM','netIncomeTTM'] #['floatShares', 'forwardPE','shortOutStandingPercent','shortFloatPercent','revenuePerEmployee','profitPerEmployee','revenueTTM',"netIncomeTTM"]
+screener_columns = ['forwardPE','revenueTTM',"netIncomeTTM"]
 
 async def get_data(ticker):
     try: 
@@ -61,12 +61,12 @@ async def get_data(ticker):
             except:
                 screener_result = {column: None for column in screener_columns}
 
-            '''
+        
             if data['stock_split'] == None:
                 company_stock_split = []
             else:
                 company_stock_split = orjson.loads(data['stock_split'])
-            '''
+            
 
             res_list = {
                     **screener_result,
@@ -82,13 +82,13 @@ async def get_data(ticker):
                     #'earning': company_quote['earningsAnnouncement'],
                     'pe': company_quote['pe'],
                     'eps': company_quote['eps'],
-                    #'sharesOutstanding': company_quote['sharesOutstanding'],
+                    'sharesOutstanding': company_quote['sharesOutstanding'],
                     'previousClose': company_quote['price'], #This is true because I update my db before the market opens hence the price will be the previousClose price.
                     'website': company_profile[0]['website'],
                     'description': company_profile[0]['description'],
                     'fullTimeEmployees': company_profile[0]['fullTimeEmployees'],
                     'financialPerformance': financial_dict,
-                    #'stockSplits': company_stock_split,
+                    'stockSplits': company_stock_split,
                 }
 
             return res_list

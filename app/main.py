@@ -1661,10 +1661,10 @@ async def stock_finder(data:StockScreenerData, api_key: str = Security(get_api_k
             {key: item.get(key) for key in set(always_include + rule_of_list) if key in item}
             for item in us_data_only
         ]
-    except Exception as e:
+    except:
         filtered_data = []
 
-    
+
     # Compress the JSON data
     res = orjson.dumps(filtered_data)
     compressed_data = gzip.compress(res)
