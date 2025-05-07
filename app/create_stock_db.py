@@ -124,10 +124,12 @@ class StockDatabase:
                         # ----- NEW: filter out stale quotes -----
                         if isinstance(parsed_data, list) and "quote" in url:
                             quote = parsed_data[0]
+
+                            avg_volume = quote.get('avgVolume',0)
                             quote_ts = quote.get("timestamp")
                             now_ts = datetime.now(timezone.utc).timestamp()
                             # If older than 5 days, delete symbol and stop processing
-                            if quote_ts and (now_ts - quote_ts) > 10 * 24 * 3600:
+                            if avg_volume < 1000 or (quote_ts and (now_ts - quote_ts) > 10 * 24 * 3600):
                                 self.cursor.execute("DELETE FROM stocks WHERE symbol = ?", (symbol,))
                                 self.cursor.execute(f"DROP TABLE IF EXISTS '{symbol}'")
                                 self.conn.commit()
@@ -386,7 +388,7 @@ async def main():
             filtered.append(t)
 
     #testing mode
-    #filtered = [item for item in filtered if item['symbol'] in ['AAPL','AMD']]
+    #filtered = [item for item in filtered if item['symbol'] in ['AAPL','AMD','AXTLF']]
     
     await db.save_stocks(filtered)
     db.close_connection()
