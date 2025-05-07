@@ -159,14 +159,14 @@ def main():
     res = []
 
     for item in data:
-        symbol = item['symbol']
-        # Adjust ticker formatting for BRK-A/BRK-B if needed
-        ticker = item['symbol']
-        if symbol.lower() == 'brk.b':
-            ticker = 'BRK-B'
-        elif symbol.lower() == 'brk.a':
-            ticker = 'BRK-A'
         try:
+            symbol = item['symbol']
+            # Adjust ticker formatting for BRK-A/BRK-B if needed
+            ticker = item['symbol']
+            if symbol.lower() == 'brk.b':
+                ticker = 'BRK-B'
+            elif symbol.lower() == 'brk.a':
+                ticker = 'BRK-A'
             # Use the datetime 'timestamp' to extract the executed date
             timestamp_dt = datetime.fromisoformat(item['timestamp'])
             executed_date = timestamp_dt.strftime('%Y-%m-%d')
@@ -193,13 +193,13 @@ def main():
                         'volume': volume,
                         'premium': round(size*price,2),  # default to 0 if premium isn't provided
                         'sector': sector,
-                        'assetType': 'Stock' if symbol in stock_screener_data_dict else 'ETF',
+                        'assetType': 'Stock' if ticker in stock_symbols else 'ETF',
                         'sizeVolRatio': size_volume_ratio,
                         'sizeAvgVolRatio': size_avg_volume_ratio,
                         'trackingID': tracking_id
                     })
         except Exception as e:
-            print(f"Error processing {symbol}: {e}")
+            print(f"Error processing {ticker}: {e}")
 
     # Combine new data with existing data
     if res:
