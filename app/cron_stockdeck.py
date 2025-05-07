@@ -3,6 +3,7 @@ import asyncio
 import sqlite3
 import pandas as pd
 from tqdm import tqdm
+from datetime import datetime
 
 async def save_stockdeck(symbol, data):
     with open(f"json/stockdeck/{symbol}.json", 'w') as file:
@@ -22,7 +23,7 @@ with open(f"json/stock-screener/data.json", 'rb') as file:
     stock_screener_data = orjson.loads(file.read())
 stock_screener_data_dict = {item['symbol']: item for item in stock_screener_data}
 
-screener_columns = ['floatShares', 'forwardPE','shortOutStandingPercent','shortFloatPercent','revenuePerEmployee','profitPerEmployee','revenueTTM',"netIncomeTTM"]
+screener_columns = ['forwardPE','revenueTTM','netIncomeTTM'] #['floatShares', 'forwardPE','shortOutStandingPercent','shortFloatPercent','revenuePerEmployee','profitPerEmployee','revenueTTM',"netIncomeTTM"]
 
 async def get_data(ticker):
     try: 
@@ -40,23 +41,32 @@ async def get_data(ticker):
                     company_quote = orjson.loads(file.read())
             except:
                 company_quote = {}
-
+            
             try:
-                with open(f"json/ai-score/companies/{ticker}.json", 'r') as file:
-                    score = orjson.loads(file.read())['score']
+                with open(f"json/financial-statements/income-statement/annual/{ticker}.json", 'r') as file:
+                    history = orjson.loads(file.read())
+                    history = sorted(history, key=lambda x: datetime.strptime(x["date"], "%Y-%m-%d"), reverse=True)
+                    history = history[:5]
+                    history = [{"date": item["date"], "revenue": item["revenue"], "netIncome": item["netIncome"]} for item in history]
+                    history = sorted(history, key=lambda x: datetime.strptime(x["date"], "%Y-%m-%d"), reverse=False)
+                    change_percentage_revenue = round((history[-1]['revenue']/history[-2]['revenue']-1)*100,2)
+                    change_percentage_net_income = round((history[-1]['netIncome']/history[-2]['netIncome']-1)*100,2)
+                    financial_dict = {'changePercentageRevenue': change_percentage_revenue, 'changePercentageNetIncome': change_percentage_net_income, 'history': history}
             except:
-                score = None
+                financial_dict = {}
+            
 
             try:
                 screener_result = {column: stock_screener_data_dict.get(ticker, {}).get(column, None) for column in screener_columns}
             except:
                 screener_result = {column: None for column in screener_columns}
 
-
+            '''
             if data['stock_split'] == None:
                 company_stock_split = []
             else:
                 company_stock_split = orjson.loads(data['stock_split'])
+            '''
 
             res_list = {
                     **screener_result,
@@ -69,16 +79,16 @@ async def get_data(ticker):
                     'avgVolume': company_profile[0]['volAvg'],
                     'country': company_profile[0]['country'],
                     'exchange': company_profile[0]['exchangeShortName'],
-                    'earning': company_quote['earningsAnnouncement'],
+                    #'earning': company_quote['earningsAnnouncement'],
                     'pe': company_quote['pe'],
                     'eps': company_quote['eps'],
-                    'sharesOutstanding': company_quote['sharesOutstanding'],
-                    'score': score,
+                    #'sharesOutstanding': company_quote['sharesOutstanding'],
                     'previousClose': company_quote['price'], #This is true because I update my db before the market opens hence the price will be the previousClose price.
                     'website': company_profile[0]['website'],
                     'description': company_profile[0]['description'],
                     'fullTimeEmployees': company_profile[0]['fullTimeEmployees'],
-                    'stockSplits': company_stock_split,
+                    'financialPerformance': financial_dict,
+                    #'stockSplits': company_stock_split,
                 }
 
             return res_list
