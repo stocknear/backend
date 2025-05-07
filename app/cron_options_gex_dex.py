@@ -96,11 +96,13 @@ def aggregate_data_by_strike_by_expiry(symbol):
     if not valid:
         return {}
 
+
     # group contracts by their expiration date
     contracts_by_expiry = defaultdict(list)
     for c in valid:
         exp = get_expiration_date(c).isoformat()  # "YYYY-MM-DD"
         contracts_by_expiry[exp].append(c)
+
 
     # load price history once
     with open(f"json/historical-price/max/{symbol}.json", "r") as f:
@@ -171,7 +173,7 @@ def aggregate_data_by_strike_by_expiry(symbol):
 
 def aggregate_data_by_expiration(symbol):
     data_by_date = defaultdict(lambda: defaultdict(lambda: {
-        "expiration": "",
+        "expiration": '',
         "call_gex": 0.0,
         "put_gex": 0.0,
         "call_dex": 0.0,
@@ -183,6 +185,8 @@ def aggregate_data_by_expiration(symbol):
     
     # Only consider contracts that haven't expired
     contract_list = [item for item in contract_list if get_expiration_date(item) >= today]
+
+
 
     # Load historical price data
     with open(f"json/historical-price/max/{symbol}.json", "r") as file:
@@ -278,10 +282,10 @@ def get_strike_data():
     subdirs = ('gex', 'dex')
 
     # Test mode: only TSLA; swap in your full symbol list as needed
-    total_symbols = ['TSLA']
+    #total_symbols = ['TSLA']
 
    
-    for symbol in total_symbols:
+    for symbol in tqdm(total_symbols):
         try:
             # returns { "YYYY-MM-DD": [ {strike, call_gex, put_gex, call_dex, put_dex}, … ], … }
             data_by_expiry = aggregate_data_by_strike_by_expiry(symbol)
@@ -311,27 +315,43 @@ def get_strike_data():
 
 def get_expiry_data():
     directory_path = "json/gex-dex/expiry/"
+    #total_symbols = ['TSLA']  # Test mode
 
-    #Test mode
-    #total_symbols = ['SPY']
     for symbol in tqdm(total_symbols):
         try:
             data = aggregate_data_by_expiration(symbol)
-            if len(data) > 0:
-                for key_element in ['gex','dex']:
-                    #val_sums = [item[f"call_{key_element}"] + item[f"put_{key_element}"] for item in data]
-                    #threshold = np.percentile(val_sums, 95)
-                    #filtered_data = [item for item in data if (item[f"call_{key_element}"] + item[f"put_{key_element}"]) >= threshold]
-                    #filtered_data = sorted(filtered_data, key=lambda x: x['expiry'], reverse=True)
-                    data = sorted(data, key=lambda x: x['strike'], reverse=True)
-                    if data:
-                        save_json(data, symbol, directory_path+key_element)
+            if not data:
+                continue
 
-        except:
-            pass
+            for key_element in ['gex', 'dex']:
+                expiry_map = defaultdict(lambda: {f'call_{key_element}': 0, f'put_{key_element}': 0})
+
+                for item in data:
+                    try:
+                        expiry = item['expiry']
+                        expiry_map[expiry][f'call_{key_element}'] += item.get(f'call_{key_element}', 0)
+                        expiry_map[expiry][f'put_{key_element}'] += item.get(f'put_{key_element}', 0)
+                    except:
+                        pass
+
+                res = [
+                    {
+                        'expiry': expiry,
+                        f'call_{key_element}': values[f'call_{key_element}'],
+                        f'put_{key_element}': values[f'put_{key_element}'],
+                    }
+                    for expiry, values in expiry_map.items()
+                ]
+
+                res = sorted(res, key=lambda x: x['expiry'])
+                if res:
+                    save_json(res, symbol, directory_path + key_element)
+
+        except Exception as e:
+            print(f"Error processing symbol {symbol}: {e}")
 
 if __name__ == '__main__':
-    #get_overview_data()
+    get_overview_data()
     get_strike_data()
-    #get_expiry_data()
+    get_expiry_data()
     
