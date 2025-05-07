@@ -87,79 +87,86 @@ def get_expiration_date(option_symbol):
 
     return date_expiration
 
-def aggregate_data_by_strike(symbol):
-    data_by_date = defaultdict(lambda: defaultdict(lambda: {
-        "strike": 0,
-        "call_gex": 0.0,
-        "put_gex": 0.0,
-        "call_dex": 0.0,
-        "put_dex": 0.0,
-    }))
-    
+def aggregate_data_by_strike_by_expiry(symbol):
     contract_dir = f"json/all-options-contracts/{symbol}"
-    contract_list = get_contracts_from_directory(contract_dir)
-    
-    # Only consider contracts that haven't expired
-    contract_list = [item for item in contract_list if get_expiration_date(item) >= today]
-    # Load historical price data
-    with open(f"json/historical-price/max/{symbol}.json", "r") as file:
-        price_list = orjson.loads(file.read())
+    all_contracts = get_contracts_from_directory(contract_dir)
 
-    if contract_list:
-        for item in contract_list:
+    # filter to non-expired
+    valid = [c for c in all_contracts if get_expiration_date(c) >= today]
+    if not valid:
+        return {}
+
+    # group contracts by their expiration date
+    contracts_by_expiry = defaultdict(list)
+    for c in valid:
+        exp = get_expiration_date(c).isoformat()  # "YYYY-MM-DD"
+        contracts_by_expiry[exp].append(c)
+
+    # load price history once
+    with open(f"json/historical-price/max/{symbol}.json", "r") as f:
+        price_list = orjson.loads(f.read())
+
+    result = {}
+    for exp_iso, contracts in contracts_by_expiry.items():
+        # nested dict: date → strike → aggregated stats
+        data_by_date = defaultdict(lambda: defaultdict(lambda: {
+            "strike": 0,
+            "call_gex": 0.0,
+            "put_gex": 0.0,
+            "call_dex": 0.0,
+            "put_dex": 0.0,
+        }))
+
+        for contract in contracts:
             try:
-                file_path = os.path.join(contract_dir, f"{item}.json")
-                with open(file_path, "r") as file:
-                    data = orjson.loads(file.read())
+                path = os.path.join(contract_dir, f"{contract}.json")
+                with open(path, "r") as f:
+                    data = orjson.loads(f.read())
 
-                option_type = data.get("optionType")
-                if option_type not in ["call", "put"]:
+                opt = data.get("optionType")
+                if opt not in ("call", "put"):
                     continue
 
                 strike = float(data.get("strike", 0))
-
-                # Get only the last element from 'history' (latest entry)
-                if not data.get("history"):
+                history = data.get("history", [])
+                if not history:
                     continue
 
-                latest_entry = data["history"][-1]  # Latest data point
-                date = latest_entry.get("date")
+                latest = history[-1]
+                dt = latest.get("date")
+                oi = latest.get("open_interest") or 0
+                gamma = latest.get("gamma") or 0
+                delta = latest.get("delta") or 0
 
-                open_interest = latest_entry.get("open_interest", 0) or 0
-                gamma = latest_entry.get("gamma", 0) or 0
-                delta = latest_entry.get("delta", 0) or 0
+                # find matching spot price
+                match = next((p for p in price_list if p.get("time") == dt), None)
+                spot = match["close"] if match else 0
 
+                gex = oi * gamma * spot
+                dex = oi * delta * spot
 
-                # Find the matching spot price for the date
-                matching_price = next((p for p in price_list if p.get("time") == date), None)
-                spot_price = matching_price["close"] if matching_price else 0
+                slot = data_by_date[dt][strike]
+                slot["strike"] = strike
+                if opt == "call":
+                    slot["call_gex"] += round(gex, 2)
+                    slot["call_dex"] += round(dex, 2)
+                else:
+                    slot["put_gex"] += round(gex, 2)
+                    slot["put_dex"] += round(dex, 2)
 
-                gex = open_interest * gamma * spot_price
-                dex = open_interest * delta * spot_price
-
-                # Aggregate data by date and strike
-                daily_data = data_by_date[date][strike]
-                daily_data["strike"] = strike
-
-                if option_type == "call":
-                    daily_data["call_gex"] += round(gex, 2)
-                    daily_data["call_dex"] += round(dex, 2)
-                elif option_type == "put":
-                    daily_data["put_gex"] += round(gex, 2)
-                    daily_data["put_dex"] += round(dex, 2)
-
-            except:
+            except Exception:
                 continue
 
-        # Convert defaultdict to sorted list format
-        final_output = []
-        for date, strikes in sorted(data_by_date.items()):
-            for strike, data in sorted(strikes.items(), key=lambda x: x[0]):
-                final_output.append(data)
+        # flatten into a sorted list
+        flat = []
+        for dt, strikes in sorted(data_by_date.items()):
+            for strike, stats in sorted(strikes.items(), key=lambda x: x[0]):
+                flat.append(stats)
 
-        return final_output
+        result[exp_iso] = flat
 
-    return []
+    return result
+
 
 
 def aggregate_data_by_expiration(symbol):
@@ -268,23 +275,39 @@ def get_overview_data():
 
 def get_strike_data():
     directory_path = "json/gex-dex/strike/"
+    subdirs = ('gex', 'dex')
 
-    #Test mode
-    #total_symbols = ['SPY']
-    for symbol in tqdm(total_symbols):
+    # Test mode: only TSLA; swap in your full symbol list as needed
+    total_symbols = ['TSLA']
+
+   
+    for symbol in total_symbols:
         try:
-            data = aggregate_data_by_strike(symbol)
-            if len(data) > 0:
-                for key_element in ['gex','dex']:
-                    val_sums = [item[f"call_{key_element}"] + item[f"put_{key_element}"] for item in data]
-                    #threshold = np.percentile(val_sums, 95)
-                    #filtered_data = [item for item in data if (item[f"call_{key_element}"] + item[f"put_{key_element}"]) >= threshold]
-                    #filtered_data = sorted(filtered_data, key=lambda x: x['strike'], reverse=True)
-                    data = sorted(data, key=lambda x: x['strike'], reverse=True)
-                    if data:
-                        save_json(data, symbol, directory_path+key_element)
-        except:
-            pass
+            # returns { "YYYY-MM-DD": [ {strike, call_gex, put_gex, call_dex, put_dex}, … ], … }
+            data_by_expiry = aggregate_data_by_strike_by_expiry(symbol)
+            if not data_by_expiry:
+                continue
+
+            # For each of gex and dex, build and save a filtered dict
+            for key in subdirs:
+                out = {}
+                for expiry, rows in data_by_expiry.items():
+                    # pick only strike + call_{key} + put_{key}
+                    out[expiry] = [
+                        {
+                            "strike": r["strike"],
+                            f"call_{key}": r[f"call_{key}"],
+                            f"put_{key}": r[f"put_{key}"]
+                        }
+                        for r in rows if r[f"call_{key}"]+r[f"put_{key}"] != 0
+                    ]
+                
+                out = {k: v for k, v in out.items() if v} #delete empty list for expiration dates
+
+                save_json(out, symbol, directory_path+key)
+
+        except Exception as e:
+            print(e)
 
 def get_expiry_data():
     directory_path = "json/gex-dex/expiry/"
@@ -308,7 +331,7 @@ def get_expiry_data():
             pass
 
 if __name__ == '__main__':
-    get_overview_data()
+    #get_overview_data()
     get_strike_data()
-    get_expiry_data()
+    #get_expiry_data()
     
