@@ -500,16 +500,16 @@ async def get_stock(data: TickerData, api_key: str = Security(get_api_key)):
         if date_key in adj_by_date:
             adj_entry = adj_by_date[date_key]
             # add adjusted data to record; adjust field names as necessary.
-            record["adjOpen"]  = adj_entry.get("adjOpen")
-            record["adjHigh"]  = adj_entry.get("adjHigh")
-            record["adjLow"]   = adj_entry.get("adjLow")
+            #record["adjOpen"]  = adj_entry.get("adjOpen")
+            #record["adjHigh"]  = adj_entry.get("adjHigh")
+            #record["adjLow"]   = adj_entry.get("adjLow")
             record["adjClose"] = adj_entry.get("adjClose")
 
     # Serialize and cache the result.
     res_json = orjson.dumps(res)
     compressed_data = gzip.compress(res_json)
     redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 60*60*6)  # cache for 24 hours
+    redis_client.expire(cache_key, 60*20)  # cache for 24 hours
 
     return StreamingResponse(
         io.BytesIO(compressed_data),
