@@ -9,14 +9,17 @@ with open("json/stock-screener/data.json", "rb") as file:
 stock_screener_data_dict = {item['symbol']: item for item in stock_screener_data}
 
 # Choose a symbol
-symbol = 'WOLF'
+symbol = 'WMT'
 
 # Save the data for the symbol in a new dictionary
 symbol_data = stock_screener_data_dict.get(symbol, {})
 
 
-with open(f"json/earnings/past/{symbol}.json", "rb") as file:
-    price_reaction_section = orjson.loads(file.read())
-    
-# Optional: print to verify
+with open(f"json/business-metrics/{symbol}.json", "rb") as file:
+    businss_metrics = orjson.loads(file.read())
+
+print("Business Metrics Data:")
+print(businss_metrics)
+print("\n\n")
+print("Fundamental & Key Data:")
 print(symbol_data)
