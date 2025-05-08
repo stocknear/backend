@@ -542,12 +542,14 @@ def post_to_reddit():
                 "title": f"Upcoming Earnings for {formatted_date}",
                 "flair_id": "b9f76638-772e-11ef-96c1-0afbf26bd890"
             },
+            '''
             {
                 "data_key": "recentEarnings",
                 "format_func": format_recent_earnings_data,
                 "title": f"Recent Earnings for {formatted_date}",
                 "flair_id": "b9f76638-772e-11ef-96c1-0afbf26bd890"
             },
+            '''
         ]
     
         try:
