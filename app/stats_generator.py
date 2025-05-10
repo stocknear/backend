@@ -1,25 +1,58 @@
+import argparse
+import sys
 from datetime import datetime
 import orjson
 
-# Load the JSON file
-with open("json/stock-screener/data.json", "rb") as file:
-    stock_screener_data = orjson.loads(file.read())
+# -----------------------------------------------------------------------------
+# Script to load and display stock screener data and business metrics for a given
+# ticker symbol passed via command-line argument.
+# -----------------------------------------------------------------------------
 
-# Convert list to a dictionary with symbols as keys
-stock_screener_data_dict = {item['symbol']: item for item in stock_screener_data}
+def main():
+    parser = argparse.ArgumentParser(
+        description="Load stock screener and business metrics data for a ticker symbol"
+    )
+    parser.add_argument(
+        '--ticker', '-t',
+        required=True,
+        help="Stock ticker symbol (e.g., AMD)"
+    )
+    args = parser.parse_args()
 
-# Choose a symbol
-symbol = 'WMT'
+    # Normalize the symbol to uppercase
+    symbol = args.ticker.upper()
 
-# Save the data for the symbol in a new dictionary
-symbol_data = stock_screener_data_dict.get(symbol, {})
+    # Load the stock screener data
+    try:
+        with open("json/stock-screener/data.json", "rb") as file:
+            stock_screener_data = orjson.loads(file.read())
+    except FileNotFoundError:
+        print("Error: stock-screener data file not found.", file=sys.stderr)
+        sys.exit(1)
 
+    # Convert list to a dict keyed by symbol
+    stock_screener_data_dict = {item['symbol']: item for item in stock_screener_data}
+    symbol_data = stock_screener_data_dict.get(symbol)
 
-with open(f"json/business-metrics/{symbol}.json", "rb") as file:
-    businss_metrics = orjson.loads(file.read())
+    if symbol_data is None:
+        print(f"Error: Symbol '{symbol}' not found in stock-screener data.", file=sys.stderr)
+        sys.exit(1)
 
-print("Business Metrics Data:")
-print(businss_metrics)
-print("\n\n")
-print("Fundamental & Key Data:")
-print(symbol_data)
+    # Load the business metrics for the symbol
+    metrics_path = f"json/business-metrics/{symbol}.json"
+    try:
+        with open(metrics_path, "rb") as file:
+            business_metrics = orjson.loads(file.read())
+    except FileNotFoundError:
+        print(f"Error: Business metrics file for '{symbol}' not found.", file=sys.stderr)
+        sys.exit(1)
+
+    # Display results
+    print("Business Metrics Data:")
+    print(business_metrics)
+    print("\n\n")
+    print("Fundamental & Key Data:")
+    print(symbol_data)
+
+if __name__ == "__main__":
+    main()
