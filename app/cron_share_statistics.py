@@ -47,7 +47,8 @@ def calculate_forward_pe(symbol):
             eps = item.get('estimatedEpsAvg')
             if eps:
                 return round(price / eps, 2)
-    except Exception:
+    except Exception as e:
+        print(e)
         return None
     return None
 
@@ -67,6 +68,7 @@ def get_short_data(ticker):
         'sharesOutstanding','sharesFloat'
     ]
     history = [{k: r.get(k) for k in keep_keys} for r in data]
+
     if not history:
         return {'sharesShort': None,'shortRatio': None,'sharesShortPriorMonth': None,
                 'shortOutstandingPercent': None,'shortFloatPercent': None,'history': []}
@@ -76,9 +78,20 @@ def get_short_data(ticker):
     with path.open('rb') as f:
         price_history = orjson.loads(f.read())
     price_map = {item['time']: item.get('close') for item in price_history}
+
+
     for entry in history:
-        entry['price'] = price_map.get(entry.get('recordDate'))
-        entry['shortPercentOfOut'] = round(int(entry['totalShortInterest']) / int(entry['sharesOutstanding']) * 100, 2) if int(entry['sharesOutstanding']) > 0 else 0
+        try:
+            entry['price'] = price_map.get(entry.get('recordDate'))
+            if int(entry.get('sharesOutstanding', 0)) > 0:
+                entry['shortPercentOfOut'] = round(
+                    int(entry.get('totalShortInterest', 0)) / int(entry.get('sharesOutstanding', 0)) * 100,
+                    2
+                )
+            else:
+                entry['shortPercentOfOut'] = 0
+        except:
+            pass
 
     latest = history[-1]
     out = int(latest.get('sharesOutstanding') or 0)
@@ -117,14 +130,14 @@ async def process_symbol(ticker, semaphore):
             fpe_dict, short_dict = await get_data(ticker)
             if short_dict and fpe_dict:
                 await save_as_json(ticker, fpe_dict, short_dict)
-        except:
-            pass
+        except Exception as e:
+            print(e)
 
 async def run():
     total_symbols = get_total_symbols()
 
     #Testing mode
-    #total_symbols = ['NVDA','GME']
+    #total_symbols = ['JD']
     # Limit concurrent tasks
     concurrency = 10
     semaphore = asyncio.Semaphore(concurrency)
