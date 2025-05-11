@@ -19,11 +19,17 @@ def convert_to_dict(data):
     result = {}
 
     for entry in data:
-        for date, categories in entry.items():
-            if date not in result:
-                result[date] = {}
-            for category, amount in categories.items():
-                result[date][category] = amount
+        try:
+            for date, categories in entry.items():
+                try:
+                    if date not in result:
+                        result[date] = {}
+                    for category, amount in categories.items():
+                        result[date][category] = amount
+                except:
+                    pass
+        except:
+            pass
                 
     return result
 
