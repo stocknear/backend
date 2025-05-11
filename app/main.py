@@ -2023,7 +2023,7 @@ async def etf_holdings(data: TickerData, api_key: str = Security(get_api_key)):
         with open(f"json/etf/holding/{ticker}.json", 'rb') as file:
             res = orjson.loads(file.read())
     except:
-        res = {}
+        res = {'holdings': []}
 
     data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
