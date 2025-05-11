@@ -243,7 +243,7 @@ async def get_data(session, total_symbols):
             revenue_segmentation_data = []
 
             urls = [
-                f"https://financialmodelingprep.com/stable/revenue-product-segmentation?symbol={symbol}&apikey={api_key}"
+                f"https://financialmodelingprep.com/stable/revenue-product-segmentation?symbol={symbol}&apikey={api_key}",
                 f"https://financialmodelingprep.com/stable/revenue-geographic-segmentation?symbol={symbol}&apikey={api_key}"
             ]
 
@@ -276,7 +276,7 @@ async def run():
     cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
     total_symbols = [row[0] for row in cursor.fetchall()]
     #Testing
-    #total_symbols = ['TSLA','AMD']
+    #total_symbols = ['JD']
     con.close()
 
     async with aiohttp.ClientSession() as session:
