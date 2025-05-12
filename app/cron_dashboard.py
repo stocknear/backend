@@ -384,8 +384,68 @@ async def get_latest_wiim():
 
     return res_list[:10]
 
+
+def get_dark_pool():
+    with open(f"json/dark-pool/feed/data.json","rb") as file:
+        data = orjson.loads(file.read())
+
+    n = 5
+    items = data[:]
+    top = []
+    count = min(n, len(items))
+    keys_to_keep = {"ticker", "price", "size", "premium", "assetType", "sizeAvgVolRatio"}
+
+    for _ in range(count):
+        try:
+            # Find index of item with highest premium
+            max_idx = 0
+            for i in range(1, len(items)):
+                if items[i].get('premium', 0) > items[max_idx].get('premium', 0):
+                    max_idx = i
+
+            # Pop the max item and filter its keys
+            item = items.pop(max_idx)
+            filtered = {k: item[k] for k in keys_to_keep if k in item}
+            top.append(filtered)
+        except:
+            pass
+        
+    return top
+
+def get_options_flow():
+    with open(f"json/options-flow/feed/data.json","rb") as file:
+        data = orjson.loads(file.read())
+    n = 5
+    items = data[:]
+    top = []
+    count = min(n, len(items))
+    keys_to_keep = {"ticker", "strike_price","cost_basis", "underlying_type","sentiment", "open_interest"}
+
+    for _ in range(count):
+        try:
+            # Find index of item with highest cost_basis
+            max_idx = 0
+            for i in range(1, len(items)):
+                if items[i].get('cost_basis', 0) > items[max_idx].get('cost_basis', 0):
+                    max_idx = i
+
+            # Pop the max item and filter its keys
+            item = items.pop(max_idx)
+            filtered = {k: item[k] for k in keys_to_keep if k in item}
+            top.append(filtered)
+        except:
+            pass
+        
+    return top
+
+
 async def run():
     async with aiohttp.ClientSession() as session:
+
+        options_flow_list = get_options_flow()
+        dark_pool_list = get_dark_pool()
+        print(options_flow_list)
+        
         recent_earnings = await get_recent_earnings(session)
 
         upcoming_earnings = await get_upcoming_earnings(session, today, filter_today=False)
@@ -409,6 +469,8 @@ async def run():
             item for item in upcoming_earnings 
             if item['symbol'] not in [earning['symbol'] for earning in recent_earnings]
         ]
+
+        
         
         '''
         try:
@@ -433,15 +495,17 @@ async def run():
 
         market_status = check_market_hours()
 
-        print(market_status)
-        
+        gainers_list = []
+        losers_list = []
+
         if market_status == 0:
             try:
                 with open("json/market-movers/markethours/gainers.json", 'r') as file:
                     gainers = ujson.load(file)
                 with open("json/market-movers/markethours/losers.json", 'r') as file:
                     losers = ujson.load(file)
-                market_movers = {'gainers': gainers['1D'][:5], 'losers': losers['1D'][:5]}
+                gainers_list = gainers['1D'][:5]
+                losers_list = losers['1D'][:5]
             except:
                 market_movers = {}
         elif market_status == 1:
@@ -462,7 +526,9 @@ async def run():
                         for item in data[:5]
                     ]
         
-                market_movers = {'gainers': gainers, 'losers': losers}
+                gainers_list = gainers
+                losers_list = losers
+
             except Exception as e:
                 print(e)
                 market_movers = {}
@@ -484,17 +550,22 @@ async def run():
                         for item in data[:5]
                     ]
     
-                market_movers = {'gainers': gainers, 'losers': losers}
+                gainers_list = gainers
+                losers_list = losers
             except:
-                market_movers = {}
+                gainers_list = []
+                losers_list = []
 
         data = {
-            'marketMovers': market_movers,
+            'gainers': gainers_list,
+            'losers': losers_list,
             'marketStatus': market_status,
             'recentEarnings': recent_earnings,
             'upcomingEarnings': upcoming_earnings,
             'analystReport': recent_analyst_report,
             'wiim': recent_wiim,
+            'darkPool': dark_pool_list,
+            'optionsFlow': options_flow_list,
         }
 
         if len(data) > 0:
