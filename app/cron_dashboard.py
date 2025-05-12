@@ -438,14 +438,53 @@ def get_options_flow():
         
     return top
 
+def get_economic_calendar():
+    today_str = date.today().isoformat()
+
+    # Load data from JSON
+    with open("json/economic-calendar/data.json", "rb") as f:
+        data = orjson.loads(f.read())
+
+    # Filter US events for today
+    us_events = [
+        event for event in data
+        if event.get("countryCode", "").lower() == "us"
+        and event.get("date") == today_str
+    ]
+    
+    filtered = []
+    # Check thresholds in descending order
+    for threshold in [1,2,3]:
+        try:
+            # Filter events by current threshold or higher
+            filtered += [
+                event for event in us_events
+                if event.get("importance", 0) >= threshold
+            ]
+            if filtered:
+                sorted_events = sorted(filtered, key=lambda ev: ev.get("time", ""))
+                top_5_events = sorted_events[:5]
+                # Transform to include only necessary keys
+                return [
+                    {key: ev.get(key) for key in ["time", "prior", "consensus", "event"]}
+                    for ev in top_5_events
+                ]
+        except:
+            pass
+    
+    # Return empty list if no events found
+    return []
+
 
 async def run():
     async with aiohttp.ClientSession() as session:
 
+        economic_calendar_list = get_economic_calendar()
+        print(len(economic_calendar_list))
+
         options_flow_list = get_options_flow()
         dark_pool_list = get_dark_pool()
-        print(options_flow_list)
-        
+            
         recent_earnings = await get_recent_earnings(session)
 
         upcoming_earnings = await get_upcoming_earnings(session, today, filter_today=False)
@@ -566,6 +605,7 @@ async def run():
             'wiim': recent_wiim,
             'darkPool': dark_pool_list,
             'optionsFlow': options_flow_list,
+            "economicCalendar": economic_calendar_list,
         }
 
         if len(data) > 0:
