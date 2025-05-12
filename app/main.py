@@ -308,6 +308,9 @@ class BulkDownload(BaseModel):
     tickers: list
     bulkData: list
 
+class CustomSettings(BaseModel):
+    customSettings: list
+
 class AnalystId(BaseModel):
     analystId: str
 
@@ -3103,30 +3106,41 @@ async def get_wiim(data:TickerData, api_key: str = Security(get_api_key)):
         headers={"Content-Encoding": "gzip"}
     )
 
-@app.get("/dashboard-info")
-async def get_dashboard_info(api_key: str = Security(get_api_key)):
+@app.post("/dashboard-info")
+async def get_dashboard_info(data: CustomSettings, api_key: str = Security(get_api_key)):
+    # Extract user-specified sections
+    custom_settings = data.customSettings
 
-    cache_key = f"dashboard-info"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
+    # Build cache key based on settings
+    cache_key = f"dashboard-info-{','.join(custom_settings)}"
+    cached = redis_client.get(cache_key)
+    if cached:
         return StreamingResponse(
-        io.BytesIO(cached_result),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"})
+            io.BytesIO(cached),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
+
+    # Load full JSON
     try:
-        with open(f"json/dashboard/data.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = []
+        with open("json/dashboard/data.json", "rb") as f:
+            full_res = orjson.loads(f.read())
+    except FileNotFoundError:
+        full_res = {}
 
-    data = orjson.dumps(res)
-    compressed_data = gzip.compress(data)
+    # Filter response based on user settings
+    filtered_res = { key: full_res.get(key) for key in custom_settings if key in full_res }
 
-    redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 60*2)
+    # Serialize and compress
+    raw = orjson.dumps(filtered_res)
+    compressed = gzip.compress(raw)
+
+    # Cache for 2 minutes
+    redis_client.set(cache_key, compressed)
+    redis_client.expire(cache_key, 120)
 
     return StreamingResponse(
-        io.BytesIO(compressed_data),
+        io.BytesIO(compressed),
         media_type="application/json",
         headers={"Content-Encoding": "gzip"}
     )
