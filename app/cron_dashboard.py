@@ -409,7 +409,7 @@ def get_dark_pool():
             top.append(filtered)
         except:
             pass
-        
+
     return top
 
 def get_options_flow():
@@ -603,7 +603,7 @@ async def run():
             'upcomingEarnings': upcoming_earnings,
             'analystReport': recent_analyst_report,
             'wiim': recent_wiim,
-            'darkPool': dark_pool_list,
+            'darkpool': dark_pool_list,
             'optionsFlow': options_flow_list,
             "economicCalendar": economic_calendar_list,
         }
