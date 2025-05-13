@@ -307,6 +307,7 @@ def run_financial_score():
     week = datetime.today().weekday()
     if week <= 4:
         run_command(["python3", "cron_financial_score.py"])
+        run_command(["python3", "cron_business_metrics.py"])
  
 
 def run_market_cap():
