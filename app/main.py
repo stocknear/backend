@@ -287,6 +287,10 @@ class GreekExposureData(BaseModel):
     category: str
     type: str
 
+class CompareData(BaseModel):
+    tickerList: list
+    category: str
+
 class MarketNews(BaseModel):
     newsType: str
 
@@ -4289,6 +4293,59 @@ async def get_data(data:TickerData, api_key: str = Security(get_api_key)):
         media_type="application/json",
         headers={"Content-Encoding": "gzip"}
     )
+
+
+@app.post("/compare-data")
+async def get_data(
+    data: CompareData,
+    api_key: str = Security(get_api_key),
+):
+    tickers = sorted(data.tickerList)
+    category = data.category
+    cache_key = f"compare-data-{','.join(tickers)}-{category}"
+
+    # Check endpoint-level cache
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"},
+        )
+
+    # Build a list of coroutines for each ticker
+    if category == "price":
+        async def load_and_filter(ticker: str):
+            raw = await load_json_async(f"json/historical-price/max/{ticker}.json")
+            # keep only time and close
+            return [{"time": point["time"], "close": point["close"]} for point in raw]
+
+        coros = [load_and_filter(t) for t in tickers]
+    else:
+        # if you later support other categories, extend here
+        coros = [asyncio.sleep(0, result=[]) for _ in tickers]
+
+    # Run loads in parallel
+    results = await asyncio.gather(*coros, return_exceptions=False)
+
+    # Merge into dict
+    filtered = {ticker: data for ticker, data in zip(tickers, results)}
+
+    # serialize & compress
+    blob = orjson.dumps(filtered)
+    compressed_data = gzip.compress(blob)
+
+    # cache for 1 hour
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 3600)
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
+
+
 
 
 @app.post("/short-interest")
