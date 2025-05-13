@@ -4544,15 +4544,13 @@ CATEGORY_CONFIG = {
     "path": "json/market-cap/companies/{ticker}.json",
     "processor": lambda raw: [
         {"date": point["date"], "value": point["marketCap"]}
-        for point in raw
-        if point["date"] >= "2015-01-01"
-        ]
+        for point in raw if point["date"] >= "2000-01-01"]
     },
     "dividendYield": {
         "path": "json/dividends/companies/{ticker}.json",
         "processor": lambda raw: sorted(
             [{"date": point["date"], "value": round(point.get('yield', 0), 2)}  # Added closing )
-             for point in raw['history']],
+             for point in raw['history'] if point["date"] >= "2000-01-01"],
             key=lambda x: x["date"]
         )
     },
@@ -4560,7 +4558,7 @@ CATEGORY_CONFIG = {
         "path": "json/dividends/companies/{ticker}.json",
         "processor": lambda raw: sorted(
             [{"date": point["date"], "value": round(point.get('adjDividend', 0), 2)}  # Added closing )
-             for point in raw['history']],
+             for point in raw['history'] if point["date"] >= "2000-01-01"],
             key=lambda x: x["date"]
         )
     },
@@ -4568,7 +4566,7 @@ CATEGORY_CONFIG = {
         "path": "json/financial-statements/income-statement/ttm/{ticker}.json",
         "processor": lambda raw: sorted(
             [{"date": point["date"], "value": round(point.get('revenue', 0), 0)}  # Added closing )
-             for point in raw],
+             for point in raw if point["date"] >= "2000-01-01"],
             key=lambda x: x["date"]
         )
     },
@@ -4576,7 +4574,7 @@ CATEGORY_CONFIG = {
         "path": "json/financial-statements/income-statement/ttm/{ticker}.json",
         "processor": lambda raw: sorted(
             [{"date": point["date"], "value": round(point.get('epsDiluted', 0), 2)}  # Added closing )
-             for point in raw],
+             for point in raw if point["date"] >= "2000-01-01"],
             key=lambda x: x["date"]
         )
     },
@@ -4584,7 +4582,7 @@ CATEGORY_CONFIG = {
         "path": "json/financial-statements/income-statement//{ticker}.json",
         "processor": lambda raw: sorted(
             [{"date": point["date"], "value": round(point.get('epsDiluted', 0), 2)}  # Added closing )
-             for point in raw],
+             for point in raw if point["date"] >= "2000-01-01"],
             key=lambda x: x["date"]
         )
     },
@@ -4592,7 +4590,7 @@ CATEGORY_CONFIG = {
         "path": "json/financial-statements/income-statement-growth/annual/{ticker}.json",
         "processor": lambda raw: sorted(
             [{"date": point["date"], "value": round(point.get('growthRevenue', 0)*100, 2)}  # Added closing )
-             for point in raw],
+             for point in raw if point["date"] >= "2000-01-01"],
             key=lambda x: x["date"]
         )
     },
@@ -4616,7 +4614,7 @@ CATEGORY_CONFIG = {
         "path": "json/financial-statements/ratios/annual/{ticker}.json",
         "processor": lambda raw: sorted(
             [{"date": point["date"], "value": round(point.get('evToSales', 2), 2)}  # Added closing )
-             for point in raw],
+             for point in raw if point["date"] >= "2000-01-01"],
             key=lambda x: x["date"]
         )
     },
