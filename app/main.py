@@ -4541,8 +4541,12 @@ CATEGORY_CONFIG = {
         "processor": lambda raw: [{"date": point["time"], "value": point["close"]} for point in raw]
     },
     "marketCap": {
-        "path": "json/market-cap/companies/{ticker}.json",
-        "processor": lambda raw: [{"date": point["date"], "value": point["marketCap"]} for point in raw]
+    "path": "json/market-cap/companies/{ticker}.json",
+    "processor": lambda raw: [
+        {"date": point["date"], "value": point["marketCap"]}
+        for point in raw
+        if point["date"] >= "2015-01-01"
+        ]
     },
     "dividendYield": {
         "path": "json/dividends/companies/{ticker}.json",
