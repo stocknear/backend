@@ -4294,116 +4294,6 @@ async def get_data(data:TickerData, api_key: str = Security(get_api_key)):
     )
 
 
-@app.post("/compare-data")
-async def get_data(data: CompareData, api_key: str = Security(get_api_key)):
-    tickers = data.tickerList #sorted(data.tickerList)
-    category = data.category
-    cache_key = f"compare-data-{','.join(tickers)}-{category}"
-
-    # Check endpoint‐level cache
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return StreamingResponse(
-            io.BytesIO(cached_result),
-            media_type="application/json",
-            headers={"Content-Encoding": "gzip"},
-        )
-
-    # Build a list of coroutines for each ticker
-    if category == "price":
-        async def load_and_filter(ticker: str):
-            try:
-                raw = await load_json_async(f"json/historical-price/max/{ticker}.json")
-                return [{"date": point["time"], "value": point["close"]} for point in raw]
-            except:
-                pass
-        coros = [load_and_filter(t) for t in tickers]
-    elif category == "marketCap":
-        async def load_and_filter(ticker: str):
-            try:
-                raw = await load_json_async(f"json/market-cap/companies/{ticker}.json")
-                return [{"date": point["date"], "value": point["marketCap"]} for point in raw]
-            except:
-                return []
-        coros = [load_and_filter(t) for t in tickers]
-
-    elif category == "dividendYield":
-        async def load_and_filter(ticker: str):
-            try:
-                raw = (await load_json_async(f"json/dividends/companies/{ticker}.json"))['history']
-                return sorted([{"date": point["date"], "value": round(point.get('yield', 0), 2)} for point in raw], key=lambda x: x["date"])
-            except:
-                return []
-        coros = [load_and_filter(t) for t in tickers]
-
-    elif category == "dividends":
-        async def load_and_filter(ticker: str):
-            try:
-                raw = (await load_json_async(f"json/dividends/companies/{ticker}.json"))['history']
-                return sorted([{"date": point["date"], "value": round(point.get('adjDividend', 0), 2)} for point in raw], key=lambda x: x["date"])
-            except:
-                return []
-        coros = [load_and_filter(t) for t in tickers]
-
-    else:
-        # if you later support other categories, extend here
-        coros = [asyncio.sleep(0, result=[]) for _ in tickers]
-
-    # Run loads in parallel
-    histories = await asyncio.gather(*coros, return_exceptions=False)
-    
-    # Merge into the desired structure
-    merged = {}
-    overview = []
-
-    for ticker, history in zip(tickers, histories):
-        screener = stock_screener_data_dict.get(ticker, {})
-        changes = [
-            screener.get("cagr1MReturn"),
-            screener.get("cagrYTDReturn"),
-            screener.get("cagr1YReturn"),
-            screener.get("cagr5YReturn"),
-            screener.get("cagrMaxReturn"),
-        ]
-        merged[ticker] = {
-            "history": history,
-            "changesPercentage": changes
-        }
-
-    #call the endpoint @app.post("/indicator-data") with ruleOfList = [] and tickersList
-    url = f"http://localhost:8000/indicator-data"
-    try:
-        response = await client.post(
-            url,
-            json={"tickerList": tickers, "ruleOfList": ['marketCap',"price","changesPercentage","volume","priceToEarningsRatio","revenue","grossProfit"]},
-            headers={"X-API-KEY": STOCKNEAR_API_KEY}
-        )
-        response.raise_for_status()
-        # Parse the JSON response
-        overview = response.json()
-    except:
-        overview = []
-
-    final_output = {'graph': merged, 'table': overview}
-
-    # serialize & compress
-    blob = orjson.dumps(final_output)
-    compressed_data = gzip.compress(blob)
-
-    # cache for 1 hour
-    redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 3600)
-
-    return StreamingResponse(
-        io.BytesIO(compressed_data),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"}
-    )
-
-
-
-
-
 @app.post("/short-interest")
 async def get_data(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
@@ -4644,15 +4534,184 @@ async def get_data(data: BulkDownload, api_key: str = Security(get_api_key)):
 
 
 
+# Configuration Constants
+CATEGORY_CONFIG = {
+    "price": {
+        "path": "json/historical-price/max/{ticker}.json",
+        "processor": lambda raw: [{"date": point["time"], "value": point["close"]} for point in raw]
+    },
+    "marketCap": {
+        "path": "json/market-cap/companies/{ticker}.json",
+        "processor": lambda raw: [{"date": point["date"], "value": point["marketCap"]} for point in raw]
+    },
+    "dividendYield": {
+        "path": "json/dividends/companies/{ticker}.json",
+        "processor": lambda raw: sorted(
+            [{"date": point["date"], "value": round(point.get('yield', 0), 2)}  # Added closing )
+             for point in raw['history']],
+            key=lambda x: x["date"]
+        )
+    },
+    "dividends": {
+        "path": "json/dividends/companies/{ticker}.json",
+        "processor": lambda raw: sorted(
+            [{"date": point["date"], "value": round(point.get('adjDividend', 0), 2)}  # Added closing )
+             for point in raw['history']],
+            key=lambda x: x["date"]
+        )
+    },
+    "revenue": {
+        "path": "json/financial-statements/income-statement/ttm/{ticker}.json",
+        "processor": lambda raw: sorted(
+            [{"date": point["date"], "value": round(point.get('revenue', 0), 0)}  # Added closing )
+             for point in raw],
+            key=lambda x: x["date"]
+        )
+    },
+    "epsDiluted": {
+        "path": "json/financial-statements/income-statement/ttm/{ticker}.json",
+        "processor": lambda raw: sorted(
+            [{"date": point["date"], "value": round(point.get('epsDiluted', 0), 2)}  # Added closing )
+             for point in raw],
+            key=lambda x: x["date"]
+        )
+    },
+    "epsGrowth": {
+        "path": "json/financial-statements/income-statement//{ticker}.json",
+        "processor": lambda raw: sorted(
+            [{"date": point["date"], "value": round(point.get('epsDiluted', 0), 2)}  # Added closing )
+             for point in raw],
+            key=lambda x: x["date"]
+        )
+    },
+    "revenueGrowth": {
+        "path": "json/financial-statements/income-statement-growth/annual/{ticker}.json",
+        "processor": lambda raw: sorted(
+            [{"date": point["date"], "value": round(point.get('growthRevenue', 0)*100, 2)}  # Added closing )
+             for point in raw],
+            key=lambda x: x["date"]
+        )
+    },
+    "shortPercentOfFloat": {
+        "path": "json/share-statistics/{ticker}.json",
+        "processor": lambda raw: sorted(
+            [{"date": point["recordDate"], "value": round(point.get('shortPercentOfFloat', 0), 2)}  # Added closing )
+             for point in raw['history']],
+            key=lambda x: x["date"]
+        )
+    },
+    "daysToCover": {
+        "path": "json/share-statistics/{ticker}.json",
+        "processor": lambda raw: sorted(
+            [{"date": point["recordDate"], "value": round(point.get('daysToCover', 0), 2)}  # Added closing )
+             for point in raw['history']],
+            key=lambda x: x["date"]
+        )
+    },
+    "evToSales": {
+        "path": "json/financial-statements/ratios/annual/{ticker}.json",
+        "processor": lambda raw: sorted(
+            [{"date": point["date"], "value": round(point.get('evToSales', 2), 2)}  # Added closing )
+             for point in raw],
+            key=lambda x: x["date"]
+        )
+    },
 
+}
 
+INDICATOR_RULES = [
+    "marketCap",
+    "price",
+    "changesPercentage",
+    "volume",
+    "priceToEarningsRatio",
+    "revenue",
+    "grossProfit"
+]
 
+INDICATOR_DATA_URL = "http://localhost:8000/indicator-data"
 
+async def load_ticker_data(ticker: str, category: str) -> list:
+    """Load and process data for a single ticker"""
+    config = CATEGORY_CONFIG.get(category)
+    if not config:
+        return []
+    
+    try:
+        raw_data = await load_json_async(config["path"].format(ticker=ticker))
+        processed_data = config["processor"](raw_data)
+        return processed_data
+    except Exception as e:
+        # Log error here if needed
+        return []
 
+def create_merged_structure(tickers: list, histories: list, stock_data: dict) -> dict:
+    """Create merged data structure for response"""
+    merged = {}
+    for ticker, history in zip(tickers, histories):
+        screener = stock_data.get(ticker, {})
+        merged[ticker] = {
+            "history": history,
+            "changesPercentage": [
+                screener.get("cagr1MReturn"),
+                screener.get("cagrYTDReturn"),
+                screener.get("cagr1YReturn"),
+                screener.get("cagr5YReturn"),
+                screener.get("cagrMaxReturn"),
+            ]
+        }
+    return merged
 
+@app.post("/compare-data")
+async def compare_data_endpoint(data: CompareData, api_key: str = Security(get_api_key)):
+    # Sort tickers for consistent cache keys
+    tickers = data.tickerList
+    category = data.category
+    cache_key = f"compare-data-{','.join(tickers)}-{category}"
 
+    # Try to return cached response
+    if cached := redis_client.get(cache_key):
+        return StreamingResponse(
+            io.BytesIO(cached),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"},
+        )
 
+    # Load data for all tickers in parallel
+    loaders = [load_ticker_data(ticker, category) for ticker in tickers]
+    histories = await asyncio.gather(*loaders, return_exceptions=False)
 
+    # Create base response structure
+    merged = create_merged_structure(tickers, histories, stock_screener_data_dict)
+
+    # Fetch additional indicator data
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                INDICATOR_DATA_URL,
+                json={"tickerList": tickers, "ruleOfList": INDICATOR_RULES},
+                headers={"X-API-KEY": STOCKNEAR_API_KEY},
+                timeout=10.0
+            )
+            response.raise_for_status()
+            overview = response.json()
+    except Exception as e:
+        # Log error here if needed
+        overview = []
+
+    # Prepare final output
+    final_output = {'graph': merged, 'table': overview}
+
+    # Cache and return response
+    blob = orjson.dumps(final_output)
+    compressed = gzip.compress(blob)
+    redis_client.setex(cache_key, 3600, compressed)
+
+    return StreamingResponse(
+        io.BytesIO(compressed),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
 
 
 
