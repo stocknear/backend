@@ -4296,11 +4296,8 @@ async def get_data(data:TickerData, api_key: str = Security(get_api_key)):
 
 
 @app.post("/compare-data")
-async def get_data(
-    data: CompareData,
-    api_key: str = Security(get_api_key),
-):
-    tickers = sorted(data.tickerList)
+async def get_data(data: CompareData, api_key: str = Security(get_api_key)):
+    tickers = data.tickerList #sorted(data.tickerList)
     category = data.category
     cache_key = f"compare-data-{','.join(tickers)}-{category}"
 
@@ -4321,6 +4318,7 @@ async def get_data(
             return [{"time": point["time"], "close": point["close"]} for point in raw]
 
         coros = [load_and_filter(t) for t in tickers]
+
     else:
         # if you later support other categories, extend here
         coros = [asyncio.sleep(0, result=[]) for _ in tickers]
@@ -4328,28 +4326,42 @@ async def get_data(
     # Run loads in parallel
     histories = await asyncio.gather(*coros, return_exceptions=False)
 
-    # Suppose stock_screener_data_dict is already in scope here,
-    # e.g. loaded earlier in your app startup:
-    #   stock_screener_data_dict = {...}
-
     # Merge into the desired structure
     merged = {}
+    overview = []
+
     for ticker, history in zip(tickers, histories):
         screener = stock_screener_data_dict.get(ticker, {})
         changes = [
-            screener.get("adjChange1M"),
-            screener.get("adjChangeYTD"),
-            screener.get("adjChange1Y"),
-            screener.get("adjChange5Y"),
-            screener.get("adjChangeMax"),
+            screener.get("cagr1MReturn"),
+            screener.get("cagrYTDReturn"),
+            screener.get("cagr1YReturn"),
+            screener.get("cagr5YReturn"),
+            screener.get("cagrMaxReturn"),
         ]
         merged[ticker] = {
             "history": history,
             "changesPercentage": changes
         }
 
+    #call the endpoint @app.post("/indicator-data") with ruleOfList = [] and tickersList
+    url = f"http://localhost:8000/indicator-data"
+    try:
+        response = await client.post(
+            url,
+            json={"tickerList": tickers, "ruleOfList": ['marketCap',"price","changesPercentage","volume","priceToEarningsRatio","revenue","grossProfit"]},
+            headers={"X-API-KEY": STOCKNEAR_API_KEY}
+        )
+        response.raise_for_status()
+        # Parse the JSON response
+        overview = response.json()
+    except:
+        overview = []
+
+    final_output = {'graph': merged, 'table': overview}
+
     # serialize & compress
-    blob = orjson.dumps(merged)
+    blob = orjson.dumps(final_output)
     compressed_data = gzip.compress(blob)
 
     # cache for 1 hour

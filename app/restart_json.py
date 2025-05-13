@@ -840,9 +840,9 @@ async def get_stock_screener(con):
 
     # Iterate through stock_screener_data and update 'price' and 'changesPercentage' if symbols match
     #test mode
-    filtered_data = [item for item in stock_screener_data if item['symbol'] == 'TSLA']
+    #filtered_data = [item for item in stock_screener_data if item['symbol'] == 'TSLA']
 
-    for item in tqdm(filtered_data):
+    for item in tqdm(stock_screener_data):
         symbol = item['symbol']
 
         try:
@@ -947,64 +947,48 @@ async def get_stock_screener(con):
             
             latest_date = datetime.strptime(hist[0]["date"], "%Y-%m-%d").date()
             latest_p = hist[0]["adjClose"]
-            
-            # 1M (≈20 trading days)
-            n1 = 20
-            p1m = hist[n1]["adjClose"]
-            total1m = latest_p/p1m - 1.0
-            # arithmetic avg daily return over last 20 days
-            daily_returns_1m = [
-                hist[i]["adjClose"] / hist[i+1]["adjClose"] - 1.0
-                for i in range(n1)
-            ]
-            arith1m = sum(daily_returns_1m) / len(daily_returns_1m)
-            # annualize arithmetic
-            arith1m_ann = arith1m * (252/len(daily_returns_1m))
-            # geometric (CAGR) over 1M
-            cagr1m = (latest_p / p1m) ** (252/len(daily_returns_1m)) - 1.0
+
+            # 1M           
+            n1 = 30
+            p1m =  hist[n1]["adjClose"]
+
+            # 3) Annualize your month‐over‐month return:
+            cagr1m = (latest_p / p1m) - 1.0
 
             # YTD
             ytd_start = datetime(latest_date.year, 1, 1).date()
             pYTD = get_price_on_or_nearest(hist, ytd_start)
-            totalYTD = latest_p/pYTD - 1.0
-            # days since YTD:
+            
             delta_days = (latest_date - ytd_start).days
-            # arithmetic per-day:
-            # (you’d need to slice daily returns up to that date)
-            # CAGR YTD:
-            cagrYTD = (latest_p / pYTD) ** (365.0/delta_days) - 1.0
+            cagrYTD = (latest_p / pYTD) - 1.0
 
             # 1Y
             n252 = 252
             p1y = hist[n252]["adjClose"]
-            total1y = latest_p/p1y - 1.0
             cagr1y = (latest_p / p1y) ** (1.0) - 1.0  # since T ≈1 year
 
             # 5Y
             n5 = 252 * 5
             p5y = hist[n5]["adjClose"]
-            total5y = latest_p/p5y - 1.0
             cagr5y = (latest_p / p5y) ** (1/5) - 1.0
 
             # Max
             pmax = hist[-1]["adjClose"]
             years_max = (latest_date - datetime.strptime(hist[-1]["date"], "%Y-%m-%d").date()).days / 365.0
-            total_max = latest_p/pmax - 1.0
             cagr_max = (latest_p / pmax) ** (1/years_max) - 1.0
 
             # store them:
             item.update({
-                'cagr1M': round(cagr1m*100,2),
-                'cagrYTD': round(cagrYTD*100,2),
-                'cagr1Y': round(cagr1y*100,2),
-                'cagr5Y': round(cagr5y*100,2),
-                'cagrMax': round(cagr_max*100,2),
+                'cagr1MReturn': round(cagr1m*100,2),
+                'cagrYTDReturn': round(cagrYTD*100,2),
+                'cagr1YReturn': round(cagr1y*100,2),
+                'cagr5YReturn': round(cagr5y*100,2),
+                'cagrMaxReturn': round(cagr_max*100,2),
             })
 
-            print(item['cagr1Y'])
+            #print(item['cagr1MReturn'], item['cagrYTDReturn'], item['cagr1YReturn'], item['cagr5YReturn'], item['cagrMaxReturn'])
 
-        except Exception as e:
-            print(e)
+        except:
             for key in ['cagr1M','cagrYTD','cagr1Y','cagr5Y','cagrMax']:
                 item[key] = None
 
