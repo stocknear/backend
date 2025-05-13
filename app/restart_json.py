@@ -1,5 +1,5 @@
 import pytz
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import time
 import json
 import ujson
@@ -64,6 +64,10 @@ time_frames = {
 }
 
 one_year_ago = datetime.now() - timedelta(days=365)
+today = date.today()
+
+# YTD start (January 1st of the current year)
+ytd_start = date(today.year, 1, 1)
 
 def calculate_price_changes(symbol, item, con):
     try:
@@ -726,6 +730,16 @@ def get_financial_statements(item, symbol):
 
     return item
 
+def get_price_on_or_nearest(data, target_date):
+    # assume data sorted newest-to-oldest
+    # return the adjClose whose 'date' is closest to target_date
+    return min(
+        data,
+        key=lambda x: abs(
+            datetime.strptime(x["date"], "%Y-%m-%d").date() - target_date
+        )
+    )["adjClose"]
+    
 def get_halal_compliant(item, debt_threshold=30, interest_threshold=30, revenue_threshold=5, liquidity_threshold=30, forbidden_industries=None):
     # Set default forbidden industries if not provided
     if forbidden_industries is None:
@@ -826,7 +840,7 @@ async def get_stock_screener(con):
 
     # Iterate through stock_screener_data and update 'price' and 'changesPercentage' if symbols match
     #test mode
-    #filtered_data = [item for item in stock_screener_data if item['symbol'] == 'MCD']
+    #filtered_data = [item for item in stock_screener_data if item['symbol'] == 'AMD']
 
     for item in tqdm(stock_screener_data):
         symbol = item['symbol']
@@ -925,6 +939,31 @@ async def get_stock_screener(con):
             item['cagr3YearEPS'] = None
             item['cagr5YearEPS'] = None
 
+
+        
+        try:
+            with open(f"json/historical-price/adj/{symbol}.json", 'r') as file:
+                historical_price = orjson.loads(file.read())
+                
+                latest_price = historical_price[0]['adjClose']
+                previous_month_price = historical_price[20]['adjClose']
+                previous_ytd_price = min(historical_price,key=lambda x: abs(datetime.strptime(x["date"], "%Y-%m-%d").date() - ytd_start))['adjClose']
+                previous_1_year_price = historical_price[252]['adjClose']
+                previous_5_year_price = historical_price[252*5]['adjClose']
+                previous_max_year_price = historical_price[-1]['adjClose']
+                
+
+                item['adjChange1M'] = round((latest_price/previous_month_price -1)*100,2)
+                item['adjChangeYTD'] = round((latest_price/previous_ytd_price -1)*100,2)
+                item['adjChange1Y'] = round((latest_price/previous_1_year_price -1)*100,2)
+                item['adjChange5Y'] = round((latest_price/previous_5_year_price -1)*100,2)
+                item['adjChangeMax'] = round((latest_price/previous_max_year_price -1)*100,2)
+        except:
+            item['adjChange1M'] = None
+            item['adjChangeYTD'] = None
+            item['adjChange1Y'] = None
+            item['adjChange5Y'] = None
+            item['adjChangeMax'] = None
 
         try:
             with open(f"json/var/{symbol}.json", 'r') as file:
@@ -1672,6 +1711,11 @@ async def save_json_files():
     etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
     etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
+
+    # Save stock screener data
+    stock_screener_data = await get_stock_screener(con)
+    save_json(stock_screener_data, "json/stock-screener")
+
     # Save IPO calendar
     data = await get_ipo_calendar(con, symbols)
     save_json(data, "json/ipo-calendar")
@@ -1680,10 +1724,7 @@ async def save_json_files():
     economic_list = await get_economic_calendar()
     if len(economic_list) > 0:
         save_json(economic_list, "json/economic-calendar")
-    
-    # Save stock screener data
-    stock_screener_data = await get_stock_screener(con)
-    save_json(stock_screener_data, "json/stock-screener")
+
     
     # Save congress trading data
     data = await get_congress_rss_feed(symbols, etf_symbols)

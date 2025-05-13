@@ -4304,7 +4304,7 @@ async def get_data(
     category = data.category
     cache_key = f"compare-data-{','.join(tickers)}-{category}"
 
-    # Check endpoint-level cache
+    # Check endpoint‐level cache
     cached_result = redis_client.get(cache_key)
     if cached_result:
         return StreamingResponse(
@@ -4326,13 +4326,30 @@ async def get_data(
         coros = [asyncio.sleep(0, result=[]) for _ in tickers]
 
     # Run loads in parallel
-    results = await asyncio.gather(*coros, return_exceptions=False)
+    histories = await asyncio.gather(*coros, return_exceptions=False)
 
-    # Merge into dict
-    filtered = {ticker: data for ticker, data in zip(tickers, results)}
+    # Suppose stock_screener_data_dict is already in scope here,
+    # e.g. loaded earlier in your app startup:
+    #   stock_screener_data_dict = {...}
+
+    # Merge into the desired structure
+    merged = {}
+    for ticker, history in zip(tickers, histories):
+        screener = stock_screener_data_dict.get(ticker, {})
+        changes = [
+            screener.get("adjChange1M"),
+            screener.get("adjChangeYTD"),
+            screener.get("adjChange1Y"),
+            screener.get("adjChange5Y"),
+            screener.get("adjChangeMax"),
+        ]
+        merged[ticker] = {
+            "history": history,
+            "changesPercentage": changes
+        }
 
     # serialize & compress
-    blob = orjson.dumps(filtered)
+    blob = orjson.dumps(merged)
     compressed_data = gzip.compress(blob)
 
     # cache for 1 hour
@@ -4344,6 +4361,7 @@ async def get_data(
         media_type="application/json",
         headers={"Content-Encoding": "gzip"}
     )
+
 
 
 
