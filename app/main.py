@@ -190,7 +190,6 @@ for item in searchbar_data:
     except Exception as e:
         item['isin'] = None
 
-
 etf_set = set(etf_symbols)
 
 
@@ -4313,10 +4312,37 @@ async def get_data(data: CompareData, api_key: str = Security(get_api_key)):
     # Build a list of coroutines for each ticker
     if category == "price":
         async def load_and_filter(ticker: str):
-            raw = await load_json_async(f"json/historical-price/max/{ticker}.json")
-            # keep only time and close
-            return [{"time": point["time"], "close": point["close"]} for point in raw]
+            try:
+                raw = await load_json_async(f"json/historical-price/max/{ticker}.json")
+                return [{"date": point["time"], "value": point["close"]} for point in raw]
+            except:
+                pass
+        coros = [load_and_filter(t) for t in tickers]
+    elif category == "marketCap":
+        async def load_and_filter(ticker: str):
+            try:
+                raw = await load_json_async(f"json/market-cap/companies/{ticker}.json")
+                return [{"date": point["date"], "value": point["marketCap"]} for point in raw]
+            except:
+                return []
+        coros = [load_and_filter(t) for t in tickers]
 
+    elif category == "dividendYield":
+        async def load_and_filter(ticker: str):
+            try:
+                raw = (await load_json_async(f"json/dividends/companies/{ticker}.json"))['history']
+                return sorted([{"date": point["date"], "value": round(point.get('yield', 0), 2)} for point in raw], key=lambda x: x["date"])
+            except:
+                return []
+        coros = [load_and_filter(t) for t in tickers]
+
+    elif category == "dividends":
+        async def load_and_filter(ticker: str):
+            try:
+                raw = (await load_json_async(f"json/dividends/companies/{ticker}.json"))['history']
+                return sorted([{"date": point["date"], "value": round(point.get('adjDividend', 0), 2)} for point in raw], key=lambda x: x["date"])
+            except:
+                return []
         coros = [load_and_filter(t) for t in tickers]
 
     else:
@@ -4325,7 +4351,7 @@ async def get_data(data: CompareData, api_key: str = Security(get_api_key)):
 
     # Run loads in parallel
     histories = await asyncio.gather(*coros, return_exceptions=False)
-
+    
     # Merge into the desired structure
     merged = {}
     overview = []
