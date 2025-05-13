@@ -739,7 +739,7 @@ def get_price_on_or_nearest(data, target_date):
             datetime.strptime(x["date"], "%Y-%m-%d").date() - target_date
         )
     )["adjClose"]
-    
+
 def get_halal_compliant(item, debt_threshold=30, interest_threshold=30, revenue_threshold=5, liquidity_threshold=30, forbidden_industries=None):
     # Set default forbidden industries if not provided
     if forbidden_industries is None:
@@ -840,9 +840,9 @@ async def get_stock_screener(con):
 
     # Iterate through stock_screener_data and update 'price' and 'changesPercentage' if symbols match
     #test mode
-    #filtered_data = [item for item in stock_screener_data if item['symbol'] == 'AMD']
+    filtered_data = [item for item in stock_screener_data if item['symbol'] == 'TSLA']
 
-    for item in tqdm(stock_screener_data):
+    for item in tqdm(filtered_data):
         symbol = item['symbol']
 
         try:
@@ -943,27 +943,70 @@ async def get_stock_screener(con):
         
         try:
             with open(f"json/historical-price/adj/{symbol}.json", 'r') as file:
-                historical_price = orjson.loads(file.read())
-                
-                latest_price = historical_price[0]['adjClose']
-                previous_month_price = historical_price[20]['adjClose']
-                previous_ytd_price = min(historical_price,key=lambda x: abs(datetime.strptime(x["date"], "%Y-%m-%d").date() - ytd_start))['adjClose']
-                previous_1_year_price = historical_price[252]['adjClose']
-                previous_5_year_price = historical_price[252*5]['adjClose']
-                previous_max_year_price = historical_price[-1]['adjClose']
-                
+                hist = orjson.loads(file.read())
+            
+            latest_date = datetime.strptime(hist[0]["date"], "%Y-%m-%d").date()
+            latest_p = hist[0]["adjClose"]
+            
+            # 1M (≈20 trading days)
+            n1 = 20
+            p1m = hist[n1]["adjClose"]
+            total1m = latest_p/p1m - 1.0
+            # arithmetic avg daily return over last 20 days
+            daily_returns_1m = [
+                hist[i]["adjClose"] / hist[i+1]["adjClose"] - 1.0
+                for i in range(n1)
+            ]
+            arith1m = sum(daily_returns_1m) / len(daily_returns_1m)
+            # annualize arithmetic
+            arith1m_ann = arith1m * (252/len(daily_returns_1m))
+            # geometric (CAGR) over 1M
+            cagr1m = (latest_p / p1m) ** (252/len(daily_returns_1m)) - 1.0
 
-                item['adjChange1M'] = round((latest_price/previous_month_price -1)*100,2)
-                item['adjChangeYTD'] = round((latest_price/previous_ytd_price -1)*100,2)
-                item['adjChange1Y'] = round((latest_price/previous_1_year_price -1)*100,2)
-                item['adjChange5Y'] = round((latest_price/previous_5_year_price -1)*100,2)
-                item['adjChangeMax'] = round((latest_price/previous_max_year_price -1)*100,2)
-        except:
-            item['adjChange1M'] = None
-            item['adjChangeYTD'] = None
-            item['adjChange1Y'] = None
-            item['adjChange5Y'] = None
-            item['adjChangeMax'] = None
+            # YTD
+            ytd_start = datetime(latest_date.year, 1, 1).date()
+            pYTD = get_price_on_or_nearest(hist, ytd_start)
+            totalYTD = latest_p/pYTD - 1.0
+            # days since YTD:
+            delta_days = (latest_date - ytd_start).days
+            # arithmetic per-day:
+            # (you’d need to slice daily returns up to that date)
+            # CAGR YTD:
+            cagrYTD = (latest_p / pYTD) ** (365.0/delta_days) - 1.0
+
+            # 1Y
+            n252 = 252
+            p1y = hist[n252]["adjClose"]
+            total1y = latest_p/p1y - 1.0
+            cagr1y = (latest_p / p1y) ** (1.0) - 1.0  # since T ≈1 year
+
+            # 5Y
+            n5 = 252 * 5
+            p5y = hist[n5]["adjClose"]
+            total5y = latest_p/p5y - 1.0
+            cagr5y = (latest_p / p5y) ** (1/5) - 1.0
+
+            # Max
+            pmax = hist[-1]["adjClose"]
+            years_max = (latest_date - datetime.strptime(hist[-1]["date"], "%Y-%m-%d").date()).days / 365.0
+            total_max = latest_p/pmax - 1.0
+            cagr_max = (latest_p / pmax) ** (1/years_max) - 1.0
+
+            # store them:
+            item.update({
+                'cagr1M': round(cagr1m*100,2),
+                'cagrYTD': round(cagrYTD*100,2),
+                'cagr1Y': round(cagr1y*100,2),
+                'cagr5Y': round(cagr5y*100,2),
+                'cagrMax': round(cagr_max*100,2),
+            })
+
+            print(item['cagr1Y'])
+
+        except Exception as e:
+            print(e)
+            for key in ['cagr1M','cagrYTD','cagr1Y','cagr5Y','cagrMax']:
+                item[key] = None
 
         try:
             with open(f"json/var/{symbol}.json", 'r') as file:
