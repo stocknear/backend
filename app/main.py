@@ -4583,6 +4583,14 @@ CATEGORY_CONFIG = {
             key=lambda x: x["date"]
         )
     },
+    "balance-sheet": {
+        "path": "json/financial-statements/balance-sheet-statement/ttm/{ticker}.json",
+        "processor": lambda raw, value_key="amount": sorted(
+            [{"date": point["date"], "value": round(point.get(value_key, 0), 2) if value_key in ["epsDiluted"] else round(point.get(value_key, 0), 2)}
+             for point in raw if point["date"] >= "2000-01-01"],
+            key=lambda x: x["date"]
+        )
+    },
     "income-growth-ttm": {
         "path": "json/financial-statements/income-statement-growth/ttm-updated/{ticker}.json",
         "processor": lambda raw, value_key="amount": sorted(

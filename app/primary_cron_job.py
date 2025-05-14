@@ -302,6 +302,7 @@ def run_financial_statements():
     week = datetime.today().weekday()
     if week <= 5:
         run_command(["python3", "cron_financial_statements.py"])
+        run_command(["python3", "compute_ttm.py"])
 
 def run_financial_score():
     week = datetime.today().weekday()
