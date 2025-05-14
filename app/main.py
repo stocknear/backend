@@ -288,7 +288,7 @@ class GreekExposureData(BaseModel):
 
 class CompareData(BaseModel):
     tickerList: list
-    category: str
+    category: dict
 
 class MarketNews(BaseModel):
     newsType: str
@@ -4534,91 +4534,79 @@ async def get_data(data: BulkDownload, api_key: str = Security(get_api_key)):
 
 
 
-# Configuration Constants
 CATEGORY_CONFIG = {
     "price": {
         "path": "json/historical-price/max/{ticker}.json",
-        "processor": lambda raw: [{"date": point["time"], "value": point["close"]} for point in raw]
+        "processor": lambda raw, value_key="amount": sorted(
+            [{"date": point["time"], "value": round(point.get(value_key, 0), 2)}
+             for point in raw],
+            key=lambda x: x["date"]
+        )
     },
     "marketCap": {
-    "path": "json/market-cap/companies/{ticker}.json",
-    "processor": lambda raw: [
-        {"date": point["date"], "value": point["marketCap"]}
-        for point in raw if point["date"] >= "2000-01-01"]
+        "path": "json/market-cap/companies/{ticker}.json",
+        "processor": lambda raw, value_key="marketCap": sorted(
+            [{"date": point["date"], "value": round(point.get(value_key, 0), 2)}
+             for point in raw if point["date"] >= "2000-01-01"],
+            key=lambda x: x["date"]
+        )
     },
-    "dividendYield": {
+    "dividend": {
         "path": "json/dividends/companies/{ticker}.json",
-        "processor": lambda raw: sorted(
-            [{"date": point["date"], "value": round(point.get('yield', 0), 2)}  # Added closing )
+        "processor": lambda raw, value_key="amount": sorted(
+            [{"date": point["date"], "value": round(point.get(value_key, 0), 2)}
              for point in raw['history'] if point["date"] >= "2000-01-01"],
             key=lambda x: x["date"]
         )
     },
-    "dividends": {
-        "path": "json/dividends/companies/{ticker}.json",
-        "processor": lambda raw: sorted(
-            [{"date": point["date"], "value": round(point.get('adjDividend', 0), 2)}  # Added closing )
-             for point in raw['history'] if point["date"] >= "2000-01-01"],
+    "ratios-quarter": {
+        "path": "json/financial-statements/ratios/quarter/{ticker}.json",
+        "processor": lambda raw, value_key="amount": sorted(
+            [{"date": point["date"], "value": round(point.get(value_key, 0)*100, 2) if value_key in ["dividendPayoutRatio","returnOnAssets","returnOnEquity","returnOnInvestedCapital","grossProfitMargin","operatingProfitMargin","netProfitMargin","ebitdaMargin","effectiveTaxRate"] else round(point.get(value_key, 0), 2)}
+             for point in raw if point["date"] >= "2000-01-01"],
             key=lambda x: x["date"]
         )
     },
-    "revenue": {
+    "ratios-ttm": {
+        "path": "json/financial-statements/ratios/ttm-updated/{ticker}.json",
+        "processor": lambda raw, value_key="amount": sorted(
+            [{"date": point["date"], "value": round(point.get(value_key, 0)*100, 2) if value_key in ["dividendPayoutRatio","returnOnAssets","returnOnEquity","returnOnInvestedCapital"] else round(point.get(value_key, 0), 2)}
+             for point in raw if point["date"] >= "2000-01-01"],
+            key=lambda x: x["date"]
+        )
+    },
+    "income": {
         "path": "json/financial-statements/income-statement/ttm/{ticker}.json",
-        "processor": lambda raw: sorted(
-            [{"date": point["date"], "value": round(point.get('revenue', 0), 0)}  # Added closing )
+        "processor": lambda raw, value_key="amount": sorted(
+            [{"date": point["date"], "value": round(point.get(value_key, 0), 2) if value_key in ["epsDiluted"] else round(point.get(value_key, 0), 2)}
              for point in raw if point["date"] >= "2000-01-01"],
             key=lambda x: x["date"]
         )
     },
-    "epsDiluted": {
-        "path": "json/financial-statements/income-statement/ttm/{ticker}.json",
-        "processor": lambda raw: sorted(
-            [{"date": point["date"], "value": round(point.get('epsDiluted', 0), 2)}  # Added closing )
+    "income-growth-ttm": {
+        "path": "json/financial-statements/income-statement-growth/ttm-updated/{ticker}.json",
+        "processor": lambda raw, value_key="amount": sorted(
+            [{"date": point["date"], "value": round(point.get(value_key, 0)*100, 2)}
              for point in raw if point["date"] >= "2000-01-01"],
             key=lambda x: x["date"]
         )
     },
-    "epsGrowth": {
-        "path": "json/financial-statements/income-statement//{ticker}.json",
-        "processor": lambda raw: sorted(
-            [{"date": point["date"], "value": round(point.get('epsDiluted', 0), 2)}  # Added closing )
+    "cash-flow": {
+        "path": "json/financial-statements/cash-flow-statement/ttm/{ticker}.json",
+        "processor": lambda raw, value_key="amount": sorted(
+            [{"date": point["date"], "value": round(point.get(value_key, 0), 0)}
              for point in raw if point["date"] >= "2000-01-01"],
             key=lambda x: x["date"]
         )
     },
-    "revenueGrowth": {
-        "path": "json/financial-statements/income-statement-growth/annual/{ticker}.json",
-        "processor": lambda raw: sorted(
-            [{"date": point["date"], "value": round(point.get('growthRevenue', 0)*100, 2)}  # Added closing )
+    "key-metrics": {
+        "path": "json/financial-statements/key-metrics/quarter/{ticker}.json",
+        "processor": lambda raw, value_key="amount": sorted(
+            [{"date": point["date"], "value": round(point.get(value_key, 0), 0)}
              for point in raw if point["date"] >= "2000-01-01"],
             key=lambda x: x["date"]
         )
     },
-    "shortPercentOfFloat": {
-        "path": "json/share-statistics/{ticker}.json",
-        "processor": lambda raw: sorted(
-            [{"date": point["recordDate"], "value": round(point.get('shortPercentOfFloat', 0), 2)}  # Added closing )
-             for point in raw['history']],
-            key=lambda x: x["date"]
-        )
-    },
-    "daysToCover": {
-        "path": "json/share-statistics/{ticker}.json",
-        "processor": lambda raw: sorted(
-            [{"date": point["recordDate"], "value": round(point.get('daysToCover', 0), 2)}  # Added closing )
-             for point in raw['history']],
-            key=lambda x: x["date"]
-        )
-    },
-    "evToSales": {
-        "path": "json/financial-statements/ratios/annual/{ticker}.json",
-        "processor": lambda raw: sorted(
-            [{"date": point["date"], "value": round(point.get('evToSales', 2), 2)}  # Added closing )
-             for point in raw if point["date"] >= "2000-01-01"],
-            key=lambda x: x["date"]
-        )
-    },
-
 }
 
 INDICATOR_RULES = [
@@ -4633,18 +4621,27 @@ INDICATOR_RULES = [
 
 INDICATOR_DATA_URL = "http://localhost:8000/indicator-data"
 
-async def load_ticker_data(ticker: str, category: str) -> list:
-    """Load and process data for a single ticker"""
-    config = CATEGORY_CONFIG.get(category)
+async def load_ticker_data(ticker, category):
+    """
+    Load ticker data based on category object with type and value fields
+    
+    Args:
+        ticker: The ticker symbol
+        category: A dictionary with 'type', 'value', and 'name' keys
+    """
+    # Get category type to determine which configuration to use
+    category_type = category.get("type") if isinstance(category, dict) else category
+    
+    config = CATEGORY_CONFIG.get(category_type)
     if not config:
         return []
     
     try:
         raw_data = await load_json_async(config["path"].format(ticker=ticker))
-        processed_data = config["processor"](raw_data)
+        value_key = category.get("value")
+        processed_data = config["processor"](raw_data, value_key=value_key)
         return processed_data
-    except Exception as e:
-        # Log error here if needed
+    except:
         return []
 
 def create_merged_structure(tickers: list, histories: list, stock_data: dict) -> dict:
@@ -4666,11 +4663,12 @@ def create_merged_structure(tickers: list, histories: list, stock_data: dict) ->
 
 @app.post("/compare-data")
 async def compare_data_endpoint(data: CompareData, api_key: str = Security(get_api_key)):
-    # Sort tickers for consistent cache keys
     tickers = data.tickerList
     category = data.category
-    cache_key = f"compare-data-{','.join(tickers)}-{category}"
-
+    
+    # Use category value for the cache key since that identifies the specific data
+    cache_key = f"compare-data-{','.join(tickers)}-{category['value']}"
+    
     # Try to return cached response
     if cached := redis_client.get(cache_key):
         return StreamingResponse(
@@ -4678,14 +4676,14 @@ async def compare_data_endpoint(data: CompareData, api_key: str = Security(get_a
             media_type="application/json",
             headers={"Content-Encoding": "gzip"},
         )
-
+    
     # Load data for all tickers in parallel
     loaders = [load_ticker_data(ticker, category) for ticker in tickers]
     histories = await asyncio.gather(*loaders, return_exceptions=False)
-
+    
     # Create base response structure
     merged = create_merged_structure(tickers, histories, stock_screener_data_dict)
-
+    
     # Fetch additional indicator data
     try:
         async with httpx.AsyncClient() as client:
@@ -4700,15 +4698,14 @@ async def compare_data_endpoint(data: CompareData, api_key: str = Security(get_a
     except Exception as e:
         # Log error here if needed
         overview = []
-
+    
     # Prepare final output
     final_output = {'graph': merged, 'table': overview}
-
+    
     # Cache and return response
     blob = orjson.dumps(final_output)
     compressed = gzip.compress(blob)
     redis_client.setex(cache_key, 3600, compressed)
-
     return StreamingResponse(
         io.BytesIO(compressed),
         media_type="application/json",
