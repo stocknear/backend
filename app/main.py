@@ -4607,6 +4607,14 @@ CATEGORY_CONFIG = {
             key=lambda x: x["date"]
         )
     },
+    "share-statistics": {
+        "path": "json/share-statistics/{ticker}.json",
+        "processor": lambda raw, value_key="amount": sorted(
+            [{"date": point["recordDate"], "value": round(point.get(value_key, 0), 2)}
+             for point in raw['history']],
+            key=lambda x: x["date"]
+        )
+    },
 }
 
 INDICATOR_RULES = [
