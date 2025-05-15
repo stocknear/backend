@@ -55,7 +55,6 @@ async def run():
 
     con = sqlite3.connect('stocks.db')
     etf_con = sqlite3.connect('etf.db')
-    crypto_con = sqlite3.connect('crypto.db')
 
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
@@ -67,19 +66,12 @@ async def run():
     etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
     etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
-    crypto_cursor = crypto_con.cursor()
-    crypto_cursor.execute("PRAGMA journal_mode = wal")
-    crypto_cursor.execute("SELECT DISTINCT symbol FROM cryptos")
-    crypto_symbols = [row[0] for row in crypto_cursor.fetchall()]
-
-    total_symbols = stocks_symbols + etf_symbols + crypto_symbols
+    total_symbols = stocks_symbols + etf_symbols
 
     for symbol in tqdm(total_symbols):
         try:
             if symbol in etf_symbols:  
                 query_con = etf_con
-            elif symbol in crypto_symbols:  
-                query_con = crypto_con
             elif symbol in stocks_symbols:  
                 query_con = con
             else:
@@ -123,7 +115,6 @@ async def run():
 
     con.close()
     etf_con.close()
-    crypto_con.close()
 
 try:
     asyncio.run(run())
