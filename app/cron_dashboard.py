@@ -480,7 +480,6 @@ async def run():
     async with aiohttp.ClientSession() as session:
 
         economic_calendar_list = get_economic_calendar()
-        print(len(economic_calendar_list))
 
         options_flow_list = get_options_flow()
         dark_pool_list = get_dark_pool()
@@ -533,7 +532,6 @@ async def run():
     
 
         market_status = check_market_hours()
-
         gainers_list = []
         losers_list = []
 

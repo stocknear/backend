@@ -3112,7 +3112,7 @@ async def get_wiim(data:TickerData, api_key: str = Security(get_api_key)):
 @app.post("/dashboard-info")
 async def get_dashboard_info(data: CustomSettings, api_key: str = Security(get_api_key)):
     # Extract user-specified sections
-    custom_settings = data.customSettings
+    custom_settings = data.customSettings + ['marketStatus']
 
     # Build cache key based on settings
     cache_key = f"dashboard-info-{','.join(custom_settings)}"
