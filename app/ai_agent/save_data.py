@@ -6,6 +6,8 @@ from dotenv import load_dotenv
 
 # Load environment
 load_dotenv()
+
+vector_store_id = OpenAI(api_key=os.getenv("VECTOR_STORE_ID"))
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 VECTOR_STORE_NAME = "GME Historical Prices"
@@ -49,7 +51,7 @@ def get_or_create_store_id(name: str):
     new_vs = client.vector_stores.create(name=name)
     return new_vs.id
 
-def upload_slice(store_id: str, slice_records: list):
+def upload_slice(vector_store_id: str, slice_records: list):
     """Upload the filtered slice to the vector store as one batch."""
     if not slice_records:
         print("No new records to upload.")
@@ -62,7 +64,7 @@ def upload_slice(store_id: str, slice_records: list):
 
     with open(tmp_path, "rb") as f:
         batch = client.vector_stores.file_batches.upload_and_poll(
-            vector_store_id=store_id,
+            vector_store_id=vector_store_id,
             files=[f],
         )
     os.remove(tmp_path)
@@ -70,14 +72,14 @@ def upload_slice(store_id: str, slice_records: list):
 
 if __name__ == "__main__":
     # 1) Find or create the store
-    store_id = get_or_create_store_id(VECTOR_STORE_NAME)
-    print(store_id)
+    #vector_store_id = get_or_create_store_id(VECTOR_STORE_NAME)
+    
     # 2) Load checkpoint & filter JSON
     last_dt = get_last_uploaded_date()
     new_entries = load_new_entries(last_dt)
     
     # 3) Upload only the new slice
-    batch = upload_slice(store_id, new_entries)
+    batch = upload_slice(vector_store_id, new_entries)
     if batch:
         print("Upload status:", batch.status)
         # 4) Update the checkpoint to the latest date we just sent
