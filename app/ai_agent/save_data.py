@@ -33,7 +33,10 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 class VectorStoreUploader:
     # map a “logical name” to the sub-path under base_dir/json
     DATA_TYPES = {
+        "company_profile": "stockdeck/{symbol}.json",
         "historical_price": "historical-price/max/{symbol}.json",
+        "historical_employees": "historical-employees/{symbol}.json",
+        "historical_market_cap": "market-cap/companies/{symbol}.json",
         "similar_stocks": "similar-stocks/{symbol}.json",
         "business_metrics": "business-metrics/{symbol}.json",
         "share_statistics": "share-statistics/{symbol}.json",
@@ -43,6 +46,31 @@ class VectorStoreUploader:
         "earnings_surprise": "earnings/surprise/{symbol}.json",
         "dividends": "dividends/companies/{symbol}.json",
         "analyst_estimate": "analyst-estimate/{symbol}.json",
+        "income_statement_annual": "financial-statements/income-statement/annual/{symbol}.json",
+        "balance_sheet_statement_annual": "financial-statements/balance-sheet-statement/annual/{symbol}.json",
+        "cash_flow_statement_annual": "financial-statements/cash-flow-statement/annual/{symbol}.json",
+        "ratios_statement_annual": "financial-statements/ratios/annual/{symbol}.json",
+        "key_metrics_annual": "financial-statements/key-metrics/annual/{symbol}.json",
+        "ownership_stats": "ownership-stats/{symbol}.json",
+        "fail_to_deliver": "fail-to-deliver/companies/{symbol}.json",
+        "why_priced_moved": "wiim/company/{symbol}.json",
+        "historical_option_unusual_activtiy": "unusual-activity/{symbol}.json",
+        "option_max_pain": "max-pain/{symbol}.json",
+        "option_hottest_contracts": "hottest-contracts/companies/{symbol}.json",
+        "option_open_interest_by_expiry": "oi/expiry/{symbol}.json",
+        "option_open_interest_by_strike": "oi/strike/{symbol}.json",
+        "option_gex_dex_overview": "gex-dex/overview/{symbol}.json",
+        "option_gex_by_strike_gex": "gex-dex/strike/gex/{symbol}.json",
+        "option_dex_by_strike": "gex-dex/strike/dex/{symbol}.json",
+        "option_gex_by_expiry_gex": "gex-dex/expiry/gex/{symbol}.json",
+        "option_dex_by_expiry": "gex-dex/expiry/dex/{symbol}.json",
+        "historical_option_overview": "options-historical-data/companies/{symbol}.json",
+        "shareholders": "shareholders/{symbol}.json",
+        "historical_dark_pool_data": "dark-pool/companies/{symbol}.json",
+        "historical_enterprise_values": "enterprise-values/{symbol}.json",
+        "analyst_ratings": "analyst/history/{symbol}.json",
+        "congress_trading": "congress-trading/company/{symbol}.json",
+        "insider_trading": "insider-trading/history/{symbol}.json",
     }
 
     def __init__(self, symbol: str, base_dir: str = DEFAULT_BASE_DIR):
@@ -94,8 +122,8 @@ class VectorStoreUploader:
         except Exception as e:
             logger.error(f"Could not write combined data to {out_path}: {e}")
 
-        print(combined)
-        time.sleep(1000)
+        #print(combined)
+        #time.sleep(1000)
         return combined
 
             
@@ -158,9 +186,9 @@ def load_symbol_list():
     """Load the list of symbols from the database files."""
     symbols = []
     db_configs = [
-        ("../stocks.db", "SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'"),
-        ("../etf.db", "SELECT DISTINCT symbol FROM etfs"),
-        ("../index.db", "SELECT DISTINCT symbol FROM indices")
+        ("../stocks.db", "SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%' AND marketCap > 1E9"),
+        #("../etf.db", "SELECT DISTINCT symbol FROM etfs"),
+        #("../index.db", "SELECT DISTINCT symbol FROM indices")
     ]
     
     for db_file, query in db_configs:
@@ -216,7 +244,7 @@ def process_symbols_concurrent(symbols=None, max_workers=MAX_WORKERS):
 
 if __name__ == "__main__":
     # Example usage:
-    symbols = ["AAPL"]
+    symbols = ["AAPL",'GME','AMD','TSLA']
 
     # Process all data types concurrently
     process_symbols_concurrent(symbols=symbols, max_workers=5)

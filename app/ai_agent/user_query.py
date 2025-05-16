@@ -9,10 +9,9 @@ load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 vector_store_id = os.getenv("VECTOR_STORE_ID")
 CHAT_MODEL = os.getenv("CHAT_MODEL")
-
 instructions = os.getenv("INSTRUCTIONS", "").replace("\\n", "\n")
 
-
+# Create or retrieve the assistant
 assistant = client.beta.assistants.create(
     name="Financial Analyst Assistant",
     model=CHAT_MODEL,
@@ -21,8 +20,25 @@ assistant = client.beta.assistants.create(
     tool_resources={"file_search": {"vector_store_ids": [vector_store_id]}},
 )
 
-# Create a thread
-thread = client.beta.threads.create()
+# Use existing thread ID if provided, otherwise create a new one
+def get_thread(thread_id=None):
+    if thread_id:
+        # Retrieve existing thread
+        try:
+            thread = client.beta.threads.retrieve(thread_id)
+            print(f"Using existing thread: {thread.id}")
+            return thread
+        except Exception as e:
+            print(f"Error retrieving thread: {e}")
+            print("Creating a new thread instead.")
+            thread = client.beta.threads.create()
+            print(f"New thread created: {thread.id}")
+            return thread
+    else:
+        # Create a new thread
+        thread = client.beta.threads.create()
+        print(f"New thread created: {thread.id}")
+        return thread
 
 # Define event handler
 class EventHandler(AssistantEventHandler):
@@ -50,10 +66,8 @@ class EventHandler(AssistantEventHandler):
         # No additional processing needed at end of message
         pass
 
-
-def process_user_query(query):
+def process_user_query(query, thread):
     """Process a user query about stock information."""
-    #print(f"\nUser Query: {query}")
     
     # Add the user's query to the thread
     client.beta.threads.messages.create(
@@ -70,22 +84,30 @@ def process_user_query(query):
     ) as stream:
         stream.until_done()
 
-
-def run_interactive_session():
+def run_interactive_session(thread_id=None):
     """Run an interactive session where users can query stock information."""
+    # Get thread - either existing or new
+    thread = get_thread(thread_id)
+    
     print("=== Stocknear LLM Financial Assistant ===")
     print("Ask questions about stock prices and financial information.")
     print("Type 'exit' or 'quit' to end the session.\n")
+    print(f"Current thread ID: {thread.id}")
     
     while True:
         user_input = input("\nYour query: ")
         
         if user_input.lower() in ['exit', 'quit']:
             print("\nEnding session. Thanks for using Stocknear LLM!")
+            print(f"Thread ID for future reference: {thread.id}")
             break
         
-        process_user_query(user_input)
-
+        process_user_query(user_input, thread)
 
 if __name__ == "__main__":
-    run_interactive_session()
+    existing_thread_id = "thread_zMh6Vi3GvgLwHx36XgEAfk9w"
+
+    if not existing_thread_id:
+        existing_thread_id = None
+    
+    run_interactive_session(existing_thread_id)
