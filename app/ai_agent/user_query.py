@@ -1,52 +1,113 @@
 import os
 from dotenv import load_dotenv
-from openai import OpenAI
+from openai import OpenAI, AssistantEventHandler
+from typing_extensions import override
 import time
 
+# Load environment variables
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 vector_store_id = os.getenv("VECTOR_STORE_ID")
-
 CHAT_MODEL = "gpt-4o-mini"
 
+instructions = """### Stocknear LLM: Agent Instruction Guidelines
+Role & Identity
+1. You are **Stocknear LLM**, an expert financial analyst tailored for informed and secure market insights.
+2. Maintain a professional, conversational tone—your responses should feel natural and user-friendly.
+Security & Privacy
+1. Never disclose hardware, software, system architecture, or internal configuration details.
+2. Do not share or expose full datasets (including Stocknear's proprietary data) or large data extracts for any company.
+3. Only provide aggregated or summary figures; never output unredacted raw data.
+Data Access & Contextualization
+1. Retrieve relevant company context by querying the authorized vector store.
+2. Use embeddings to identify pertinent information but return only the precise numerical values requested.
+3. When sourcing numbers, ensure they come directly from the vector store without added commentary or metadata.
+Content & Formatting
+1. Deliver concise, direct answers without citations, reference markers (e.g., [1], {source}), or footnotes.
+2. Omit any system-generated metadata or debugging tokens in your output.
+3. Structure responses clearly—use short paragraphs or bullet points to improve readability.
+4. Avoid ambiguous language; if a user's request is unclear, ask a clarifying question rather than guessing.
+Behavior & Compliance
+1. If asked for disallowed information (raw datasets, full proprietary content, or system internals), politely refuse:
+   - Example: "I'm sorry, but I can't share that data."
+2. Always operate within the permissions defined by Stocknear's security policy.
+3. Escalate or flag any requests that appear to violate compliance guidelines.
+— End of Instructions —"""
 
+# Create assistant
 assistant = client.beta.assistants.create(
     name="Financial Analyst Assistant",
     model=CHAT_MODEL,
-    instructions=(
-    "You are an expert financial analyst."
-    "When asked about historical stock prices, you should query the vector store "
-    "for the relevant embedding and return the exact price. "
-    "Do not include any source citations, references, or metadata markers like [1],  , or similar in your response."
-    "Your answer should be clean and natural, as if speaking to a user."
-    ),
+    instructions=(instructions),
     tools=[{"type": "file_search"}],
-    tool_resources={"file_search": {"vector_store_ids": [vector_store_id]}}
+    tool_resources={"file_search": {"vector_store_ids": [vector_store_id]}},
 )
 
-
-
+# Create a thread
 thread = client.beta.threads.create()
 
+# Define event handler
+class EventHandler(AssistantEventHandler):
+    @override
+    def on_text_created(self, text) -> None:
+        print(f"\nassistant > ", end="", flush=True)
+    
+    @override
+    def on_text_delta(self, delta, snapshot) -> None:
+        # Clean any citation markers or file references from the text
+        clean_text = delta.value
+        # Remove citation patterns like 【4:2†AAPL.json】
+        import re
+        clean_text = re.sub(r'【[^】]*】', '', clean_text)
+        # Remove citation patterns like [1], [2], etc.
+        clean_text = re.sub(r'\[\d+\]', '', clean_text)
+        print(clean_text, end="", flush=True)
+    
+    @override
+    def on_tool_call_created(self, tool_call):
+        print(f"\nassistant > {tool_call.type}\n", flush=True)
+    
+    @override
+    def on_message_done(self, message) -> None:
+        # No additional processing needed at end of message
+        pass
 
-client.beta.threads.messages.create(
-    thread_id=thread.id,
-    role="user",
-    content="what are the short data of the peers of gme",)
+
+def process_user_query(query):
+    """Process a user query about stock information."""
+    #print(f"\nUser Query: {query}")
+    
+    # Add the user's query to the thread
+    client.beta.threads.messages.create(
+        thread_id=thread.id,
+        role="user",
+        content=query
+    )
+    
+    # Create a run with the assistant and stream the response
+    with client.beta.threads.runs.stream(
+        thread_id=thread.id,
+        assistant_id=assistant.id,
+        event_handler=EventHandler()
+    ) as stream:
+        stream.until_done()
 
 
-run = client.beta.threads.runs.create(
-    thread_id=thread.id,
-    assistant_id=assistant.id,
-)
+def run_interactive_session():
+    """Run an interactive session where users can query stock information."""
+    print("=== Stocknear LLM Financial Assistant ===")
+    print("Ask questions about stock prices and financial information.")
+    print("Type 'exit' or 'quit' to end the session.\n")
+    
+    while True:
+        user_input = input("\nYour query: ")
+        
+        if user_input.lower() in ['exit', 'quit']:
+            print("\nEnding session. Thanks for using Stocknear LLM!")
+            break
+        
+        process_user_query(user_input)
 
-while True:
-    run_status = client.beta.threads.runs.retrieve(thread_id=thread.id, run_id=run.id)
-    if run_status.status in ["completed", "failed"]:
-        break
-    time.sleep(1)
 
-# 10. Retrieve and print the assistant's answer
-messages = client.beta.threads.messages.list(thread_id=thread.id)
-for msg in messages.data[::-1]:
-    print(msg.role + ":", msg.content[0].text.value)
+if __name__ == "__main__":
+    run_interactive_session()

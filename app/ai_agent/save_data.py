@@ -7,7 +7,7 @@ from openai import OpenAI
 from dotenv import load_dotenv
 from pathlib import Path
 import logging
-
+import shutil
 
 # Set up logging
 logging.basicConfig(
@@ -43,6 +43,7 @@ class VectorStoreUploader:
         # Define file paths for different data types
         self.historical_price_path = self.base_dir / f"json/historical-price/max/{symbol}.json"
         self.similar_stocks_path = self.base_dir / f"json/similar-stocks/{symbol}.json"
+        self.business_metrics_path = self.base_dir / f"json/business-metrics/{symbol}.json"
         
         # Path for combined data file (temporary)
         self.combined_data_path = self.base_dir / f"json/combined/{symbol}.json"
@@ -64,15 +65,15 @@ class VectorStoreUploader:
         """Combine historical price and similar stocks data into a single structure."""
         # Load historical price data
         historical_data = self.load_data(self.historical_price_path)
-        
-        # Load similar stocks data
         similar_stocks_data = self.load_data(self.similar_stocks_path)
-        
+        business_metrics_data = self.load_data(self.business_metrics_path)
+
         # Create combined data structure
         combined_data = {
             "Symbol": self.symbol,
             "historical-price": historical_data or [],
-            "similar-stocks": similar_stocks_data or {}
+            "similar-stocks": similar_stocks_data or {},
+            "business-metrics": business_metrics_data or {},
         }
         
         # Save combined data to file
@@ -203,7 +204,9 @@ def process_symbols_concurrent(symbols=None, max_workers=MAX_WORKERS):
 
 if __name__ == "__main__":
     # Example usage:
-    symbols = ["AAPL",'AMD','TSLA']
+    symbols = ["AAPL"]
 
     # Process all data types concurrently
     process_symbols_concurrent(symbols=symbols, max_workers=5)
+    
+    shutil.rmtree("../json/combined")
