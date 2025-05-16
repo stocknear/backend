@@ -8,6 +8,8 @@ from dotenv import load_dotenv
 from pathlib import Path
 import logging
 import shutil
+import time
+
 
 # Set up logging
 logging.basicConfig(
@@ -24,33 +26,43 @@ load_dotenv()
 DEFAULT_BASE_DIR = "../"
 MAX_WORKERS = 5  # Adjust based on your API rate limits and system resources
 
+vector_store_id = os.getenv("VECTOR_STORE_ID")
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+
 class VectorStoreUploader:
-    def __init__(self, symbol, base_dir=DEFAULT_BASE_DIR):
-        """
-        Initialize the uploader with configuration for a specific symbol.
-        
-        Args:
-            symbol: The stock/ETF/index symbol (e.g., 'GME')
-            base_dir: Base directory for all data
-        """
-        self.symbol = symbol
+    # map a “logical name” to the sub-path under base_dir/json
+    DATA_TYPES = {
+        "historical_price": "historical-price/max/{symbol}.json",
+        "similar_stocks": "similar-stocks/{symbol}.json",
+        "business_metrics": "business-metrics/{symbol}.json",
+        "share_statistics": "share-statistics/{symbol}.json",
+        "financial_score": "financial-score/{symbol}.json",
+        "earnings_next": "earnings/next/{symbol}.json",
+        "earnings_past": "earnings/past/{symbol}.json",
+        "earnings_surprise": "earnings/surprise/{symbol}.json",
+        "dividends": "dividends/companies/{symbol}.json",
+        "analyst_estimate": "analyst-estimate/{symbol}.json",
+    }
+
+    def __init__(self, symbol: str, base_dir: str = DEFAULT_BASE_DIR):
+        self.symbol = symbol.upper()
         self.base_dir = Path(base_dir)
-        
-        # Set up OpenAI client
-        self.vector_store_id = os.getenv("VECTOR_STORE_ID")
-        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-                
-        # Define file paths for different data types
-        self.historical_price_path = self.base_dir / f"json/historical-price/max/{symbol}.json"
-        self.similar_stocks_path = self.base_dir / f"json/similar-stocks/{symbol}.json"
-        self.business_metrics_path = self.base_dir / f"json/business-metrics/{symbol}.json"
-        
-        # Path for combined data file (temporary)
-        self.combined_data_path = self.base_dir / f"json/combined/{symbol}.json"
-        
-        # Ensure the combined directory exists
-        os.makedirs(self.base_dir / "json/combined", exist_ok=True)
-    
+        self.vector_store_id = vector_store_id
+        self.client = client
+
+        # Build a dict of full paths for each data type
+        self.paths = {
+            key: self.base_dir / "json" / pattern.format(symbol=self.symbol)
+            for key, pattern in self.DATA_TYPES.items()
+        }
+
+        # Ensure combined directory exists and set combined_data_path
+        combined_dir = self.base_dir / "json" / "combined"
+        combined_dir.mkdir(parents=True, exist_ok=True)
+        self.combined_data_path = combined_dir / f"{self.symbol}.json"
+        self.paths["combined"] = self.combined_data_path
+
     def load_data(self, file_path):
         """Load data from a file if it exists."""
         if os.path.exists(file_path):
@@ -62,29 +74,29 @@ class VectorStoreUploader:
         return None
         
     def combine_data(self):
-        """Combine historical price and similar stocks data into a single structure."""
-        # Load historical price data
-        historical_data = self.load_data(self.historical_price_path)
-        similar_stocks_data = self.load_data(self.similar_stocks_path)
-        business_metrics_data = self.load_data(self.business_metrics_path)
+        """
+        Load all configured data files, merge into a big dict,
+        and dump it to combined/{symbol}.json.
+        """
+        combined = {"symbol": self.symbol}
 
-        # Create combined data structure
-        combined_data = {
-            "Symbol": self.symbol,
-            "historical-price": historical_data or [],
-            "similar-stocks": similar_stocks_data or {},
-            "business-metrics": business_metrics_data or {},
-        }
-        
-        # Save combined data to file
+        for key, path in self.paths.items():
+            if key == "combined":
+                continue  # skip the output file
+            data = self.load_data(path)
+            combined[key] = data if data is not None else {}
+
+        # Write out the merged JSON
+        out_path = self.paths["combined"]
         try:
-            with open(self.combined_data_path, 'w') as f:
-                json.dump(combined_data, f, indent=2)
-            logger.info(f"Combined data for {self.symbol} saved to {self.combined_data_path}")
-            return True
+            with open(out_path, "w") as f:
+                json.dump(combined, f, indent=2)
         except Exception as e:
-            logger.error(f"Error saving combined data for {self.symbol}: {e}")
-            return False
+            logger.error(f"Could not write combined data to {out_path}: {e}")
+
+        print(combined)
+        time.sleep(1000)
+        return combined
 
             
     def delete_existing_files(self, vector_store_id: str):
@@ -208,5 +220,7 @@ if __name__ == "__main__":
 
     # Process all data types concurrently
     process_symbols_concurrent(symbols=symbols, max_workers=5)
-    
-    shutil.rmtree("../json/combined")
+    try:
+        shutil.rmtree("../json/combined")
+    except:
+        pass

@@ -37,7 +37,7 @@ async def get_data(ticker, con):
 
         # Iterate over the income data
         for item_income in income:
-            calendar_year = int(item_income['calendarYear'])
+            calendar_year = int(item_income['fiscalYear'])
             if calendar_year >= 2015:
                 if calendar_year not in eps_sums:
                     eps_sums[calendar_year] = 0  # Initialize the annual sum to 0
@@ -56,7 +56,7 @@ async def get_data(ticker, con):
         for item_estimate in analyst_estimates:
             for item_income in income:
                 year = item_estimate['date'][:4]
-                if year == item_income['calendarYear']:
+                if year == item_income['fiscalYear']:
                     try:
                         revenue = revenue_sums[int(year)]
                     except:
@@ -135,7 +135,7 @@ async def get_data(ticker, con):
 
         for item_estimate in analyst_estimates:
             year = item_estimate['date'][:4]
-            if year == income[0]['calendarYear']:
+            if year == income[0]['fiscalYear']:
                 break
             else:
                 try:
