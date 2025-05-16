@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 import logging
 
+
 # Set up logging
 logging.basicConfig(
     level=logging.INFO,
@@ -24,174 +25,121 @@ DEFAULT_BASE_DIR = "../"
 MAX_WORKERS = 5  # Adjust based on your API rate limits and system resources
 
 class VectorStoreUploader:
-    def __init__(self, symbol, data_type="historical-price", timeframe="max", base_dir=DEFAULT_BASE_DIR):
+    def __init__(self, symbol, base_dir=DEFAULT_BASE_DIR):
         """
-        Initialize the uploader with configuration for a specific symbol and data type.
+        Initialize the uploader with configuration for a specific symbol.
         
         Args:
             symbol: The stock/ETF/index symbol (e.g., 'GME')
-            data_type: Type of data (e.g., 'historical-price', 'similar-stocks')
-            timeframe: Data timeframe (e.g., 'max', '1y', '3mo')
             base_dir: Base directory for all data
         """
         self.symbol = symbol
-        self.data_type = data_type
-        self.timeframe = timeframe
         self.base_dir = Path(base_dir)
         
         # Set up OpenAI client
         self.vector_store_id = os.getenv("VECTOR_STORE_ID")
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        
-        # Configure paths based on data type
-        if data_type == "similar-stocks":
-            # For similar-stocks data, we use a simplified path structure without timeframe
-            self.input_path = self.base_dir / f"json/{data_type}/{symbol}.json"
-            self.state_path = self.base_dir / f"json/vector-store/{data_type}/{symbol}.json"
-            self.vector_store_name = f"{symbol} Similar Stocks"
-        else:
-            # For historical price data and other time series
-            self.input_path = self.base_dir / f"json/{data_type}/{timeframe}/{symbol}.json"
-            self.state_path = self.base_dir / f"json/vector-store/{data_type}/{timeframe}/{symbol}.json"
-            self.vector_store_name = f"{symbol} {data_type.replace('-', ' ').title()} ({timeframe})"
-    
-    def get_last_uploaded_date(self):
-        """Read the last-uploaded ISO date from state_path, or return epoch if missing."""
-        if os.path.exists(self.state_path):
-            with open(self.state_path, "r") as f:
-                return datetime.fromisoformat(f.read().strip())
-        else:
-            # If first run, use a very old date so you upload everything
-            return datetime.fromisoformat("1970-01-01T00:00:00")
-    
-    def set_last_uploaded_date(self, dt: datetime):
-        """Write the new last-uploaded ISO date to state_path, creating directories if needed."""
-        os.makedirs(os.path.dirname(self.state_path), exist_ok=True)
-        with open(self.state_path, "w") as f:
-            f.write(dt.isoformat())
-    
-    def load_new_entries(self, last_dt: datetime, date_field="time"):
-        """Load the JSON file and return only entries newer than last_dt."""
-        if not os.path.exists(self.input_path):
-            logger.warning(f"Input file not found at {self.input_path}")
-            return []
-            
-        with open(self.input_path, "r") as f:
-            data = json.load(f)
-        
-        # Handle both list and dict formats
-        if isinstance(data, dict):
-            # If data is a dictionary, extract values that might be the records
-            if "data" in data:
-                records = data["data"]
-            else:
-                # If no "data" key, use all values that are lists
-                records = next((v for v in data.values() if isinstance(v, list)), [])
-        else:
-            records = data
-        
-        # Check if records have the specified date field
-        has_date_field = any(date_field in rec for rec in records) if records else False
-        
-        if has_date_field:
-            # Filter by date field if it exists
-            new_records = [
-                rec for rec in records
-                if date_field in rec and datetime.fromisoformat(rec[date_field]) > last_dt
-            ]
-        else:
-            # If no date field exists in records, include all records and assign today's date
-            today = datetime.now().replace(microsecond=0)
-            new_records = []
-            
-            # Only upload if we haven't uploaded today
-            if last_dt.date() < today.date():
-                # Add today's date to each record for tracking purposes
-                for rec in records:
-                    # Create a shallow copy and add the date field
-                    updated_rec = rec.copy()
-                    updated_rec[date_field] = today.isoformat()
-                    new_records.append(updated_rec)
-        
-        return new_records
-    
-    def get_or_create_store_id(self):
-        """Get existing or create new vector store ID."""
-        if self.vector_store_id:
-            # If vector_store_id is already set, use it directly
-            return self.vector_store_id
-            
-        resp = self.client.vector_stores.list()
-        for vs in resp.data:
-            if vs.name == self.vector_store_name:
-                logger.info(f"Found Existing Vector Store: {self.vector_store_name}")
-                return vs.id
                 
-        logger.info(f"No Vector Store available. Creating a new one: {self.vector_store_name}")
-        new_vs = self.client.vector_stores.create(name=self.vector_store_name)
-        return new_vs.id
+        # Define file paths for different data types
+        self.historical_price_path = self.base_dir / f"json/historical-price/max/{symbol}.json"
+        self.similar_stocks_path = self.base_dir / f"json/similar-stocks/{symbol}.json"
+        
+        # Path for combined data file (temporary)
+        self.combined_data_path = self.base_dir / f"json/combined/{symbol}.json"
+        
+        # Ensure the combined directory exists
+        os.makedirs(self.base_dir / "json/combined", exist_ok=True)
     
-    def upload_slice(self, vector_store_id: str, slice_records: list):
-        """Upload the filtered slice to the vector store as one batch."""
-        if not slice_records:
-            logger.info(f"No new records to upload for {self.symbol}.")
-            return None
-            
-        # Write slice to a temp file
-        tmp_path = f"{self.input_path}.slice.json"
-        with open(tmp_path, "w") as f:
-            json.dump(slice_records, f)
-            
+    def load_data(self, file_path):
+        """Load data from a file if it exists."""
+        if os.path.exists(file_path):
+            try:
+                with open(file_path, 'r') as f:
+                    return json.load(f)
+            except Exception as e:
+                logger.error(f"Error loading data from {file_path}: {e}")
+        return None
+        
+    def combine_data(self):
+        """Combine historical price and similar stocks data into a single structure."""
+        # Load historical price data
+        historical_data = self.load_data(self.historical_price_path)
+        
+        # Load similar stocks data
+        similar_stocks_data = self.load_data(self.similar_stocks_path)
+        
+        # Create combined data structure
+        combined_data = {
+            "Symbol": self.symbol,
+            "historical-price": historical_data or [],
+            "similar-stocks": similar_stocks_data or {}
+        }
+        
+        # Save combined data to file
         try:
-            with open(tmp_path, "rb") as f:
+            with open(self.combined_data_path, 'w') as f:
+                json.dump(combined_data, f, indent=2)
+            logger.info(f"Combined data for {self.symbol} saved to {self.combined_data_path}")
+            return True
+        except Exception as e:
+            logger.error(f"Error saving combined data for {self.symbol}: {e}")
+            return False
+
+            
+    def delete_existing_files(self, vector_store_id: str):
+        """Delete all existing files in the vector store."""
+        try:
+            files = self.client.vector_stores.files.list(vector_store_id=vector_store_id)
+       
+            for file in files.data:
+                self.client.vector_stores.files.delete(vector_store_id=vector_store_id, file_id=file.id)
+                logger.info(f"Deleted file {file.id} from vector store {vector_store_id}")
+        except Exception as e:
+            logger.error(f"Error deleting files from vector store {vector_store_id}: {e}")
+
+    def upload_file(self, vector_store_id: str):
+        """Upload the combined data file to the vector store."""
+        if not os.path.exists(self.combined_data_path):
+            logger.warning(f"Combined data file not found at {self.combined_data_path}")
+            return None
+
+        try:
+            with open(self.combined_data_path, "rb") as f:
                 batch = self.client.vector_stores.file_batches.upload_and_poll(
                     vector_store_id=vector_store_id,
                     files=[f],
                 )
-                
             return batch
-        finally:
-            # Make sure we clean up the temp file, even if there's an error
-            if os.path.exists(tmp_path):
-                os.remove(tmp_path)
-    
-    def process(self, date_field="time"):
+        except Exception as e:
+            logger.error(f"Error uploading file to vector store {vector_store_id}: {e}")
+            return None
+
+    def process(self):
         """Process a single symbol's data upload."""
         try:
-            vector_store_id = self.get_or_create_store_id()
-            last_dt = self.get_last_uploaded_date()
-            
-            logger.info(f"Processing {self.symbol} from {self.data_type} ({self.timeframe})")
-            logger.info(f"Last uploaded date: {last_dt}")
-            
-            new_entries = self.load_new_entries(last_dt, date_field=date_field)
-            logger.info(f"Found {len(new_entries)} new records for {self.symbol}")
-            
-            if not new_entries:
+            # First combine the data from different sources
+            if not self.combine_data():
+                logger.error(f"Failed to combine data for {self.symbol}")
                 return False
                 
-            # Upload the new slice
-            batch = self.upload_slice(vector_store_id, new_entries)
-            
+            # Get or create vector store ID
+            vector_store_id = self.vector_store_id
+            logger.info(f"Processing combined data for {self.symbol}")
+
+            # Delete existing files
+            self.delete_existing_files(vector_store_id)
+
+            # Upload the new combined file
+            batch = self.upload_file(vector_store_id)
+
             if batch:
                 logger.info(f"Upload status for {self.symbol}: {batch.status}")
-                
-                # Get the latest date - use the date field if it exists
-                # or use today's date if we added it ourselves
-                if any(date_field in rec for rec in new_entries):
-                    latest_date = max(datetime.fromisoformat(rec[date_field]) for rec in new_entries)
-                else:
-                    latest_date = datetime.now().replace(microsecond=0)
-                    
-                self.set_last_uploaded_date(latest_date)
-                logger.info(f"Checkpoint for {self.symbol} bumped to {latest_date.date()}")
                 return True
-                
+
             return False
         except Exception as e:
             logger.error(f"Error processing {self.symbol}: {str(e)}")
             return False
-
 
 def load_symbol_list():
     """Load the list of symbols from the database files."""
@@ -215,40 +163,28 @@ def load_symbol_list():
             
     return symbols
 
-
-def process_symbol(symbol, data_type="historical-price", timeframe="max", date_field="time"):
+def process_symbol(symbol):
     """Process a single symbol (for use with concurrent execution)."""
     try:
-        uploader = VectorStoreUploader(
-            symbol=symbol,
-            data_type=data_type,
-            timeframe=timeframe
-        )
-        result = uploader.process(date_field=date_field)
+        uploader = VectorStoreUploader(symbol=symbol)
+        result = uploader.process()
         return (symbol, result)
     except Exception as e:
-        logger.error(f"Error processing {data_type} for {symbol}: {e}")
+        logger.error(f"Error processing data for {symbol}: {e}")
         return (symbol, False)
 
-
-def process_historical_prices_concurrent(symbols=None, timeframe="max", date_field="time", max_workers=MAX_WORKERS):
-    """Process historical price data for specified symbols concurrently."""
+def process_symbols_concurrent(symbols=None, max_workers=MAX_WORKERS):
+    """Process all data types for specified symbols concurrently."""
     if symbols is None:
         symbols = load_symbol_list()
     
-    logger.info(f"Processing {len(symbols)} symbols for historical price data using {max_workers} workers")
+    logger.info(f"Processing {len(symbols)} symbols using {max_workers} workers")
     
     results = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         # Submit all tasks to the executor
         future_to_symbol = {
-            executor.submit(
-                process_symbol, 
-                symbol, 
-                "historical-price", 
-                timeframe, 
-                date_field
-            ): symbol for symbol in symbols
+            executor.submit(process_symbol, symbol): symbol for symbol in symbols
         }
         
         # Process completed tasks as they finish
@@ -257,58 +193,17 @@ def process_historical_prices_concurrent(symbols=None, timeframe="max", date_fie
             try:
                 result = future.result()
                 results.append(result)
-                logger.info(f"Completed historical price {i+1}/{len(symbols)}: {symbol}")
+                logger.info(f"Completed processing {i+1}/{len(symbols)}: {symbol}")
             except Exception as e:
-                logger.error(f"Task for historical price {symbol} generated an exception: {e}")
+                logger.error(f"Task for {symbol} generated an exception: {e}")
     
     success_count = sum(1 for _, success in results if success)
-    logger.info(f"Successfully processed {success_count} out of {len(symbols)} symbols for historical prices")
+    logger.info(f"Successfully processed {success_count} out of {len(symbols)} symbols")
     return results
-
-
-def process_similar_stocks_concurrent(symbols=None, date_field="time", max_workers=MAX_WORKERS):
-    """Process similar-stocks data for specified symbols concurrently."""
-    if symbols is None:
-        symbols = load_symbol_list()
-    
-    logger.info(f"Processing {len(symbols)} symbols for similar-stocks data using {max_workers} workers")
-    
-    results = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        # Submit all tasks to the executor
-        future_to_symbol = {
-            executor.submit(
-                process_symbol, 
-                symbol, 
-                "similar-stocks", 
-                "max",  # timeframe doesn't matter for similar-stocks
-                date_field
-            ): symbol for symbol in symbols
-        }
-        
-        # Process completed tasks as they finish
-        for i, future in enumerate(concurrent.futures.as_completed(future_to_symbol)):
-            symbol = future_to_symbol[future]
-            try:
-                result = future.result()
-                results.append(result)
-                logger.info(f"Completed similar-stocks {i+1}/{len(symbols)}: {symbol}")
-            except Exception as e:
-                logger.error(f"Task for similar-stocks {symbol} generated an exception: {e}")
-    
-    success_count = sum(1 for _, success in results if success)
-    logger.info(f"Successfully processed {success_count} out of {len(symbols)} symbols for similar stocks")
-    return results
-
 
 if __name__ == "__main__":
-    # Configure what you want to run here
-    
     # Example usage:
-    #specific_symbols = ["AAPL", "MSFT", "GME", "NVDA", "TSLA", "AMZN", "GOOG", "META"]
-    
-    # Process historical prices concurrently
-    #process_historical_prices_concurrent(max_workers=5)
-    
-    # Process similar stocks concurrently
-    process_similar_stocks_concurrent(max_workers=5)
+    symbols = ["AAPL",'AMD','TSLA']
+
+    # Process all data types concurrently
+    process_symbols_concurrent(symbols=symbols, max_workers=5)
