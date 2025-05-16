@@ -24,7 +24,7 @@ load_dotenv()
 
 # Configuration
 DEFAULT_BASE_DIR = "../"
-MAX_WORKERS = 5  # Adjust based on your API rate limits and system resources
+MAX_WORKERS = 2 # Adjust based on your API rate limits and system resources
 
 vector_store_id = os.getenv("VECTOR_STORE_ID")
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))

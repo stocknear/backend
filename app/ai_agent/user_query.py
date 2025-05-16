@@ -9,6 +9,8 @@ import re
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 vector_store_id = os.getenv("VECTOR_STORE_ID")
+
+
 CHAT_MODEL = os.getenv("CHAT_MODEL")
 instructions = os.getenv("INSTRUCTIONS", "").replace("\\n", "\n")
 
@@ -177,7 +179,7 @@ def run_interactive_session(thread_id=None):
 
 if __name__ == "__main__":
     # You can provide a thread ID here to continue an existing conversation
-    existing_thread_id = "thread_zMh6Vi3GvgLwHx36XgEAfk9w"
+    existing_thread_id = ""
     if not existing_thread_id:
         existing_thread_id = None
     
