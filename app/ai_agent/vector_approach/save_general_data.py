@@ -28,7 +28,7 @@ vector_store_id = os.getenv("VECTOR_STORE_ID")
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 DATA_TYPE = [
-    {"name": 'Wallstreet Analyst', "path": "analyst/analyst-db"},
+    #{"name": 'Wallstreet Analyst', "path": "analyst/analyst-db"},
     {"name": 'Congressional Trading', "path": "congress-trading/politician-db"},
     {"name": 'Dividend Calendar', "path": "dividends-calendar"},
     {"name": "Earnings Calendar", "path": "earnings-calendar"},
