@@ -4,6 +4,8 @@ import requests
 import aiohttp
 import asyncio
 from dotenv import load_dotenv
+import orjson
+from pathlib import Path
 from info import *
 
 load_dotenv()
@@ -21,7 +23,7 @@ async def fetch_data(session, endpoint, payload):
             headers={"X-API-KEY": STOCKNEAR_API_KEY}
         ) as response:
             response.raise_for_status()
-            return {endpoint: await response.json()}
+            return await response.json()
     except Exception as e:
         return {endpoint: {"error": str(e)}}
 
@@ -35,24 +37,76 @@ async def get_historical_stock_price(ticker):
         return combined
 
 
-async def get_income_statement(ticker):
-    async with aiohttp.ClientSession() as session:
-        tasks = [
-            fetch_data(session, "financial-statement", {"ticker": ticker, "statement": 'income-statement'}),
+async def get_income_statement(ticker,time_period = "annual",keep_keys = None):
+    file_path = Path(f"../../json/financial-statements/income-statement/{time_period}/{ticker}.json")
+    
+    # Load the raw data
+    with file_path.open("rb") as f:
+        raw_data = orjson.loads(f.read())
+    
+    # Keys we want to strip out by default
+    remove_keys = [
+        "symbol", "reportedCurrency", "period",
+        "acceptedDate", "cik", "filingDate"
+    ]
+    
+    if keep_keys:
+        # Make a local copy and ensure required fields are present
+        keys_to_keep = list(keep_keys)
+        if "date" not in keys_to_keep:
+            keys_to_keep.append("date")
+        if "fiscalYear" not in keys_to_keep:
+            keys_to_keep.append("fiscalYear")
+        
+        # Keep only those keys
+        filtered = [
+            {k: v for k, v in stmt.items() if k in keys_to_keep}
+            for stmt in raw_data
         ]
-        results = await asyncio.gather(*tasks)
-        combined = {k: v for result in results for k, v in result.items()}
-        return combined
+    else:
+        # Remove the unwanted keys
+        filtered = [
+            {k: v for k, v in stmt.items() if k not in remove_keys}
+            for stmt in raw_data
+        ]
+    return filtered
 
 
-async def get_balance_sheet_statement(ticker):
-    async with aiohttp.ClientSession() as session:
-        tasks = [
-            fetch_data(session, "financial-statement", {"ticker": ticker, "statement": 'balance-sheet-statement'}),
+
+async def get_balance_sheet_statement(ticker,time_period = "annual",keep_keys = None):
+    file_path = Path(f"../../json/financial-statements/balance-sheet-statement/{time_period}/{ticker}.json")
+    
+    # Load the raw data
+    with file_path.open("rb") as f:
+        raw_data = orjson.loads(f.read())
+    
+    # Keys we want to strip out by default
+    remove_keys = [
+        "symbol", "reportedCurrency", "period",
+        "acceptedDate", "cik", "filingDate"
+    ]
+    
+    if keep_keys:
+        # Make a local copy and ensure required fields are present
+        keys_to_keep = list(keep_keys)
+        if "date" not in keys_to_keep:
+            keys_to_keep.append("date")
+        if "fiscalYear" not in keys_to_keep:
+            keys_to_keep.append("fiscalYear")
+        
+        # Keep only those keys
+        filtered = [
+            {k: v for k, v in stmt.items() if k in keys_to_keep}
+            for stmt in raw_data
         ]
-        results = await asyncio.gather(*tasks)
-        combined = {k: v for result in results for k, v in result.items()}
-        return combined
+    else:
+        # Remove the unwanted keys
+        filtered = [
+            {k: v for k, v in stmt.items() if k not in remove_keys}
+            for stmt in raw_data
+        ]
+    print(filtered)
+    return filtered
 
 async def get_cash_flow_statement(ticker):
     async with aiohttp.ClientSession() as session:
@@ -99,32 +153,56 @@ def get_function_definitions():
             },
         },
         {
-            "name": "get_income_statement",
-            "description": f"Retrieves historical income statements (profit and loss statements) for a given stock ticker. This includes key financial data such as {', '.join(key_income)}. Useful for assessing a company's financial performance over time. Data is available annually, quarterly and trailing-twelve-months (ttm).",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "ticker": {
-                        "type": "string",
-                        "description": "The stock ticker symbol for the company (e.g., 'AAPL', 'GOOGL')."
-                    }
+          "name": "get_income_statement",
+          "description": "Retrieves historical income statements (profit and loss statements) for a given stock ticker and time period (annual, quarter, ttm). This includes key financial data such as revenue, netIncome, etc. Useful for assessing a company's financial performance over time. Data is available annually, quarterly and trailing-twelve-months (ttm).",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "ticker": {
+                "type": "string",
+                "description": "The stock ticker symbol for the company (e.g., 'AAPL', 'GOOGL')."
+              },
+              "time_period": {
+                "type": "string",
+                "enum": ["annual", "quarter", "ttm"],
+                "description": "The time period for the company data (e.g., 'annual', 'quarter', 'ttm')."
+              },
+              "keep_keys": {
+                "type": "array",
+                "items": {
+                  "type": "string"
                 },
-                "required": ["ticker"]
+                "description": "List of keys to retain in the result (e.g., ['revenue', 'netIncome'])."
+              }
             },
+            "required": ["ticker", "time_period", "keep_keys"]
+          }
         },
         {
-            "name": "get_balance_sheet_statement",
-            "description": f"Fetches historical balance sheet statements for a specified stock ticker. This statement provides a snapshot of a company's assets, liabilities, and shareholders' equity at a specific point in time. Key data points include {', '.join(key_balance_sheet)}. Data is available annually, quarterly and trailing-twelve-months (ttm).",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "ticker": {
-                        "type": "string",
-                        "description": "The stock ticker symbol for the company (e.g., 'AAPL', 'GOOGL')."
-                    }
+          "name": "get_balance_sheet_statement",
+          "description": f"Fetches historical balance sheet statements for a specified stock ticker. This statement provides a snapshot of a company's assets, liabilities, and shareholders' equity at a specific point in time. Key data points include {', '.join(key_balance_sheet)}. Data is available annually, quarterly and trailing-twelve-months (ttm).",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "ticker": {
+                "type": "string",
+                "description": "The stock ticker symbol for the company (e.g., 'AAPL', 'GOOGL')."
+              },
+              "time_period": {
+                "type": "string",
+                "enum": ["annual", "quarter", "ttm"],
+                "description": "The time period for the company data (e.g., 'annual', 'quarter', 'ttm')."
+              },
+              "keep_keys": {
+                "type": "array",
+                "items": {
+                  "type": "string"
                 },
-                "required": ["ticker"]
+                "description": "List of keys to retain in the result (e.g., ['cashAndCashEquivalents', 'shortTermInvestments'])."
+              }
             },
+            "required": ["ticker", "time_period", "keep_keys"]
+          }
         },
         {
             "name": "get_cash_flow_statement",
@@ -154,16 +232,17 @@ def get_function_definitions():
                 "required": ["ticker"]
             },
         },
-        {
-            "name": "get_stock_screener",
-            "description": "Filters and sorts a list of companies based on various financial metrics and criteria.",
-        },
+
     ]
 
 
+'''
+    {
+        "name": "get_stock_screener",
+        "description": "Filters and sorts a list of companies based on various financial metrics and criteria.",
+    },
+'''
+
 #Testing purposes
-if __name__ == '__main__':
-    print(get_function_definitions())
-    #data = asyncio.run(get_bulk_ticker_information('AAPL'))
-    #print(data)
-    #print(get_stock_screener())
+data = asyncio.run(get_balance_sheet_statement('AAPL', 'annual'))
+#print(get_stock_screener())
