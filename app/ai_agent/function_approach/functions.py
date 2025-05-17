@@ -1,6 +1,8 @@
 import os
 import json
 import requests
+import aiohttp
+import asyncio
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -9,60 +11,68 @@ STOCKNEAR_API_KEY = os.getenv("STOCKNEAR_API_KEY")
 API_URL = "http://localhost:8000"
 
 
-def get_financial_statements(ticker, statement):
+async def fetch_bulk_data(session, endpoint, payload):
     try:
-        response = requests.post(
-            f"{API_URL}/financial-statement",
-            json={"ticker": ticker, "statement": statement},
+        url = f"{API_URL}/{endpoint}"
+        async with session.post(
+            url,
+            json=payload,
             headers={"X-API-KEY": STOCKNEAR_API_KEY}
-        )
-        response.raise_for_status()
-        return response.json()
+        ) as response:
+            response.raise_for_status()
+            return {endpoint: await response.json()}
     except Exception as e:
-        return {"error": str(e)}
+        return {endpoint: {"error": str(e)}}
 
-def get_stock_screener():
-    try:
-        response = requests.post(
-            f"{API_URL}/stock-screener-data",
-            json={"ruleOfList": []},
-            headers={"X-API-KEY": STOCKNEAR_API_KEY}
-        )
-        response.raise_for_status()
-        return response.json()
-    except Exception as e:
-        return {"error": str(e)}
+async def get_ticker_information(ticker):
+    async with aiohttp.ClientSession() as session:
+        tasks = [
+            fetch_bulk_data(session, "financial-statement", {"ticker": ticker, "statement": 'income-statement'}),
+            fetch_bulk_data(session, "financial-statement", {"ticker": ticker, "statement": 'balance-sheet-statement'}),
+            fetch_bulk_data(session, "financial-statement", {"ticker": ticker, "statement": 'cash-flow-statement'}),
+            fetch_bulk_data(session, "financial-statement", {"ticker": ticker, "statement": 'ratios'}),
+            fetch_bulk_data(session, "historical-price", {"ticker": ticker, "timePeriod": "max"}),
+        ]
+        results = await asyncio.gather(*tasks)
+        combined = {k: v for result in results for k, v in result.items()}
+        return combined
+
+async def get_stock_screener():
+    async with aiohttp.ClientSession() as session:
+        tasks = [
+            fetch_bulk_data(session, "stock-screener-data", {"ruleOfList": []}),
+        ]
+        results = await asyncio.gather(*tasks)
+        combined = {k: v for result in results for k, v in result.items()}
+        return combined
 
 
 def get_function_definitions():
-
     return [
         {
-            "name": "get_financial_statements",
-            "description": "Get a specific financial statement (Income Statement, Balance Sheet, Cash Flow Statement) or key financial ratios for a given stock ticker.",
+            "name": "get_ticker_information",
+            "description": "Retrieves comprehensive financial data for a given stock ticker, including historical prices, income statements, balance sheets, cash flow statements, and key ratios.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "ticker": {
                         "type": "string",
                         "description": "The stock ticker symbol, like 'TSLA'"
-                    },
-                    "statement": {
-                        "type": "string",
-                        "description": "It can either be 'income-statement', 'balance-sheet-statement', 'cash-flow-statement' or 'ratios'. "
                     }
                 },
-                "required": ["ticker","statement"]
+                "required": ["ticker"]
             },
         },
         {
             "name": "get_stock_screener",
-            "description": "Get all metrics for each company to sort, filter and analyze the latest values.",
-        }
-    ] 
+            "description": "Filters and sorts a list of companies based on various financial metrics and criteria.",
+        },
+    ]
 
 
 #Testing purposes
 if __name__ == '__main__':
     pass
+    #data = asyncio.run(get_bulk_ticker_information('TSLA'))
+    #print(data)
     #print(get_stock_screener())
