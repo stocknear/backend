@@ -21,6 +21,18 @@ def get_financial_statements(ticker, statement):
     except Exception as e:
         return {"error": str(e)}
 
+def get_stock_screener():
+    try:
+        response = requests.post(
+            f"{API_URL}/stock-screener-data",
+            json={"ruleOfList": []},
+            headers={"X-API-KEY": STOCKNEAR_API_KEY}
+        )
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
 
 def get_function_definitions():
 
@@ -42,6 +54,10 @@ def get_function_definitions():
                 },
                 "required": ["ticker","statement"]
             },
+        },
+        {
+            "name": "get_stock_screener",
+            "description": "Get all metrics for each company to sort, filter and analyze the latest values.",
         }
     ] 
 
@@ -49,3 +65,4 @@ def get_function_definitions():
 #Testing purposes
 if __name__ == '__main__':
     pass
+    #print(get_stock_screener())

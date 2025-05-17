@@ -1,21 +1,22 @@
 import os
 import json
-import requests
 from dotenv import load_dotenv
 from openai import OpenAI
-from functions import *
+from functions import *  # Your function implementations
 
 # Load environment variables
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+# Configuration
 STOCKNEAR_API_KEY = os.getenv("STOCKNEAR_API_KEY")
 CHAT_MODEL = os.getenv("CHAT_MODEL")
 API_URL = "http://localhost:8000"
-instructions = os.getenv("INSTRUCTIONS").replace("\\n", "\n")
+instructions = 'Retrieve data by using functions based on the correct description. Always interpret and validate user metrics, default to descending sort, fall back to the last-mentioned metric if unspecified, invoke the correct data functions, and verify results before returning.' #os.getenv("INSTRUCTIONS").replace("\\n", "\n")
 
+# Dynamically gather function definitions and map names to callables
 function_definitions = get_function_definitions()
-
+function_map = {fn["name"]: globals()[fn["name"]] for fn in function_definitions}
 
 # Initialize chat history
 messages = [{"role": "system", "content": instructions}]
@@ -27,46 +28,38 @@ while True:
 
     messages.append({"role": "user", "content": user_input})
 
-    # First GPT call to decide on function usage
+    # Ask GPT which function to call, if any
     response = client.chat.completions.create(
         model=CHAT_MODEL,
         messages=messages,
-        tools=[{"type": "function", "function": function_definitions[0]}],
+        tools=[{"type": "function", "function": fn} for fn in function_definitions],
         tool_choice="auto"
     )
 
-    tool_call = response.choices[0].message.tool_calls
-    if tool_call:
-        function_name = tool_call[0].function.name
-        arguments = json.loads(tool_call[0].function.arguments)
-        if function_name == "get_financial_statements":
-            tool_output = get_financial_statements(arguments["ticker"], arguments["statement"])
+    message = response.choices[0].message
+    tool_calls = message.tool_calls or []
 
-            # Add function call and tool response to messages
-            messages.append(response.choices[0].message)
+    if tool_calls:
+        # Process each tool call
+        for call in tool_calls:
+            name = call.function.name
+            args = json.loads(call.function.arguments)
+            if name in function_map:
+                # Execute the corresponding Python function
+                result = function_map[name](**args)
+            else:
+                result = {"error": f"Unknown function: {name}"}
+
+            # Append function call and result to messages
+            messages.append(message)
             messages.append({
                 "role": "tool",
-                "tool_call_id": tool_call[0].id,
-                "name": function_name,
-                "content": json.dumps(tool_output)
+                "tool_call_id": call.id,
+                "name": name,
+                "content": json.dumps(result)
             })
 
-            # Second GPT call with tool result — stream this part
-            print("\nAssistant:", end=" ", flush=True)
-            stream = client.chat.completions.create(
-                model=CHAT_MODEL,
-                messages=messages,
-                stream=True
-            )
-            for chunk in stream:
-                try:
-                    content = chunk.choices[0].delta.content or ""
-                    print(content, end="", flush=True)
-                except:
-                    pass
-            print()
-    else:
-        # No function call — just stream the answer
+        # Stream the final assistant response
         print("\nAssistant:", end=" ", flush=True)
         stream = client.chat.completions.create(
             model=CHAT_MODEL,
@@ -74,9 +67,19 @@ while True:
             stream=True
         )
         for chunk in stream:
-            try:
-                content = chunk.choices[0].delta.content or ""
-                print(content, end="", flush=True)
-            except:
-                pass
+            content = chunk.choices[0].delta.content or ""
+            print(content, end="", flush=True)
+        print()
+
+    else:
+        # No function call: just stream the response
+        print("\nAssistant:", end=" ", flush=True)
+        stream = client.chat.completions.create(
+            model=CHAT_MODEL,
+            messages=messages,
+            stream=True
+        )
+        for chunk in stream:
+            content = chunk.choices[0].delta.content or ""
+            print(content, end="", flush=True)
         print()
