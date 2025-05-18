@@ -11,7 +11,7 @@ load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Configuration
-CHAT_MODEL = 'gpt-4.1-mini-2025-04-14'
+CHAT_MODEL = os.getenv("CHAT_MODEL")
 instructions = 'Retrieve data by using functions based on the correct description. Answer only based on the data from the functions. Always interpret and validate user metrics, default to descending sort, fall back to the last-mentioned metric if unspecified, invoke the correct data functions, and verify results before returning.'
 
 # Dynamically gather function definitions and map names to callables

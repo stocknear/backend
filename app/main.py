@@ -44,6 +44,10 @@ from functools import partial
 from datetime import datetime
 from utils.helper import load_latest_json
 
+from openai import OpenAI, AsyncOpenAI
+from ai_agent.functions import * # Your function implementations
+
+
 # DB constants & context manager
 API_URL = "http://localhost:8000"
 
@@ -65,6 +69,17 @@ PRIORITY_STRATEGIES = {
 }
 
 client = httpx.AsyncClient(http2=True, timeout=10.0)
+
+#================LLM Configuration====================#
+async_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+CHAT_MODEL = os.getenv("CHAT_MODEL", "gpt-4o") # Default to gpt-4o if not set
+INSTRUCTIONS = 'Retrieve data by using functions based on the correct description. Answer only based on the data from the functions. Always interpret and validate user metrics, default to descending sort, fall back to the last-mentioned metric if unspecified, invoke the correct data functions, and verify results before returning.'
+system_message = {"role": "system", "content": INSTRUCTIONS}
+function_definitions = get_function_definitions()
+function_map = {fn["name"]: globals()[fn["name"]] for fn in function_definitions}
+
+#======================================================#
+
 
 def calculate_score(item: Dict, search_query: str) -> int:
     name_lower = item['name'].lower()
@@ -387,6 +402,9 @@ class OptionsWatchList(BaseModel):
 class BulkList(BaseModel):
     ticker: str
     endpoints: list
+
+class ChatRequest(BaseModel):
+    query: str
 
 # Replace NaN values with None in the resulting JSON object
 def replace_nan_inf_with_none(obj):
@@ -4729,6 +4747,96 @@ async def compare_data_endpoint(data: CompareData, api_key: str = Security(get_a
     )
 
 
+async def generate_stream(messages: List[dict]):
+    try:
+        stream = await async_client.chat.completions.create(
+            model=CHAT_MODEL,
+            messages=messages,
+            stream=True
+        )
+
+        full_content = ""
+        # 2) async‐iterate the stream
+        async for chunk in stream:
+            delta = chunk.choices[0].delta
+            if delta.content:
+                full_content += delta.content
+                payload = {
+                    "content": full_content
+                }
+                # orjson.dumps returns bytes already
+                yield orjson.dumps(payload) + b"\n"
+
+    except Exception as e:
+        yield orjson.dumps({"error": str(e)}) + b"\n"
+
+
+@app.post("/chat")
+async def get_data(data: ChatRequest):
+    user_query = data.query
+    messages: List[dict] = [
+        system_message,
+        {"role": "user", "content": user_query}
+    ]
+
+    # If you have function definitions, package them for the initial call
+    tools_payload = (
+        [{"type": "function", "function": fn} for fn in function_definitions]
+        if function_definitions else None
+    )
+
+    # 1) Make the initial (non‐streaming) call to let the model choose a tool or not
+    try:
+        init_response = await async_client.chat.completions.create(
+            model=CHAT_MODEL,
+            messages=messages,
+            tools=tools_payload,
+            tool_choice="auto" if tools_payload else "none"
+        )
+        assistant_msg = init_response.choices[0].message
+    except Exception as e:
+        print(f"Initial LLM call failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+    # 2) Append the assistant’s first reply (and any tool calls) to the message history
+    messages.append(assistant_msg)
+
+    # 3) If it made any tool calls, synchronously resolve them and append results
+    if assistant_msg.tool_calls:
+        for call in assistant_msg.tool_calls:
+            fn_name = call.function.name
+            try:
+                args = orjson.loads(call.function.arguments)
+            except Exception:
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": call.id,
+                    "name": fn_name,
+                    "content": orjson.dumps({"error": "Invalid arguments"}).decode()
+                })
+                continue
+
+            if fn_name in function_map:
+                try:
+                    result = await function_map[fn_name](**args)
+                    content = orjson.dumps(result).decode()
+                except Exception as e:
+                    content = orjson.dumps({"error": str(e)}).decode()
+            else:
+                content = orjson.dumps({"error": f"Unknown function {fn_name}"}).decode()
+
+            messages.append({
+                "role": "tool",
+                "tool_call_id": call.id,
+                "name": fn_name,
+                "content": content
+            })
+
+    # 4) Finally, return the streaming response from here
+    return StreamingResponse(
+        generate_stream(messages),
+        media_type="application/json"
+    )
 
 
 @app.get("/newsletter")
