@@ -10,67 +10,54 @@ from info import *
 
 load_dotenv()
 
-STOCKNEAR_API_KEY = os.getenv("STOCKNEAR_API_KEY")
-API_URL = "http://localhost:8000"
-
-
-async def fetch_data(session, endpoint, payload):
-    try:
-        url = f"{API_URL}/{endpoint}"
-        async with session.post(
-            url,
-            json=payload,
-            headers={"X-API-KEY": STOCKNEAR_API_KEY}
-        ) as response:
-            response.raise_for_status()
-            return await response.json()
-    except Exception as e:
-        return {endpoint: {"error": str(e)}}
 
 async def get_historical_stock_price(ticker):
-    async with aiohttp.ClientSession() as session:
-        tasks = [
-            fetch_data(session, "historical-price", {"ticker": ticker, "timePeriod": "max"}),
-        ]
-        results = await asyncio.gather(*tasks)
-        combined = {k: v for result in results for k, v in result.items()}
-        return combined
+    pass
 
 
-async def get_income_statement(ticker,time_period = "annual",keep_keys = None):
-    file_path = Path(f"../../json/financial-statements/income-statement/{time_period}/{ticker}.json")
-    
-    # Load the raw data
-    with file_path.open("rb") as f:
-        raw_data = orjson.loads(f.read())
-    
-    # Keys we want to strip out by default
-    remove_keys = [
-        "symbol", "reportedCurrency", "period",
-        "acceptedDate", "cik", "filingDate"
-    ]
-    
-    if keep_keys:
-        # Make a local copy and ensure required fields are present
-        keys_to_keep = list(keep_keys)
-        if "date" not in keys_to_keep:
-            keys_to_keep.append("date")
-        if "fiscalYear" not in keys_to_keep:
-            keys_to_keep.append("fiscalYear")
-        
-        # Keep only those keys
-        filtered = [
-            {k: v for k, v in stmt.items() if k in keys_to_keep}
-            for stmt in raw_data
-        ]
-    else:
-        # Remove the unwanted keys
-        filtered = [
-            {k: v for k, v in stmt.items() if k not in remove_keys}
-            for stmt in raw_data
-        ]
-    return filtered
+async def get_income_statement(tickers,time_period = "annual",keep_keys = None):
+    res_dict = {}
+    for ticker in tickers:
+        try:
+            file_path = Path(f"../../json/financial-statements/income-statement/{time_period}/{ticker}.json")
+            
+            # Load the raw data
+            with file_path.open("rb") as f:
+                raw_data = orjson.loads(f.read())
+            
+            # Keys we want to strip out by default
+            remove_keys = [
+                "symbol", "reportedCurrency",
+                "acceptedDate", "cik", "filingDate"
+            ]
+            
+            if keep_keys:
+                # Make a local copy and ensure required fields are present
+                keys_to_keep = list(keep_keys)
+                if "date" not in keys_to_keep:
+                    keys_to_keep.append("date")
+                if "fiscalYear" not in keys_to_keep:
+                    keys_to_keep.append("fiscalYear")
+                if "period" not in keys_to_keep:
+                    keys_to_keep.append("period")
+                
+                # Keep only those keys
+                filtered = [
+                    {k: v for k, v in stmt.items() if k in keys_to_keep}
+                    for stmt in raw_data
+                ]
+            else:
+                # Remove the unwanted keys
+                filtered = [
+                    {k: v for k, v in stmt.items() if k not in remove_keys}
+                    for stmt in raw_data
+                ]
 
+            res_dict[ticker] = filtered
+        except:
+            res_dict[ticker] = []
+    print(res_dict)
+    return res_dict
 
 
 async def get_balance_sheet_statement(ticker,time_period = "annual",keep_keys = None):
@@ -82,7 +69,7 @@ async def get_balance_sheet_statement(ticker,time_period = "annual",keep_keys = 
     
     # Keys we want to strip out by default
     remove_keys = [
-        "symbol", "reportedCurrency", "period",
+        "symbol", "reportedCurrency",
         "acceptedDate", "cik", "filingDate"
     ]
     
@@ -93,6 +80,8 @@ async def get_balance_sheet_statement(ticker,time_period = "annual",keep_keys = 
             keys_to_keep.append("date")
         if "fiscalYear" not in keys_to_keep:
             keys_to_keep.append("fiscalYear")
+        if "period" not in keys_to_keep:
+            keys_to_keep.append("period")
         
         # Keep only those keys
         filtered = [
@@ -105,62 +94,137 @@ async def get_balance_sheet_statement(ticker,time_period = "annual",keep_keys = 
             {k: v for k, v in stmt.items() if k not in remove_keys}
             for stmt in raw_data
         ]
-    print(filtered)
     return filtered
 
-async def get_cash_flow_statement(ticker):
-    async with aiohttp.ClientSession() as session:
-        tasks = [
-            fetch_data(session, "financial-statement", {"ticker": ticker, "statement": 'cash-flow-statement'}),
+async def get_cash_flow_statement(ticker,time_period = "annual",keep_keys = None):
+    file_path = Path(f"../../json/financial-statements/cash-flow-statement/{time_period}/{ticker}.json")
+    
+    # Load the raw data
+    with file_path.open("rb") as f:
+        raw_data = orjson.loads(f.read())
+    
+    # Keys we want to strip out by default
+    remove_keys = [
+        "symbol", "reportedCurrency",
+        "acceptedDate", "cik", "filingDate"
+    ]
+    
+    if keep_keys:
+        # Make a local copy and ensure required fields are present
+        keys_to_keep = list(keep_keys)
+        if "date" not in keys_to_keep:
+            keys_to_keep.append("date")
+        if "fiscalYear" not in keys_to_keep:
+            keys_to_keep.append("fiscalYear")
+        if "period" not in keys_to_keep:
+            keys_to_keep.append("period")
+        
+        # Keep only those keys
+        filtered = [
+            {k: v for k, v in stmt.items() if k in keys_to_keep}
+            for stmt in raw_data
         ]
-        results = await asyncio.gather(*tasks)
-        combined = {k: v for result in results for k, v in result.items()}
-        return combined
+    else:
+        # Remove the unwanted keys
+        filtered = [
+            {k: v for k, v in stmt.items() if k not in remove_keys}
+            for stmt in raw_data
+        ]
+    return filtered
 
-async def get_ratios_statement(ticker):
-    async with aiohttp.ClientSession() as session:
-        tasks = [
-            fetch_data(session, "financial-statement", {"ticker": ticker, "statement": 'ratios'}),
+
+async def get_ratios_statement(ticker,time_period = "annual",keep_keys = None):
+    file_path = Path(f"../../json/financial-statements/ratios/{time_period}/{ticker}.json")
+    
+    # Load the raw data
+    with file_path.open("rb") as f:
+        raw_data = orjson.loads(f.read())
+    
+    # Keys we want to strip out by default
+    remove_keys = [
+        "symbol", "reportedCurrency",
+        "acceptedDate", "cik", "filingDate"
+    ]
+
+    
+    if keep_keys:
+        # Make a local copy and ensure required fields are present
+        keys_to_keep = list(keep_keys)
+        if "date" not in keys_to_keep:
+            keys_to_keep.append("date")
+        if "fiscalYear" not in keys_to_keep:
+            keys_to_keep.append("fiscalYear")
+        if "period" not in keys_to_keep:
+            keys_to_keep.append("period")
+        
+        # Keep only those keys
+        filtered = [
+            {k: v for k, v in stmt.items() if k in keys_to_keep}
+            for stmt in raw_data
         ]
-        results = await asyncio.gather(*tasks)
-        combined = {k: v for result in results for k, v in result.items()}
-        return combined
+    else:
+        # Remove the unwanted keys
+        filtered = [
+            {k: v for k, v in stmt.items() if k not in remove_keys}
+            for stmt in raw_data
+        ]
+    return filtered
+
+
+async def get_hottest_contracts(ticker,time_period = "annual",keep_keys = None):
+    file_path = Path(f"../../json/financial-statements/ratios/{time_period}/{ticker}.json")
+    
+    # Load the raw data
+    with file_path.open("rb") as f:
+        raw_data = orjson.loads(f.read())
+    
+    # Keys we want to strip out by default
+    remove_keys = [
+        "symbol", "reportedCurrency",
+        "acceptedDate", "cik", "filingDate"
+    ]
+
+    
+    if keep_keys:
+        # Make a local copy and ensure required fields are present
+        keys_to_keep = list(keep_keys)
+        if "date" not in keys_to_keep:
+            keys_to_keep.append("date")
+        if "fiscalYear" not in keys_to_keep:
+            keys_to_keep.append("fiscalYear")
+        if "period" not in keys_to_keep:
+            keys_to_keep.append("period")
+        
+        # Keep only those keys
+        filtered = [
+            {k: v for k, v in stmt.items() if k in keys_to_keep}
+            for stmt in raw_data
+        ]
+    else:
+        # Remove the unwanted keys
+        filtered = [
+            {k: v for k, v in stmt.items() if k not in remove_keys}
+            for stmt in raw_data
+        ]
+    return filtered
+
+
 
 async def get_stock_screener():
-    async with aiohttp.ClientSession() as session:
-        tasks = [
-            fetch_data(session, "stock-screener-data", {"ruleOfList": []}),
-        ]
-        results = await asyncio.gather(*tasks)
-        combined = {k: v for result in results for k, v in result.items()}
-        return combined
+    pass
 
 
 def get_function_definitions():
     return [
-        {
-            "name": "get_historical_stock_price",
-            "description": "Fetches historical stock price (open, high, low, close) and volume data for a specific stock ticker. Useful for analyzing past stock performance and trends.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "ticker": {
-                        "type": "string",
-                        "description": "The stock ticker symbol for the company (e.g., 'AAPL' for Apple Inc., 'MSFT' for Microsoft Corp.)."
-                    }
-                },
-                "required": ["ticker"]
-            },
-        },
         {
           "name": "get_income_statement",
           "description": "Retrieves historical income statements (profit and loss statements) for a given stock ticker and time period (annual, quarter, ttm). This includes key financial data such as revenue, netIncome, etc. Useful for assessing a company's financial performance over time. Data is available annually, quarterly and trailing-twelve-months (ttm).",
           "parameters": {
             "type": "object",
             "properties": {
-              "ticker": {
-                "type": "string",
-                "description": "The stock ticker symbol for the company (e.g., 'AAPL', 'GOOGL')."
+              "tickers": {
+                "type": "array",
+                "description": "The ticker list of stock symbols for the company (e.g., ['AAPL', 'GOOGL'])."
               },
               "time_period": {
                 "type": "string",
@@ -205,38 +269,75 @@ def get_function_definitions():
           }
         },
         {
-            "name": "get_cash_flow_statement",
-            "description": f"Obtains historical cash flow statements for a stock ticker. This statement shows how changes in balance sheet accounts and income affect cash and cash equivalents, and breaks the analysis down to operating, investing, and financing activities. Includes items like {', '.join(key_cash_flow)}. Data is available annually, quarterly and trailing-twelve-months (ttm).",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "ticker": {
-                        "type": "string",
-                        "description": "The stock ticker symbol for the company (e.g., 'AAPL', 'GOOGL')."
-                    }
+          "name": "get_cash_flow_statement",
+          "description": f"Obtains historical cash flow statements for a stock ticker. This statement shows how changes in balance sheet accounts and income affect cash and cash equivalents, and breaks the analysis down to operating, investing, and financing activities. Includes items like {', '.join(key_cash_flow)}. Data is available annually, quarterly and trailing-twelve-months (ttm).",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "ticker": {
+                "type": "string",
+                "description": "The stock ticker symbol for the company (e.g., 'AAPL', 'GOOGL')."
+              },
+              "time_period": {
+                "type": "string",
+                "enum": ["annual", "quarter", "ttm"],
+                "description": "The time period for the company data (e.g., 'annual', 'quarter', 'ttm')."
+              },
+              "keep_keys": {
+                "type": "array",
+                "items": {
+                  "type": "string"
                 },
-                "required": ["ticker"]
+                "description": "List of keys to retain in the result (e.g., ['freeCashFlow', 'stockBasedCompensation'])."
+              }
             },
+            "required": ["ticker", "time_period", "keep_keys"]
+          }
         },
         {
-            "name": "get_ratios_statement",
-            "description": f"Retrieves various historical financial ratios for a given stock ticker. These ratios are used to evaluate a company's performance, valuation, liquidity, solvency, and efficiency. Examples include {', '.join(key_ratios)}. Data is available annually and quarterly",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "ticker": {
-                        "type": "string",
-                        "description": "The stock ticker symbol for the company (e.g., 'AAPL', 'GOOGL')."
-                    }
+          "name": "get_ratios_statement",
+          "description": f"Retrieves various historical financial ratios for a given stock ticker. These ratios are used to evaluate a company's performance, valuation, liquidity, solvency, and efficiency. Examples include {', '.join(key_ratios)}. Data is available annually and quarterly",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "ticker": {
+                "type": "string",
+                "description": "The stock ticker symbol for the company (e.g., 'AAPL', 'GOOGL')."
+              },
+              "time_period": {
+                "type": "string",
+                "enum": ["annual", "quarter"],
+                "description": "The time period for the company data (e.g., 'annual', 'quarter')."
+              },
+              "keep_keys": {
+                "type": "array",
+                "items": {
+                  "type": "string"
                 },
-                "required": ["ticker"]
+                "description": "List of keys to retain in the result (e.g., ['grossProfitMargin', 'ebitMargin'])."
+              }
             },
+            "required": ["ticker", "time_period", "keep_keys"]
+          }
         },
-
     ]
 
 
 '''
+{
+            "name": "get_historical_stock_price",
+            "description": "Fetches historical stock price (open, high, low, close) and volume data for a specific stock ticker. Useful for analyzing past stock performance and trends.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "ticker": {
+                        "type": "string",
+                        "description": "The stock ticker symbol for the company (e.g., 'AAPL' for Apple Inc., 'MSFT' for Microsoft Corp.)."
+                    }
+                },
+                "required": ["ticker"]
+            },
+        },
     {
         "name": "get_stock_screener",
         "description": "Filters and sorts a list of companies based on various financial metrics and criteria.",
@@ -244,5 +345,5 @@ def get_function_definitions():
 '''
 
 #Testing purposes
-data = asyncio.run(get_balance_sheet_statement('AAPL', 'annual'))
+data = asyncio.run(get_income_statement(['AAPL','NVDA'], 'annual',['revenue','netIncome']))
 #print(get_stock_screener())

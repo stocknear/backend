@@ -57,7 +57,7 @@ key_ratios = [
 "debtToMarketCap",
 "effectiveTaxRate",
 "enterpriseValueMultiple",
-"dividendPerShare"
+"dividendPerShare",
 ]
 
 
