@@ -45,7 +45,7 @@ from datetime import datetime
 from utils.helper import load_latest_json
 
 from openai import OpenAI, AsyncOpenAI
-from ai_agent.functions import * # Your function implementations
+from llm_functions import * # Your function implementations
 
 
 # DB constants & context manager
@@ -72,11 +72,13 @@ client = httpx.AsyncClient(http2=True, timeout=10.0)
 
 #================LLM Configuration====================#
 async_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-CHAT_MODEL = os.getenv("CHAT_MODEL", "gpt-4o") # Default to gpt-4o if not set
-INSTRUCTIONS = 'Retrieve data by using functions based on the correct description. Answer only based on the data from the functions. Always interpret and validate user metrics, default to descending sort, fall back to the last-mentioned metric if unspecified, invoke the correct data functions, and verify results before returning.'
-system_message = {"role": "system", "content": INSTRUCTIONS}
+CHAT_MODEL = os.getenv("CHAT_MODEL")
+INSTRUCTIONS = os.getenv("INSTRUCTIONS")
 function_definitions = get_function_definitions()
 function_map = {fn["name"]: globals()[fn["name"]] for fn in function_definitions}
+
+# Keep the system instruction separate
+system_message = {"role": "system", "content": INSTRUCTIONS}
 
 #======================================================#
 
@@ -4772,7 +4774,7 @@ async def generate_stream(messages: List[dict]):
 
 
 @app.post("/chat")
-async def get_data(data: ChatRequest):
+async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
     user_query = data.query
     messages: List[dict] = [
         system_message,
@@ -4805,8 +4807,11 @@ async def get_data(data: ChatRequest):
     if assistant_msg.tool_calls:
         for call in assistant_msg.tool_calls:
             fn_name = call.function.name
+            print(fn_name)
+
             try:
                 args = orjson.loads(call.function.arguments)
+        
             except Exception:
                 messages.append({
                     "role": "tool",
@@ -4817,10 +4822,12 @@ async def get_data(data: ChatRequest):
                 continue
 
             if fn_name in function_map:
+                func = function_map[fn_name]
                 try:
                     result = await function_map[fn_name](**args)
                     content = orjson.dumps(result).decode()
                 except Exception as e:
+                    print(e)
                     content = orjson.dumps({"error": str(e)}).decode()
             else:
                 content = orjson.dumps({"error": f"Unknown function {fn_name}"}).decode()

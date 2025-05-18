@@ -247,7 +247,7 @@ async def get_financial_statements(
     if not dir_name:
         raise ValueError(f"Invalid statement_type '{statement_type}'. Must be one of {list(STATEMENT_DIRS)}.")
 
-    base_dir = Path("../json/financial-statements") / dir_name / time_period
+    base_dir = Path("json/financial-statements") / dir_name / time_period
     tasks = []
     for ticker in tickers:
         file_path = base_dir / f"{ticker}.json"
@@ -274,46 +274,22 @@ async def get_cash_flow_statement(
     return await get_financial_statements(tickers, "cash", time_period, keep_keys)
 
 
-async def get_ratios_statement(ticker,time_period = "annual",keep_keys = None):
-    file_path = Path(f"../json/financial-statements/ratios/{time_period}/{ticker}.json")
+async def get_ratios_statement(tickers: List[str], time_period: str = "annual", keep_keys: Optional[List[str]] = None) -> Dict[str, List[Dict[str, Any]]]:
+   
+    if time_period not in ["annual", "quarter"]:
+        raise ValueError(f"Invalid time_period '{time_period}'. For ratios, must be 'annual' or 'quarter'.")
     
-    # Load the raw data
-    with file_path.open("rb") as f:
-        raw_data = orjson.loads(f.read())
+    base_dir = Path("json/financial-statements/ratios") / time_period
+    tasks = []
+    for ticker in tickers:
+        file_path = base_dir / f"{ticker}.json"
+        tasks.append(_load_and_filter(file_path, keep_keys))
     
-    # Keys we want to strip out by default
-    remove_keys = [
-        "symbol", "reportedCurrency",
-        "acceptedDate", "cik", "filingDate"
-    ]
-
-    
-    if keep_keys:
-        # Make a local copy and ensure required fields are present
-        keys_to_keep = list(keep_keys)
-        if "date" not in keys_to_keep:
-            keys_to_keep.append("date")
-        if "fiscalYear" not in keys_to_keep:
-            keys_to_keep.append("fiscalYear")
-        if "period" not in keys_to_keep:
-            keys_to_keep.append("period")
-        
-        # Keep only those keys
-        filtered = [
-            {k: v for k, v in stmt.items() if k in keys_to_keep}
-            for stmt in raw_data
-        ]
-    else:
-        # Remove the unwanted keys
-        filtered = [
-            {k: v for k, v in stmt.items() if k not in remove_keys}
-            for stmt in raw_data
-        ]
-    return filtered
-
+    results = await asyncio.gather(*tasks)
+    return {ticker: result for ticker, result in zip(tickers, results)}
 
 async def get_hottest_contracts(ticker,time_period = "annual",keep_keys = None):
-    file_path = Path(f"../json/financial-statements/ratios/{time_period}/{ticker}.json")
+    file_path = Path(f"json/financial-statements/ratios/{time_period}/{ticker}.json")
     
     # Load the raw data
     with file_path.open("rb") as f:
@@ -462,5 +438,5 @@ def get_function_definitions():
 '''
 
 #Testing purposes
-#data = asyncio.run(get_income_statement(['AAPL'], 'annual',['revenue']))
+#data = asyncio.run(get_ratios_statement(['GME','AAPL'], 'annual',['grossProfitMargin']))
 #print(data)
