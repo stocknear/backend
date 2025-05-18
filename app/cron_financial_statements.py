@@ -140,7 +140,7 @@ async def run():
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
     cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
-    symbols = [row[0] for row in cursor.fetchall()]
+    total_symbols = [row[0] for row in cursor.fetchall()]
     con.close()
 
     rate_limiter = RateLimiter(max_requests=1000, time_window=60)
@@ -148,7 +148,7 @@ async def run():
 
     async with aiohttp.ClientSession() as session:
         tasks = []
-        for symbol in tqdm(symbols):
+        for symbol in tqdm(total_symbols):
             task = asyncio.create_task(get_financial_statements(session, symbol, semaphore, rate_limiter))
             tasks.append(task)
         
