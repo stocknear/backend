@@ -26,6 +26,7 @@ STATEMENT_DIRS = {
 }
 
 current_year = datetime.now().year
+week_ago = datetime.now().date() - timedelta(days=5)
 
 key_ratios = [
 "grossProfitMargin",
@@ -428,7 +429,7 @@ async def get_earnings_calendar(upper_threshold: str = ""):
 
             # Default upper threshold to 10 days from today if not provided or empty
             if not upper_threshold:
-                upper_date = today + timedelta(days=10)
+                upper_date = today #+ timedelta(days=10)
             else:
                 upper_date = datetime.strptime(upper_threshold, "%Y-%m-%d").date()
 
@@ -554,7 +555,46 @@ async def get_latest_dark_pool_feed(tickers):
         print(f"Error processing file: {e}")
         return None
 
+async def get_market_news(tickers):
+    base_dir = Path("json/market-news/companies")
+    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
+    # Gather all results concurrently
+    results = await asyncio.gather(*tasks)
+    filtered_results = {}
+    for ticker, data in zip(tickers, results):
+        if data is not None:
+            filtered_data = []
+            for item in data:
+                # Check if the item was published within the last week
+                if (
+                    'publishedDate' in item
+                    and week_ago <= datetime.strptime(item['publishedDate'], "%Y-%m-%d %H:%M:%S").date()
+                ):
+                    # Create a filtered copy of the item
+                    filtered_item = {k: v for k, v in item.items() if k not in ['image', 'symbol','url','site']}
+                    # Add back the ticker as the symbol
+                    filtered_data.append(filtered_item)
+            filtered_results[ticker] = filtered_data
+    return filtered_results
 
+
+async def get_analyst_ratings(tickers):
+    base_dir = Path("json/analyst/history")
+    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
+    # Gather all results concurrently
+    results = await asyncio.gather(*tasks)
+    filtered_results = {}
+    for ticker, data in zip(tickers, results):
+        if data is not None:
+            filtered_data = []
+            for item in data:
+                try:
+                    filtered_item = {k: v for k, v in item.items() if k not in ['analystId']}
+                    filtered_data.append(filtered_item)
+                except:
+                    pass
+            filtered_results[ticker] = filtered_data[:15] #last 15 ratings
+    return filtered_results
 
 
 def get_function_definitions():
@@ -806,6 +846,30 @@ def get_function_definitions():
             },
             "required": ["tickers"]
         },
+        {
+            "name": "get_market_news",
+            "description": "Retrieves the latest news for multiple stocks.",
+            "parameters": {
+                "tickers": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
+                }
+            },
+            "required": ["tickers"]
+        },
+        {
+            "name": "get_analyst_ratings",
+            "description": "Retrieves the latest analyst ratings for multiple stocks.",
+            "parameters": {
+                "tickers": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
+                }
+            },
+            "required": ["tickers"]
+        },
     ]
     
     definitions = []
@@ -848,5 +912,5 @@ def get_function_definitions():
 '''
 
 #Testing purposes
-#data = asyncio.run(get_latest_options_flow_feed(['AMD','NVDA']))
+#data = asyncio.run(get_analyst_ratings(['AMD','TSLA']))
 #print(data)
