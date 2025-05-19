@@ -29,7 +29,7 @@ from contextlib import contextmanager
 from pocketbase import PocketBase
 
 # FastAPI and related imports
-from fastapi import FastAPI, Depends, HTTPException, Security, Query, Request, status
+from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, Security, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
@@ -4750,119 +4750,222 @@ async def compare_data_endpoint(data: CompareData, api_key: str = Security(get_a
     )
 
 
-async def generate_stream(messages: List[dict]):
-    try:
-        stream = await async_client.chat.completions.create(
-            model=CHAT_MODEL,
-            messages=messages,
-            max_tokens=MAX_TOKENS,
-            stream=True
+
+
+
+
+
+
+
+
+
+
+
+from contextlib import asynccontextmanager
+
+MAX_CONCURRENT_REQUESTS = 25  # Limit concurrent requests
+request_semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
+
+# Connection pooling for API client
+@asynccontextmanager
+async def get_client_session():
+    # Create a session with connection pooling
+    session = aiohttp.ClientSession(
+        connector=aiohttp.TCPConnector(
+            limit=100,  # Max connections
+            limit_per_host=20,  # Max connections per host
+            keepalive_timeout=60  # Keep connections alive
         )
+    )
+    try:
+        yield session
+    finally:
+        await session.close()
 
-        full_content = ""
-        # 2) async‐iterate the stream
-        async for chunk in stream:
-            delta = chunk.choices[0].delta
-            if delta.content:
-                full_content += delta.content
-                payload = {
-                    "content": full_content
-                }
-                # orjson.dumps returns bytes already
-                yield orjson.dumps(payload) + b"\n"
+# LRU Cache for storing common responses
+from functools import lru_cache
+from hashlib import md5
 
+@lru_cache(maxsize=100)
+def get_cached_response(query_hash: str) -> Dict[str, Any]:
+    return RESPONSE_CACHE.get(query_hash)
+
+# Global cache dictionary
+RESPONSE_CACHE = {}
+
+# Function to create a hash of the request for caching
+def create_query_hash(messages: List) -> str:
+    # Create a deterministic hash of the messages
+    # Handle both dict messages and ChatCompletionMessage objects
+    message_dicts = []
+    for msg in messages:
+        if hasattr(msg, 'model_dump'):  # Handle Pydantic models like ChatCompletionMessage
+            msg_dict = msg.model_dump()
+            if 'id' in msg_dict:
+                del msg_dict['id']
+            message_dicts.append(msg_dict)
+        elif isinstance(msg, dict):  # Handle plain dictionaries
+            message_dicts.append({k: v for k, v in msg.items() if k != 'id'})
+        else:  # Handle any other object by converting to a dict of its attributes
+            msg_dict = {k: getattr(msg, k) for k in dir(msg) 
+                      if not k.startswith('_') and not callable(getattr(msg, k))}
+            if 'id' in msg_dict:
+                del msg_dict['id']
+            message_dicts.append(msg_dict)
+    
+    serialized = orjson.dumps(message_dicts)
+    return md5(serialized).hexdigest()
+
+async def generate_stream(messages: List):
+    try:
+        query_hash = create_query_hash(messages)
+        
+        # Try to use cache first
+        cached = get_cached_response(query_hash)
+        if cached and not any(getattr(msg, 'role', None) == "tool" for msg in messages):
+            # Only use cache for non-tool calls
+            yield orjson.dumps(cached) + b"\n"
+            return
+        
+        # Use semaphore to limit concurrent requests
+        async with request_semaphore:
+            async with get_client_session() as session:
+                # Use the session with your client
+                stream = await async_client.chat.completions.create(
+                    model=CHAT_MODEL,
+                    messages=messages,
+                    max_tokens=MAX_TOKENS,
+                    stream=True
+                )
+                
+                full_content = ""
+                async for chunk in stream:
+                    delta = chunk.choices[0].delta
+                    if delta.content:
+                        full_content += delta.content
+                        payload = {
+                            "content": full_content
+                        }
+                        yield orjson.dumps(payload) + b"\n"
+                
+                # Update cache with full response if it's valuable to cache
+                if len(full_content) > 0 and not any(getattr(msg, 'role', None) == "tool" for msg in messages):
+                    RESPONSE_CACHE[query_hash] = {"content": full_content}
+                    
     except Exception as e:
+        print(f"Error in generate_stream: {str(e)}")
         yield orjson.dumps({"error": str(e)}) + b"\n"
 
-
-@app.post("/chat")
-async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
+# Background task to process tool calls and generate final response
+async def process_request(data, tools_payload):
     user_query = data.query
-    messages: List[dict] = [
+    messages = [
         system_message,
         {"role": "user", "content": user_query}
     ]
-
-    # Package your function definitions for the model
-    tools_payload = (
-        [{"type": "function", "function": fn} for fn in function_definitions]
-        if function_definitions else None
-    )
-
-    # 1) Initial non-streaming call
+    
+    # Process initial request and tool calls
     try:
-        response = await async_client.chat.completions.create(
-            model=CHAT_MODEL,
-            messages=messages,
-            max_tokens=MAX_TOKENS,
-            tools=tools_payload,
-            tool_choice="auto" if tools_payload else "none"
-        )
-    except Exception as e:
-        print(f"Initial LLM call failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-    assistant_msg = response.choices[0].message
-    messages.append(assistant_msg)
-
-    # 2) Loop: resolve any tool calls, append results, then let the model respond again
-    while assistant_msg.tool_calls:
-        for call in assistant_msg.tool_calls:
-            fn_name = call.function.name
-            print(f"Invoking tool: {fn_name}")
-
-            # parse arguments
-            try:
-                args = orjson.loads(call.function.arguments)
-            except Exception:
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": call.id,
-                    "name": fn_name,
-                    "content": orjson.dumps({"error": "Invalid arguments"}).decode()
-                })
-                continue
-
-            # call the actual function
-            if fn_name in function_map:
-                try:
-                    result = await function_map[fn_name](**args)
-                    content = orjson.dumps(result).decode()
-                except Exception as e:
-                    print(f"Function {fn_name} raised: {e}")
-                    content = orjson.dumps({"error": str(e)}).decode()
-            else:
-                content = orjson.dumps({"error": f"Unknown function {fn_name}"}).decode()
-
-            # append the tool result
-            messages.append({
-                "role": "tool",
-                "tool_call_id": call.id,
-                "name": fn_name,
-                "content": content
-            })
-
-        # 3) Let the model see the tool outputs and choose next action
-        try:
-            followup = await async_client.chat.completions.create(
+        async with request_semaphore:
+            response = await async_client.chat.completions.create(
                 model=CHAT_MODEL,
                 messages=messages,
                 max_tokens=MAX_TOKENS,
                 tools=tools_payload,
-                tool_choice="auto"
+                tool_choice="auto" if tools_payload else "none"
             )
-        except Exception as e:
-            print(f"Follow-up LLM call failed: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
-
-        assistant_msg = followup.choices[0].message
+        
+        assistant_msg = response.choices[0].message
         messages.append(assistant_msg)
+        
+        # Process tool calls with batching where possible
+        tool_call_futures = []
+        
+        while hasattr(assistant_msg, 'tool_calls') and assistant_msg.tool_calls:
+            # Gather all function calls to process in parallel
+            for call in assistant_msg.tool_calls:
+                fn_name = call.function.name
+                try:
+                    args = orjson.loads(call.function.arguments)
+                    if fn_name in function_map:
+                        # Schedule function execution
+                        future = asyncio.create_task(function_map[fn_name](**args))
+                        tool_call_futures.append((call.id, fn_name, future))
+                    else:
+                        messages.append({
+                            "role": "tool",
+                            "tool_call_id": call.id,
+                            "name": fn_name,
+                            "content": orjson.dumps({"error": f"Unknown function {fn_name}"}).decode()
+                        })
+                except Exception as e:
+                    print(f"Error parsing arguments: {str(e)}")
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": call.id,
+                        "name": fn_name,
+                        "content": orjson.dumps({"error": "Invalid arguments"}).decode()
+                    })
+            
+            # Wait for all function calls to complete
+            for call_id, fn_name, future in tool_call_futures:
+                try:
+                    result = await future
+                    content = orjson.dumps(result).decode()
+                except Exception as e:
+                    print(f"Function {fn_name} error: {str(e)}")
+                    content = orjson.dumps({"error": str(e)}).decode()
+                
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": call_id,
+                    "name": fn_name,
+                    "content": content
+                })
+            
+            # Reset for next iteration
+            tool_call_futures = []
+            
+            # Get model response after processing tool calls
+            async with request_semaphore:
+                followup = await async_client.chat.completions.create(
+                    model=CHAT_MODEL,
+                    messages=messages,
+                    max_tokens=MAX_TOKENS,
+                    tools=tools_payload,
+                    tool_choice="auto"
+                )
+            
+            assistant_msg = followup.choices[0].message
+            messages.append(assistant_msg)
+        
+        # Return final messages for streaming
+        return messages
+        
+    except Exception as e:
+        print(f"Request processing failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-    # 4) No more tool calls → stream the final content
-    return StreamingResponse(
-        generate_stream(messages),
-        media_type="application/json"
+@app.post("/chat")
+async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
+    # Package function definitions for the model
+    tools_payload = (
+        [{"type": "function", "function": fn} for fn in function_definitions]
+        if function_definitions else None
     )
+    
+    # Process the request and get messages for streaming
+    try:
+        messages = await process_request(data, tools_payload)
+        
+        # Stream the final content
+        return StreamingResponse(
+            generate_stream(messages),
+            media_type="application/json"
+        )
+    except Exception as e:
+        print(f"Request failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/newsletter")
