@@ -220,6 +220,19 @@ key_balance_sheet = [
 "netDebt"
 ]
 
+async def fetch_ticker_data(ticker, base_dir):
+    file_path = base_dir / f"{ticker}.json"
+    try:
+        async with aiofiles.open(file_path, mode="rb") as f:
+            content = await f.read()
+            data = orjson.loads(content)
+            return data
+    except FileNotFoundError:
+        return None
+    except (orjson.JSONDecodeError, KeyError) as e:
+        print(f"Error processing {ticker}: {e}")
+        return None
+    
 
 async def _load_and_filter(
     file_path: Path,
@@ -288,43 +301,22 @@ async def get_ratios_statement(tickers: List[str], time_period: str = "annual", 
     results = await asyncio.gather(*tasks)
     return {ticker: result for ticker, result in zip(tickers, results)}
 
-async def get_hottest_contracts(ticker,time_period = "annual",keep_keys = None):
-    file_path = Path(f"json/financial-statements/ratios/{time_period}/{ticker}.json")
-    
-    # Load the raw data
-    with file_path.open("rb") as f:
-        raw_data = orjson.loads(f.read())
-    
-    # Keys we want to strip out by default
-    remove_keys = [
-        "symbol", "reportedCurrency",
-        "acceptedDate", "cik", "filingDate"
-    ]
 
+async def get_hottest_options_contracts(tickers, category="volume"):
+    if category not in ["volume", "openInterest"]:
+        raise ValueError(f"Invalid category '{category}'. For hottest contracts, must be 'volume' or 'openInterest'.")
     
-    if keep_keys:
-        # Make a local copy and ensure required fields are present
-        keys_to_keep = list(keep_keys)
-        if "date" not in keys_to_keep:
-            keys_to_keep.append("date")
-        if "fiscalYear" not in keys_to_keep:
-            keys_to_keep.append("fiscalYear")
-        if "period" not in keys_to_keep:
-            keys_to_keep.append("period")
-        
-        # Keep only those keys
-        filtered = [
-            {k: v for k, v in stmt.items() if k in keys_to_keep}
-            for stmt in raw_data
-        ]
-    else:
-        # Remove the unwanted keys
-        filtered = [
-            {k: v for k, v in stmt.items() if k not in remove_keys}
-            for stmt in raw_data
-        ]
-    return filtered
+    base_dir = Path("json/hottest-contracts/companies")
+    
+    
+    # Create tasks for each ticker
+    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
+    
+    # Gather all results concurrently
+    results = await asyncio.gather(*tasks)
 
+    # Create the result dictionary
+    return {ticker: result[category][:5] for ticker, result in zip(tickers, results) if result is not None}
 
 
 async def get_stock_screener():
@@ -336,7 +328,7 @@ async def get_stock_screener():
 def get_function_definitions():
     """
     Dynamically construct function definition metadata for OpenAI function-calling.
-    Supports income, balance-sheet, cash-flow statements, and financial ratios.
+    Supports income, balance-sheet, cash-flow statements, financial ratios, and hottest options contracts.
     """
     # Define metadata for each statement type
     templates = [
@@ -347,7 +339,24 @@ def get_function_definitions():
                 f"Key metrics include: {', '.join(key_income)}. "
                 "Available for annual, quarter, and trailing twelve months (ttm)."
             ),
-            "periods": ["annual", "quarter", "ttm"],
+            "parameters": {
+                "tickers": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
+                },
+                "time_period": {
+                    "type": "string",
+                    "enum": ["annual", "quarter", "ttm"],
+                    "description": "Time period for the data: annual, quarter, ttm."
+                },
+                "keep_keys": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of data keys to retain in the output. If omitted, defaults will be used."
+                }
+            },
+            "required": ["tickers", "time_period"]
         },
         {
             "name": "get_balance_sheet_statement",
@@ -356,7 +365,24 @@ def get_function_definitions():
                 f"Includes metrics: {', '.join(key_balance_sheet)}. "
                 "Available for annual, quarter, and trailing twelve months (ttm)."
             ),
-            "periods": ["annual", "quarter", "ttm"],
+            "parameters": {
+                "tickers": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
+                },
+                "time_period": {
+                    "type": "string",
+                    "enum": ["annual", "quarter", "ttm"],
+                    "description": "Time period for the data: annual, quarter, ttm."
+                },
+                "keep_keys": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of data keys to retain in the output. If omitted, defaults will be used."
+                }
+            },
+            "required": ["tickers", "time_period"]
         },
         {
             "name": "get_cash_flow_statement",
@@ -365,7 +391,24 @@ def get_function_definitions():
                 f"Key items: {', '.join(key_cash_flow)}. "
                 "Available for annual, quarter, and trailing twelve months (ttm)."
             ),
-            "periods": ["annual", "quarter", "ttm"],
+            "parameters": {
+                "tickers": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
+                },
+                "time_period": {
+                    "type": "string",
+                    "enum": ["annual", "quarter", "ttm"],
+                    "description": "Time period for the data: annual, quarter, ttm."
+                },
+                "keep_keys": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of data keys to retain in the output. If omitted, defaults will be used."
+                }
+            },
+            "required": ["tickers", "time_period"]
         },
         {
             "name": "get_ratios_statement",
@@ -374,47 +417,61 @@ def get_function_definitions():
                 f"Examples: {', '.join(key_ratios)}. "
                 "Available for annual and quarter periods."
             ),
-            "periods": ["annual", "quarter"],
+            "parameters": {
+                "tickers": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
+                },
+                "time_period": {
+                    "type": "string",
+                    "enum": ["annual", "quarter"],
+                    "description": "Time period for the data: annual, quarter."
+                },
+                "keep_keys": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of data keys to retain in the output. If omitted, defaults will be used."
+                }
+            },
+            "required": ["tickers", "time_period"]
+        },
+        {
+            "name": "get_hottest_options_contracts",
+            "description": (
+                "Retrieves the hottest options contracts for stock tickers. "
+                "Returns contracts sorted by either volume or open interest."
+            ),
+            "parameters": {
+                "tickers": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
+                },
+                "category": {
+                    "type": "string",
+                    "enum": ["volume", "openInterest"],
+                    "description": "Category to sort contracts by: volume or openInterest."
+                }
+            },
+            "required": ["tickers", "category"]
         },
     ]
-
+    
     definitions = []
     for tpl in templates:
-        definitions.append({
+        function_def = {
             "name": tpl["name"],
             "description": tpl["description"],
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "tickers": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": (
-                            "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
-                        ),
-                    },
-                    "time_period": {
-                        "type": "string",
-                        "enum": tpl["periods"],
-                        "description": (
-                            "Time period for the data: " + ", ".join(tpl["periods"]) + "."
-                        ),
-                    },
-                    "keep_keys": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": (
-                            "List of data keys to retain in the output. If omitted, defaults will be used."
-                        ),
-                    },
-                },
-                "required": ["tickers", "time_period"],
+                "properties": tpl["parameters"],
+                "required": tpl["required"]
             }
-        })
-
+        }
+        definitions.append(function_def)
+    
     return definitions
-
-
 
 '''
 {
@@ -438,5 +495,5 @@ def get_function_definitions():
 '''
 
 #Testing purposes
-#data = asyncio.run(get_ratios_statement(['GME','AAPL'], 'annual',['grossProfitMargin']))
+#data = asyncio.run(get_hottest_options_contracts(['GME'], 'volume'))
 #print(data)
