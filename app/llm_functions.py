@@ -10,6 +10,8 @@ import orjson
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 import aiofiles
+from operator import itemgetter
+
 
 load_dotenv()
 
@@ -224,6 +226,152 @@ key_balance_sheet = [
 "totalDebt",
 "netDebt"
 ]
+
+key_screener = [
+  "avgVolume",
+  "volume",
+  "rsi",
+  "stochRSI",
+  "mfi",
+  "cci",
+  "atr",
+  "sma20",
+  "sma50",
+  "sma100",
+  "sma200",
+  "ema20",
+  "ema50",
+  "ema100",
+  "ema200",
+  "grahamNumber",
+  "price",
+  "change1W",
+  "change1M",
+  "change3M",
+  "change6M",
+  "change1Y",
+  "change3Y",
+  "marketCap",
+  "workingCapital",
+  "totalAssets",
+  "tangibleAssetValue",
+  "revenue",
+  "revenueGrowthYears",
+  "epsGrowthYears",
+  "netIncomeGrowthYears",
+  "grossProfitGrowthYears",
+  "growthRevenue",
+  "costOfRevenue",
+  "growthCostOfRevenue",
+  "costAndExpenses",
+  "growthCostAndExpenses",
+  "netIncome",
+  "growthNetIncome",
+  "grossProfit",
+  "growthGrossProfit",
+  "researchAndDevelopmentExpenses",
+  "growthResearchAndDevelopmentExpenses",
+  "payoutRatio",
+  "dividendYield",
+  "payoutFrequency",
+  "annualDividend",
+  "dividendGrowth",
+  "eps",
+  "growthEPS",
+  "interestIncome",
+  "interestExpense",
+  "growthInterestExpense",
+  "operatingExpenses",
+  "growthOperatingExpenses",
+  "ebit",
+  "operatingIncome",
+  "growthOperatingIncome",
+  "growthFreeCashFlow",
+  "growthOperatingCashFlow",
+  "growthStockBasedCompensation",
+  "growthTotalLiabilities",
+  "growthTotalDebt",
+  "growthTotalStockholdersEquity",
+  "researchDevelopmentRevenueRatio",
+  "cagr3YearRevenue",
+  "cagr5YearRevenue",
+  "cagr3YearEPS",
+  "cagr5YearEPS",
+  "returnOnInvestedCapital",
+  "returnOnCapitalEmployed",
+  "relativeVolume",
+  "institutionalOwnership",
+  "priceToEarningsGrowthRatio",
+  "forwardPE",
+  "forwardPS",
+  "priceToBookRatio",
+  "priceToSalesRatio",
+  "beta",
+  "ebitda",
+  "growthEBITDA",
+  "var",
+  "currentRatio",
+  "quickRatio",
+  "debtToEquityRatio",
+  "inventoryTurnover",
+  "returnOnAssets",
+  "returnOnEquity",
+  "returnOnTangibleAssets",
+  "enterpriseValue",
+  "evToSales",
+  "evToEBITDA",
+  "evToEBIT",
+  "evToFCF",
+  "freeCashFlowPerShare",
+  "cashPerShare",
+  "priceToFreeCashFlowRatio",
+  "interestCoverageRatio",
+  "sharesShort",
+  "shortRatio",
+  "shortFloatPercent",
+  "shortOutstandingPercent",
+  "failToDeliver",
+  "relativeFTD",
+  "freeCashFlow",
+  "operatingCashFlow",
+  "operatingCashFlowPerShare",
+  "revenuePerShare",
+  "netIncomePerShare",
+  "shareholdersEquityPerShare",
+  "interestDebtPerShare",
+  "capexPerShare",
+  "freeCashFlowMargin",
+  "totalDebt",
+  "operatingCashFlowSalesRatio",
+  "priceToOperatingCashFlowRatio",
+  "priceToEarningsRatio",
+  "stockBasedCompensation",
+  "stockBasedCompensationToRevenue",
+  "totalStockholdersEquity",
+  "sharesQoQ",
+  "sharesYoY",
+  "grossProfitMargin",
+  "netProfitMargin",
+  "pretaxProfitMargin",
+  "ebitdaMargin",
+  "ebitMargin",
+  "operatingMargin",
+  "interestIncomeToCapitalization",
+  "assetTurnover",
+  "earningsYield",
+  "freeCashFlowYield",
+  "effectiveTaxRate",
+  "fixedAssetTurnover",
+  "sharesOutStanding",
+  "employees",
+  "revenuePerEmployee",
+  "profitPerEmployee",
+  "totalLiabilities",
+  "altmanZScore",
+  "piotroskiScore"
+]
+
+
 
 async def fetch_ticker_data(ticker, base_dir):
     file_path = base_dir / f"{ticker}.json"
@@ -597,14 +745,127 @@ async def get_analyst_ratings(tickers):
     return filtered_results
 
 
+
+async def get_stock_screener(rule_of_list=None, sort_by=None, sort_order="desc", limit=10):
+    try:
+        # Use aiofiles for non-blocking file operations
+        async with aiofiles.open(os.path.join("json", "stock-screener", "data.json"), 'rb') as file:
+            content = await file.read()
+            data = orjson.loads(content)
+
+        # Initial filter to exclude PNK exchange - use list comprehension for efficiency
+        filtered_data = [item for item in data if item.get('exchange') != 'PNK']
+
+        # Exit early if no rules provided
+        if not rule_of_list:
+            result = filtered_data
+        else:
+            # Apply each filter rule
+            result = []
+
+            # Define operator mapping as a dict for cleaner code
+            operators = {
+                '>': lambda x, y: x > y,
+                '>=': lambda x, y: x >= y,
+                '<': lambda x, y: x < y,
+                '<=': lambda x, y: x <= y,
+                '==': lambda x, y: x == y,
+                '!=': lambda x, y: x != y
+            }
+
+            # Process each stock
+            for stock in filtered_data:
+                meets_criteria = True
+
+                # Check each rule
+                for rule in rule_of_list:
+                    # Use new naming convention from schema
+                    metric = rule.get('metric', rule.get('name'))  # Support both new and old format
+                    value = rule.get('value')
+                    operator = rule.get('operator', '>')
+
+                    # Skip invalid rules
+                    if not metric or metric not in stock or operator not in operators:
+                        meets_criteria = False
+                        break
+
+                    stock_value = stock[metric]
+
+                    # Handle None/null values in data
+                    if stock_value is None:
+                        meets_criteria = False
+                        break
+
+                    # Handle type mismatches gracefully
+                    try:
+                        # Apply comparison using operator mapping
+                        if not operators[operator](stock_value, value):
+                            meets_criteria = False
+                            break
+                    except (TypeError, ValueError):
+                        # Type mismatch in comparison
+                        meets_criteria = False
+                        break
+
+                if meets_criteria:
+                    result.append(stock)
+
+        # Sort results if requested
+        if sort_by and result and sort_by in result[0]:
+            # Handle None values in sorting
+            result.sort(
+                key=lambda x: (x.get(sort_by) is None, x.get(sort_by)),
+                reverse=(sort_order.lower() == "desc")
+            )
+
+        # Apply limit
+        if limit and isinstance(limit, int):
+            result = result[:limit]
+
+        # Extract only the key elements defined in rule_of_list for each matched stock
+        filtered_result = []
+        for stock in result:
+            try:
+                filtered_stock = {
+                    "symbol": stock.get("symbol", ""),
+                    "company_name": stock.get("companyName", stock.get("name", "")),
+                }
+
+                # Add metrics from rule_of_list
+                if rule_of_list:
+                    metrics = {}
+                    for rule in rule_of_list:
+                        metric_name = rule.get('metric', rule.get('name'))
+                        if metric_name and metric_name in stock:
+                            metrics[metric_name] = stock[metric_name]
+
+                    # Add sort_by field if it's not already included but was used for sorting
+                    if sort_by and sort_by not in metrics and sort_by in stock:
+                        metrics[sort_by] = stock[sort_by]
+
+                    if metrics: # Only add 'metrics' key if there are metrics to add
+                        filtered_stock["metrics"] = metrics
+
+                filtered_result.append(filtered_stock)
+            except Exception:
+                # Log the exception if needed for debugging
+                pass
+
+        # Return in the format specified in the schema
+        return {
+            "matched_stocks": filtered_result,
+            "count": len(filtered_result)
+        }
+
+    except FileNotFoundError:
+        return {"matched_stocks": [], "count": 0, "error": "Screener data file not found"}
+    except (orjson.JSONDecodeError, Exception) as e:
+        return {"matched_stocks": [], "count": 0, "error": f"Error processing screener data: {str(e)}"}
+
+
 def get_function_definitions():
-    """
-    Dynamically construct function definition metadata for OpenAI function-calling.
-    Supports income, balance-sheet, cash-flow statements, financial ratios, and hottest options contracts.
-    """
-    # Define metadata for each statement type
     templates = [
-        {
+    {
             "name": "get_income_statement",
             "description": (
                 "Retrieves historical income statements (profit and loss) for a list of stock tickers. "
@@ -790,11 +1051,11 @@ def get_function_definitions():
         },
         {
             "name": "get_earnings_calendar",
-            "description": "Fetches upcoming earnings events for stocks within a specified date range (defaulting to the next 10 days if no upper threshold is provided).",
+            "description": "Fetches today's and upcoming earnings events for stocks within a specified date range (defaulting to today if no upper threshold is provided).",
             "parameters": {
                 "upper_threshold": {
                     "type": "string",
-                    "description": "Optional upper date threshold in YYYY-MM-DD format. If not provided, defaults to 10 days from today."
+                    "description": "Optional upper date threshold in YYYY-MM-DD format. If not provided, defaults to today."
                 }
             },
         },
@@ -870,8 +1131,42 @@ def get_function_definitions():
             },
             "required": ["tickers"]
         },
+        {
+          "name": "get_stock_screener",
+          "description": f"Retrieves stock data based on specified financial criteria to help filter stocks that meet certain thresholds (e.g., revenue > $10M, P/E ratio < 15, etc.) All rules are defined here: {', '.join(key_screener)}.",
+          "parameters": {
+            "rule_of_list": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "metric": {"type": "string", "description": "The financial metric to filter by (e.g., 'marketCap', 'priceToEarningsRatio', 'revenue')."},
+                        "operator": {"type": "string", "enum": [">", ">=", "<", "<=", "==", "!="], "description": "The comparison operator."},
+                        "value": {"type": ["number", "string"], "description": "The value to compare against."} # Value can be number or string depending on metric
+                    },
+                    "required": ["metric", "value"]
+                },
+                "description": "List of screening rules to filter stocks (e.g., [{\"metric\": \"marketCap\", \"operator\": \">\", \"value\": 100}, {\"metric\": \"priceToEarningsRatio\", \"operator\": \"<\", \"value\": 10}])."
+            },
+            "sort_by": {
+                "type": "string",
+                "description": "Field name to sort the results by (e.g., \"marketCap\", \"volume\", \"price\")."
+            },
+            "sort_order": {
+                "type": "string",
+                "enum": ["asc", "desc"],
+                "default": "desc",
+                "description": "Sort order for the results: 'asc' for ascending or 'desc' for descending."
+            },
+            "limit": {
+                "type": "integer",
+                "default": 10,
+                "description": "Maximum number of results to return."
+            }
+          }
+        },
     ]
-    
+
     definitions = []
     for tpl in templates:
         func_def = {
@@ -889,7 +1184,6 @@ def get_function_definitions():
         definitions.append(func_def)
 
     return definitions
-
 '''
 {
             "name": "get_historical_stock_price",
@@ -912,5 +1206,15 @@ def get_function_definitions():
 '''
 
 #Testing purposes
-#data = asyncio.run(get_analyst_ratings(['AMD','TSLA']))
-#print(data)
+'''
+data = asyncio.run(get_stock_screener(
+    rule_of_list=[
+        {"metric": "marketCap", "operator": ">", "value": 100},
+        {"metric": "priceToEarningsRatio", "operator": "<", "value": 10}
+    ],
+    sort_by="marketCap",
+    sort_order="desc",
+    limit=10
+))
+print(data)
+'''

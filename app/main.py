@@ -46,6 +46,33 @@ from utils.helper import load_latest_json
 
 from openai import OpenAI, AsyncOpenAI
 from llm_functions import * # Your function implementations
+from contextlib import asynccontextmanager
+from functools import lru_cache
+from hashlib import md5
+
+
+
+
+
+# Connection pooling for API client
+@asynccontextmanager
+async def get_client_session():
+    # Create a session with connection pooling
+    session = aiohttp.ClientSession(
+        connector=aiohttp.TCPConnector(
+            limit=100,  # Max connections
+            limit_per_host=20,  # Max connections per host
+            keepalive_timeout=60  # Keep connections alive
+        )
+    )
+    try:
+        yield session
+    finally:
+        await session.close()
+@lru_cache(maxsize=100)
+def get_cached_response(query_hash: str) -> Dict[str, Any]:
+    return RESPONSE_CACHE.get(query_hash)
+
 
 
 # DB constants & context manager
@@ -77,10 +104,14 @@ MAX_TOKENS = int(os.getenv("MAX_TOKENS"))
 INSTRUCTIONS = os.getenv("INSTRUCTIONS")
 function_definitions = get_function_definitions()
 function_map = {fn["name"]: globals()[fn["name"]] for fn in function_definitions}
+tools_payload = ([{"type": "function", "function": fn} for fn in function_definitions] if function_definitions else None)
 
 # Keep the system instruction separate
 system_message = {"role": "system", "content": INSTRUCTIONS}
 
+RESPONSE_CACHE = {}
+MAX_CONCURRENT_REQUESTS = 25  # Limit concurrent requests
+request_semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
 #======================================================#
 
 
@@ -4758,41 +4789,6 @@ async def compare_data_endpoint(data: CompareData, api_key: str = Security(get_a
 
 
 
-
-
-
-from contextlib import asynccontextmanager
-
-MAX_CONCURRENT_REQUESTS = 25  # Limit concurrent requests
-request_semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
-
-# Connection pooling for API client
-@asynccontextmanager
-async def get_client_session():
-    # Create a session with connection pooling
-    session = aiohttp.ClientSession(
-        connector=aiohttp.TCPConnector(
-            limit=100,  # Max connections
-            limit_per_host=20,  # Max connections per host
-            keepalive_timeout=60  # Keep connections alive
-        )
-    )
-    try:
-        yield session
-    finally:
-        await session.close()
-
-# LRU Cache for storing common responses
-from functools import lru_cache
-from hashlib import md5
-
-@lru_cache(maxsize=100)
-def get_cached_response(query_hash: str) -> Dict[str, Any]:
-    return RESPONSE_CACHE.get(query_hash)
-
-# Global cache dictionary
-RESPONSE_CACHE = {}
-
 # Function to create a hash of the request for caching
 def create_query_hash(messages: List) -> str:
     # Create a deterministic hash of the messages
@@ -4857,7 +4853,7 @@ async def generate_stream(messages: List):
         yield orjson.dumps({"error": str(e)}) + b"\n"
 
 # Background task to process tool calls and generate final response
-async def process_request(data, tools_payload):
+async def process_request(data):
     user_query = data.query
     messages = [
         system_message,
@@ -4888,7 +4884,7 @@ async def process_request(data, tools_payload):
                 try:
                     args = orjson.loads(call.function.arguments)
                     if fn_name in function_map:
-                        # Schedule function execution
+                        print(fn_name)
                         future = asyncio.create_task(function_map[fn_name](**args))
                         tool_call_futures.append((call.id, fn_name, future))
                     else:
@@ -4948,15 +4944,10 @@ async def process_request(data, tools_payload):
 
 @app.post("/chat")
 async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
-    # Package function definitions for the model
-    tools_payload = (
-        [{"type": "function", "function": fn} for fn in function_definitions]
-        if function_definitions else None
-    )
     
     # Process the request and get messages for streaming
     try:
-        messages = await process_request(data, tools_payload)
+        messages = await process_request(data)
         
         # Stream the final content
         return StreamingResponse(
