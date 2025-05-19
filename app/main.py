@@ -61,7 +61,7 @@ async def get_client_session():
     session = aiohttp.ClientSession(
         connector=aiohttp.TCPConnector(
             limit=100,  # Max connections
-            limit_per_host=20,  # Max connections per host
+            limit_per_host=100,  # Max connections per host
             keepalive_timeout=60  # Keep connections alive
         )
     )
@@ -4790,76 +4790,82 @@ async def compare_data_endpoint(data: CompareData, api_key: str = Security(get_a
 
 
 # Function to create a hash of the request for caching
+# Function to create a hash of the request for caching - optimized version
 def create_query_hash(messages: List) -> str:
     # Create a deterministic hash of the messages
-    # Handle both dict messages and ChatCompletionMessage objects
+    # Use a more direct approach to extract message data
     message_dicts = []
     for msg in messages:
         if hasattr(msg, 'model_dump'):  # Handle Pydantic models like ChatCompletionMessage
             msg_dict = msg.model_dump()
-            if 'id' in msg_dict:
-                del msg_dict['id']
-            message_dicts.append(msg_dict)
         elif isinstance(msg, dict):  # Handle plain dictionaries
-            message_dicts.append({k: v for k, v in msg.items() if k != 'id'})
+            msg_dict = msg.copy()  # Use copy instead of dict comprehension
         else:  # Handle any other object by converting to a dict of its attributes
-            msg_dict = {k: getattr(msg, k) for k in dir(msg) 
+            msg_dict = {k: getattr(msg, k) for k in dir(msg)
                       if not k.startswith('_') and not callable(getattr(msg, k))}
-            if 'id' in msg_dict:
-                del msg_dict['id']
-            message_dicts.append(msg_dict)
+        
+        # Remove 'id' if it exists - do this after initial conversion to avoid redundant operations
+        msg_dict.pop('id', None)  # More efficient than checking and then deleting
+        message_dicts.append(msg_dict)
     
-    serialized = orjson.dumps(message_dicts)
+    serialized = orjson.dumps(message_dicts)  # orjson is already fast
     return md5(serialized).hexdigest()
+
 
 async def generate_stream(messages: List):
     try:
-        query_hash = create_query_hash(messages)
+        # Only calculate hash for non-tool messages to avoid unnecessary computation
+        has_tool_messages = any(
+            (isinstance(msg, dict) and msg.get('role') == "tool") or
+            (hasattr(msg, 'role') and msg.role == "tool")
+            for msg in messages
+        )
         
-        # Try to use cache first
-        cached = get_cached_response(query_hash)
-        if cached and not any(getattr(msg, 'role', None) == "tool" for msg in messages):
-            # Only use cache for non-tool calls
-            yield orjson.dumps(cached) + b"\n"
-            return
+        if not has_tool_messages:
+            query_hash = create_query_hash(messages)
+            # Try to use cache first
+            cached = get_cached_response(query_hash)
+            if cached:
+                yield orjson.dumps(cached) + b"\n"
+                return
         
         # Use semaphore to limit concurrent requests
         async with request_semaphore:
-            async with get_client_session() as session:
-                # Use the session with your client
-                stream = await async_client.chat.completions.create(
-                    model=CHAT_MODEL,
-                    messages=messages,
-                    max_tokens=MAX_TOKENS,
-                    stream=True
-                )
+            # Use the session with your client
+            stream = await async_client.chat.completions.create(
+                model=CHAT_MODEL,
+                messages=messages,
+                max_tokens=MAX_TOKENS,
+                stream=True
+            )
+            
+            full_content = ""
+            async for chunk in stream:
+                delta = chunk.choices[0].delta
+                if delta.content:
+                    full_content += delta.content
+                    payload = {
+                        "content": full_content
+                    }
+                    yield orjson.dumps(payload) + b"\n"
+            
+            # Update cache with full response if it's valuable to cache
+            if full_content and not has_tool_messages:
+                RESPONSE_CACHE[query_hash] = {"content": full_content}
                 
-                full_content = ""
-                async for chunk in stream:
-                    delta = chunk.choices[0].delta
-                    if delta.content:
-                        full_content += delta.content
-                        payload = {
-                            "content": full_content
-                        }
-                        yield orjson.dumps(payload) + b"\n"
-                
-                # Update cache with full response if it's valuable to cache
-                if len(full_content) > 0 and not any(getattr(msg, 'role', None) == "tool" for msg in messages):
-                    RESPONSE_CACHE[query_hash] = {"content": full_content}
-                    
     except Exception as e:
         print(f"Error in generate_stream: {str(e)}")
         yield orjson.dumps({"error": str(e)}) + b"\n"
 
-# Background task to process tool calls and generate final response
+
+# Background task to process tool calls and generate final response with parallel execution
 async def process_request(data):
     user_query = data.query
     messages = [
         system_message,
         {"role": "user", "content": user_query}
     ]
-    
+
     # Process initial request and tool calls
     try:
         async with request_semaphore:
@@ -4874,19 +4880,21 @@ async def process_request(data):
         assistant_msg = response.choices[0].message
         messages.append(assistant_msg)
         
-        # Process tool calls with batching where possible
-        tool_call_futures = []
-        
+        # Continue processing while there are tool calls
         while hasattr(assistant_msg, 'tool_calls') and assistant_msg.tool_calls:
             # Gather all function calls to process in parallel
+            tool_calls = []
+            
             for call in assistant_msg.tool_calls:
                 fn_name = call.function.name
                 try:
                     args = orjson.loads(call.function.arguments)
                     if fn_name in function_map:
-                        print(fn_name)
-                        future = asyncio.create_task(function_map[fn_name](**args))
-                        tool_call_futures.append((call.id, fn_name, future))
+                        tool_calls.append({
+                            "call_id": call.id,
+                            "fn_name": fn_name,
+                            "args": args
+                        })
                     else:
                         messages.append({
                             "role": "tool",
@@ -4903,24 +4911,38 @@ async def process_request(data):
                         "content": orjson.dumps({"error": "Invalid arguments"}).decode()
                     })
             
-            # Wait for all function calls to complete
-            for call_id, fn_name, future in tool_call_futures:
-                try:
-                    result = await future
-                    content = orjson.dumps(result).decode()
-                except Exception as e:
-                    print(f"Function {fn_name} error: {str(e)}")
-                    content = orjson.dumps({"error": str(e)}).decode()
+            # Execute all function calls in parallel
+            if tool_calls:
+                async def execute_tool_call(tool_call):
+                    try:
+                        fn_name = tool_call["fn_name"]
+                        print(fn_name)
+                        args = tool_call["args"]
+                        result = await function_map[fn_name](**args)
+                        return {
+                            "call_id": tool_call["call_id"],
+                            "fn_name": fn_name,
+                            "content": orjson.dumps(result).decode()
+                        }
+                    except Exception as e:
+                        print(f"Function {fn_name} error: {str(e)}")
+                        return {
+                            "call_id": tool_call["call_id"],
+                            "fn_name": fn_name,
+                            "content": orjson.dumps({"error": str(e)}).decode()
+                        }
                 
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": call_id,
-                    "name": fn_name,
-                    "content": content
-                })
-            
-            # Reset for next iteration
-            tool_call_futures = []
+                # Execute all tool calls in parallel and gather results
+                results = await asyncio.gather(*[execute_tool_call(tc) for tc in tool_calls])
+                
+                # Add all tool responses to messages
+                for result in results:
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": result["call_id"],
+                        "name": result["fn_name"],
+                        "content": result["content"]
+                    })
             
             # Get model response after processing tool calls
             async with request_semaphore:
@@ -4942,9 +4964,9 @@ async def process_request(data):
         print(f"Request processing failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.post("/chat")
 async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
-    
     # Process the request and get messages for streaming
     try:
         messages = await process_request(data)
@@ -4957,6 +4979,8 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
     except Exception as e:
         print(f"Request failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
 
 
 @app.get("/newsletter")
