@@ -73,6 +73,7 @@ client = httpx.AsyncClient(http2=True, timeout=10.0)
 #================LLM Configuration====================#
 async_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 CHAT_MODEL = os.getenv("CHAT_MODEL")
+MAX_TOKENS = int(os.getenv("MAX_TOKENS"))
 INSTRUCTIONS = os.getenv("INSTRUCTIONS")
 function_definitions = get_function_definitions()
 function_map = {fn["name"]: globals()[fn["name"]] for fn in function_definitions}
@@ -4754,6 +4755,7 @@ async def generate_stream(messages: List[dict]):
         stream = await async_client.chat.completions.create(
             model=CHAT_MODEL,
             messages=messages,
+            max_tokens=MAX_TOKENS,
             stream=True
         )
 
@@ -4781,37 +4783,37 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
         {"role": "user", "content": user_query}
     ]
 
-    # If you have function definitions, package them for the initial call
+    # Package your function definitions for the model
     tools_payload = (
         [{"type": "function", "function": fn} for fn in function_definitions]
         if function_definitions else None
     )
 
-    # 1) Make the initial (non‐streaming) call to let the model choose a tool or not
+    # 1) Initial non-streaming call
     try:
-        init_response = await async_client.chat.completions.create(
+        response = await async_client.chat.completions.create(
             model=CHAT_MODEL,
             messages=messages,
+            max_tokens=MAX_TOKENS,
             tools=tools_payload,
             tool_choice="auto" if tools_payload else "none"
         )
-        assistant_msg = init_response.choices[0].message
     except Exception as e:
         print(f"Initial LLM call failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-    # 2) Append the assistant’s first reply (and any tool calls) to the message history
+    assistant_msg = response.choices[0].message
     messages.append(assistant_msg)
 
-    # 3) If it made any tool calls, synchronously resolve them and append results
-    if assistant_msg.tool_calls:
+    # 2) Loop: resolve any tool calls, append results, then let the model respond again
+    while assistant_msg.tool_calls:
         for call in assistant_msg.tool_calls:
             fn_name = call.function.name
-            print(fn_name)
+            print(f"Invoking tool: {fn_name}")
 
+            # parse arguments
             try:
                 args = orjson.loads(call.function.arguments)
-        
             except Exception:
                 messages.append({
                     "role": "tool",
@@ -4821,17 +4823,18 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
                 })
                 continue
 
+            # call the actual function
             if fn_name in function_map:
-                func = function_map[fn_name]
                 try:
                     result = await function_map[fn_name](**args)
                     content = orjson.dumps(result).decode()
                 except Exception as e:
-                    print(e)
+                    print(f"Function {fn_name} raised: {e}")
                     content = orjson.dumps({"error": str(e)}).decode()
             else:
                 content = orjson.dumps({"error": f"Unknown function {fn_name}"}).decode()
 
+            # append the tool result
             messages.append({
                 "role": "tool",
                 "tool_call_id": call.id,
@@ -4839,7 +4842,23 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
                 "content": content
             })
 
-    # 4) Finally, return the streaming response from here
+        # 3) Let the model see the tool outputs and choose next action
+        try:
+            followup = await async_client.chat.completions.create(
+                model=CHAT_MODEL,
+                messages=messages,
+                max_tokens=MAX_TOKENS,
+                tools=tools_payload,
+                tool_choice="auto"
+            )
+        except Exception as e:
+            print(f"Follow-up LLM call failed: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+        assistant_msg = followup.choices[0].message
+        messages.append(assistant_msg)
+
+    # 4) No more tool calls → stream the final content
     return StreamingResponse(
         generate_stream(messages),
         media_type="application/json"

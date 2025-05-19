@@ -4,6 +4,8 @@ import requests
 import aiohttp
 import asyncio
 from dotenv import load_dotenv
+from collections import defaultdict
+from datetime import datetime, date, timedelta
 import orjson
 from pathlib import Path
 from typing import List, Dict, Any, Optional
@@ -22,6 +24,8 @@ STATEMENT_DIRS = {
     "balance": "balance-sheet-statement",
     "cash": "cash-flow-statement",
 }
+
+current_year = datetime.now().year
 
 key_ratios = [
 "grossProfitMargin",
@@ -318,9 +322,237 @@ async def get_hottest_options_contracts(tickers, category="volume"):
     # Create the result dictionary
     return {ticker: result[category][:5] for ticker, result in zip(tickers, results) if result is not None}
 
+async def get_company_data(tickers):
+    base_dir = Path("json/stockdeck")
+    
+    # Create tasks for each ticker
+    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
+    
+    # Gather all results concurrently
+    results = await asyncio.gather(*tasks)
+    
+    # Create the result dictionary with filtered data
+    filtered_results = {}
+    for ticker, result in zip(tickers, results):
+        if result is not None:
+            # Remove website and financialPerformance fields
+            if 'website' in result:
+                del result['website']
+            if 'financialPerformance' in result:
+                del result['financialPerformance']
+            filtered_results[ticker] = result
+    
+    return filtered_results
 
-async def get_stock_screener():
-    pass
+async def get_short_data(tickers):
+    base_dir = Path("json/share-statistics")
+    
+    # Create tasks for each ticker
+    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
+    
+    # Gather all results concurrently
+    results = await asyncio.gather(*tasks)
+    
+    # Create the result dictionary with filtered data
+    filtered_results = {}
+    for ticker, result in zip(tickers, results):
+        if result is not None:
+            filtered_results[ticker] = result
+    return filtered_results
+
+async def get_why_priced_moved(tickers):
+    base_dir = Path("json/wiim/company")
+    
+    # Create tasks for each ticker
+    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
+    
+    # Gather all results concurrently
+    results = await asyncio.gather(*tasks)
+    
+    # Create the result dictionary with filtered data
+    filtered_results = {}
+    for ticker, result in zip(tickers, results):
+        if result is not None:
+            filtered_results[ticker] = result
+    return filtered_results
+
+async def get_business_metrics(tickers):
+    base_dir = Path("json/business-metrics")
+    
+    # Create tasks for each ticker
+    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
+    
+    # Gather all results concurrently
+    results = await asyncio.gather(*tasks)
+    
+    # Create the result dictionary with filtered data
+    filtered_results = {}
+    for ticker, result in zip(tickers, results):
+        if result is not None:
+            filtered_results[ticker] = result
+    return filtered_results
+
+async def get_analyst_estimate(tickers):
+    base_dir = Path("json/analyst-estimate")
+    current_year = datetime.now().year
+
+    # Create tasks for each ticker
+    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
+
+    # Gather all results concurrently
+    results = await asyncio.gather(*tasks)
+
+    # Create the result dictionary with filtered data
+    filtered_results = {}
+    for ticker, result in zip(tickers, results):
+        if result is not None:
+            # Filter entries within the result that are from this year or later
+            filtered_data = [
+                entry for entry in result if entry.get("date", 0) >= current_year
+            ]
+            if filtered_data:
+                filtered_results[ticker] = filtered_data
+
+    return filtered_results
+
+
+async def get_earnings_calendar(upper_threshold: str = ""):
+    base_dir = Path("json/earnings-calendar/data.json")
+    
+    try:
+        async with aiofiles.open(base_dir, mode="rb") as f:
+            content = await f.read()
+            data = orjson.loads(content)
+
+            today = date.today()
+
+            # Default upper threshold to 10 days from today if not provided or empty
+            if not upper_threshold:
+                upper_date = today + timedelta(days=10)
+            else:
+                upper_date = datetime.strptime(upper_threshold, "%Y-%m-%d").date()
+
+            # Filter data between today and upper_date
+            filtered = [
+                item for item in data
+                if today <= datetime.strptime(item['date'], "%Y-%m-%d").date() <= upper_date
+            ]
+
+            return filtered
+
+    except FileNotFoundError:
+        return None
+    except (orjson.JSONDecodeError, KeyError, ValueError) as e:
+        print(f"Error processing file: {e}")
+        return None
+
+async def get_earnings_price_reaction(tickers):
+    base_dir = Path("json/earnings/past")
+    current_year = datetime.now().year
+
+    # Create tasks for each ticker
+    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
+
+    # Gather all results concurrently
+    results = await asyncio.gather(*tasks)
+    
+    # Create the result dictionary with filtered data
+    filtered_results = {}
+    for ticker, result in zip(tickers, results):
+        if result is not None:
+            filtered_results[ticker] = result
+    return filtered_results
+
+async def get_next_earnings(tickers):
+    base_dir = Path("json/earnings/next")
+    current_year = datetime.now().year
+
+    # Create tasks for each ticker
+    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
+
+    # Gather all results concurrently
+    results = await asyncio.gather(*tasks)
+    
+    # Create the result dictionary with filtered data
+    filtered_results = {}
+    for ticker, result in zip(tickers, results):
+        if result is not None:
+            filtered_results[ticker] = result
+    return filtered_results
+
+
+
+async def get_latest_options_flow_feed(tickers):
+    base_dir = Path("json/options-flow/feed/data.json")
+
+    try:
+        async with aiofiles.open(base_dir, mode="rb") as f:
+            content = await f.read()
+            data = orjson.loads(content)
+
+        # Prepare filtered results per ticker
+        filtered_results = defaultdict(list)
+        for item in data:
+            ticker = item.get("ticker")
+            if ticker in tickers:
+                # Exclude specific keys
+                cleaned_item = {
+                    k: v for k, v in item.items()
+                    if k not in {'aggresor_ind',"exchange", "tradeCount", "underlying_type","description"}
+                }
+                filtered_results[ticker].append(cleaned_item)
+
+        # Sort by 'premium' descending and take top 5
+        for ticker in filtered_results:
+            filtered_results[ticker] = sorted(
+                filtered_results[ticker],
+                key=lambda x: x.get("cost_basis", 0),
+                reverse=True
+            )[:5]
+
+        return dict(filtered_results)
+
+    except FileNotFoundError:
+        return None
+    except (orjson.JSONDecodeError, KeyError, ValueError) as e:
+        print(f"Error processing file: {e}")
+        return None
+
+async def get_latest_dark_pool_feed(tickers):
+    base_dir = Path("json/dark-pool/feed/data.json")
+
+    try:
+        async with aiofiles.open(base_dir, mode="rb") as f:
+            content = await f.read()
+            data = orjson.loads(content)
+
+        # Prepare filtered results per ticker
+        filtered_results = defaultdict(list)
+        for item in data:
+            ticker = item.get("ticker")
+            if ticker in tickers:
+                # Exclude specific keys
+                cleaned_item = {
+                    k: v for k, v in item.items()
+                    if k not in {"assetType", "sector", "trackingID","ticker"}
+                }
+                filtered_results[ticker].append(cleaned_item)
+
+        # Sort by 'premium' descending and take top 5
+        for ticker in filtered_results:
+            filtered_results[ticker] = sorted(
+                filtered_results[ticker],
+                key=lambda x: x.get("premium", 0),
+                reverse=True
+            )[:5]
+
+        return dict(filtered_results)
+
+    except FileNotFoundError:
+        return None
+    except (orjson.JSONDecodeError, KeyError, ValueError) as e:
+        print(f"Error processing file: {e}")
+        return None
 
 
 
@@ -456,21 +688,142 @@ def get_function_definitions():
             },
             "required": ["tickers", "category"]
         },
+        {
+            "name": "get_company_data",
+            "description": "Fetches financial and organizational overview data for multiple companies by their stock symbols",
+            "parameters": {
+                "tickers": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
+                }
+            },
+            "required": ["tickers"]
+        },
+        {
+            "name": "get_short_data",
+            "description": "Retrieves the most recent and historical short interest data for multiple companies using their stock ticker symbols.",
+            "parameters": {
+                "tickers": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
+                }
+            },
+            "required": ["tickers"]
+        },
+        {
+            "name": "get_why_priced_moved",
+            "description": "Retrieves recent data explaining the price movement of multiple stocks based on their ticker symbols.",
+            "parameters": {
+                "tickers": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
+                }
+            },
+            "required": ["tickers"]
+        },
+        {
+            "name": "get_business_metrics",
+            "description": "Fetches business metrics for multiple stocks, including revenue breakdown by sector and geographic region, based on their ticker symbols.",
+            "parameters": {
+                "tickers": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
+                }
+            },
+            "required": ["tickers"]
+        },
+        {
+            "name": "get_analyst_estimate",
+            "description": "Fetches forward-looking analyst estimates for multiple stocks, including average, low, and high projections for EPS, revenue, EBITDA, and net income.",
+            "parameters": {
+                "tickers": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
+                }
+            },
+            "required": ["tickers"]
+        },
+        {
+            "name": "get_earnings_calendar",
+            "description": "Fetches upcoming earnings events for stocks within a specified date range (defaulting to the next 10 days if no upper threshold is provided).",
+            "parameters": {
+                "upper_threshold": {
+                    "type": "string",
+                    "description": "Optional upper date threshold in YYYY-MM-DD format. If not provided, defaults to 10 days from today."
+                }
+            },
+        },
+        {
+            "name": "get_earnings_price_reaction",
+            "description": "Fetches past earnings price reactions before and after earnings releases of multiple stocks based on their ticker symbols",
+            "parameters": {
+                "tickers": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
+                }
+            },
+            "required": ["tickers"]
+        },
+        {
+            "name": "get_next_earnings",
+            "description": "Retrieves the upcoming earnings dates for multiple stocks, along with EPS and revenue estimates. Also includes prior EPS and revenue figures for comparison.",
+            "parameters": {
+                "tickers": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
+                }
+            },
+            "required": ["tickers"]
+        },
+        {
+            "name": "get_latest_options_flow_feed",
+            "description": "Retrieves the top 5 options flow orders with the highest premiums for multiple stocks, highlighting activity from hedge funds and major traders.",
+            "parameters": {
+                "tickers": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
+                }
+            },
+            "required": ["tickers"]
+        },
+        {
+            "name": "get_latest_dark_pool_feed",
+            "description": "Retrieves the top 5 dark pool trades for multiple stocks, sorted by the average price paid, highlighting significant activity from hedge funds and major traders.",
+            "parameters": {
+                "tickers": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
+                }
+            },
+            "required": ["tickers"]
+        },
     ]
     
     definitions = []
     for tpl in templates:
-        function_def = {
+        func_def = {
             "name": tpl["name"],
             "description": tpl["description"],
             "parameters": {
                 "type": "object",
                 "properties": tpl["parameters"],
-                "required": tpl["required"]
             }
         }
-        definitions.append(function_def)
-    
+        # only include "required" if it's explicitly provided
+        if "required" in tpl:
+            func_def["parameters"]["required"] = tpl["required"]
+
+        definitions.append(func_def)
+
     return definitions
 
 '''
@@ -495,5 +848,5 @@ def get_function_definitions():
 '''
 
 #Testing purposes
-#data = asyncio.run(get_hottest_options_contracts(['GME'], 'volume'))
+#data = asyncio.run(get_latest_options_flow_feed(['AMD','NVDA']))
 #print(data)
