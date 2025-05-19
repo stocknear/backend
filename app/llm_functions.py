@@ -865,7 +865,41 @@ async def get_stock_screener(rule_of_list=None, sort_by=None, sort_order="desc",
 
 def get_function_definitions():
     templates = [
-    {
+        {
+          "name": "get_stock_screener",
+          "description": f"Retrieves stock data based on specified financial criteria to help filter stocks that meet certain thresholds (e.g., revenue > $10M, P/E ratio < 15, etc.) All rules are defined here: {', '.join(key_screener)}.",
+          "parameters": {
+            "rule_of_list": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "metric": {"type": "string", "description": "The financial metric to filter by (e.g., 'marketCap', 'priceToEarningsRatio', 'revenue')."},
+                        "operator": {"type": "string", "enum": [">", ">=", "<", "<=", "==", "!="], "description": "The comparison operator."},
+                        "value": {"type": ["number", "string"], "description": "The value to compare against."} # Value can be number or string depending on metric
+                    },
+                    "required": ["metric", "value"]
+                },
+                "description": "List of screening rules to filter stocks (e.g., [{\"metric\": \"marketCap\", \"operator\": \">\", \"value\": 100}, {\"metric\": \"priceToEarningsRatio\", \"operator\": \"<\", \"value\": 10}])."
+            },
+            "sort_by": {
+                "type": "string",
+                "description": "Field name to sort the results by (e.g., \"marketCap\", \"volume\", \"price\")."
+            },
+            "sort_order": {
+                "type": "string",
+                "enum": ["asc", "desc"],
+                "default": "desc",
+                "description": "Sort order for the results: 'asc' for ascending or 'desc' for descending."
+            },
+            "limit": {
+                "type": "integer",
+                "default": 10,
+                "description": "Maximum number of results to return."
+            }
+          }
+        },
+        {
             "name": "get_income_statement",
             "description": (
                 "Retrieves historical income statements (profit and loss) for a list of stock tickers. "
@@ -1003,7 +1037,7 @@ def get_function_definitions():
         },
         {
             "name": "get_short_data",
-            "description": "Retrieves the most recent and historical short interest data for multiple companies using their stock ticker symbols.",
+            "description": "Retrieves the most recent and historical short interest data for multiple companies using their stock ticker symbols. Not useful for filtering or sorting data.",
             "parameters": {
                 "tickers": {
                     "type": "array",
@@ -1130,40 +1164,6 @@ def get_function_definitions():
                 }
             },
             "required": ["tickers"]
-        },
-        {
-          "name": "get_stock_screener",
-          "description": f"Retrieves stock data based on specified financial criteria to help filter stocks that meet certain thresholds (e.g., revenue > $10M, P/E ratio < 15, etc.) All rules are defined here: {', '.join(key_screener)}.",
-          "parameters": {
-            "rule_of_list": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "metric": {"type": "string", "description": "The financial metric to filter by (e.g., 'marketCap', 'priceToEarningsRatio', 'revenue')."},
-                        "operator": {"type": "string", "enum": [">", ">=", "<", "<=", "==", "!="], "description": "The comparison operator."},
-                        "value": {"type": ["number", "string"], "description": "The value to compare against."} # Value can be number or string depending on metric
-                    },
-                    "required": ["metric", "value"]
-                },
-                "description": "List of screening rules to filter stocks (e.g., [{\"metric\": \"marketCap\", \"operator\": \">\", \"value\": 100}, {\"metric\": \"priceToEarningsRatio\", \"operator\": \"<\", \"value\": 10}])."
-            },
-            "sort_by": {
-                "type": "string",
-                "description": "Field name to sort the results by (e.g., \"marketCap\", \"volume\", \"price\")."
-            },
-            "sort_order": {
-                "type": "string",
-                "enum": ["asc", "desc"],
-                "default": "desc",
-                "description": "Sort order for the results: 'asc' for ascending or 'desc' for descending."
-            },
-            "limit": {
-                "type": "integer",
-                "default": 10,
-                "description": "Maximum number of results to return."
-            }
-          }
         },
     ]
 
