@@ -439,6 +439,7 @@ class BulkList(BaseModel):
 
 class ChatRequest(BaseModel):
     query: str
+    messages: list
 
 # Replace NaN values with None in the resulting JSON object
 def replace_nan_inf_with_none(obj):
@@ -4861,10 +4862,9 @@ async def generate_stream(messages: List):
 # Background task to process tool calls and generate final response with parallel execution
 async def process_request(data):
     user_query = data.query
-    messages = [
-        system_message,
-        {"role": "user", "content": user_query}
-    ]
+    messages = data.messages
+    messages = [system_message] + messages + [{"role": "user", "content": user_query}]
+
 
     # Process initial request and tool calls
     try:
