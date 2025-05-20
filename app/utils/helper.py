@@ -3,6 +3,7 @@ import os
 import orjson
 import pytz
 import math
+import json
 
 
 def check_market_hours():
@@ -273,19 +274,12 @@ def compute_option_return(option: dict, current_price: float) -> float:
     except Exception:
         return None
 
-def json_to_txt(obj, indent=0):
-    lines = []
-    spacing = ''
-
-    if isinstance(obj, dict):
-        for key, value in obj.items():
-            lines.append(f"{spacing}{key}:")
-            lines.extend(json_to_txt(value, indent + 1))
-    elif isinstance(obj, list):
-        for i, item in enumerate(obj):
-            lines.append(f"{spacing}- Item {i+1}:")
-            lines.extend(json_to_txt(item, indent + 1))
-    else:
-        lines.append(f"{spacing}{obj}")
-    
-    return lines
+def json_to_string(json_data):
+    try:
+        # Use json.dumps() for a more robust and readable conversion
+        formatted_string = json.dumps(json_data, indent=4)  # Indent for better readability
+        return formatted_string
+    except TypeError as e:
+        return f"Error: Invalid JSON data.  Details: {e}"
+    except Exception as e:
+        return f"An unexpected error occurred: {e}"
