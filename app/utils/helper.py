@@ -272,3 +272,20 @@ def compute_option_return(option: dict, current_price: float) -> float:
 
     except Exception:
         return None
+
+def json_to_txt(obj, indent=0):
+    lines = []
+    spacing = ''
+
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            lines.append(f"{spacing}{key}:")
+            lines.extend(json_to_txt(value, indent + 1))
+    elif isinstance(obj, list):
+        for i, item in enumerate(obj):
+            lines.append(f"{spacing}- Item {i+1}:")
+            lines.extend(json_to_txt(item, indent + 1))
+    else:
+        lines.append(f"{spacing}{obj}")
+    
+    return lines

@@ -42,7 +42,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from functools import partial
 from datetime import datetime
-from utils.helper import load_latest_json
+from utils.helper import load_latest_json, json_to_txt
 
 from openai import OpenAI, AsyncOpenAI
 from llm_functions import * # Your function implementations
@@ -101,7 +101,9 @@ client = httpx.AsyncClient(http2=True, timeout=10.0)
 async_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 CHAT_MODEL = os.getenv("CHAT_MODEL")
 MAX_TOKENS = int(os.getenv("MAX_TOKENS"))
-INSTRUCTIONS = os.getenv("INSTRUCTIONS")
+with open("json/llm/instructions.json","rb") as file:
+    INSTRUCTIONS = json_to_txt(orjson.loads(file.read()))
+
 function_definitions = get_function_definitions()
 function_map = {fn["name"]: globals()[fn["name"]] for fn in function_definitions}
 tools_payload = ([{"type": "function", "function": fn} for fn in function_definitions] if function_definitions else None)
@@ -113,7 +115,6 @@ RESPONSE_CACHE = {}
 MAX_CONCURRENT_REQUESTS = 25  # Limit concurrent requests
 request_semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
 #======================================================#
-
 
 def calculate_score(item: Dict, search_query: str) -> int:
     name_lower = item['name'].lower()

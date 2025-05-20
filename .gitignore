@@ -2,7 +2,7 @@ app/__pycache__
 **/__pycache__/
 app/saved_models
 app/backup_db
-app/faiss
+app/llm_instructions.py
 app/stocks.*
 app/institute.*
 app/etf.*

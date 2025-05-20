@@ -700,27 +700,41 @@ async def get_market_news(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]
                 
     return filtered_results
 
-async def get_analyst_ratings(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
-    """Get recent analyst ratings for multiple stocks."""
-    base_dir = BASE_DIR / "analyst/history"
-    
-    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
-    results = await asyncio.gather(*tasks)
-    
-    filtered_results = {}
-    for ticker, data in zip(tickers, results):
-        if data is not None:
-            try:
-                # Remove analystId and take most recent 15 ratings
-                filtered_data = [
-                    {k: v for k, v in item.items() if k != 'analystId'}
-                    for item in data
-                ][:30]
-                filtered_results[ticker] = filtered_data
-            except Exception as e:
-                print(f"Error processing analyst ratings for {ticker}: {e}")
-                
-    return filtered_results
+async def get_analyst_ratings(tickers: List[str]) -> Dict[str, Dict[str, List[Dict[str, Any]]]]:
+    """Get recent analyst ratings and summary for multiple stocks."""
+    history_dir = BASE_DIR / "analyst" / "history"
+    summary_dir = BASE_DIR / "analyst" / "summary" / "all_analyst"
+
+    # Launch two sets of tasks: history (detailed ratings) and summary
+    history_tasks = [fetch_ticker_data(t, history_dir) for t in tickers]
+    summary_tasks = [fetch_ticker_data(t, summary_dir) for t in tickers]
+
+    # Gather both lists of results concurrently
+    histories, summaries = await asyncio.gather(
+        asyncio.gather(*history_tasks),
+        asyncio.gather(*summary_tasks)
+    )
+
+    results: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
+
+    for ticker, hist_data, summ_data in zip(tickers, histories, summaries):
+        results[ticker] = {}
+
+        # Process detailed history: remove 'analystId', limit to most recent 30
+        if hist_data:
+            cleaned_history = [
+                {k: v for k, v in entry.items() if k != 'analystId'}
+                for entry in hist_data
+            ][:30]
+            results[ticker]['analyst_rating'] = cleaned_history
+
+        # Process summary: remove 'recommendationList' from summary dict
+        if isinstance(summ_data, dict):
+            summary_clean = {
+                k: v for k, v in summ_data.items() if k != 'recommendationList' and k != 'pastPriceList'
+            }
+            results[ticker]['rating_summary'] = [summary_clean]  # wrap in a list to match type hint
+    return results
 
 async def get_stock_screener(
     rule_of_list: Optional[List[Dict[str, Any]]] = None, 
@@ -1247,15 +1261,7 @@ def get_function_definitions():
 
 
 #Testing purposes
-'''
-data = asyncio.run(get_stock_screener(
-    rule_of_list=[
-        {"metric": "marketCap", "operator": ">", "value": 100},
-        {"metric": "priceToEarningsRatio", "operator": "<", "value": 10}
-    ],
-    sort_by="marketCap",
-    sort_order="desc",
-    limit=10
-))
-print(data)
-'''
+
+#data = asyncio.run(get_analyst_ratings(tickers=['AMD','TSLA']))
+#print(data)
+
