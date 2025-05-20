@@ -1,34 +1,16 @@
 import os
-import json
-import requests
-import aiohttp
 import asyncio
+import aiofiles
+import orjson
 from dotenv import load_dotenv
 from collections import defaultdict
 from datetime import datetime, date, timedelta
-import orjson
 from pathlib import Path
-from typing import List, Dict, Any, Optional
-import aiofiles
-from operator import itemgetter
+from typing import List, Dict, Any, Optional, Union, Callable, TypeVar, Set, Tuple, cast
 
 
 load_dotenv()
 
-
-# Default keys to remove
-DEFAULT_FINANCIAL_REMOVE_KEYS = {"symbol", "reportedCurrency", "acceptedDate", "cik", "filingDate"}
-# Keys always required if filtering
-FINANCIAL_REQUIRED_KEYS = {"date", "fiscalYear", "period"}
-# Mapping statement types to directory names
-STATEMENT_DIRS = {
-    "income": "income-statement",
-    "balance": "balance-sheet-statement",
-    "cash": "cash-flow-statement",
-}
-
-current_year = datetime.now().year
-week_ago = datetime.now().date() - timedelta(days=5)
 
 key_ratios = [
 "grossProfitMargin",
@@ -372,36 +354,81 @@ key_screener = [
 ]
 
 
+# Load environment variables
+load_dotenv()
 
-async def fetch_ticker_data(ticker, base_dir):
+# Type variables for better typing
+T = TypeVar('T')
+JsonDict = Dict[str, Any]
+TickerData = Dict[str, List[JsonDict]]
+
+# Constants
+DEFAULT_FINANCIAL_REMOVE_KEYS: Set[str] = {"symbol", "reportedCurrency", "acceptedDate", "cik", "filingDate"}
+FINANCIAL_REQUIRED_KEYS: Set[str] = {"date", "fiscalYear", "period"}
+STATEMENT_DIRS: Dict[str, str] = {
+    "income": "income-statement",
+    "balance": "balance-sheet-statement",
+    "cash": "cash-flow-statement",
+}
+
+# Dynamic date variables
+current_year = datetime.now().year
+week_ago = datetime.now().date() - timedelta(days=5)
+today = date.today()
+
+# Operator mapping for stock screener
+OPERATORS: Dict[str, Callable[[Any, Any], bool]] = {
+    '>': lambda x, y: x > y,
+    '>=': lambda x, y: x >= y,
+    '<': lambda x, y: x < y,
+    '<=': lambda x, y: x <= y,
+    '==': lambda x, y: x == y,
+    '!=': lambda x, y: x != y
+}
+
+# Common base directory
+BASE_DIR = Path("json")
+
+# Generic file fetching function
+async def fetch_ticker_data(ticker: str, base_dir: Path) -> Optional[Any]:
+    """Generic function to fetch data for a ticker from a JSON file."""
     file_path = base_dir / f"{ticker}.json"
     try:
         async with aiofiles.open(file_path, mode="rb") as f:
             content = await f.read()
-            data = orjson.loads(content)
-            return data
+            return orjson.loads(content)
     except FileNotFoundError:
         return None
     except (orjson.JSONDecodeError, KeyError) as e:
         print(f"Error processing {ticker}: {e}")
         return None
-    
 
 async def _load_and_filter(
     file_path: Path,
     keep_keys: Optional[List[str]] = None,
 ) -> List[Dict[str, Any]]:
+    """Load JSON data from file and filter keys based on criteria."""
     try:
         async with aiofiles.open(file_path, mode="rb") as f:
             raw = orjson.loads(await f.read())
-    except Exception:
+            
+        if not raw:
+            return []
+            
+        if keep_keys:
+            keys_to_keep = set(keep_keys) | FINANCIAL_REQUIRED_KEYS
+            return [
+                {k: v for k, v in entry.items() if k in keys_to_keep} 
+                for entry in raw
+            ]
+        else:
+            return [
+                {k: v for k, v in entry.items() if k not in DEFAULT_FINANCIAL_REMOVE_KEYS} 
+                for entry in raw
+            ]
+    except Exception as e:
+        print(f"Error loading/filtering file {file_path}: {e}")
         return []
-
-    if keep_keys:
-        keys_to_keep = set(keep_keys) | FINANCIAL_REQUIRED_KEYS
-        return [ {k: v for k, v in entry.items() if k in keys_to_keep} for entry in raw ]
-    else:
-        return [ {k: v for k, v in entry.items() if k not in DEFAULT_FINANCIAL_REMOVE_KEYS} for entry in raw ]
 
 async def get_financial_statements(
     tickers: List[str],
@@ -409,58 +436,102 @@ async def get_financial_statements(
     time_period: str = "annual",
     keep_keys: Optional[List[str]] = None,
 ) -> Dict[str, List[Dict[str, Any]]]:
+    """
+    Generic function to retrieve financial statements for multiple companies.
+    
+    Args:
+        tickers: List of stock ticker symbols
+        statement_type: Type of statement ('income', 'balance', 'cash')
+        time_period: Period of data ('annual', 'quarter', 'ttm')
+        keep_keys: List of specific keys to keep in the output
+        
+    Returns:
+        Dictionary mapping tickers to their financial statement data
+    """
     dir_name = STATEMENT_DIRS.get(statement_type)
     if not dir_name:
         raise ValueError(f"Invalid statement_type '{statement_type}'. Must be one of {list(STATEMENT_DIRS)}.")
 
-    base_dir = Path("json/financial-statements") / dir_name / time_period
-    tasks = []
-    for ticker in tickers:
-        file_path = base_dir / f"{ticker}.json"
-        tasks.append(_load_and_filter(file_path, keep_keys))
-
+    base_dir = BASE_DIR / "financial-statements" / dir_name / time_period
+    
+    # Create all tasks at once for efficient concurrency
+    tasks = [_load_and_filter(base_dir / f"{ticker}.json", keep_keys) for ticker in tickers]
     results = await asyncio.gather(*tasks)
-    return {ticker: result for ticker, result in zip(tickers, results)}
+    
+    # Build result dictionary with non-empty results
+    return {ticker: result for ticker, result in zip(tickers, results) if result}
 
-
-
+# Specialized financial statement functions using the generic function
 async def get_income_statement(
     tickers: List[str], time_period: str = "annual", keep_keys: Optional[List[str]] = None
 ) -> Dict[str, List[Dict[str, Any]]]:
+    """Get income statements for multiple companies."""
     return await get_financial_statements(tickers, "income", time_period, keep_keys)
 
 async def get_balance_sheet_statement(
     tickers: List[str], time_period: str = "annual", keep_keys: Optional[List[str]] = None
 ) -> Dict[str, List[Dict[str, Any]]]:
+    """Get balance sheet statements for multiple companies."""
     return await get_financial_statements(tickers, "balance", time_period, keep_keys)
 
 async def get_cash_flow_statement(
     tickers: List[str], time_period: str = "annual", keep_keys: Optional[List[str]] = None
 ) -> Dict[str, List[Dict[str, Any]]]:
+    """Get cash flow statements for multiple companies."""
     return await get_financial_statements(tickers, "cash", time_period, keep_keys)
 
-
-async def get_ratios_statement(tickers: List[str], time_period: str = "annual", keep_keys: Optional[List[str]] = None) -> Dict[str, List[Dict[str, Any]]]:
-   
+async def get_ratios_statement(
+    tickers: List[str], time_period: str = "annual", keep_keys: Optional[List[str]] = None
+) -> Dict[str, List[Dict[str, Any]]]:
+    """Get financial ratios for multiple companies."""
     if time_period not in ["annual", "quarter"]:
         raise ValueError(f"Invalid time_period '{time_period}'. For ratios, must be 'annual' or 'quarter'.")
     
-    base_dir = Path("json/financial-statements/ratios") / time_period
-    tasks = []
-    for ticker in tickers:
-        file_path = base_dir / f"{ticker}.json"
-        tasks.append(_load_and_filter(file_path, keep_keys))
-    
+    base_dir = BASE_DIR / "financial-statements/ratios" / time_period
+    tasks = [_load_and_filter(base_dir / f"{ticker}.json", keep_keys) for ticker in tickers]
     results = await asyncio.gather(*tasks)
-    return {ticker: result for ticker, result in zip(tickers, results)}
+    
+    return {ticker: result for ticker, result in zip(tickers, results) if result}
 
+# Generic function for fetching ticker-specific data
+async def get_ticker_specific_data(
+    tickers: List[str], 
+    base_path: str,
+    process_func: Optional[Callable[[Any], Any]] = None
+) -> Dict[str, Any]:
+    """
+    Generic function to fetch and process data for multiple tickers.
+    
+    Args:
+        tickers: List of stock ticker symbols
+        base_path: Path to the data directory
+        process_func: Optional function to process each ticker's data
+        
+    Returns:
+        Dictionary mapping tickers to their processed data
+    """
+    base_dir = BASE_DIR / base_path
+    
+    # Create tasks for each ticker
+    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
+    
+    # Gather all results concurrently
+    results = await asyncio.gather(*tasks)
+    
+    # Process results if needed
+    filtered_results = {}
+    for ticker, result in zip(tickers, results):
+        if result is not None:
+            filtered_results[ticker] = process_func(result) if process_func else result
+    
+    return filtered_results
 
-async def get_hottest_options_contracts(tickers, category="volume"):
+async def get_hottest_options_contracts(tickers: List[str], category: str = "volume") -> Dict[str, List[Dict[str, Any]]]:
+    """Get the hottest options contracts based on volume or open interest."""
     if category not in ["volume", "openInterest"]:
         raise ValueError(f"Invalid category '{category}'. For hottest contracts, must be 'volume' or 'openInterest'.")
     
-    base_dir = Path("json/hottest-contracts/companies")
-    
+    base_dir = BASE_DIR / "hottest-contracts/companies"
     
     # Create tasks for each ticker
     tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
@@ -468,351 +539,257 @@ async def get_hottest_options_contracts(tickers, category="volume"):
     # Gather all results concurrently
     results = await asyncio.gather(*tasks)
 
-    # Create the result dictionary
-    return {ticker: result[category][:5] for ticker, result in zip(tickers, results) if result is not None}
+    # Return top 5 for each ticker
+    return {
+        ticker: result[category][:5] 
+        for ticker, result in zip(tickers, results) 
+        if result is not None and category in result
+    }
 
-async def get_company_data(tickers):
-    base_dir = Path("json/stockdeck")
+async def get_company_data(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
+    """Get company overview data for multiple companies."""
+    def process_company_data(data: Dict[str, Any]) -> Dict[str, Any]:
+        """Remove specific fields from company data."""
+        # Create a copy to avoid modifying the original
+        result = data.copy()
+        result.pop('website', None)
+        result.pop('financialPerformance', None)
+        return result
     
-    # Create tasks for each ticker
+    return await get_ticker_specific_data(tickers, "stockdeck", process_company_data)
+
+async def get_short_data(tickers: List[str]) -> Dict[str, Any]:
+    """Get short interest data for multiple companies."""
+    return await get_ticker_specific_data(tickers, "share-statistics")
+
+async def get_why_priced_moved(tickers: List[str]) -> Dict[str, Any]:
+    """Get data explaining price movements for multiple stocks."""
+    return await get_ticker_specific_data(tickers, "wiim/company")
+
+async def get_business_metrics(tickers: List[str]) -> Dict[str, Any]:
+    """Get business metrics including revenue breakdowns for multiple stocks."""
+    return await get_ticker_specific_data(tickers, "business-metrics")
+
+async def get_analyst_estimate(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+    """Get forward-looking analyst estimates for multiple stocks."""
+    def filter_by_year(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Filter analyst estimates to only include current year or later."""
+        return [entry for entry in data if entry.get("date", 0) >= current_year]
+    
+    result = await get_ticker_specific_data(tickers, "analyst-estimate", filter_by_year)
+    return {ticker: data for ticker, data in result.items() if data}  # Remove empty results
+
+async def get_earnings_calendar(upper_threshold: str = "") -> List[Dict[str, Any]]:
+    """Get earnings events for stocks within a date range."""
+    file_path = BASE_DIR / "earnings-calendar/data.json"
+    
+    try:
+        async with aiofiles.open(file_path, mode="rb") as f:
+            data = orjson.loads(await f.read())
+
+        # Set upper date threshold
+        upper_date = today if not upper_threshold else datetime.strptime(upper_threshold, "%Y-%m-%d").date()
+
+        # Filter data between today and upper_date using list comprehension
+        return [
+            item for item in data
+            if today <= datetime.strptime(item['date'], "%Y-%m-%d").date() <= upper_date
+        ]
+
+    except FileNotFoundError:
+        return []
+    except (orjson.JSONDecodeError, KeyError, ValueError) as e:
+        print(f"Error processing earnings calendar: {e}")
+        return []
+
+async def get_earnings_price_reaction(tickers: List[str]) -> Dict[str, Any]:
+    """Get historical earnings price reactions for multiple stocks."""
+    return await get_ticker_specific_data(tickers, "earnings/past")
+
+async def get_next_earnings(tickers: List[str]) -> Dict[str, Any]:
+    """Get upcoming earnings dates and estimates for multiple stocks."""
+    return await get_ticker_specific_data(tickers, "earnings/next")
+
+async def get_feed_data(
+    tickers: List[str], 
+    file_path: Path,
+    filter_keys: Set[str],
+    sort_key: str,
+    limit: int = 5
+) -> Dict[str, List[Dict[str, Any]]]:
+    """
+    Generic function to get feed data (options flow, dark pool) for multiple stocks.
+    
+    Args:
+        tickers: List of ticker symbols
+        file_path: Path to the feed data file
+        filter_keys: Keys to exclude from the results
+        sort_key: Key to sort results by
+        limit: Maximum number of items to return per ticker
+        
+    Returns:
+        Dictionary mapping tickers to their feed data
+    """
+    try:
+        async with aiofiles.open(file_path, mode="rb") as f:
+            data = orjson.loads(await f.read())
+
+        # Group and filter items by ticker
+        filtered_results = defaultdict(list)
+        for item in data:
+            ticker = item.get("ticker")
+            if ticker in tickers:
+                # Exclude specific keys
+                cleaned_item = {k: v for k, v in item.items() if k not in filter_keys}
+                filtered_results[ticker].append(cleaned_item)
+
+        # Sort by specified key and take top N items
+        result = {}
+        for ticker, items in filtered_results.items():
+            result[ticker] = sorted(
+                items,
+                key=lambda x: x.get(sort_key, 0),
+                reverse=True
+            )[:limit]
+
+        return result
+
+    except FileNotFoundError:
+        return {}
+    except (orjson.JSONDecodeError, KeyError, ValueError) as e:
+        print(f"Error processing feed data: {e}")
+        return {}
+
+async def get_latest_options_flow_feed(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+    """Get the top 5 options flow orders for multiple stocks."""
+    return await get_feed_data(
+        tickers=tickers,
+        file_path=BASE_DIR / "options-flow/feed/data.json",
+        filter_keys={'aggresor_ind', "exchange", "tradeCount", "underlying_type", "description"},
+        sort_key="cost_basis"
+    )
+
+async def get_latest_dark_pool_feed(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+    """Get the top 5 dark pool trades for multiple stocks."""
+    return await get_feed_data(
+        tickers=tickers,
+        file_path=BASE_DIR / "dark-pool/feed/data.json",
+        filter_keys={"assetType", "sector", "trackingID", "ticker"},
+        sort_key="premium"
+    )
+
+async def get_market_news(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+    """Get recent news for multiple stocks."""
+    base_dir = BASE_DIR / "market-news/companies"
+    
     tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
-    
-    # Gather all results concurrently
     results = await asyncio.gather(*tasks)
     
-    # Create the result dictionary with filtered data
     filtered_results = {}
-    for ticker, result in zip(tickers, results):
-        if result is not None:
-            # Remove website and financialPerformance fields
-            if 'website' in result:
-                del result['website']
-            if 'financialPerformance' in result:
-                del result['financialPerformance']
-            filtered_results[ticker] = result
-    
-    return filtered_results
-
-async def get_short_data(tickers):
-    base_dir = Path("json/share-statistics")
-    
-    # Create tasks for each ticker
-    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
-    
-    # Gather all results concurrently
-    results = await asyncio.gather(*tasks)
-    
-    # Create the result dictionary with filtered data
-    filtered_results = {}
-    for ticker, result in zip(tickers, results):
-        if result is not None:
-            filtered_results[ticker] = result
-    return filtered_results
-
-async def get_why_priced_moved(tickers):
-    base_dir = Path("json/wiim/company")
-    
-    # Create tasks for each ticker
-    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
-    
-    # Gather all results concurrently
-    results = await asyncio.gather(*tasks)
-    
-    # Create the result dictionary with filtered data
-    filtered_results = {}
-    for ticker, result in zip(tickers, results):
-        if result is not None:
-            filtered_results[ticker] = result
-    return filtered_results
-
-async def get_business_metrics(tickers):
-    base_dir = Path("json/business-metrics")
-    
-    # Create tasks for each ticker
-    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
-    
-    # Gather all results concurrently
-    results = await asyncio.gather(*tasks)
-    
-    # Create the result dictionary with filtered data
-    filtered_results = {}
-    for ticker, result in zip(tickers, results):
-        if result is not None:
-            filtered_results[ticker] = result
-    return filtered_results
-
-async def get_analyst_estimate(tickers):
-    base_dir = Path("json/analyst-estimate")
-    current_year = datetime.now().year
-
-    # Create tasks for each ticker
-    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
-
-    # Gather all results concurrently
-    results = await asyncio.gather(*tasks)
-
-    # Create the result dictionary with filtered data
-    filtered_results = {}
-    for ticker, result in zip(tickers, results):
-        if result is not None:
-            # Filter entries within the result that are from this year or later
+    for ticker, data in zip(tickers, results):
+        if data is not None:
+            # Filter for recent news only
             filtered_data = [
-                entry for entry in result if entry.get("date", 0) >= current_year
+                {k: v for k, v in item.items() if k not in ['image', 'symbol', 'url', 'site']}
+                for item in data
+                if 'publishedDate' in item and 
+                week_ago <= datetime.strptime(item['publishedDate'], "%Y-%m-%d %H:%M:%S").date()
             ]
-            if filtered_data:
+            if filtered_data:  # Only add if there's data
                 filtered_results[ticker] = filtered_data
-
+                
     return filtered_results
 
-
-async def get_earnings_calendar(upper_threshold: str = ""):
-    base_dir = Path("json/earnings-calendar/data.json")
+async def get_analyst_ratings(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+    """Get recent analyst ratings for multiple stocks."""
+    base_dir = BASE_DIR / "analyst/history"
     
-    try:
-        async with aiofiles.open(base_dir, mode="rb") as f:
-            content = await f.read()
-            data = orjson.loads(content)
-
-            today = date.today()
-
-            # Default upper threshold to 10 days from today if not provided or empty
-            if not upper_threshold:
-                upper_date = today #+ timedelta(days=10)
-            else:
-                upper_date = datetime.strptime(upper_threshold, "%Y-%m-%d").date()
-
-            # Filter data between today and upper_date
-            filtered = [
-                item for item in data
-                if today <= datetime.strptime(item['date'], "%Y-%m-%d").date() <= upper_date
-            ]
-
-            return filtered
-
-    except FileNotFoundError:
-        return None
-    except (orjson.JSONDecodeError, KeyError, ValueError) as e:
-        print(f"Error processing file: {e}")
-        return None
-
-async def get_earnings_price_reaction(tickers):
-    base_dir = Path("json/earnings/past")
-    current_year = datetime.now().year
-
-    # Create tasks for each ticker
     tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
-
-    # Gather all results concurrently
     results = await asyncio.gather(*tasks)
     
-    # Create the result dictionary with filtered data
-    filtered_results = {}
-    for ticker, result in zip(tickers, results):
-        if result is not None:
-            filtered_results[ticker] = result
-    return filtered_results
-
-async def get_next_earnings(tickers):
-    base_dir = Path("json/earnings/next")
-    current_year = datetime.now().year
-
-    # Create tasks for each ticker
-    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
-
-    # Gather all results concurrently
-    results = await asyncio.gather(*tasks)
-    
-    # Create the result dictionary with filtered data
-    filtered_results = {}
-    for ticker, result in zip(tickers, results):
-        if result is not None:
-            filtered_results[ticker] = result
-    return filtered_results
-
-
-
-async def get_latest_options_flow_feed(tickers):
-    base_dir = Path("json/options-flow/feed/data.json")
-
-    try:
-        async with aiofiles.open(base_dir, mode="rb") as f:
-            content = await f.read()
-            data = orjson.loads(content)
-
-        # Prepare filtered results per ticker
-        filtered_results = defaultdict(list)
-        for item in data:
-            ticker = item.get("ticker")
-            if ticker in tickers:
-                # Exclude specific keys
-                cleaned_item = {
-                    k: v for k, v in item.items()
-                    if k not in {'aggresor_ind',"exchange", "tradeCount", "underlying_type","description"}
-                }
-                filtered_results[ticker].append(cleaned_item)
-
-        # Sort by 'premium' descending and take top 5
-        for ticker in filtered_results:
-            filtered_results[ticker] = sorted(
-                filtered_results[ticker],
-                key=lambda x: x.get("cost_basis", 0),
-                reverse=True
-            )[:5]
-
-        return dict(filtered_results)
-
-    except FileNotFoundError:
-        return None
-    except (orjson.JSONDecodeError, KeyError, ValueError) as e:
-        print(f"Error processing file: {e}")
-        return None
-
-async def get_latest_dark_pool_feed(tickers):
-    base_dir = Path("json/dark-pool/feed/data.json")
-
-    try:
-        async with aiofiles.open(base_dir, mode="rb") as f:
-            content = await f.read()
-            data = orjson.loads(content)
-
-        # Prepare filtered results per ticker
-        filtered_results = defaultdict(list)
-        for item in data:
-            ticker = item.get("ticker")
-            if ticker in tickers:
-                # Exclude specific keys
-                cleaned_item = {
-                    k: v for k, v in item.items()
-                    if k not in {"assetType", "sector", "trackingID","ticker"}
-                }
-                filtered_results[ticker].append(cleaned_item)
-
-        # Sort by 'premium' descending and take top 5
-        for ticker in filtered_results:
-            filtered_results[ticker] = sorted(
-                filtered_results[ticker],
-                key=lambda x: x.get("premium", 0),
-                reverse=True
-            )[:5]
-
-        return dict(filtered_results)
-
-    except FileNotFoundError:
-        return None
-    except (orjson.JSONDecodeError, KeyError, ValueError) as e:
-        print(f"Error processing file: {e}")
-        return None
-
-async def get_market_news(tickers):
-    base_dir = Path("json/market-news/companies")
-    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
-    # Gather all results concurrently
-    results = await asyncio.gather(*tasks)
     filtered_results = {}
     for ticker, data in zip(tickers, results):
         if data is not None:
-            filtered_data = []
-            for item in data:
-                # Check if the item was published within the last week
-                if (
-                    'publishedDate' in item
-                    and week_ago <= datetime.strptime(item['publishedDate'], "%Y-%m-%d %H:%M:%S").date()
-                ):
-                    # Create a filtered copy of the item
-                    filtered_item = {k: v for k, v in item.items() if k not in ['image', 'symbol','url','site']}
-                    # Add back the ticker as the symbol
-                    filtered_data.append(filtered_item)
-            filtered_results[ticker] = filtered_data
+            try:
+                # Remove analystId and take most recent 15 ratings
+                filtered_data = [
+                    {k: v for k, v in item.items() if k != 'analystId'}
+                    for item in data
+                ][:30]
+                filtered_results[ticker] = filtered_data
+            except Exception as e:
+                print(f"Error processing analyst ratings for {ticker}: {e}")
+                
     return filtered_results
 
-
-async def get_analyst_ratings(tickers):
-    base_dir = Path("json/analyst/history")
-    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
-    # Gather all results concurrently
-    results = await asyncio.gather(*tasks)
-    filtered_results = {}
-    for ticker, data in zip(tickers, results):
-        if data is not None:
-            filtered_data = []
-            for item in data:
-                try:
-                    filtered_item = {k: v for k, v in item.items() if k not in ['analystId']}
-                    filtered_data.append(filtered_item)
-                except:
-                    pass
-            filtered_results[ticker] = filtered_data[:15] #last 15 ratings
-    return filtered_results
-
-
-
-async def get_stock_screener(rule_of_list=None, sort_by=None, sort_order="desc", limit=10):
+async def get_stock_screener(
+    rule_of_list: Optional[List[Dict[str, Any]]] = None, 
+    sort_by: Optional[str] = None, 
+    sort_order: str = "desc", 
+    limit: int = 10
+) -> Dict[str, Any]:
+    """
+    Screen stocks based on specified criteria.
+    
+    Args:
+        rule_of_list: List of filtering rules
+        sort_by: Field to sort results by
+        sort_order: Sort direction ('asc' or 'desc')
+        limit: Maximum number of results
+        
+    Returns:
+        Dictionary with matched stocks and count
+    """
     try:
-        # Use aiofiles for non-blocking file operations
-        async with aiofiles.open(os.path.join("json", "stock-screener", "data.json"), 'rb') as file:
-            content = await file.read()
-            data = orjson.loads(content)
+        file_path = BASE_DIR / "stock-screener/data.json"
+        async with aiofiles.open(file_path, 'rb') as file:
+            data = orjson.loads(await file.read())
 
-        # Initial filter to exclude PNK exchange - use list comprehension for efficiency
+        # Initial filter to exclude PNK exchange
         filtered_data = [item for item in data if item.get('exchange') != 'PNK']
 
         # Exit early if no rules provided
         if not rule_of_list:
             result = filtered_data
         else:
-            # Apply each filter rule
+            # Apply filtering rules
             result = []
-
-            # Define operator mapping as a dict for cleaner code
-            operators = {
-                '>': lambda x, y: x > y,
-                '>=': lambda x, y: x >= y,
-                '<': lambda x, y: x < y,
-                '<=': lambda x, y: x <= y,
-                '==': lambda x, y: x == y,
-                '!=': lambda x, y: x != y
-            }
-
-            # Process each stock
             for stock in filtered_data:
                 meets_criteria = True
-
+                
                 # Check each rule
                 for rule in rule_of_list:
-                    # Use new naming convention from schema
-                    metric = rule.get('metric', rule.get('name'))  # Support both new and old format
+                    # Get rule components
+                    metric = rule.get('metric', rule.get('name'))
                     value = rule.get('value')
                     operator = rule.get('operator', '>')
-
+                    
                     # Skip invalid rules
-                    if not metric or metric not in stock or operator not in operators:
+                    if not metric or metric not in stock or operator not in OPERATORS:
                         meets_criteria = False
                         break
-
+                    
                     stock_value = stock[metric]
-
-                    # Handle None/null values in data
+                    
+                    # Handle None values
                     if stock_value is None:
                         meets_criteria = False
                         break
-
-                    # Handle type mismatches gracefully
+                    
+                    # Apply comparison
                     try:
-                        # Apply comparison using operator mapping
-                        if not operators[operator](stock_value, value):
+                        if not OPERATORS[operator](stock_value, value):
                             meets_criteria = False
                             break
                     except (TypeError, ValueError):
-                        # Type mismatch in comparison
                         meets_criteria = False
                         break
-
+                
                 if meets_criteria:
                     result.append(stock)
 
         # Sort results if requested
         if sort_by and result and sort_by in result[0]:
-            # Handle None values in sorting
             result.sort(
                 key=lambda x: (x.get(sort_by) is None, x.get(sort_by)),
                 reverse=(sort_order.lower() == "desc")
@@ -822,7 +799,7 @@ async def get_stock_screener(rule_of_list=None, sort_by=None, sort_order="desc",
         if limit and isinstance(limit, int):
             result = result[:limit]
 
-        # Extract only the key elements defined in rule_of_list for each matched stock
+        # Format output
         filtered_result = []
         for stock in result:
             try:
@@ -830,7 +807,7 @@ async def get_stock_screener(rule_of_list=None, sort_by=None, sort_order="desc",
                     "symbol": stock.get("symbol", ""),
                     "company_name": stock.get("companyName", stock.get("name", "")),
                 }
-
+                
                 # Add metrics from rule_of_list
                 if rule_of_list:
                     metrics = {}
@@ -838,20 +815,18 @@ async def get_stock_screener(rule_of_list=None, sort_by=None, sort_order="desc",
                         metric_name = rule.get('metric', rule.get('name'))
                         if metric_name and metric_name in stock:
                             metrics[metric_name] = stock[metric_name]
-
-                    # Add sort_by field if it's not already included but was used for sorting
+                    
+                    # Add sort_by field if used for sorting
                     if sort_by and sort_by not in metrics and sort_by in stock:
                         metrics[sort_by] = stock[sort_by]
-
-                    if metrics: # Only add 'metrics' key if there are metrics to add
+                    
+                    if metrics:
                         filtered_stock["metrics"] = metrics
-
+                
                 filtered_result.append(filtered_stock)
-            except Exception:
-                # Log the exception if needed for debugging
-                pass
+            except Exception as e:
+                print(f"Error processing stock in screener: {e}")
 
-        # Return in the format specified in the schema
         return {
             "matched_stocks": filtered_result,
             "count": len(filtered_result)
@@ -861,6 +836,90 @@ async def get_stock_screener(rule_of_list=None, sort_by=None, sort_order="desc",
         return {"matched_stocks": [], "count": 0, "error": "Screener data file not found"}
     except (orjson.JSONDecodeError, Exception) as e:
         return {"matched_stocks": [], "count": 0, "error": f"Error processing screener data: {str(e)}"}
+
+# Function definition mapping for LLM use
+def get_function_definitions():
+    """Return JSON schema definitions for all functions."""
+    templates = [
+        {
+          "name": "get_stock_screener",
+          "description": "Retrieves stock data based on specified financial criteria to help filter stocks that meet certain thresholds.",
+          "parameters": {
+            "rule_of_list": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "metric": {"type": "string", "description": "The financial metric to filter by."},
+                        "operator": {"type": "string", "enum": [">", ">=", "<", "<=", "==", "!="], "description": "The comparison operator."},
+                        "value": {"type": ["number", "string"], "description": "The value to compare against."}
+                    },
+                    "required": ["metric", "value"]
+                },
+                "description": "List of screening rules to filter stocks."
+            },
+            "sort_by": {
+                "type": "string",
+                "description": "Field name to sort the results by."
+            },
+            "sort_order": {
+                "type": "string",
+                "enum": ["asc", "desc"],
+                "default": "desc",
+                "description": "Sort order for the results: 'asc' for ascending or 'desc' for descending."
+            },
+            "limit": {
+                "type": "integer",
+                "default": 10,
+                "description": "Maximum number of results to return."
+            }
+          }
+        },
+        {
+            "name": "get_income_statement",
+            "description": "Retrieves historical income statements for a list of stock tickers.",
+            "parameters": {
+                "tickers": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of stock ticker symbols."
+                },
+                "time_period": {
+                    "type": "string",
+                    "enum": ["annual", "quarter", "ttm"],
+                    "description": "Time period for the data: annual, quarter, ttm."
+                },
+                "keep_keys": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of data keys to retain in the output."
+                }
+            },
+            "required": ["tickers", "time_period"]
+        },
+        # Add remaining function definitions similarly
+    ]
+
+    # Convert templates to function definitions
+    definitions = []
+    for tpl in templates:
+        func_def = {
+            "name": tpl["name"],
+            "description": tpl["description"],
+            "strict_json_schema": True,
+            "parameters": {
+                "type": "object",
+                "properties": tpl["parameters"],
+            }
+        }
+        
+        # Add required fields if specified
+        if "required" in tpl:
+            func_def["parameters"]["required"] = tpl["required"]
+
+        definitions.append(func_def)
+
+    return definitions
 
 
 def get_function_definitions():
@@ -1172,6 +1231,7 @@ def get_function_definitions():
         func_def = {
             "name": tpl["name"],
             "description": tpl["description"],
+            "strict_json_schema": True,
             "parameters": {
                 "type": "object",
                 "properties": tpl["parameters"],
@@ -1184,26 +1244,7 @@ def get_function_definitions():
         definitions.append(func_def)
 
     return definitions
-'''
-{
-            "name": "get_historical_stock_price",
-            "description": "Fetches historical stock price (open, high, low, close) and volume data for a specific stock ticker. Useful for analyzing past stock performance and trends.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "ticker": {
-                        "type": "string",
-                        "description": "The stock ticker symbol for the company (e.g., 'AAPL' for Apple Inc., 'MSFT' for Microsoft Corp.)."
-                    }
-                },
-                "required": ["ticker"]
-            },
-        },
-    {
-        "name": "get_stock_screener",
-        "description": "Filters and sorts a list of companies based on various financial metrics and criteria.",
-    },
-'''
+
 
 #Testing purposes
 '''
