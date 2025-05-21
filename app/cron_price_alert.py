@@ -63,8 +63,7 @@ async def run():
                         pb.collection("priceAlert").update(item.id, {"triggered": True})
                         
                         newNotification = {
-                        'opUser': item.user,
-                        'user': '9ncz4wunmhk0k52', #stocknear bot id
+                        'user': item.user,
                         'notifyType': 'priceAlert',
                         'priceAlert': item.id,
                         'liveResults': {'symbol': symbol, 'assetType': item.asset_type, 'condition': item.condition, 'targetPrice': target_price, 'currentPrice': current_price},
@@ -80,8 +79,7 @@ async def run():
                         pb.collection("priceAlert").update(item.id, {"triggered": True})
                         
                         newNotification = {
-                        'opUser': item.user,
-                        'user': '9ncz4wunmhk0k52', #stocknear bot id
+                        'user': item.user,
                         'notifyType': 'priceAlert',
                         'priceAlert': item.id,
                         'liveResults': {'symbol': symbol, 'assetType': item.asset_type, 'condition': item.condition, 'targetPrice': target_price, 'currentPrice': current_price},
