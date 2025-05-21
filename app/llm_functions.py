@@ -1146,7 +1146,7 @@ def get_function_definitions():
         },
         {
             "name": "get_analyst_estimate",
-            "description": "Fetches forward-looking analyst estimates for multiple stocks, including average, low, and high projections for EPS, revenue, EBITDA, and net income.",
+            "description": "Fetches forward-looking analyst estimates for multiple stocks, including average, low, and high projections for EPS, revenue, EBITDA, and net income. Call it always if @Analyst is in the user query",
             "parameters": {
                 "tickers": {
                     "type": "array",
@@ -1228,7 +1228,7 @@ def get_function_definitions():
         },
         {
             "name": "get_analyst_ratings",
-            "description": "Retrieves the latest analyst ratings for multiple stocks.",
+            "description": "Retrieves the latest analyst ratings for multiple stocks. Call it always if @Analyst is in the user query",
             "parameters": {
                 "tickers": {
                     "type": "array",

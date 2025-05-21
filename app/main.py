@@ -13,6 +13,7 @@ import numpy as np
 import zipfile
 import pandas as pd
 import orjson
+import json
 import aiohttp
 import aiofiles
 import redis
@@ -4859,15 +4860,124 @@ async def generate_stream(messages: List):
         yield orjson.dumps({"error": str(e)}) + b"\n"
 
 
-# Background task to process tool calls and generate final response with parallel execution
+# Background task to process tool calls and generate final response with parallel execution                
 async def process_request(data):
     user_query = data.query
     messages = data.messages
+    
+    # Check for the @Analyst trigger phrase to force specific tool calls
+    force_analyst_tools = "@Analyst" in user_query
+    
+    # Add system message and user query to messages
     messages = [system_message] + messages + [{"role": "user", "content": user_query}]
-
 
     # Process initial request and tool calls
     try:
+        # If @Analyst is detected, we'll handle it with forced function calls
+        if force_analyst_tools:
+            # First get a response from the model asking it specifically to identify tickers
+            async with request_semaphore:
+                ticker_extraction_messages = messages.copy()
+                ticker_extraction_messages.append({
+                    "role": "system",
+                    "content": "First identify the stock ticker symbols mentioned in the user's query. If no specific tickers are mentioned, identify which companies the user is likely interested in and determine their ticker symbols. Return ONLY the ticker symbols as a comma-separated list without any explanation or additional text. Example response format: 'AAPL,MSFT,GOOG'"
+                })
+                
+                ticker_response = await async_client.chat.completions.create(
+                    model=CHAT_MODEL,
+                    messages=ticker_extraction_messages,
+                    max_tokens=MAX_TOKENS
+                )
+            
+            # Parse the tickers from the LLM response
+            tickers_str = ticker_response.choices[0].message.content.strip()
+            extracted_tickers = [ticker.strip() for ticker in tickers_str.split(',') if ticker.strip()]
+            
+            # Fallback to regex as a second option
+            if not extracted_tickers:
+                ticker_matches = re.findall(r'\$?([A-Z]{1,5})\b', user_query)
+                extracted_tickers = ticker_matches
+            
+            # Final fallback to default ticker
+            tickers = extracted_tickers if extracted_tickers else ["AAPL"]  # Default to AAPL if no tickers found
+            
+            print(f"Identified tickers: {tickers}")
+            
+            # Now get the general assistant response before calling the tools
+            async with request_semaphore:
+                response = await async_client.chat.completions.create(
+                    model=CHAT_MODEL,
+                    messages=messages,
+                    max_tokens=MAX_TOKENS
+                )
+            
+            assistant_msg = response.choices[0].message
+            messages.append(assistant_msg)
+            
+            # Force both analyst functions to be called with the extracted tickers
+            forced_tool_calls = [
+                {
+                    "id": "forced_get_analyst_estimate",
+                    "type": "function",
+                    "function": {
+                        "name": "get_analyst_estimate",
+                        "arguments": json.dumps({"tickers": tickers})
+                    }
+                },
+                {
+                    "id": "forced_get_analyst_ratings",
+                    "type": "function",
+                    "function": {
+                        "name": "get_analyst_ratings",
+                        "arguments": json.dumps({"tickers": tickers})
+                    }
+                }
+            ]
+            
+            # Create a synthetic assistant message with our forced tool calls
+            forced_assistant_msg = {
+                "role": "assistant",
+                "content": "Let me check the analyst information for you.",
+                "tool_calls": forced_tool_calls
+            }
+            messages.append(forced_assistant_msg)
+            
+            # Execute both functions and add results
+            for call in forced_tool_calls:
+                fn_name = call["function"]["name"]
+                try:
+                    args = json.loads(call["function"]["arguments"])
+                    result = await function_map[fn_name](**args)
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": call["id"],
+                        "name": fn_name,
+                        "content": json.dumps(result)
+                    })
+                except Exception as e:
+                    print(f"Function {fn_name} error: {str(e)}")
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": call["id"],
+                        "name": fn_name,
+                        "content": json.dumps({"error": str(e)})
+                    })
+            
+            # Get final response after forced tool calls
+            async with request_semaphore:
+                followup = await async_client.chat.completions.create(
+                    model=CHAT_MODEL,
+                    messages=messages,
+                    max_tokens=MAX_TOKENS
+                )
+            
+            assistant_msg = followup.choices[0].message
+            messages.append(assistant_msg)
+            
+            # Return final messages for streaming
+            return messages
+            
+        # Standard flow when not forcing analyst tools
         async with request_semaphore:
             response = await async_client.chat.completions.create(
                 model=CHAT_MODEL,
@@ -4888,7 +4998,7 @@ async def process_request(data):
             for call in assistant_msg.tool_calls:
                 fn_name = call.function.name
                 try:
-                    args = orjson.loads(call.function.arguments)
+                    args = json.loads(call.function.arguments)
                     if fn_name in function_map:
                         tool_calls.append({
                             "call_id": call.id,
@@ -4900,7 +5010,7 @@ async def process_request(data):
                             "role": "tool",
                             "tool_call_id": call.id,
                             "name": fn_name,
-                            "content": orjson.dumps({"error": f"Unknown function {fn_name}"}).decode()
+                            "content": json.dumps({"error": f"Unknown function {fn_name}"})
                         })
                 except Exception as e:
                     print(f"Error parsing arguments: {str(e)}")
@@ -4908,7 +5018,7 @@ async def process_request(data):
                         "role": "tool",
                         "tool_call_id": call.id,
                         "name": fn_name,
-                        "content": orjson.dumps({"error": "Invalid arguments"}).decode()
+                        "content": json.dumps({"error": "Invalid arguments"})
                     })
             
             # Execute all function calls in parallel
@@ -4922,14 +5032,14 @@ async def process_request(data):
                         return {
                             "call_id": tool_call["call_id"],
                             "fn_name": fn_name,
-                            "content": orjson.dumps(result).decode()
+                            "content": json.dumps(result)
                         }
                     except Exception as e:
                         print(f"Function {fn_name} error: {str(e)}")
                         return {
                             "call_id": tool_call["call_id"],
                             "fn_name": fn_name,
-                            "content": orjson.dumps({"error": str(e)}).decode()
+                            "content": json.dumps({"error": str(e)})
                         }
                 
                 # Execute all tool calls in parallel and gather results
@@ -4963,7 +5073,6 @@ async def process_request(data):
     except Exception as e:
         print(f"Request processing failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @app.post("/chat")
 async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
