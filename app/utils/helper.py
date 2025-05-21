@@ -297,7 +297,7 @@ TRIGGER_CONFIG = {
             "default_value": ["AAPL"], # Default if no tickers found
             "param_name": "tickers_list"  # Key for storing extracted tickers
         },
-        "perform_initial_llm_call": True, # Mimic original @Analyst flow
+        "perform_initial_llm_call": True,
         "pre_forced_tools_assistant_message_template": "Let me check the analyst information for {params}.",
         "forced_tool_calls": [
             {
@@ -309,6 +309,47 @@ TRIGGER_CONFIG = {
             {
                 "id_template": "forced_tool_analyst_ratings_{index}",
                 "function_name": "get_analyst_ratings",
+                "arguments_mapping": {"tickers": "tickers_list"}
+            }
+        ],
+    },
+    "@Options Flow": {
+        "description": "Handles options flow order related queries by forcing specific financial tool calls.",
+        "parameter_extraction": {
+            "prompt_template": "First identify the stock ticker symbols mentioned in the user's query: '{query}'. If no specific tickers are mentioned, identify which companies the user is likely interested in and determine their ticker symbols. Return ONLY the ticker symbols as a comma-separated list without any explanation or additional text. Example response format: 'AAPL,MSFT,GOOG'",
+            "regex_pattern": r'\$?([A-Z]{1,5})\b',
+            "default_value": ["AAPL"],
+            "param_name": "tickers_list"
+        },
+        "perform_initial_llm_call": True,
+        "pre_forced_tools_assistant_message_template": "Let me check the latest options flow orders information for {params}.",
+        "forced_tool_calls": [
+            {
+                "id_template": "forced_tool_latest_options_flow_feed_{index}",
+                "function_name": "get_latest_options_flow_feed",
+                "arguments_mapping": {"tickers": "tickers_list"}
+            },
+        ],
+    },
+    "@News": {
+        "description": "Handles news-related queries by forcing specific financial tool calls.",
+        "parameter_extraction": {
+            "prompt_template": "First identify the stock ticker symbols mentioned in the user's query: '{query}'. If no specific tickers are mentioned, identify which companies the user is likely interested in and determine their ticker symbols. Return ONLY the ticker symbols as a comma-separated list without any explanation or additional text. Example response format: 'AAPL,MSFT,GOOG'",
+            "regex_pattern": r'\$?([A-Z]{1,5})\b', # Regex to find ticker symbols
+            "default_value": ["AAPL"], # Default if no tickers found
+            "param_name": "tickers_list"  # Key for storing extracted tickers
+        },
+        "perform_initial_llm_call": True,
+        "pre_forced_tools_assistant_message_template": "Let me check the latest news information for {params}.",
+        "forced_tool_calls": [
+            {
+                "id_template": "forced_tool_why_priced_moved_{index}",
+                "function_name": "get_why_priced_moved",
+                "arguments_mapping": {"tickers": "tickers_list"}
+            },
+            {
+                "id_template": "forced_tool_market_news_{index}",
+                "function_name": "get_market_news",
                 "arguments_mapping": {"tickers": "tickers_list"}
             }
         ],
@@ -515,7 +556,7 @@ async def _handle_configured_case(data, base_messages, config, user_query,
 
 
 async def process_request(data, async_client, function_map, request_semaphore, system_message, CHAT_MODEL, MAX_TOKENS, tools_payload):
-    user_query = data.query
+    user_query = data.query.lower()
     current_messages_history = list(data.messages) 
 
     prepared_initial_messages = [system_message] + current_messages_history + [{"role": "user", "content": user_query}]
@@ -524,7 +565,7 @@ async def process_request(data, async_client, function_map, request_semaphore, s
     trigger_phrase_found = None
 
     for trigger, config_item in TRIGGER_CONFIG.items():
-        if trigger in user_query:
+        if trigger.lower() in user_query:
             active_config = config_item
             trigger_phrase_found = trigger
             print(f"Detected trigger: {trigger_phrase_found}")
@@ -573,5 +614,5 @@ async def process_request(data, async_client, function_map, request_semaphore, s
 
     except Exception as e:
         print(f"Request processing failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) 
+        raise
         
