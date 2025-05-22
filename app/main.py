@@ -737,51 +737,6 @@ async def similar_stocks(data: TickerData, api_key: str = Security(get_api_key))
     return res
 
 
-@app.post("/similar-etfs")
-async def get_similar_etfs(data: TickerData, api_key: str = Security(get_api_key)):
-    ticker = data.ticker.upper()
-
-    cache_key = f"similar-etfs-{ticker}"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return orjson.loads(cached_result)
-
-    try:
-        query = """
-            SELECT symbol, name, totalAssets, numberOfHoldings
-            FROM etfs
-            WHERE symbol <> ? AND ABS(totalAssets - (
-                SELECT totalAssets FROM etfs WHERE symbol = ?
-            )) >= 0.2 * (
-                SELECT totalAssets FROM etfs WHERE symbol = ?
-            )
-            ORDER BY totalAssets DESC
-            LIMIT 15
-        """
-
-        etf_cursor = etf_con.cursor()
-        etf_cursor.execute(query, (ticker, ticker, ticker))
-        raw_data = etf_cursor.fetchall()
-
-        result = [
-            {"symbol": row[0], "name": row[1], "totalAssets": row[2], "numberOfHoldings": row[3]}
-            for row in raw_data
-        ]
-
-        if len(result) >= 5:
-            result = random.sample(result, k=5)
-
-        result.sort(key=lambda x: x["totalAssets"], reverse=True)  # Sort the list in-place
-
-        etf_cursor.close()  # Close the cursor after executing the query
-    except:
-        result = []
-
-    redis_client.set(cache_key, orjson.dumps(result))
-    redis_client.expire(cache_key, 3600*3600)
-    return result
-
-
 @app.post("/market-movers")
 async def get_market_movers(data: GeneralData, api_key: str = Security(get_api_key)):
     params = data.params
@@ -810,23 +765,6 @@ async def get_market_movers(data: GeneralData, api_key: str = Security(get_api_k
         media_type="application/json",
         headers={"Content-Encoding": "gzip"}
     )
-
-@app.get("/mini-plots-index")
-async def get_market_movers(api_key: str = Security(get_api_key)):
-    cache_key = f"get-mini-plots-index"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return orjson.loads(cached_result)
-    try:
-        with open(f"json/mini-plots-index/data.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = []
-
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 5*60)
-
-    return res
 
 
 

@@ -866,6 +866,22 @@ async def get_stock_screener(
     except (orjson.JSONDecodeError, Exception) as e:
         return {"matched_stocks": [], "count": 0, "error": f"Error processing screener data: {str(e)}"}
 
+async def get_top_gainers():
+    try:
+        with open(f"json/market-movers/markethours/gainers.json", 'rb') as file:
+            data = orjson.loads(file.read())['1D'][:10]
+            return data
+    except Exception as e:
+        return f"Error processing top gainers data: {str(e)}"
+
+async def get_top_losers():
+    try:
+        with open(f"json/market-movers/markethours/losers.json", 'rb') as file:
+            data = orjson.loads(file.read())['1D'][:10]
+            return data
+    except Exception as e:
+        return f"Error processing top losers data: {str(e)}"
+
 '''
 async def get_historical_price(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     data = await get_ticker_specific_data(tickers, "historical-price/max")
@@ -1275,6 +1291,16 @@ def get_function_definitions():
             "description": "Retrieves the top rating stocks from analyst.",
             "parameters": {},
         },
+        {
+            "name": "get_top_gainers",
+            "description": "Retrieves a list of stocks with the highest percentage gains for the current trading day. Returns stocks ranked by their daily price increase percentage, showing which securities have performed best today.",
+            "parameters": {},
+        },
+        {
+            "name": "get_top_losers", 
+            "description": "Retrieves a list of stocks with the largest percentage losses for the current trading day. Returns stocks ranked by their daily price decrease percentage, showing which securities have declined the most today.",
+            "parameters": {},
+        }
     ]
 
     definitions = []
@@ -1299,6 +1325,6 @@ def get_function_definitions():
 
 
 #Testing purposes
-#data = asyncio.run(get_historical_price(tickers=['AMD']))
+#data = asyncio.run(get_top_losers())
 #print(data)
 
