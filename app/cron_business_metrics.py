@@ -143,6 +143,25 @@ def process_revenue_segmentation_data(data):
     
     return result
 
+def process_geographic_segmentation_data(data):
+    """Process data from the geographic segmentation endpoint"""
+    result = []
+    
+    # Convert the data into the format we need
+    for item in data:
+        entry = {
+            item['date']: {}
+        }
+        
+        # Extract geographic data
+        if 'data' in item:
+            for region, amount in item['data'].items():
+                entry[item['date']][region] = amount
+        
+        result.append(entry)
+    
+    return result
+
 def prepare_dataset(data, geo_data, income_data, symbol, rev_segment_data=None):
     data = convert_to_dict(data)
     
@@ -259,14 +278,15 @@ async def get_data(session, total_symbols):
                         if response.status == 200:
                             data = await response.json()
                             if "revenue-geographic-segmentation" in url:
-                                geo_data = data
-                            elif "revenue-product-segmentation" in url:
+                                geo_data = process_geographic_segmentation_data(data)
+                            if "revenue-product-segmentation" in url:
                                 revenue_segmentation_data = data
                 except Exception as e:
                     print(f"Error fetching data for {symbol} from {url}: {e}")
                     pass
 
-            if len(product_data) > 0 or len(geo_data) > 0 or len(revenue_segmentation_data) > 0:
+            # Only save data if we have at least one type of data
+            if len(product_data) > 0 or len(geo_data) > 0 or len(revenue_segmentation_data) > 0 or len(income_data) > 0:
                 data = prepare_dataset(product_data, geo_data, income_data, symbol, revenue_segmentation_data)
                 await save_json(data, symbol)
 
@@ -282,7 +302,7 @@ async def run():
     cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
     total_symbols = [row[0] for row in cursor.fetchall()]
     #Testing
-    #total_symbols = ['JD']
+    #total_symbols = ['AAPL']
     con.close()
 
     async with aiohttp.ClientSession() as session:

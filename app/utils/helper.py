@@ -490,8 +490,6 @@ async def _handle_configured_case(data, base_messages, config, user_query,
            extracted_data[param_conf["param_name"]] = param_conf["default_value"]
 
 
-    # 2. Optional: Initial LLM Call (before forced tools)
-    # This mimics the original @Analyst behavior where an initial response is generated.
     if config.get("perform_initial_llm_call", False):
         async with semaphore:
             # This call uses the main message history
@@ -505,13 +503,8 @@ async def _handle_configured_case(data, base_messages, config, user_query,
                 # tool_choice="auto" if config.get("initial_call_can_use_tools") else None
             )
         assistant_msg_before_forced = initial_response.choices[0].message
-        # Convert to dict if it's an OpenAI object and your messages list expects dicts
-        # For simplicity, assuming it can be appended directly or is converted by your framework.
         messages.append(assistant_msg_before_forced)
-        # If assistant_msg_before_forced has tool_calls, they would be handled by the standard loop if we returned here.
-        # However, the purpose of a forced_tool_call config is usually to override/direct.
-
-    # 3. Prepare and Execute Forced Tool Calls
+        
     if "forced_tool_calls" in config and config["forced_tool_calls"]:
         forced_tool_call_objects_for_api = []
         

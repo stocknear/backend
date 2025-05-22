@@ -866,6 +866,23 @@ async def get_stock_screener(
     except (orjson.JSONDecodeError, Exception) as e:
         return {"matched_stocks": [], "count": 0, "error": f"Error processing screener data: {str(e)}"}
 
+'''
+async def get_historical_price(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+    data = await get_ticker_specific_data(tickers, "historical-price/max")
+    result = {}
+
+    for ticker, price_list in data.items():
+        filtered_data = []
+        for item in price_list:
+            try:
+                filtered_data.append({'date': item['time'], 'value': item['close']})
+            except:
+                pass
+        result[ticker] = filtered_data
+
+    return result
+'''
+
 # Function definition mapping for LLM use
 def get_function_definitions():
     """Return JSON schema definitions for all functions."""
@@ -1282,7 +1299,6 @@ def get_function_definitions():
 
 
 #Testing purposes
-
-#data = asyncio.run(get_analyst_ratings(tickers=['AMD','TSLA']))
+#data = asyncio.run(get_historical_price(tickers=['AMD']))
 #print(data)
 
