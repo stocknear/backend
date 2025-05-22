@@ -4799,7 +4799,6 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
     # Process the request and get messages for streaming
     try:
         messages = await process_request(data, async_client, function_map, request_semaphore, system_message, CHAT_MODEL, MAX_TOKENS, tools_payload)
-        print(messages)
         # Stream the final content
         return StreamingResponse(
             generate_stream(messages),

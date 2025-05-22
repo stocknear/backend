@@ -882,6 +882,14 @@ async def get_top_losers():
     except Exception as e:
         return f"Error processing top losers data: {str(e)}"
 
+async def get_top_active_stocks():
+    try:
+        with open(f"json/market-movers/markethours/active.json", 'rb') as file:
+            data = orjson.loads(file.read())['1D'][:10]
+            return data
+    except Exception as e:
+        return f"Error processing top losers data: {str(e)}"
+
 '''
 async def get_historical_price(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     data = await get_ticker_specific_data(tickers, "historical-price/max")
@@ -1297,8 +1305,8 @@ def get_function_definitions():
             "parameters": {},
         },
         {
-            "name": "get_top_losers", 
-            "description": "Retrieves a list of stocks with the largest percentage losses for the current trading day. Returns stocks ranked by their daily price decrease percentage, showing which securities have declined the most today.",
+            "name": "get_top_active_stocks", 
+            "description": "Retrieves a list of stocks with the largest trading volume for the current trading day. Returns stocks ranked by their daily volume, showing which securities have traded the most today.",
             "parameters": {},
         }
     ]
@@ -1325,6 +1333,6 @@ def get_function_definitions():
 
 
 #Testing purposes
-#data = asyncio.run(get_top_losers())
+#data = asyncio.run(get_top_active_stocks())
 #print(data)
 
