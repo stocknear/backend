@@ -602,6 +602,19 @@ async def get_earnings_calendar(upper_threshold: str = "") -> List[Dict[str, Any
         print(f"Error processing earnings calendar: {e}")
         return []
 
+async def get_top_rating_stocks():
+    file_path = BASE_DIR / "analyst/top-stocks.json"
+    
+    try:
+        async with aiofiles.open(file_path, mode="rb") as f:
+            data = orjson.loads(await f.read())
+        return data
+    except FileNotFoundError:
+        return []
+    except (orjson.JSONDecodeError, KeyError, ValueError) as e:
+        print(f"Error processing get top rating stocks: {e}")
+        return []
+
 async def get_earnings_price_reaction(tickers: List[str]) -> Dict[str, Any]:
     """Get historical earnings price reactions for multiple stocks."""
     return await get_ticker_specific_data(tickers, "earnings/past")
@@ -609,6 +622,8 @@ async def get_earnings_price_reaction(tickers: List[str]) -> Dict[str, Any]:
 async def get_next_earnings(tickers: List[str]) -> Dict[str, Any]:
     """Get upcoming earnings dates and estimates for multiple stocks."""
     return await get_ticker_specific_data(tickers, "earnings/next")
+
+
 
 async def get_feed_data(
     tickers: List[str], 
@@ -1238,20 +1253,26 @@ def get_function_definitions():
             },
             "required": ["tickers"]
         },
+        {
+            "name": "get_top_rating_stocks",
+            "description": "Retrieves the top rating stocks from analyst.",
+            "parameters": {},
+        },
     ]
 
     definitions = []
     for tpl in templates:
         func_def = {
-            "name": tpl["name"],
-            "description": tpl["description"],
+            "name": tpl.get("name", ""),
+            "description": tpl.get("description", ""),
             "strict_json_schema": True,
             "parameters": {
                 "type": "object",
-                "properties": tpl["parameters"],
+                "properties": tpl.get("parameters", {}),
             }
         }
-        # only include "required" if it's explicitly provided
+
+        # Only include "required" if explicitly provided
         if "required" in tpl:
             func_def["parameters"]["required"] = tpl["required"]
 

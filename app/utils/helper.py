@@ -601,6 +601,7 @@ async def process_request(data, async_client, function_map, request_semaphore, s
         else:
             # Standard flow: LLM decides on tool usage based on general prompt and available tools
             messages = prepared_initial_messages.copy()
+
             async with request_semaphore:
                 response = await async_client.chat.completions.create(
                     model=CHAT_MODEL,
