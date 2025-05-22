@@ -301,19 +301,19 @@ TRIGGER_CONFIG = {
         "pre_forced_tools_assistant_message_template": "Let me check the analyst information for {params}.",
         "forced_tool_calls": [
             {
-                "id_template": "forced_tool_analyst_estimate_{index}",
+                "id_template": "afunc1",
                 "function_name": "get_analyst_estimate",
                 # Maps function argument "tickers" to the extracted "tickers_list"
                 "arguments_mapping": {"tickers": "tickers_list"}
             },
             {
-                "id_template": "forced_tool_analyst_ratings_{index}",
+                "id_template": "afunc2",
                 "function_name": "get_analyst_ratings",
                 "arguments_mapping": {"tickers": "tickers_list"}
             }
         ],
     },
-    "@Options Flow": {
+    "@OptionsFlow": {
         "description": "Handles options flow order related queries by forcing specific financial tool calls.",
         "parameter_extraction": {
             "prompt_template": "First identify the stock ticker symbols mentioned in the user's query: '{query}'. If no specific tickers are mentioned, identify which companies the user is likely interested in and determine their ticker symbols. Return ONLY the ticker symbols as a comma-separated list without any explanation or additional text. Example response format: 'AAPL,MSFT,GOOG'",
@@ -325,8 +325,26 @@ TRIGGER_CONFIG = {
         "pre_forced_tools_assistant_message_template": "Let me check the latest options flow orders information for {params}.",
         "forced_tool_calls": [
             {
-                "id_template": "forced_tool_latest_options_flow_feed_{index}",
+                "id_template": "ofeed",
                 "function_name": "get_latest_options_flow_feed",
+                "arguments_mapping": {"tickers": "tickers_list"}
+            },
+        ],
+    },
+    "@DarkPoolFlow": {
+        "description": "Handles dark pool flow order related queries by forcing specific financial tool calls.",
+        "parameter_extraction": {
+            "prompt_template": "First identify the stock ticker symbols mentioned in the user's query: '{query}'. If no specific tickers are mentioned, identify which companies the user is likely interested in and determine their ticker symbols. Return ONLY the ticker symbols as a comma-separated list without any explanation or additional text. Example response format: 'AAPL,MSFT,GOOG'",
+            "regex_pattern": r'\$?([A-Z]{1,5})\b',
+            "default_value": ["AAPL"],
+            "param_name": "tickers_list"
+        },
+        "perform_initial_llm_call": True,
+        "pre_forced_tools_assistant_message_template": "Let me check the latest dark pool flow orders information for {params}.",
+        "forced_tool_calls": [
+            {
+                "id_template": "dark_pool_feed",
+                "function_name": "get_latest_dark_pool_feed",
                 "arguments_mapping": {"tickers": "tickers_list"}
             },
         ],
@@ -343,12 +361,12 @@ TRIGGER_CONFIG = {
         "pre_forced_tools_assistant_message_template": "Let me check the latest news information for {params}.",
         "forced_tool_calls": [
             {
-                "id_template": "forced_tool_why_priced_moved_{index}",
+                "id_template": "wiim",
                 "function_name": "get_why_priced_moved",
                 "arguments_mapping": {"tickers": "tickers_list"}
             },
             {
-                "id_template": "forced_tool_market_news_{index}",
+                "id_template": "marketNews",
                 "function_name": "get_market_news",
                 "arguments_mapping": {"tickers": "tickers_list"}
             }
@@ -358,6 +376,7 @@ TRIGGER_CONFIG = {
 }
 
 # --- Helper Functions ---
+
 
 async def _extract_parameters(user_query, extraction_config, async_client, model, max_tokens, semaphore, context_messages):
     """Extracts parameters based on the provided configuration."""
