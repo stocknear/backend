@@ -317,9 +317,9 @@ TRIGGER_CONFIG = {
     "@OptionsFlow": {
         "description": "Handles options flow order related queries by forcing specific financial tool calls.",
         "parameter_extraction": {
-            "prompt_template": "First identify the stock ticker symbols mentioned in the user's query: '{query}'. If no specific tickers are mentioned, identify which companies the user is likely interested in and determine their ticker symbols. Return ONLY the ticker symbols as a comma-separated list without any explanation or additional text. Example response format: 'AAPL,MSFT,GOOG'",
+            "prompt_template": "First identify the stock ticker symbols mentioned in the user's query: '{query}'. Return ONLY the ticker symbols as a comma-separated list without any explanation or additional text. Example response format: 'AAPL,MSFT,GOOG'. If no specific tickers are mentioned, set the argument to an empty list",
             "regex_pattern": r'\$?([A-Z]{1,5})\b',
-            "default_value": ["AAPL"],
+            "default_value": [],
             "param_name": "tickers_list"
         },
         "perform_initial_llm_call": True,
@@ -337,9 +337,9 @@ TRIGGER_CONFIG = {
     "@DarkPoolFlow": {
         "description": "Handles dark pool flow order related queries by forcing specific financial tool calls.",
         "parameter_extraction": {
-            "prompt_template": "First identify the stock ticker symbols mentioned in the user's query: '{query}'. If no specific tickers are mentioned, identify which companies the user is likely interested in and determine their ticker symbols. Return ONLY the ticker symbols as a comma-separated list without any explanation or additional text. Example response format: 'AAPL,MSFT,GOOG'",
+            "prompt_template": "First identify the stock ticker symbols mentioned in the user's query: '{query}'. Return ONLY the ticker symbols as a comma-separated list without any explanation or additional text. Example response format: 'AAPL,MSFT,GOOG'. If no specific tickers are mentioned, set the argument to an empty list",
             "regex_pattern": r'\$?([A-Z]{1,5})\b',
-            "default_value": ["AAPL"],
+            "default_value": [],
             "param_name": "tickers_list"
         },
         "perform_initial_llm_call": True,

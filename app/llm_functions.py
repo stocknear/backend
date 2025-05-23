@@ -651,23 +651,24 @@ async def get_next_earnings(tickers: List[str]) -> Dict[str, Any]:
 
 
 
+
 async def get_feed_data(
     tickers: List[str], 
     file_path: Path,
     filter_keys: Set[str],
     sort_key: str,
-    limit: int = 5
+    limit: int = 20
 ) -> Dict[str, List[Dict[str, Any]]]:
     """
     Generic function to get feed data (options flow, dark pool) for multiple stocks.
-    
+
     Args:
-        tickers: List of ticker symbols
+        tickers: List of ticker symbols. If empty or contains only invalid values, include all.
         file_path: Path to the feed data file
         filter_keys: Keys to exclude from the results
         sort_key: Key to sort results by
         limit: Maximum number of items to return per ticker
-        
+
     Returns:
         Dictionary mapping tickers to their feed data
     """
@@ -675,23 +676,31 @@ async def get_feed_data(
         async with aiofiles.open(file_path, mode="rb") as f:
             data = orjson.loads(await f.read())
 
+        # Sanitize tickers list
+        valid_tickers = {
+            t.strip().upper()
+            for t in tickers
+            if isinstance(t, str) and t.strip() and t.strip() != '{}'
+        }
+
         # Group and filter items by ticker
         filtered_results = defaultdict(list)
         for item in data:
-            ticker = item.get("ticker")
-            if ticker in tickers:
+            ticker = item.get("ticker", "").upper()
+            if not valid_tickers or ticker in valid_tickers:
                 # Exclude specific keys
                 cleaned_item = {k: v for k, v in item.items() if k not in filter_keys}
                 filtered_results[ticker].append(cleaned_item)
 
-        # Sort by specified key and take top N items
-        result = {}
-        for ticker, items in filtered_results.items():
-            result[ticker] = sorted(
+        # Sort and limit results
+        result = {
+            ticker: sorted(
                 items,
                 key=lambda x: x.get(sort_key, 0),
                 reverse=True
             )[:limit]
+            for ticker, items in filtered_results.items()
+        }
 
         return result
 
@@ -700,6 +709,8 @@ async def get_feed_data(
     except (orjson.JSONDecodeError, KeyError, ValueError) as e:
         print(f"Error processing feed data: {e}")
         return {}
+
+
 
 async def get_latest_options_flow_feed(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     """Get the top 5 options flow orders for multiple stocks."""
@@ -1252,7 +1263,7 @@ def get_function_definitions():
                 "tickers": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
+                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"]). If no ticker are available set it to an empty list []."
                 }
             },
             "required": ["tickers"]
@@ -1264,7 +1275,7 @@ def get_function_definitions():
                 "tickers": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
+                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"]). If no ticker are available set it to an empty list []."
                 }
             },
             "required": ["tickers"]
@@ -1368,6 +1379,6 @@ def get_function_definitions():
 
 
 #Testing purposes
-#data = asyncio.run(get_stock_quote(['AMD']))
+#data = asyncio.run(get_latest_options_flow_feed([]))
 #print(data)
 

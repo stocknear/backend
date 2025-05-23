@@ -112,7 +112,7 @@ tools_payload = ([{"type": "function", "function": fn} for fn in function_defini
 # Keep the system instruction separate
 system_message = {"role": "system", "content": INSTRUCTIONS}
 RESPONSE_CACHE = {}
-MAX_CONCURRENT_REQUESTS = 25  # Limit concurrent requests
+MAX_CONCURRENT_REQUESTS = 500  # Limit concurrent requests
 request_semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
 #======================================================#
 
