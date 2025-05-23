@@ -354,8 +354,34 @@ key_screener = [
 ]
 
 
-# Load environment variables
-load_dotenv()
+def load_congress_db():
+    data = {}
+    directory = "json/congress-trading/politician-db/"
+    
+    try:
+        files = os.listdir(directory)
+        json_files = [f for f in files if f.endswith('.json')]
+        
+        for filename in json_files:
+            file_path = os.path.join(directory, filename)
+            try:
+                with open(file_path, "rb") as file:
+                    file_data = orjson.loads(file.read())
+                    
+                    if 'history' in file_data and len(file_data['history']) > 0:
+                        politician_id = file_data['history'][0]['id']
+                        name = file_data['history'][0]['office']
+                        data[name] = politician_id
+                        
+            except (KeyError, IndexError, orjson.JSONDecodeError) as e:
+                print(f"Error processing {filename}: {e}")
+                continue
+                
+    except FileNotFoundError:
+        print(f"Directory {directory} not found")
+    return data
+
+key_congress_db = load_congress_db()
 
 # Type variables for better typing
 T = TypeVar('T')
@@ -898,6 +924,50 @@ async def get_potus_tracker():
     except Exception as e:
         return f"Error processing top losers data: {str(e)}"
 
+async def get_congress_activity(congress_id):
+    try:
+        with open(f"json/congress-trading/politician-db/{congress_id}.json", 'rb') as file:
+            data = orjson.loads(file.read())
+
+            if "history" in data:
+                fields_to_remove = {
+                    "assetDescription",
+                    "firstName",
+                    "lastName",
+                    "office",
+                    "capitalGainsOver200USD",
+                    "comment",
+                    "link",
+                    "id"
+                }
+
+                data["history"] = [
+                    {k: v for k, v in entry.items() if k not in fields_to_remove}
+                    for entry in data["history"]
+                ]
+            return data
+    except Exception as e:
+        return f"Error processing congress activity data: {str(e)}"
+
+async def get_market_flow():
+    market_flow_data = []
+    top_net_premium_tickers = []
+    res_dict = {}
+    try:
+        with open(f"json/market-flow/overview.json", 'rb') as file:
+            data = orjson.loads(file.read())
+            for item in data['marketTide']:
+                try:
+                    if item['close']:
+                        market_flow_data.append(item)
+                except:
+                    pass
+            res_dict['marketFlow'] = market_flow_data
+            res_dict['topPosNetPremium'] = data['topPosNetPremium']
+            return res_dict
+    except Exception as e:
+        return f"Error processing market flow data: {str(e)}"
+
 '''
 async def get_historical_price(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     data = await get_ticker_specific_data(tickers, "historical-price/max")
@@ -1238,7 +1308,26 @@ def get_function_definitions():
             "description": "Retrieves the President of the United States (POTUS) tracker, including the latest presidential schedule, Truth Social posts, executive orders, and the performance of the S&P 500 (SPY) since the current president's inauguration.",
             "parameters": {}
         },
-
+        {
+            "name": "get_market_flow",
+            "description": "Retrieves the current market flow option sentiment of the S&P 500.",
+            "parameters": {}
+        },
+        {
+            "name": "get_congress_activity",
+            "description": (
+                f"Retrieves and filters congressional trading activity for a specific congressperson based on the id which can be found here {key_congress_db}."
+                "Removes personally identifying and extraneous fields from transaction history. "
+                "Useful for analyzing political trading patterns without sensitive details."
+            ),
+            "parameters": {
+                "congress_id": {
+                    "type": "string",
+                    "description": "Unique identifier for a congressperson."
+                },
+            },
+            "required": ["congress_id"]
+        },
     ]
 
     definitions = []
@@ -1262,6 +1351,6 @@ def get_function_definitions():
 
 
 #Testing purposes
-#data = asyncio.run(get_potus_tracker())
+#data = asyncio.run(get_congress_activity('70ea82b2cb'))
 #print(data)
 
