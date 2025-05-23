@@ -161,7 +161,7 @@ async def get_upcoming_earnings(session, end_date, filter_today=True):
     try:
         res_list = remove_duplicates(res_list)
         res_list.sort(key=lambda x: x['marketCap'], reverse=True)
-        return res_list[:5]
+        return res_list[:10]
     except Exception as e:
         print(e)
         return []
@@ -240,7 +240,7 @@ async def get_recent_earnings(session):
     # Remove market cap before returning and limit to top 10
     res_list = [{k: v for k, v in d.items() if k not in ['marketCap', 'updated']} for d in res_list]
     
-    return res_list[:5]
+    return res_list[:10]
 
 
 async def get_analyst_report():
