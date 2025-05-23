@@ -888,6 +888,14 @@ async def get_top_active_stocks():
             data = orjson.loads(file.read())['1D'][:10]
             return data
     except Exception as e:
+        return f"Error processing most active stock data: {str(e)}"
+
+async def get_potus_tracker():
+    try:
+        with open(f"json/tracker/potus/data.json", 'rb') as file:
+            data = orjson.loads(file.read())
+            return data
+    except Exception as e:
         return f"Error processing top losers data: {str(e)}"
 
 '''
@@ -906,90 +914,6 @@ async def get_historical_price(tickers: List[str]) -> Dict[str, List[Dict[str, A
 
     return result
 '''
-
-# Function definition mapping for LLM use
-def get_function_definitions():
-    """Return JSON schema definitions for all functions."""
-    templates = [
-        {
-          "name": "get_stock_screener",
-          "description": "Retrieves stock data based on specified financial criteria to help filter stocks that meet certain thresholds.",
-          "parameters": {
-            "rule_of_list": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "metric": {"type": "string", "description": "The financial metric to filter by."},
-                        "operator": {"type": "string", "enum": [">", ">=", "<", "<=", "==", "!="], "description": "The comparison operator."},
-                        "value": {"type": ["number", "string"], "description": "The value to compare against."}
-                    },
-                    "required": ["metric", "value"]
-                },
-                "description": "List of screening rules to filter stocks."
-            },
-            "sort_by": {
-                "type": "string",
-                "description": "Field name to sort the results by."
-            },
-            "sort_order": {
-                "type": "string",
-                "enum": ["asc", "desc"],
-                "default": "desc",
-                "description": "Sort order for the results: 'asc' for ascending or 'desc' for descending."
-            },
-            "limit": {
-                "type": "integer",
-                "default": 10,
-                "description": "Maximum number of results to return."
-            }
-          }
-        },
-        {
-            "name": "get_income_statement",
-            "description": "Retrieves historical income statements for a list of stock tickers.",
-            "parameters": {
-                "tickers": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of stock ticker symbols."
-                },
-                "time_period": {
-                    "type": "string",
-                    "enum": ["annual", "quarter", "ttm"],
-                    "description": "Time period for the data: annual, quarter, ttm."
-                },
-                "keep_keys": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of data keys to retain in the output."
-                }
-            },
-            "required": ["tickers", "time_period"]
-        },
-        # Add remaining function definitions similarly
-    ]
-
-    # Convert templates to function definitions
-    definitions = []
-    for tpl in templates:
-        func_def = {
-            "name": tpl["name"],
-            "description": tpl["description"],
-            "strict_json_schema": True,
-            "parameters": {
-                "type": "object",
-                "properties": tpl["parameters"],
-            }
-        }
-        
-        # Add required fields if specified
-        if "required" in tpl:
-            func_def["parameters"]["required"] = tpl["required"]
-
-        definitions.append(func_def)
-
-    return definitions
 
 
 def get_function_definitions():
@@ -1308,7 +1232,13 @@ def get_function_definitions():
             "name": "get_top_active_stocks", 
             "description": "Retrieves a list of stocks with the largest trading volume for the current trading day. Returns stocks ranked by their daily volume, showing which securities have traded the most today.",
             "parameters": {},
-        }
+        },
+        {
+            "name": "get_potus_tracker",
+            "description": "Retrieves the President of the United States (POTUS) tracker, including the latest presidential schedule, Truth Social posts, executive orders, and the performance of the S&P 500 (SPY) since the current president's inauguration.",
+            "parameters": {}
+        },
+
     ]
 
     definitions = []
@@ -1322,7 +1252,6 @@ def get_function_definitions():
                 "properties": tpl.get("parameters", {}),
             }
         }
-
         # Only include "required" if explicitly provided
         if "required" in tpl:
             func_def["parameters"]["required"] = tpl["required"]
@@ -1333,6 +1262,6 @@ def get_function_definitions():
 
 
 #Testing purposes
-#data = asyncio.run(get_top_active_stocks())
+#data = asyncio.run(get_potus_tracker())
 #print(data)
 
