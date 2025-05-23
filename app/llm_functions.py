@@ -968,6 +968,11 @@ async def get_market_flow():
     except Exception as e:
         return f"Error processing market flow data: {str(e)}"
 
+async def get_stock_quote(tickers: List[str]) -> Dict[str, Any]:
+    """Get upcoming earnings dates and estimates for multiple stocks."""
+    return await get_ticker_specific_data(tickers, "quote")
+
+
 '''
 async def get_historical_price(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     data = await get_ticker_specific_data(tickers, "historical-price/max")
@@ -1328,6 +1333,18 @@ def get_function_definitions():
             },
             "required": ["congress_id"]
         },
+        {
+            "name": "get_stock_quote",
+            "description": "Retrieves the most recent stock quote data for one or more ticker symbols. Returns real-time information including the latest trading price, percentage change, trading volume, day high and low, 52-week high and low, market capitalization, previous close, earnings per share (EPS), price-to-earnings (P/E) ratio, as well as current ask and bid prices. Ideal for use cases requiring timely and detailed market updates.",
+            "parameters": {
+                "tickers": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
+                }
+            },
+            "required": ["tickers"]
+        },
     ]
 
     definitions = []
@@ -1351,6 +1368,6 @@ def get_function_definitions():
 
 
 #Testing purposes
-#data = asyncio.run(get_congress_activity('70ea82b2cb'))
+#data = asyncio.run(get_stock_quote(['AMD']))
 #print(data)
 

@@ -286,32 +286,33 @@ def json_to_string(json_data):
         return f"An unexpected error occurred: {e}"
 
 
-
-# --- Configuration for Trigger Phrases ---
+# --- Enhanced Configuration for Trigger Phrases ---
 TRIGGER_CONFIG = {
     "@Analyst": {
         "description": "Handles analyst-related queries by forcing specific financial tool calls.",
         "parameter_extraction": {
             "prompt_template": "First identify the stock ticker symbols mentioned in the user's query: '{query}'. If no specific tickers are mentioned, identify which companies the user is likely interested in and determine their ticker symbols. Return ONLY the ticker symbols as a comma-separated list without any explanation or additional text. Example response format: 'AAPL,MSFT,GOOG'",
-            "regex_pattern": r'\$?([A-Z]{1,5})\b', # Regex to find ticker symbols
-            "default_value": ["AAPL"], # Default if no tickers found
-            "param_name": "tickers_list"  # Key for storing extracted tickers
+            "regex_pattern": r'\$?([A-Z]{1,5})\b',
+            "default_value": ["AAPL"],
+            "param_name": "tickers_list"
         },
         "perform_initial_llm_call": True,
         "pre_forced_tools_assistant_message_template": "Let me check the analyst information for {params}.",
         "forced_tool_calls": [
             {
-                "id_template": "afunc1",
+                "id_template": "afunc1_{index}",
                 "function_name": "get_analyst_estimate",
-                # Maps function argument "tickers" to the extracted "tickers_list"
-                "arguments_mapping": {"tickers": "tickers_list"}
+                "arguments_mapping": {"tickers": "tickers_list"},
+                "required": True  # Ensures this function MUST be called
             },
             {
-                "id_template": "afunc2",
+                "id_template": "afunc2_{index}",
                 "function_name": "get_analyst_ratings",
-                "arguments_mapping": {"tickers": "tickers_list"}
+                "arguments_mapping": {"tickers": "tickers_list"},
+                "required": True
             }
         ],
+        "validate_all_calls_executed": True,  # New flag to ensure all functions are called
     },
     "@OptionsFlow": {
         "description": "Handles options flow order related queries by forcing specific financial tool calls.",
@@ -325,11 +326,13 @@ TRIGGER_CONFIG = {
         "pre_forced_tools_assistant_message_template": "Let me check the latest options flow orders information for {params}.",
         "forced_tool_calls": [
             {
-                "id_template": "ofeed",
+                "id_template": "ofeed_{index}",
                 "function_name": "get_latest_options_flow_feed",
-                "arguments_mapping": {"tickers": "tickers_list"}
+                "arguments_mapping": {"tickers": "tickers_list"},
+                "required": True
             },
         ],
+        "validate_all_calls_executed": True,
     },
     "@DarkPoolFlow": {
         "description": "Handles dark pool flow order related queries by forcing specific financial tool calls.",
@@ -343,39 +346,97 @@ TRIGGER_CONFIG = {
         "pre_forced_tools_assistant_message_template": "Let me check the latest dark pool flow orders information for {params}.",
         "forced_tool_calls": [
             {
-                "id_template": "dark_pool_feed",
+                "id_template": "dark_pool_feed_{index}",
                 "function_name": "get_latest_dark_pool_feed",
-                "arguments_mapping": {"tickers": "tickers_list"}
+                "arguments_mapping": {"tickers": "tickers_list"},
+                "required": True
             },
         ],
+        "validate_all_calls_executed": True,
     },
     "@News": {
         "description": "Handles news-related queries by forcing specific financial tool calls.",
         "parameter_extraction": {
             "prompt_template": "First identify the stock ticker symbols mentioned in the user's query: '{query}'. If no specific tickers are mentioned, identify which companies the user is likely interested in and determine their ticker symbols. Return ONLY the ticker symbols as a comma-separated list without any explanation or additional text. Example response format: 'AAPL,MSFT,GOOG'",
-            "regex_pattern": r'\$?([A-Z]{1,5})\b', # Regex to find ticker symbols
-            "default_value": ["AAPL"], # Default if no tickers found
-            "param_name": "tickers_list"  # Key for storing extracted tickers
+            "regex_pattern": r'\$?([A-Z]{1,5})\b',
+            "default_value": ["AAPL"],
+            "param_name": "tickers_list"
         },
         "perform_initial_llm_call": True,
         "pre_forced_tools_assistant_message_template": "Let me check the latest news information for {params}.",
         "forced_tool_calls": [
             {
-                "id_template": "wiim",
+                "id_template": "wiim_{index}",
                 "function_name": "get_why_priced_moved",
-                "arguments_mapping": {"tickers": "tickers_list"}
+                "arguments_mapping": {"tickers": "tickers_list"},
+                "required": True
             },
             {
-                "id_template": "marketNews",
+                "id_template": "marketNews_{index}",
                 "function_name": "get_market_news",
-                "arguments_mapping": {"tickers": "tickers_list"}
+                "arguments_mapping": {"tickers": "tickers_list"},
+                "required": True
             }
         ],
+        "validate_all_calls_executed": True,
     },
-    # Add more trigger configurations here
+    "@RealtimeData": {
+        "description": "Retrieves and aggregates real-time market insights relevant to today's activity for specified stocks. This includes automatic invocation of financial tools to analyze price movements, news, dark pool activity, options flow, and analyst ratings.",
+        "parameter_extraction": {
+            "prompt_template": "Identify the stock ticker symbols mentioned in the user's query: '{query}'. If no explicit symbols are provided, infer which companies the user is likely referring to and return their ticker symbols. Output only the symbols as a comma-separated list with no additional text. Example: 'AAPL,MSFT,GOOG'.",
+            "regex_pattern": "\\$?([A-Z]{1,5})\\b",
+            "default_value": ["AAPL"],
+            "param_name": "tickers_list"
+        },
+        "perform_initial_llm_call": True,
+        "pre_forced_tools_assistant_message_template": "Provide only the relevant data for today's trading session. If today is a weekend or market holiday, reference the most recent trading day instead for {params}.",
+        "forced_tool_calls": [
+            {
+                "id_template": "realtime_wiim_{index}",
+                "function_name": "get_why_priced_moved",
+                "arguments_mapping": {"tickers": "tickers_list"},
+                "required": True
+            },
+            {
+                "id_template": "realtime_marketNews_{index}",
+                "function_name": "get_market_news",
+                "arguments_mapping": {"tickers": "tickers_list"},
+                "required": True
+            },
+            {
+                "id_template": "realtime_dp_{index}",
+                "function_name": "get_latest_dark_pool_feed",
+                "arguments_mapping": {"tickers": "tickers_list"},
+                "required": True
+            },
+            {
+                "id_template": "realtime_options_{index}",
+                "function_name": "get_latest_options_flow_feed",
+                "arguments_mapping": {"tickers": "tickers_list"},
+                "required": True
+            },
+            {
+                "id_template": "realtime_analyst_rating_{index}",
+                "function_name": "get_analyst_ratings",
+                "arguments_mapping": {"tickers": "tickers_list"},
+                "required": True
+            },
+            {
+                "id_template": "realtime_stock_quote_{index}",
+                "function_name": "get_stock_quote",
+                "arguments_mapping": {"tickers": "tickers_list"},
+                "required": True
+            }
+        ],
+        "validate_all_calls_executed": True,
+    },
 }
 
-# --- Helper Functions ---
+
+# --- Enhanced Helper Functions ---
+class ForcedToolCallExecutionError(Exception):
+    """Raised when forced tool calls fail to execute properly."""
+    pass
 
 
 async def _extract_parameters(user_query, extraction_config, async_client, model, max_tokens, semaphore, context_messages):
@@ -387,7 +448,6 @@ async def _extract_parameters(user_query, extraction_config, async_client, model
     if extraction_config.get("prompt_template"):
         extraction_prompt_content = extraction_config["prompt_template"].format(query=user_query)
         
-        # Use a copy of context messages, add the specific extraction system prompt
         llm_extraction_messages = context_messages.copy()
         llm_extraction_messages.append({"role": "system", "content": extraction_prompt_content})
         
@@ -401,11 +461,10 @@ async def _extract_parameters(user_query, extraction_config, async_client, model
         if params_str:
             extracted_values = [p.strip() for p in params_str.split(',') if p.strip()]
 
-    # 2. Regex fallback (if LLM failed or not configured for LLM)
+    # 2. Regex fallback
     if not extracted_values and extraction_config.get("regex_pattern"):
         matches = re.findall(extraction_config["regex_pattern"], user_query)
         if matches:
-            # Handle cases where findall returns list of strings or list of tuples (from capture groups)
             if isinstance(matches[0], tuple):
                 extracted_values = [m[0].strip() for m in matches if m[0].strip()]
             else:
@@ -418,62 +477,118 @@ async def _extract_parameters(user_query, extraction_config, async_client, model
     return {param_name: extracted_values}
 
 
-async def _execute_and_append_tool_calls(tool_calls_to_process, messages, function_map):
+async def _execute_and_append_tool_calls(tool_calls_to_process, messages, function_map, validate_execution=False):
     """
-    Executes a list of tool calls (either from LLM or forced) and appends results to messages.
-    tool_calls_to_process can be a list of OpenAI tool_call objects or dicts for forced calls.
+    Executes a list of tool calls and appends results to messages.
+    
+    Args:
+        tool_calls_to_process: List of tool calls to execute
+        messages: Message list to append results to
+        function_map: Available functions
+        validate_execution: If True, raises exception if any tool call fails
     """
+    execution_results = {"successful": [], "failed": []}
     
     async def execute_single_tool(call_info):
         is_forced_call_dict = isinstance(call_info, dict)
-
         tool_call_id = call_info.id if not is_forced_call_dict else call_info["id"]
         fn_name = call_info.function.name if not is_forced_call_dict else call_info["function"]["name"]
         arguments_str = call_info.function.arguments if not is_forced_call_dict else call_info["function"]["arguments"]
         
         result_content_payload = {}
+        success = False
+        
         try:
             args = json.loads(arguments_str)
             if fn_name in function_map:
-                # Call the actual function
                 result_content_payload = await function_map[fn_name](**args)
+                success = True
+                print(f"✓ Successfully executed function: {fn_name}")
             else:
-                print(f"Error: Unknown function {fn_name} requested by tool call.")
-                result_content_payload = {"error": f"Unknown function {fn_name}"}
+                error_msg = f"Unknown function {fn_name} requested by tool call."
+                print(f"✗ Error: {error_msg}")
+                result_content_payload = {"error": error_msg}
         except json.JSONDecodeError as e:
-            print(f"Error decoding JSON arguments for {fn_name}: {str(e)}. Arguments: '{arguments_str}'")
-            result_content_payload = {"error": f"Invalid arguments format for {fn_name}: {str(e)}"}
+            error_msg = f"Invalid arguments format for {fn_name}: {str(e)}"
+            print(f"✗ JSON Error: {error_msg}. Arguments: '{arguments_str}'")
+            result_content_payload = {"error": error_msg}
         except Exception as e:
-            print(f"Error executing function {fn_name}: {str(e)}")
-            result_content_payload = {"error": str(e)}
+            error_msg = f"Error executing function {fn_name}: {str(e)}"
+            print(f"✗ Execution Error: {error_msg}")
+            result_content_payload = {"error": error_msg}
 
-        return {
+        tool_result = {
             "role": "tool",
             "tool_call_id": tool_call_id,
             "name": fn_name,
-            "content": json.dumps(result_content_payload) # Ensure content is JSON string
+            "content": json.dumps(result_content_payload)
         }
+        
+        if success:
+            execution_results["successful"].append(fn_name)
+        else:
+            execution_results["failed"].append(fn_name)
+            
+        return tool_result
 
+    # Execute all tool calls concurrently
     tasks = [execute_single_tool(tc) for tc in tool_calls_to_process]
     tool_results_messages = await asyncio.gather(*tasks)
 
+    # Append all results to messages
     for res_msg in tool_results_messages:
         messages.append(res_msg)
+    
+    # Validate execution if required
+    if validate_execution and execution_results["failed"]:
+        failed_functions = ", ".join(execution_results["failed"])
+        raise ForcedToolCallExecutionError(
+            f"Failed to execute required functions: {failed_functions}"
+        )
+    
+    print(f"Tool execution summary - Successful: {len(execution_results['successful'])}, "
+          f"Failed: {len(execution_results['failed'])}")
+    
+    return execution_results
+
+
+async def _validate_forced_tool_calls_completion(config, execution_results):
+    """
+    Validates that all required forced tool calls were executed successfully.
+    """
+    if not config.get("validate_all_calls_executed", False):
+        return True
+    
+    required_functions = [
+        tool_call["function_name"] 
+        for tool_call in config.get("forced_tool_calls", [])
+        if tool_call.get("required", True)
+    ]
+    
+    successful_functions = execution_results.get("successful", [])
+    missing_functions = [fn for fn in required_functions if fn not in successful_functions]
+    
+    if missing_functions:
+        raise ForcedToolCallExecutionError(
+            f"Required functions were not executed successfully: {', '.join(missing_functions)}"
+        )
+    
+    print(f"✓ All {len(required_functions)} required functions executed successfully")
+    return True
 
 
 async def _handle_configured_case(data, base_messages, config, user_query, 
                                   async_client, chat_model, max_tokens, semaphore, 
                                   function_map, system_message, tools_payload):
     """Handles request processing for a specifically configured trigger case."""
-    messages = base_messages.copy() # Start with system_message + history + current_user_query
+    messages = base_messages.copy()
     extracted_data = {}
+
+    print(f"Processing configured case: {config['description']}")
 
     # 1. Parameter Extraction
     if "parameter_extraction" in config:
-        # For parameter extraction, we might not need full history, just user query and a system prompt.
-        # Or, use a minimal context. The original Analyst code used messages.copy() for ticker_extraction_messages.
-        # Let's pass the current `messages` as context for extraction LLM.
-        context_for_extraction = messages.copy() # Contains system_msg + history + user_query
+        context_for_extraction = messages.copy()
         extracted_data = await _extract_parameters(
             user_query,
             config["parameter_extraction"],
@@ -483,37 +598,38 @@ async def _handle_configured_case(data, base_messages, config, user_query,
             semaphore,
             context_for_extraction
         )
-        print(f"Extracted parameters for '{config['description']}': {extracted_data}")
-        # Ensure default is applied if extraction yields nothing and default exists
+        print(f"Extracted parameters: {extracted_data}")
+        
+        # Ensure default is applied if extraction yields nothing
         param_conf = config["parameter_extraction"]
         if not extracted_data.get(param_conf["param_name"]) and param_conf.get("default_value"):
            extracted_data[param_conf["param_name"]] = param_conf["default_value"]
 
-
+    # 2. Initial LLM Call (optional)
     if config.get("perform_initial_llm_call", False):
+        print("Performing initial LLM call...")
         async with semaphore:
-            # This call uses the main message history
             initial_response = await async_client.chat.completions.create(
                 model=chat_model,
-                messages=messages, # These are system_msg + history + user_query
-                max_tokens=max_tokens,
-                # Decide if this initial call can also use tools or not.
-                # Original Analyst flow didn't seem to process tools from this specific call.
-                # tools=tools_payload if config.get("initial_call_can_use_tools") else None,
-                # tool_choice="auto" if config.get("initial_call_can_use_tools") else None
+                messages=messages,
+                max_tokens=max_tokens
             )
         assistant_msg_before_forced = initial_response.choices[0].message
         messages.append(assistant_msg_before_forced)
-        
-    if "forced_tool_calls" in config and config["forced_tool_calls"]:
-        forced_tool_call_objects_for_api = []
-        
-        # Get the primary parameter value list (e.g., list of tickers or locations)
-        # This is used for the pre_forced_tools_assistant_message_template's {params}
-        param_values_for_template = []
-        if "parameter_extraction" in config:
-            param_values_for_template = extracted_data.get(config["parameter_extraction"]["param_name"], [])
 
+    # 3. Execute Forced Tool Calls (GUARANTEED EXECUTION)
+    if "forced_tool_calls" in config and config["forced_tool_calls"]:
+        print(f"Executing {len(config['forced_tool_calls'])} forced tool calls...")
+        
+        forced_tool_call_objects_for_api = []
+        param_values_for_template = []
+        
+        if "parameter_extraction" in config:
+            param_values_for_template = extracted_data.get(
+                config["parameter_extraction"]["param_name"], []
+            )
+
+        # Build forced tool call objects
         for i, tool_conf in enumerate(config["forced_tool_calls"]):
             function_args = {}
             if "arguments_mapping" in tool_conf:
@@ -521,11 +637,11 @@ async def _handle_configured_case(data, base_messages, config, user_query,
                     if source_param_key in extracted_data:
                         function_args[func_arg_name] = extracted_data[source_param_key]
                     else:
-                        print(f"Warning: Source parameter '{source_param_key}' not found in extracted_data for function '{tool_conf['function_name']}'. Using empty list as fallback.")
-                        function_args[func_arg_name] = [] # Sensible fallback, might need to be configurable
+                        print(f"Warning: Source parameter '{source_param_key}' not found. Using empty list.")
+                        function_args[func_arg_name] = []
             
             forced_tool_call_objects_for_api.append({
-                "id": tool_conf["id_template"].format(index=i), # Simpler ID, ensure uniqueness if needed
+                "id": tool_conf["id_template"].format(index=i),
                 "type": "function",
                 "function": {
                     "name": tool_conf["function_name"],
@@ -534,8 +650,8 @@ async def _handle_configured_case(data, base_messages, config, user_query,
             })
 
         if forced_tool_call_objects_for_api:
-            # Create a synthetic assistant message to carry these forced tool calls
-            assistant_content = "Proceeding with required actions..." # Default content
+            # Create assistant message with forced tool calls
+            assistant_content = "Proceeding with required actions..."
             if config.get("pre_forced_tools_assistant_message_template"):
                 assistant_content = config["pre_forced_tools_assistant_message_template"].format(
                     params=", ".join(map(str, param_values_for_template)) if param_values_for_template else "the relevant items"
@@ -547,11 +663,19 @@ async def _handle_configured_case(data, base_messages, config, user_query,
                 "tool_calls": forced_tool_call_objects_for_api
             })
             
-            # Execute these forced tools
-            await _execute_and_append_tool_calls(forced_tool_call_objects_for_api, messages, function_map)
+            # Execute forced tools with validation
+            execution_results = await _execute_and_append_tool_calls(
+                forced_tool_call_objects_for_api, 
+                messages, 
+                function_map,
+                validate_execution=config.get("validate_all_calls_executed", False)
+            )
+            
+            # Additional validation step
+            await _validate_forced_tool_calls_completion(config, execution_results)
 
-    # 4. Get Final Response from LLM
-    # This call happens after parameter extraction, optional initial call, and any forced tool calls + results.
+    # 4. Final Response from LLM
+    print("Getting final response from LLM...")
     final_llm_messages = messages.copy()
     
     async with semaphore:
@@ -559,40 +683,49 @@ async def _handle_configured_case(data, base_messages, config, user_query,
             model=chat_model,
             messages=final_llm_messages,
             max_tokens=max_tokens
-            # Typically, no 'tools' or 'tool_choice' here, as this is the concluding text response.
         )
     final_assistant_msg = final_response.choices[0].message
-    messages.append(final_assistant_msg) # Append the final message object
+    messages.append(final_assistant_msg)
 
+    print("✓ Configured case processing completed successfully")
     return messages
 
 
-async def process_request(data, async_client, function_map, request_semaphore, system_message, CHAT_MODEL, MAX_TOKENS, tools_payload):
+async def process_request(data, async_client, function_map, request_semaphore, system_message, 
+                         CHAT_MODEL, MAX_TOKENS, tools_payload):
+    """
+    Enhanced process_request function with guaranteed function execution for triggers.
+    """
     user_query = data.query.lower()
     current_messages_history = list(data.messages) 
 
-    prepared_initial_messages = [system_message] + current_messages_history + [{"role": "user", "content": user_query}]
+    prepared_initial_messages = [system_message] + current_messages_history + [
+        {"role": "user", "content": user_query}
+    ]
 
     active_config = None
     trigger_phrase_found = None
 
+    # Check for trigger phrases
     for trigger, config_item in TRIGGER_CONFIG.items():
         if trigger.lower() in user_query:
             active_config = config_item
             trigger_phrase_found = trigger
-            print(f"Detected trigger: {trigger_phrase_found}")
+            print(f"🎯 Detected trigger: {trigger_phrase_found}")
             break
             
     try:
         if active_config:
             # Handle request using the specific configuration for the detected trigger
+            # This guarantees all configured functions will be called
             return await _handle_configured_case(
                 data, prepared_initial_messages, active_config, user_query,
                 async_client, CHAT_MODEL, MAX_TOKENS, request_semaphore,
                 function_map, system_message, tools_payload
             )
         else:
-            # Standard flow: LLM decides on tool usage based on general prompt and available tools
+            # Standard flow: LLM decides on tool usage
+            print("Processing standard request (no triggers detected)")
             messages = prepared_initial_messages.copy()
 
             async with request_semaphore:
@@ -605,19 +738,18 @@ async def process_request(data, async_client, function_map, request_semaphore, s
                 )
             
             assistant_msg = response.choices[0].message
-            messages.append(assistant_msg) # Append OpenAI message object
+            messages.append(assistant_msg)
 
-            # Loop to handle multiple rounds of tool calls if initiated by the LLM
+            # Handle multiple rounds of tool calls if initiated by the LLM
             while hasattr(assistant_msg, 'tool_calls') and assistant_msg.tool_calls:
                 await _execute_and_append_tool_calls(assistant_msg.tool_calls, messages, function_map)
                 
-                # Get model response after processing tool calls
                 async with request_semaphore:
                     followup_response = await async_client.chat.completions.create(
                         model=CHAT_MODEL,
                         messages=messages,
                         max_tokens=MAX_TOKENS,
-                        tools=tools_payload, # Allow further tool use
+                        tools=tools_payload,
                         tool_choice="auto" if tools_payload else "none" 
                     )
                 assistant_msg = followup_response.choices[0].message
@@ -625,7 +757,47 @@ async def process_request(data, async_client, function_map, request_semaphore, s
             
             return messages
 
-    except Exception as e:
-        print(f"Request processing failed: {e}")
+    except ForcedToolCallExecutionError as e:
+        print(f"❌ Forced tool call execution failed: {e}")
+        # You might want to return an error message or retry logic here
         raise
+    except Exception as e:
+        print(f"❌ Request processing failed: {e}")
+        raise
+
+
+# --- Utility Functions for Monitoring ---
+
+def get_trigger_statistics():
+    """Returns statistics about configured triggers."""
+    stats = {}
+    for trigger, config in TRIGGER_CONFIG.items():
+        forced_calls = config.get("forced_tool_calls", [])
+        stats[trigger] = {
+            "description": config.get("description", ""),
+            "total_forced_functions": len(forced_calls),
+            "required_functions": len([fc for fc in forced_calls if fc.get("required", True)]),
+            "function_names": [fc["function_name"] for fc in forced_calls],
+            "validation_enabled": config.get("validate_all_calls_executed", False)
+        }
+    return stats
+
+
+def validate_trigger_config():
+    """Validates the trigger configuration for consistency."""
+    issues = []
+    
+    for trigger, config in TRIGGER_CONFIG.items():
+        # Check for required fields
+        if not config.get("description"):
+            issues.append(f"{trigger}: Missing description")
         
+        # Check forced tool calls
+        forced_calls = config.get("forced_tool_calls", [])
+        for i, call in enumerate(forced_calls):
+            if not call.get("function_name"):
+                issues.append(f"{trigger}: Tool call {i} missing function_name")
+            if not call.get("id_template"):
+                issues.append(f"{trigger}: Tool call {i} missing id_template")
+    
+    return issues
