@@ -382,7 +382,7 @@ async def get_latest_wiim():
         dt = datetime.strptime(item['date'], '%a, %d %b %Y %H:%M:%S %z')
         item['date'] = dt.strftime('%Y-%m-%d')
 
-    return res_list[:5]
+    return res_list[:10]
 
 
 def get_dark_pool():
