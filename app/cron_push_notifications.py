@@ -132,8 +132,7 @@ async def push_wiim(user_id):
                                 asset_type = 'index'
 
                             newNotification = {
-                                'opUser': user_id,
-                                'user': '9ncz4wunmhk0k52', #stocknear bot id
+                                'user': user_id,
                                 'notifyType': 'wiim',
                                 'sent': True,
                                 'pushHash': unique_id,
@@ -212,8 +211,7 @@ async def push_earnings_release(user_id):
                                     asset_type = 'index'
 
                                 newNotification = {
-                                    'opUser': user_id,
-                                    'user': '9ncz4wunmhk0k52', #stocknear bot id
+                                    'user': user_id,
                                     'notifyType': 'earningsSurprise',
                                     'sent': True,
                                     'pushHash': unique_id,
@@ -278,8 +276,7 @@ async def push_top_analyst(user_id):
                                 asset_type = 'stock'
                              
                                 newNotification = {
-                                    'opUser': user_id,
-                                    'user': '9ncz4wunmhk0k52', #stocknear bot id
+                                    'user': user_id,
                                     'notifyType': 'topAnalyst',
                                     'sent': True,
                                     'pushHash': unique_id,
