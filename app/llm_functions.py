@@ -1382,7 +1382,7 @@ def get_function_definitions():
         {
             "name": "get_congress_activity",
             "description": (
-                f"Retrieves and filters congressional trading activity for a specific congressperson based on the id which can be found here {key_congress_db}."
+                f"Retrieves and filters congressional trading activity for a specific congressperson based on the id which can be found here {key_congress_db}. E.g. Nancy Pelosi, Marjorie Greene, Rob Bresnahan etc."
                 "Removes personally identifying and extraneous fields from transaction history. "
                 "Useful for analyzing political trading patterns without sensitive details."
             ),
