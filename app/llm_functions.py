@@ -984,6 +984,56 @@ async def get_stock_quote(tickers: List[str]) -> Dict[str, Any]:
     return await get_ticker_specific_data(tickers, "quote")
 
 
+async def get_insider_trading(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+    """Get recent news for multiple stocks."""
+    base_dir = BASE_DIR / "insider-trading/history"
+    
+    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
+    results = await asyncio.gather(*tasks)
+    
+    filtered_results = {}
+    for ticker, data in zip(tickers, results):
+        if data is not None:
+            # Filter for recent news only
+            filtered_data = [
+                {k: v for k, v in item.items() if k not in ['companyCik', 'url']} for item in data]
+            if filtered_data:  # Only add if there's data
+                filtered_results[ticker] = filtered_data[:50]
+                
+    return filtered_results
+
+async def get_shareholders(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+    """Get recent news for multiple stocks."""
+    base_dir = BASE_DIR / "shareholders"
+    
+    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
+    results = await asyncio.gather(*tasks)
+    
+    filtered_results = {}
+    for ticker, data in zip(tickers, results):
+        if data is not None:
+            filtered_results[ticker] = data
+                
+    return filtered_results
+
+async def get_company_options_data(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+    """Get recent news for multiple stocks."""
+    base_dir = BASE_DIR / "options-historical-data/companies"
+    
+    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
+    results = await asyncio.gather(*tasks)
+    
+    filtered_results = {}
+    for ticker, data in zip(tickers, results):
+        if data is not None:
+            # Filter for recent news only
+            filtered_data = [
+                {k: v for k, v in item.items() if k not in ['price', 'changesPercentage']} for item in data]
+            if filtered_data:  # Only add if there's data
+                filtered_results[ticker] = filtered_data[0]
+                
+    return filtered_results
+
 '''
 async def get_historical_price(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     data = await get_ticker_specific_data(tickers, "historical-price/max")
@@ -1294,7 +1344,7 @@ def get_function_definitions():
         },
         {
             "name": "get_analyst_ratings",
-            "description": "Retrieves the latest analyst ratings for multiple stocks. Call it always if @Analyst is in the user query",
+            "description": "Retrieves the latest analyst ratings for multiple stocks.",
             "parameters": {
                 "tickers": {
                     "type": "array",
@@ -1356,6 +1406,42 @@ def get_function_definitions():
             },
             "required": ["tickers"]
         },
+        {
+            "name": "get_insider_trading",
+            "description": "Fetch detailed insider trading records—such as buys, sells, grant dates, and volumes—executed by corporate insiders (officers, directors, major shareholders) for the specified stock tickers.",
+            "parameters": {
+                "tickers": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
+                }
+            },
+            "required": ["tickers"]
+        },
+        {
+            "name": "get_shareholders",
+            "description": "Fetch detailed current major shareholders for the specified stock tickers.",
+            "parameters": {
+                "tickers": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
+                }
+            },
+            "required": ["tickers"]
+        },
+        {
+            "name": "get_company_options_data",
+            "description": "Fetch comprehensive options statistics for the most recent trading day for the specified stock tickers. Includes volume, open interest, premiums, GEX/DEX, implied volatility metrics, and price changes.",
+            "parameters": {
+                "tickers": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
+                }
+            },
+            "required": ["tickers"]
+        }
     ]
 
     definitions = []
@@ -1379,6 +1465,6 @@ def get_function_definitions():
 
 
 #Testing purposes
-#data = asyncio.run(get_latest_options_flow_feed([]))
+#data = asyncio.run(get_company_options_data(['AAPL','AMD']))
 #print(data)
 

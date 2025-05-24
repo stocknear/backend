@@ -102,8 +102,8 @@ client = httpx.AsyncClient(http2=True, timeout=10.0)
 async_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 CHAT_MODEL = os.getenv("CHAT_MODEL")
 MAX_TOKENS = int(os.getenv("MAX_TOKENS"))
-with open("json/llm/instructions.json","rb") as file:
-    INSTRUCTIONS = json_to_string(orjson.loads(file.read()))
+with open("json/llm/instructions.txt","r",encoding="utf-8") as file:
+    INSTRUCTIONS = file.read()
 
 function_definitions = get_function_definitions()
 function_map = {fn["name"]: globals()[fn["name"]] for fn in function_definitions}
