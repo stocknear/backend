@@ -444,6 +444,17 @@ TRIGGER_CONFIG = {
 }
 
 
+UI_COMPONENT_CONFIG = {
+    "@plot": {
+        "config_param_path": ["parameter_extraction", "param_name"],  # Path to parameter name in config
+        "content_template": "Here is the plot for  {tickers}",  # Template for success message
+        "no_data_content": "No stocks data available to plot",  # Template for empty data
+        "component_name": "plot",  # Component key in callComponent
+        "data_key": "tickerList"  # Data key in callComponent
+    }
+    # Add new components here like:
+}
+
 # --- Enhanced Helper Functions ---
 class ForcedToolCallExecutionError(Exception):
     """Raised when forced tool calls fail to execute properly."""
@@ -588,6 +599,29 @@ async def _validate_forced_tool_calls_completion(config, execution_results):
     return True
 
 
+def handle_call_component_case(trigger_phrase, extracted_data, ):
+    if trigger_phrase.lower() == "@plot":
+        param_name = config["parameter_extraction"]["param_name"]
+        ticker_list = extracted_data.get(param_name, [])
+        # Format ticker list for the response
+        if ticker_list:
+            ticker_str = ', '.join(ticker_list) if ticker_list else ''
+            content = f"Here is the plot  {ticker_str}"
+            messages.append({
+                "role": "assistant",
+                "content": content,
+                "callComponent": {"plot": True, "tickerList": ticker_list}
+            })
+        else:
+            content = "No stocks data available to plot"
+            messages.append({
+                "role": "assistant",
+                "content": content,
+                "callComponent": {"plot": False, "tickerList": []}
+            })
+
+    return messages
+
 async def _handle_configured_case(data, base_messages, config, user_query, 
                                   async_client, chat_model, max_tokens, semaphore, 
                                   function_map, system_message, tools_payload, trigger_phrase=None):
@@ -616,21 +650,42 @@ async def _handle_configured_case(data, base_messages, config, user_query,
         if not extracted_data.get(param_conf["param_name"]) and param_conf.get("default_value"):
            extracted_data[param_conf["param_name"]] = param_conf["default_value"]
 
-    if trigger_phrase.lower() == "@plot":
-        param_name = config["parameter_extraction"]["param_name"]
-        ticker_list = extracted_data.get(param_name, [])
-        # Format ticker list for the response
-        ticker_str = ', '.join(ticker_list) if ticker_list else ''
-        content = f"Here is the plot for {ticker_str}"
-        # Append the pre-defined assistant message with plot flag
+    #==========Check to load UI Component Data============
+    trigger = trigger_phrase.lower()
+    if trigger in UI_COMPONENT_CONFIG:
+        comp_config = UI_COMPONENT_CONFIG[trigger]
+        
+        # Get parameter name from config
+        param_name = config
+        for key in comp_config["config_param_path"]:
+            param_name = param_name[key]
+        
+        # Get data list from extracted parameters
+        data_list = extracted_data.get(param_name, [])
+        
+        # Prepare response based on data availability
+        if data_list:
+            content = comp_config["content_template"].format(tickers=', '.join(data_list))
+            component_status = True
+        else:
+            content = comp_config["no_data_content"]
+            component_status = False
+        
+        # Build component payload
+        call_component = {
+            comp_config["component_name"]: component_status,
+            comp_config["data_key"]: data_list if component_status else []
+        }
+        
+        # Add formatted message
         messages.append({
             "role": "assistant",
             "content": content,
-            "tickerList": ticker_list,
-            "plot": True
+            "callComponent": call_component
         })
-        
         return messages
+
+
 
     # 2. Initial LLM Call (optional)
     if config.get("perform_initial_llm_call", False):

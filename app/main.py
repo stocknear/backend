@@ -4596,13 +4596,11 @@ async def compare_data_endpoint(data: CompareData, api_key: str = Security(get_a
 async def generate_stream(messages: List):
     # Check if the last message is a plot response
     try:
-        if messages and messages[-1].get('role') == 'assistant' and messages[-1].get('plot', False):
+        if messages and messages[-1].get('role') == 'assistant' and messages[-1].get('callComponent'):
             content = messages[-1]['content']
-            ticker_list = messages[-1]['tickerList']
             payload = {
                 "content": content,
-                "tickerList": ticker_list,
-                "plot": True
+                "callComponent": messages[-1].get('callComponent'),
             }
             yield orjson.dumps(payload) + b"\n"
             return  # Exit to avoid LLM processing
