@@ -294,7 +294,7 @@ TRIGGER_CONFIG = {
             "prompt_template": "First identify the stock ticker symbols mentioned in the user's query: '{query}'. If no specific tickers are mentioned, identify which companies the user is likely interested in and determine their ticker symbols. Return ONLY the ticker symbols as a comma-separated list without any explanation or additional text. Example response format: 'AAPL,MSFT,GOOG'",
             "regex_pattern": r'\$?([A-Z]{1,5})\b',
             "default_value": ["AAPL"],
-            "param_name": "tickers_list"
+            "param_name": "ticker_list"
         },
         "perform_initial_llm_call": True,
         "pre_forced_tools_assistant_message_template": "Let me check the analyst information for {params}.",
@@ -302,13 +302,13 @@ TRIGGER_CONFIG = {
             {
                 "id_template": "afunc1_{index}",
                 "function_name": "get_analyst_estimate",
-                "arguments_mapping": {"tickers": "tickers_list"},
+                "arguments_mapping": {"tickers": "ticker_list"},
                 "required": True  # Ensures this function MUST be called
             },
             {
                 "id_template": "afunc2_{index}",
                 "function_name": "get_analyst_ratings",
-                "arguments_mapping": {"tickers": "tickers_list"},
+                "arguments_mapping": {"tickers": "ticker_list"},
                 "required": True
             }
         ],
@@ -320,7 +320,7 @@ TRIGGER_CONFIG = {
             "prompt_template": "First identify the stock ticker symbols mentioned in the user's query: '{query}'. Return ONLY the ticker symbols as a comma-separated list without any explanation or additional text. Example response format: 'AAPL,MSFT,GOOG'. If no specific tickers are mentioned, set the argument to an empty list",
             "regex_pattern": r'\$?([A-Z]{1,5})\b',
             "default_value": [],
-            "param_name": "tickers_list"
+            "param_name": "ticker_list"
         },
         "perform_initial_llm_call": True,
         "pre_forced_tools_assistant_message_template": "Let me check the latest options flow orders information for {params}.",
@@ -328,7 +328,7 @@ TRIGGER_CONFIG = {
             {
                 "id_template": "ofeed_{index}",
                 "function_name": "get_latest_options_flow_feed",
-                "arguments_mapping": {"tickers": "tickers_list"},
+                "arguments_mapping": {"tickers": "ticker_list"},
                 "required": True
             },
         ],
@@ -340,7 +340,7 @@ TRIGGER_CONFIG = {
             "prompt_template": "First identify the stock ticker symbols mentioned in the user's query: '{query}'. Return ONLY the ticker symbols as a comma-separated list without any explanation or additional text. Example response format: 'AAPL,MSFT,GOOG'. If no specific tickers are mentioned, set the argument to an empty list",
             "regex_pattern": r'\$?([A-Z]{1,5})\b',
             "default_value": [],
-            "param_name": "tickers_list"
+            "param_name": "ticker_list"
         },
         "perform_initial_llm_call": True,
         "pre_forced_tools_assistant_message_template": "Let me check the latest dark pool flow orders information for {params}.",
@@ -348,7 +348,7 @@ TRIGGER_CONFIG = {
             {
                 "id_template": "dark_pool_feed_{index}",
                 "function_name": "get_latest_dark_pool_feed",
-                "arguments_mapping": {"tickers": "tickers_list"},
+                "arguments_mapping": {"tickers": "ticker_list"},
                 "required": True
             },
         ],
@@ -360,7 +360,7 @@ TRIGGER_CONFIG = {
             "prompt_template": "First identify the stock ticker symbols mentioned in the user's query: '{query}'. If no specific tickers are mentioned, identify which companies the user is likely interested in and determine their ticker symbols. Return ONLY the ticker symbols as a comma-separated list without any explanation or additional text. Example response format: 'AAPL,MSFT,GOOG'",
             "regex_pattern": r'\$?([A-Z]{1,5})\b',
             "default_value": ["AAPL"],
-            "param_name": "tickers_list"
+            "param_name": "ticker_list"
         },
         "perform_initial_llm_call": True,
         "pre_forced_tools_assistant_message_template": "Let me check the latest news information for {params}.",
@@ -368,13 +368,13 @@ TRIGGER_CONFIG = {
             {
                 "id_template": "wiim_{index}",
                 "function_name": "get_why_priced_moved",
-                "arguments_mapping": {"tickers": "tickers_list"},
+                "arguments_mapping": {"tickers": "ticker_list"},
                 "required": True
             },
             {
                 "id_template": "marketNews_{index}",
                 "function_name": "get_market_news",
-                "arguments_mapping": {"tickers": "tickers_list"},
+                "arguments_mapping": {"tickers": "ticker_list"},
                 "required": True
             }
         ],
@@ -386,7 +386,7 @@ TRIGGER_CONFIG = {
             "prompt_template": "Identify the stock ticker symbols mentioned in the user's query: '{query}'. If no explicit symbols are provided, infer which companies the user is likely referring to and return their ticker symbols. Output only the symbols as a comma-separated list with no additional text. Example: 'AAPL,MSFT,GOOG'.",
             "regex_pattern": "\\$?([A-Z]{1,5})\\b",
             "default_value": ["AAPL"],
-            "param_name": "tickers_list"
+            "param_name": "ticker_list"
         },
         "perform_initial_llm_call": True,
         "pre_forced_tools_assistant_message_template": "Provide only the relevant data for today's trading session. If today is a weekend or market holiday, reference the most recent trading day instead for {params}.",
@@ -394,41 +394,52 @@ TRIGGER_CONFIG = {
             {
                 "id_template": "realtime_wiim_{index}",
                 "function_name": "get_why_priced_moved",
-                "arguments_mapping": {"tickers": "tickers_list"},
+                "arguments_mapping": {"tickers": "ticker_list"},
                 "required": True
             },
             {
                 "id_template": "realtime_marketNews_{index}",
                 "function_name": "get_market_news",
-                "arguments_mapping": {"tickers": "tickers_list"},
+                "arguments_mapping": {"tickers": "ticker_list"},
                 "required": True
             },
             {
                 "id_template": "realtime_dp_{index}",
                 "function_name": "get_latest_dark_pool_feed",
-                "arguments_mapping": {"tickers": "tickers_list"},
+                "arguments_mapping": {"tickers": "ticker_list"},
                 "required": True
             },
             {
                 "id_template": "realtime_options_{index}",
                 "function_name": "get_latest_options_flow_feed",
-                "arguments_mapping": {"tickers": "tickers_list"},
+                "arguments_mapping": {"tickers": "ticker_list"},
                 "required": True
             },
             {
                 "id_template": "realtime_analyst_rating_{index}",
                 "function_name": "get_analyst_ratings",
-                "arguments_mapping": {"tickers": "tickers_list"},
+                "arguments_mapping": {"tickers": "ticker_list"},
                 "required": True
             },
             {
                 "id_template": "realtime_stock_quote_{index}",
                 "function_name": "get_stock_quote",
-                "arguments_mapping": {"tickers": "tickers_list"},
+                "arguments_mapping": {"tickers": "ticker_list"},
                 "required": True
             }
         ],
         "validate_all_calls_executed": True,
+    },
+    "@Plot": {
+        "description": "Analyzes the tickers",
+        "parameter_extraction": {
+            "prompt_template": "Identify the stock ticker symbols mentioned in the user's query: '{query}'. If no explicit symbols are provided, infer which companies the user is likely referring to and return their ticker symbols. Output only the symbols as a comma-separated list with no additional text. Example: 'AAPL,MSFT,GOOG'.",
+            "regex_pattern": "\\$?([A-Z]{1,5})\\b",
+            "default_value": [],
+            "param_name": "ticker_list"
+        },
+        "perform_initial_llm_call": True,
+        "validate_all_calls_executed": False,
     },
 }
 
@@ -579,7 +590,7 @@ async def _validate_forced_tool_calls_completion(config, execution_results):
 
 async def _handle_configured_case(data, base_messages, config, user_query, 
                                   async_client, chat_model, max_tokens, semaphore, 
-                                  function_map, system_message, tools_payload):
+                                  function_map, system_message, tools_payload, trigger_phrase=None):
     """Handles request processing for a specifically configured trigger case."""
     messages = base_messages.copy()
     extracted_data = {}
@@ -604,6 +615,22 @@ async def _handle_configured_case(data, base_messages, config, user_query,
         param_conf = config["parameter_extraction"]
         if not extracted_data.get(param_conf["param_name"]) and param_conf.get("default_value"):
            extracted_data[param_conf["param_name"]] = param_conf["default_value"]
+
+    if trigger_phrase.lower() == "@plot":
+        param_name = config["parameter_extraction"]["param_name"]
+        ticker_list = extracted_data.get(param_name, [])
+        # Format ticker list for the response
+        ticker_str = ', '.join(ticker_list) if ticker_list else ''
+        content = f"Here is the plot for {ticker_str}"
+        # Append the pre-defined assistant message with plot flag
+        messages.append({
+            "role": "assistant",
+            "content": content,
+            "tickerList": ticker_list,
+            "plot": True
+        })
+        
+        return messages
 
     # 2. Initial LLM Call (optional)
     if config.get("perform_initial_llm_call", False):
@@ -711,7 +738,7 @@ async def process_request(data, async_client, function_map, request_semaphore, s
         if trigger.lower() in user_query:
             active_config = config_item
             trigger_phrase_found = trigger
-            print(f"🎯 Detected trigger: {trigger_phrase_found}")
+            print(f"Detected trigger: {trigger_phrase_found}")
             break
             
     try:
@@ -721,7 +748,7 @@ async def process_request(data, async_client, function_map, request_semaphore, s
             return await _handle_configured_case(
                 data, prepared_initial_messages, active_config, user_query,
                 async_client, CHAT_MODEL, MAX_TOKENS, request_semaphore,
-                function_map, system_message, tools_payload
+                function_map, system_message, tools_payload, trigger_phrase=trigger_phrase_found
             )
         else:
             # Standard flow: LLM decides on tool usage
@@ -758,11 +785,11 @@ async def process_request(data, async_client, function_map, request_semaphore, s
             return messages
 
     except ForcedToolCallExecutionError as e:
-        print(f"❌ Forced tool call execution failed: {e}")
+        print(f"Forced tool call execution failed: {e}")
         # You might want to return an error message or retry logic here
         raise
     except Exception as e:
-        print(f"❌ Request processing failed: {e}")
+        print(f"Request processing failed: {e}")
         raise
 
 

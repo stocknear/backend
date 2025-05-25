@@ -53,23 +53,6 @@ from hashlib import md5
 
 
 
-
-
-# Connection pooling for API client
-@asynccontextmanager
-async def get_client_session():
-    # Create a session with connection pooling
-    session = aiohttp.ClientSession(
-        connector=aiohttp.TCPConnector(
-            limit=100,  # Max connections
-            limit_per_host=100,  # Max connections per host
-            keepalive_timeout=60  # Keep connections alive
-        )
-    )
-    try:
-        yield session
-    finally:
-        await session.close()
 @lru_cache(maxsize=100)
 def get_cached_response(query_hash: str) -> Dict[str, Any]:
     return RESPONSE_CACHE.get(query_hash)
@@ -481,48 +464,6 @@ async def hello_world():
     return {"stocknear api"}
 
 
-
-@app.post("/correlation-ticker")
-async def rating_stock(data: TickerData, api_key: str = Security(get_api_key)):
-    data = data.dict()
-    ticker = data['ticker'].upper()
-
-    cache_key = f"correlation-{ticker}"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return orjson.loads(cached_result)
-
-    try:
-        with open(f"json/correlation/companies/{ticker}.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = []
-
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 3600*24) # Set cache expiration time to 12 hour
-
-    return res
-
-
-
-@app.post("/stock-rating")
-async def rating_stock(data: TickerData, api_key: str = Security(get_api_key)):
-    ticker = data.ticker.upper()
-    cache_key = f"stock-rating-{ticker}"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return orjson.loads(cached_result)
-
-    try:
-        with open(f"json/ta-rating/{ticker}.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = {}
-
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 3600*24)  # Set cache expiration time to 1 day
-    return res
-
 @app.post("/historical-adj-price")
 async def get_stock(data: TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
@@ -609,42 +550,6 @@ async def get_stock(data: HistoricalPrice, api_key: str = Security(get_api_key))
         headers={"Content-Encoding": "gzip"}
     )
     
-@app.post("/export-price-data")
-async def get_stock(data: HistoricalPrice, api_key: str = Security(get_api_key)):
-    ticker = data.ticker.upper()
-    time_period = data.timePeriod
-    cache_key = f"export-price-data-{ticker}-{time_period}"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return StreamingResponse(
-            io.BytesIO(cached_result),
-            media_type="application/json",
-            headers={"Content-Encoding": "gzip"}
-        )
-
-    if time_period == 'max':
-        try:
-            with open(f"json/historical-price/max/{ticker}.json", 'rb') as file:
-                res = orjson.loads(file.read())
-        except:
-            res = []
-    else:
-        try:
-            with open(f"json/export/price/{time_period}/{ticker}.json", 'rb') as file:
-                res = orjson.loads(file.read())
-        except:
-            res = []
-
-    res_json = orjson.dumps(res)
-    compressed_data = gzip.compress(res_json)
-    redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 3600*24) # Set cache expiration time to Infinity
-
-    return StreamingResponse(
-        io.BytesIO(compressed_data),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"}
-    )
 
 @app.post("/one-day-price")
 async def get_stock(data: TickerData, api_key: str = Security(get_api_key)):
@@ -665,39 +570,6 @@ async def get_stock(data: TickerData, api_key: str = Security(get_api_key)):
     except:
         res = []
 
-    res_json = orjson.dumps(res)
-    compressed_data = gzip.compress(res_json)
-    redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 60*3)
-
-    return StreamingResponse(
-        io.BytesIO(compressed_data),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"}
-    )
-
-
-@app.post("/hover-stock-chart")
-async def get_hover_stock_chart(data: TickerData, api_key: str = Security(get_api_key)):
-    data = data.dict()
-    ticker = data['ticker'].upper()
-    cache_key = f"hover-stock-chart-{ticker}"
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return StreamingResponse(
-            io.BytesIO(cached_result),
-            media_type="application/json",
-            headers={"Content-Encoding": "gzip"}
-        )
-
-    try:
-        with open(f"json/one-day-price/{ticker}.json", 'rb') as file:
-            price_data = orjson.loads(file.read())
-        with open(f"json/quote/{ticker}.json", 'rb') as file:
-            quote_data = orjson.loads(file.read())
-        res = {**quote_data, 'history': price_data}
-    except:
-        res = {}
     res_json = orjson.dumps(res)
     compressed_data = gzip.compress(res_json)
     redis_client.set(cache_key, compressed_data)
@@ -4721,71 +4593,39 @@ async def compare_data_endpoint(data: CompareData, api_key: str = Security(get_a
     )
 
 
-
-
-# Function to create a hash of the request for caching
-def create_query_hash(messages: List) -> str:
-    # Create a deterministic hash of the messages
-    # Use a more direct approach to extract message data
-    message_dicts = []
-    for msg in messages:
-        if hasattr(msg, 'model_dump'):  # Handle Pydantic models like ChatCompletionMessage
-            msg_dict = msg.model_dump()
-        elif isinstance(msg, dict):  # Handle plain dictionaries
-            msg_dict = msg.copy()  # Use copy instead of dict comprehension
-        else:  # Handle any other object by converting to a dict of its attributes
-            msg_dict = {k: getattr(msg, k) for k in dir(msg)
-                      if not k.startswith('_') and not callable(getattr(msg, k))}
-        
-        # Remove 'id' if it exists - do this after initial conversion to avoid redundant operations
-        msg_dict.pop('id', None)  # More efficient than checking and then deleting
-        message_dicts.append(msg_dict)
-    
-    serialized = orjson.dumps(message_dicts)  # orjson is already fast
-    return md5(serialized).hexdigest()
-
-
 async def generate_stream(messages: List):
+    # Check if the last message is a plot response
     try:
-        # Only calculate hash for non-tool messages to avoid unnecessary computation
-        has_tool_messages = any(
-            (isinstance(msg, dict) and msg.get('role') == "tool") or
-            (hasattr(msg, 'role') and msg.role == "tool")
-            for msg in messages
-        )
-        
-        if not has_tool_messages:
-            query_hash = create_query_hash(messages)
-            # Try to use cache first
-            cached = get_cached_response(query_hash)
-            if cached:
-                yield orjson.dumps(cached) + b"\n"
-                return
-        
-        # Use semaphore to limit concurrent requests
+        if messages and messages[-1].get('role') == 'assistant' and messages[-1].get('plot', False):
+            content = messages[-1]['content']
+            ticker_list = messages[-1]['tickerList']
+            payload = {
+                "content": content,
+                "tickerList": ticker_list,
+                "plot": True
+            }
+            yield orjson.dumps(payload) + b"\n"
+            return  # Exit to avoid LLM processing
+    except:
+        pass
+
+    # Proceed with normal LLM streaming for other cases
+    try:
         async with request_semaphore:
-            # Use the session with your client
             stream = await async_client.chat.completions.create(
                 model=CHAT_MODEL,
                 messages=messages,
-                max_tokens=MAX_TOKENS,
-                stream=True
+                stream=True,
+                max_tokens=MAX_TOKENS
             )
-            
-            full_content = ""
-            async for chunk in stream:
-                delta = chunk.choices[0].delta
-                if delta.content:
-                    full_content += delta.content
-                    payload = {
-                        "content": full_content
-                    }
-                    yield orjson.dumps(payload) + b"\n"
-            
-            # Update cache with full response if it's valuable to cache
-            if full_content and not has_tool_messages:
-                RESPONSE_CACHE[query_hash] = {"content": full_content}
-                
+        full_content = ""
+        async for chunk in stream:
+            delta = chunk.choices[0].delta
+            if delta.content:
+                full_content += delta.content
+                payload = {"content": full_content}
+                yield orjson.dumps(payload) + b"\n"
+
     except Exception as e:
         print(f"Error in generate_stream: {str(e)}")
         yield orjson.dumps({"error": str(e)}) + b"\n"
