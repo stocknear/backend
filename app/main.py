@@ -4629,11 +4629,6 @@ async def generate_stream(messages: List):
                 "  <li><strong>Label:</strong> Value</li>\n"
                 "</ul>\n"
                 "<p class=\"mt-2 mb-4\">Your text here.</p>\n"
-                "<div class=\"grid grid-cols-2 md:grid-cols-3 gap-4 mb-4\">\n"
-                "  <div class=\"bg-gray-50 dark:bg-default p-3 rounded\">\n"
-                "    <strong>Metric:</strong> Value\n"
-                "  </div>\n"
-                "</div>\n\n"
                 "**DO NOT** use numbered lists or Markdown bullets. Each metric or value must be formatted as a separate bullet or div. Convert all raw assistant replies into this HTML format."
             )
         }
