@@ -685,12 +685,26 @@ async def get_feed_data(
 
         # Group and filter items by ticker
         filtered_results = defaultdict(list)
-        for item in data:
-            ticker = item.get("ticker", "").upper()
-            if not valid_tickers or ticker in valid_tickers:
-                # Exclude specific keys
-                cleaned_item = {k: v for k, v in item.items() if k not in filter_keys}
-                filtered_results[ticker].append(cleaned_item)
+        if not valid_tickers:
+            no_ticker_results = []
+            for item in data:
+                try:
+                    ticker = item.get("ticker", "").upper()
+                    # Since valid_tickers is falsy, this check is not needed
+                    cleaned_item = {k: v for k, v in item.items() if k not in filter_keys}
+                    no_ticker_results.append(cleaned_item)
+                except:
+                    pass
+
+            result = sorted(
+                no_ticker_results,
+                key=lambda x: x.get(sort_key, 0),
+                reverse=True
+            )[:limit]
+            
+            return result
+
+        
 
         # Sort and limit results
         result = {
@@ -713,21 +727,19 @@ async def get_feed_data(
 
 
 async def get_latest_options_flow_feed(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
-    """Get the top 5 options flow orders for multiple stocks."""
     return await get_feed_data(
         tickers=tickers,
         file_path=BASE_DIR / "options-flow/feed/data.json",
-        filter_keys={'aggresor_ind', "exchange", "tradeCount", "underlying_type", "description"},
+        filter_keys={'aggressor_ind', "exchange","tradeCount", "trade_count", "underlying_type", "description"},
         sort_key="cost_basis"
     )
 
 async def get_latest_dark_pool_feed(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
-    """Get the top 5 dark pool trades for multiple stocks."""
     return await get_feed_data(
         tickers=tickers,
         file_path=BASE_DIR / "dark-pool/feed/data.json",
         filter_keys={"assetType", "sector", "trackingID", "ticker"},
-        sort_key="premium"
+        sort_key="premium",
     )
 
 async def get_market_news(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
@@ -1308,7 +1320,7 @@ def get_function_definitions():
         },
         {
             "name": "get_latest_options_flow_feed",
-            "description": "Retrieves the top 5 options flow orders with the highest premiums for multiple stocks, highlighting activity from hedge funds and major traders.",
+            "description": "Retrieves the top options flow orders with the highest premiums for multiple stocks, highlighting activity from hedge funds and major traders.",
             "parameters": {
                 "tickers": {
                     "type": "array",
@@ -1320,7 +1332,7 @@ def get_function_definitions():
         },
         {
             "name": "get_latest_dark_pool_feed",
-            "description": "Retrieves the top 5 dark pool trades for multiple stocks, sorted by the average price paid, highlighting significant activity from hedge funds and major traders.",
+            "description": "Retrieves the top dark pool trades for multiple stocks, sorted by the average price paid, highlighting significant activity from hedge funds and major traders.",
             "parameters": {
                 "tickers": {
                     "type": "array",
@@ -1465,6 +1477,6 @@ def get_function_definitions():
 
 
 #Testing purposes
-#data = asyncio.run(get_company_options_data(['AAPL','AMD']))
+#data = asyncio.run(get_latest_options_flow_feed([]))
 #print(data)
 
