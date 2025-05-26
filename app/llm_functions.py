@@ -1547,22 +1547,22 @@ def get_function_definitions():
         },
         {
             "name": "get_potus_tracker",
-            "description": "Retrieves the President of the United States (POTUS) tracker, including the latest presidential schedule, Truth Social posts, executive orders, and the performance of the S&P 500 (SPY) since the current president's inauguration.",
+            "description": "Get the latest POTUS tracker data, including the latest presidential schedule, Truth Social posts, executive orders, and the performance of the S&P 500 (SPY) since the current president's inauguration.",
             "parameters": {}
         },
         {
             "name": "get_insider_tracker",
-            "description": "Retrieve the latest insider trading activity, including recent stock sales or purchases by company executives, along with relevant company information such as symbol, price, market cap, and filing date.",
+            "description": "Get the latest insider trading activity, including recent stock sales or purchases by company executives, along with relevant company information such as symbol, price, market cap, and filing date.",
             "parameters": {}
         },
         {
             "name": "get_congress_tracker",
-            "description": "Retrieve the latest congressional stock trading disclosures, including transactions by members of Congress or their spouses, with details such as ticker, transaction type, amount, representative name, and disclosure dates.",
+            "description": "Get the latest congressional stock trading disclosures, including transactions by members of Congress or their spouses, with details such as ticker, transaction type, amount, representative name, and disclosure dates.",
             "parameters": {}
         },
         {
             "name": "get_analyst_tracker",
-             "description": "Retrieve the latest analyst ratings and price target updates, including firm actions such as upgrades, downgrades, or maintained ratings, along with the analyst's name, firm, rating, price targets, and expected upside.",
+            "description": "Get the latest analyst stock ratings, including upgrades, downgrades, maintained ratings, price targets, analyst names, firms, and expected upside.",
             "parameters": {}
         },
         {
@@ -1731,5 +1731,5 @@ def get_function_definitions():
 
 
 #Testing purposes
-#data = asyncio.run(get_economic_calendar())
+#data = asyncio.run(get_analyst_tracker())
 #print(data)
