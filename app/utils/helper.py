@@ -477,7 +477,8 @@ async def _extract_parameters(user_query, extraction_config, async_client, model
             response = await async_client.chat.completions.create(
                 model=model,
                 messages=llm_extraction_messages,
-                max_tokens=max_tokens
+                max_tokens=30,
+                temperature=0
             )
         params_str = response.choices[0].message.content.strip()
         if params_str:

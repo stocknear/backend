@@ -4593,9 +4593,12 @@ async def compare_data_endpoint(data: CompareData, api_key: str = Security(get_a
     )
 
 
-async def generate_stream(messages: List):
+async def generate_stream(messages: List[Dict[str, Any]]):
+    """
+    Generates a streaming response, aiming for direct HTML formatting in a single LLM call.
+    """
     try:
-        # If last message is a plot or custom component, stream directly without formatting
+        # If last message is a plot or custom component, stream directly
         if messages and messages[-1].get('role') == 'assistant' and messages[-1].get('callComponent'):
             content = messages[-1]['content']
             payload = {
@@ -4607,55 +4610,53 @@ async def generate_stream(messages: List):
     except:
         pass
 
+    content_to_format = ""
+
+
+    final_messages_for_llm = messages # messages should be pre-processed by process_request
+
+
+    html_formatting_system_prompt = {
+        "role": "system",
+        "content": (
+            "Format your entire response strictly using this HTML structure:\n\n"
+            "<h3 class=\"text-lg font-semibold mt-4 mb-2\">Section Title</h3>\n"
+            "<h4 class=\"text-md font-medium mt-3 mb-2\">Subsection Title</h4>\n"
+            "<ul class=\"list-disc pl-5 space-y-2 mb-4\">\n"
+            "  <li><strong>Label:</strong> Value</li>\n"
+            "</ul>\n"
+            "<p class=\"mt-2 mb-4\">Your text here.</p>\n"
+            "**DO NOT** use numbered lists or Markdown bullets. Each metric or value must be formatted as a separate bullet or div. Convert all raw assistant replies into this HTML format. "
+            "Ensure your entire output adheres to this HTML structure. If the user asks for something that doesn't fit well (e.g. 'hello'), "
+            "still try to use a <p> tag or appropriate HTML. If you are presenting data from tools, format that data using the specified HTML."
+        )
+    }
+    
     try:
-        # Run initial LLM completion to generate raw response
-        async with request_semaphore:
-            initial_completion = await async_client.chat.completions.create(
-                model=CHAT_MODEL,
-                messages=messages,
-                stream=False,
-                max_tokens=MAX_TOKENS
-            )
-        raw_content = initial_completion.choices[0].message.content
-        print("Formatting output in the correct html style...")
-        # Now format it using the HTML instructions via a final streaming LLM call
-        formatting_prompt = {
-            "role": "system",
-            "content": (
-                "Format the following response strictly using this HTML structure:\n\n"
-                "<h3 class=\"text-lg font-semibold mt-4 mb-2\">Section Title</h3>\n"
-                "<h4 class=\"text-md font-medium mt-3 mb-2\">Subsection Title</h4>\n"
-                "<ul class=\"list-disc pl-5 space-y-2 mb-4\">\n"
-                "  <li><strong>Label:</strong> Value</li>\n"
-                "</ul>\n"
-                "<p class=\"mt-2 mb-4\">Your text here.</p>\n"
-                "**DO NOT** use numbered lists or Markdown bullets. Each metric or value must be formatted as a separate bullet or div. Convert all raw assistant replies into this HTML format."
-            )
-        }
-
-        final_messages = [formatting_prompt, {"role": "user", "content": raw_content}]
-
-        # Final LLM call for streaming formatted output
-        async with request_semaphore:
+        # request_semaphore should be defined globally or passed in
+        # async_client, CHAT_MODEL, MAX_TOKENS should also be accessible
+        
+        async with request_semaphore: # Ensure semaphore is defined and passed
             stream = await async_client.chat.completions.create(
-                model=CHAT_MODEL,
-                messages=final_messages,
+                model=CHAT_MODEL, # Ensure CHAT_MODEL is defined
+                messages=messages, # `messages` should be fully prepared by process_request
                 stream=True,
-                max_tokens=MAX_TOKENS
+                max_tokens=MAX_TOKENS # Ensure MAX_TOKENS is defined
             )
 
         full_content = ""
         async for chunk in stream:
             delta = chunk.choices[0].delta
-            if delta.content:
+            if delta and delta.content: # Check if delta and delta.content are not None
                 full_content += delta.content
                 payload = {"content": full_content}
                 yield orjson.dumps(payload) + b"\n"
 
     except Exception as e:
-        print(f"Error in generate_stream: {e}")
-        yield orjson.dumps({"error": str(e)}) + b"\n"
-
+        print(f"Error in generate_stream's main LLM call: {e}")
+        # Consider how to propagate this error. Yielding an error JSON is good.
+        error_payload = {"error": f"LLM streaming error: {str(e)}", "content": ""}
+        yield orjson.dumps(error_payload) + b"\n"
 
 
 # Background task to process tool calls and generate final response with parallel execution                
