@@ -1187,6 +1187,22 @@ async def get_ticker_dark_pool(tickers: List[str]) -> Dict[str, List[Dict[str, A
 
     return final_res
 
+async def get_ticker_dividend(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
+    base_dir = BASE_DIR / "dividends/companies"
+
+    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
+    results = await asyncio.gather(*tasks)
+
+    res = {}
+    for ticker, result in zip(tickers, results):
+        history = result.get('history', [])
+        if history:
+            # Replace list of history with only the most recent entry
+            result['history'] = history[0]
+            res[ticker] = result
+
+    return res
+
 '''
 async def get_historical_price(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     data = await get_ticker_specific_data(tickers, "historical-price/max")
@@ -1648,7 +1664,19 @@ def get_function_definitions():
         },
         {
             "name": "get_ticker_dark_pool",
-            "description": "","description": "Retrieves dark pool trading data and related analytics for a list of stock ticker symbols, including volume summaries, hottest trades, price levels, and trend data.",
+            "description": "Retrieves dark pool trading data and related analytics for a list of stock ticker symbols, including volume summaries, hottest trades, price levels, and trend data.",
+            "parameters": {
+                "tickers": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "List of stock ticker symbols to analyze (e.g., [\"AAPL\", \"GOOGL\"])."
+                }
+            },
+            "required": ["tickers"]
+        },
+        {
+            "name": "get_ticker_dividend",
+            "description": "Retrieve dividend data and related metrics for a list of stock ticker symbols, including payout frequency, annual dividend, dividend yield, payout ratio, and dividend growth. Also returns historical records with detailed information such as declaration date, record date, payment date, and adjusted dividend amount.",
             "parameters": {
                 "tickers": {
                     "type": "array",
@@ -1681,5 +1709,5 @@ def get_function_definitions():
 
 
 #Testing purposes
-#data = asyncio.run(get_ticker_dark_pool(['AMD']))
+#data = asyncio.run(get_ticker_dividend(['SPY']))
 #print(data)
