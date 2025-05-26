@@ -607,17 +607,34 @@ async def get_ticker_analyst_estimate(tickers: List[str]) -> Dict[str, List[Dict
 
 async def get_earnings_calendar() -> List[Dict[str, Any]]:
     file_path = BASE_DIR / "earnings-calendar/data.json"
+    today = datetime.today().date()
     try:
         async with aiofiles.open(file_path, mode="rb") as f:
             data = orjson.loads(await f.read())
 
         # Filter data between today and upper_date using list comprehension
-        return [item for item in data if today <= datetime.strptime(item['date'], "%Y-%m-%d").date()]
+        return [item for item in data if today <= datetime.strptime(item['date'], "%Y-%m-%d").date()][:20]
 
     except FileNotFoundError:
         return []
     except (orjson.JSONDecodeError, KeyError, ValueError) as e:
         print(f"Error processing earnings calendar: {e}")
+        return []
+
+async def get_economic_calendar() -> List[Dict[str, Any]]:
+    file_path = BASE_DIR / "economic-calendar/data.json"
+    today = datetime.today().date()
+    try:
+        async with aiofiles.open(file_path, mode="rb") as f:
+            data = orjson.loads(await f.read())
+            data = [item for item in data if item['countryCode'] == 'us']
+
+        return [item for item in data if today <= datetime.strptime(item['date'], "%Y-%m-%d").date()][:20]
+
+    except FileNotFoundError:
+        return []
+    except (orjson.JSONDecodeError, KeyError, ValueError) as e:
+        print(f"Error processing economic calendar: {e}")
         return []
 
 
@@ -1564,6 +1581,11 @@ def get_function_definitions():
             "parameters": {},
         },
         {
+            "name": "get_economic_calendar",
+            "description": "Retrieve a list of upcoming USA economic events, including event name, scheduled date and time, previous, consensus, and actual values (if available), event importance level, and associated country code for macroeconomic analysis and market forecasting.",
+            "parameters": {},
+        },
+        {
             "name": "get_ticker_congress_activity",
             "description": (
                 f"Retrieves and filters congressional trading activity for a specific congressperson based on the id which can be found here {key_congress_db}. E.g. Nancy Pelosi, Marjorie Greene, Rob Bresnahan etc."
@@ -1709,5 +1731,5 @@ def get_function_definitions():
 
 
 #Testing purposes
-#data = asyncio.run(get_ticker_dividend(['SPY']))
+#data = asyncio.run(get_economic_calendar())
 #print(data)
