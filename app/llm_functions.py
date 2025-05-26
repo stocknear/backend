@@ -941,7 +941,47 @@ async def get_potus_tracker():
             data = orjson.loads(file.read())
             return data
     except Exception as e:
-        return f"Error processing top losers data: {str(e)}"
+        return f"Error processing potus tracker data: {str(e)}"
+
+async def get_insider_tracker():
+    try:
+        with open(f"json/tracker/insider/data.json", 'rb') as file:
+            data = orjson.loads(file.read())
+            return data[:20]
+    except Exception as e:
+        return f"Error processing potus tracker data: {str(e)}"
+
+async def get_congress_tracker():
+    try:
+        with open(f"json/congress-trading/rss-feed/data.json", 'rb') as file:
+            data = orjson.loads(file.read())
+
+            fields_to_remove = {
+                "link",
+                "district",
+                "id",
+                "assetType",
+                "capitalGainsOver200USD"
+            }
+
+            data = [{k: v for k, v in entry.items() if k not in fields_to_remove} for entry in data]
+            return data[:20]
+    except Exception as e:
+        return f"Error processing congress tracker data: {str(e)}"
+
+async def get_analyst_tracker():
+    try:
+        with open(f"json/analyst/flow-data.json", 'rb') as file:
+            data = orjson.loads(file.read())
+
+            fields_to_remove = {
+                "analystId",
+            }
+
+            data = [{k: v for k, v in entry.items() if k not in fields_to_remove} for entry in data]
+            return data[:20]
+    except Exception as e:
+        return f"Error processing analyst tracker data: {str(e)}"
 
 async def get_market_news():
     try:
@@ -1458,6 +1498,21 @@ def get_function_definitions():
             "parameters": {}
         },
         {
+            "name": "get_insider_tracker",
+            "description": "Retrieve the latest insider trading activity, including recent stock sales or purchases by company executives, along with relevant company information such as symbol, price, market cap, and filing date.",
+            "parameters": {}
+        },
+        {
+            "name": "get_congress_tracker",
+            "description": "Retrieve the latest congressional stock trading disclosures, including transactions by members of Congress or their spouses, with details such as ticker, transaction type, amount, representative name, and disclosure dates.",
+            "parameters": {}
+        },
+        {
+            "name": "get_analyst_tracker",
+             "description": "Retrieve the latest analyst ratings and price target updates, including firm actions such as upgrades, downgrades, or maintained ratings, along with the analyst's name, firm, rating, price targets, and expected upside.",
+            "parameters": {}
+        },
+        {
             "name": "get_market_flow",
             "description": "Retrieves the current market flow option sentiment of the S&P 500.",
             "parameters": {}
@@ -1594,5 +1649,5 @@ def get_function_definitions():
 
 
 #Testing purposes
-#data = asyncio.run(get_unusual_activity(['AAPL']))
+#data = asyncio.run(get_analyst_tracker())
 #print(data)
