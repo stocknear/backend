@@ -1027,18 +1027,36 @@ async def get_ticker_insider_trading(tickers: List[str]) -> Dict[str, List[Dict[
     return filtered_results
 
 async def get_ticker_shareholders(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+    final_res = {}
     
-    base_dir = BASE_DIR / "shareholders"
-    
-    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
-    results = await asyncio.gather(*tasks)
-    
-    filtered_results = {}
-    for ticker, data in zip(tickers, results):
-        if data is not None:
-            filtered_results[ticker] = data
+    for path in ['shareholders', 'ownership-stats']:
+        base_dir = BASE_DIR / path  # Use the path to differentiate file location
+        
+        tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
+        results = await asyncio.gather(*tasks)
+
+        filtered_results = {}
+        for ticker, data in zip(tickers, results):
+            if data is None:
+                continue
+            
+            if path == 'shareholders':
+                # Remove "cik" key from each shareholder entry
+                cleaned_data = [
+                    {k: v for k, v in entry.items() if k != 'cik'}
+                    for entry in data
+                ]
+                filtered_results[ticker] = cleaned_data
+            else:
+                filtered_results[ticker] = data
+
+        if path == 'shareholders':
+            final_res['top-shareholders'] = filtered_results
+        else:
+            final_res[path] = filtered_results
                 
-    return filtered_results
+    return final_res
+
 
 async def get_ticker_options_data(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     
@@ -1092,6 +1110,22 @@ async def get_ticker_open_interest_by_strike_and_expiry(tickers: List[str]) -> D
         final_res[f"{category_type}-data"] = res
                 
     return final_res
+
+
+async def get_unusual_activity(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+    base_dir = BASE_DIR / "unusual-activity"
+    
+    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
+    results = await asyncio.gather(*tasks)
+
+    sorted_results = {}
+    for ticker, result in zip(tickers, results):
+        if result:
+            sorted_result = sorted(result, key=lambda x: x['date'], reverse=True)
+            sorted_results[ticker] = sorted_result[:10]
+
+    return sorted_results
+
 
 '''
 async def get_historical_price(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
@@ -1478,16 +1512,16 @@ def get_function_definitions():
             "required": ["tickers"]
         },
         {
-            "name": "get_ticker_shareholders",
-            "description": "Fetch detailed current major shareholders for the specified stock tickers.",
-            "parameters": {
-                "tickers": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
+        "name": "get_ticker_shareholders",
+        "description": "Fetch current institutional and major shareholder data for the specified stock tickers, including top institutional holders and ownership statistics such as investor counts, total invested value, and put/call ratios.",
+        "parameters": {
+            "tickers": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
                 }
             },
-            "required": ["tickers"]
+        "required": ["tickers"]
         },
         {
             "name": "get_ticker_options_data",
@@ -1525,6 +1559,18 @@ def get_function_definitions():
             },
             "required": ["tickers"]
         },
+        {
+            "name": "get_unusual_activity",
+            "description": "Retrieve recent unusual options activity for one or more stock tickers, including large trades, sweeps, and high-premium orders.",
+            "parameters": {
+                "tickers": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "List of stock ticker symbols to analyze (e.g., [\"AAPL\", \"GOOGL\"])."
+                }
+            },
+            "required": ["tickers"]
+        },
     ]
 
     definitions = []
@@ -1548,6 +1594,5 @@ def get_function_definitions():
 
 
 #Testing purposes
-#data = asyncio.run(get_ticker_open_interest_by_strike_and_expiry(['AMD','SPY']))
+#data = asyncio.run(get_unusual_activity(['AAPL']))
 #print(data)
-
