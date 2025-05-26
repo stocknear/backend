@@ -353,6 +353,21 @@ key_screener = [
   "piotroskiScore"
 ]
 
+key_statistics = ['sharesOutStanding', 'sharesQoQ', 'sharesYoY','institutionalOwnership','floatShares',
+    'priceToEarningsGrowthRatio','priceToEarningsRatio','forwardPE','priceToSalesRatio','forwardPS','priceToBookRatio','priceToFreeCashFlowRatio',
+    'sharesShort','shortOutstandingPercent','shortFloatPercent','shortRatio',
+    'enterpriseValue','evToSales','evToEBITDA','evToOperatingCashFlow','evToFreeCashFlow',
+    'currentRatio','quickRatio','debtToFreeCashFlowRatio','debtToEBITDARatio','debtToEquityRatio','interestCoverageRatio','cashFlowToDebtRatio','debtToMarketCap',
+    'returnOnEquity','returnOnAssets','returnOnInvestedCapital','revenuePerEmployee','profitPerEmployee',
+    'employees','assetTurnover','inventoryTurnover','incomeTaxExpense','effectiveTaxRate','beta',
+    'change1Y','sma50','sma200','rsi','avgVolume','revenue','netIncome','grossProfit','operatingIncome','ebitda','ebit','eps',
+    'cashAndCashEquivalents','totalDebt','retainedEarnings','totalAssets','workingCapital','operatingCashFlow',
+    'capitalExpenditure','freeCashFlow','freeCashFlowPerShare','grossProfitMargin','operatingProfitMargin','pretaxProfitMargin',
+    'netProfitMargin','ebitdaMargin','ebitMargin','freeCashFlowMargin','failToDeliver','relativeFTD',
+    'annualDividend','dividendYield','payoutRatio','dividendGrowth','earningsYield','freeCashFlowYield','altmanZScore','piotroskiScore',
+    'lastStockSplit','splitType','splitRatio','analystRating','analystCounter','priceTarget','upside'
+    ]
+
 
 def load_congress_db():
     data = {}
@@ -1210,6 +1225,18 @@ async def get_ticker_dividend(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
 
     return res
 
+async def get_ticker_statistics(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
+    base_dir = BASE_DIR / "statistics"
+
+    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
+    results = await asyncio.gather(*tasks)
+
+    res = {}
+    for ticker, result in zip(tickers, results):
+        res[ticker] = result
+
+    return res
+
 '''
 async def get_historical_price(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     data = await get_ticker_specific_data(tickers, "historical-price/max")
@@ -1698,6 +1725,20 @@ def get_function_definitions():
             },
             "required": ["tickers"]
         },
+        {
+            "name": "get_ticker_statistics",
+            "description": (
+                "Retrieves a snapshot of statistical data for a list of stock ticker symbols. "
+                f"This includes key statistics such as: {', '.join(key_statistics)}."),
+            "parameters": {
+                "tickers": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "List of stock ticker symbols to analyze (e.g., [\"AAPL\", \"GOOGL\"])."
+                }
+            },
+            "required": ["tickers"]
+        },
     ]
 
     definitions = []
@@ -1721,5 +1762,5 @@ def get_function_definitions():
 
 
 #Testing purposes
-#data = asyncio.run(get_latest_options_flow_feed([]))
+#data = asyncio.run(get_ticker_statistics(['AMD']))
 #print(data)

@@ -430,6 +430,68 @@ TRIGGER_CONFIG = {
         ],
         "validate_all_calls_executed": True,
     },
+    "@BullvsBear": {
+        "description": "Retrieves all the data to decide to create a bull case and bear case for the company.",
+        "parameter_extraction": {
+            "prompt_template": "Identify the stock ticker symbols mentioned in the user's query: '{query}'. If no explicit symbols are provided, infer which companies the user is likely referring to and return their ticker symbols. Output only the symbols as a comma-separated list with no additional text. Example: 'AAPL,MSFT,GOOG'.",
+            "regex_pattern": "\\$?([A-Z]{1,5})\\b",
+            "default_value": ["AAPL"],
+            "param_name": "ticker_list"
+        },
+        "perform_initial_llm_call": True,
+        "pre_forced_tools_assistant_message_template": "Using the provided data, write a short overview what the company does in 1-2 sentences. Construct both a bull case and a bear case for the company, clearly presenting arguments for each perspective. Conclude with a concise summary that includes a definitive investment signal—Buy, Hold, or Sell. Additionally, provide a 12-month price forecast with low, median, and high price targets, including the percentage upside or downside from the current stock price for each scenario. Don't add any Notes or disclaimers.",
+        "forced_tool_calls": [
+            {
+                "id_template": "bvb_wiim",
+                "function_name": "get_why_priced_moved",
+                "arguments_mapping": {"tickers": "ticker_list"},
+                "required": True
+            },
+            {
+                "id_template": "bvb_company_data",
+                "function_name": "get_company_data",
+                "arguments_mapping": {"tickers": "ticker_list"},
+                "required": True
+            },
+            {
+                "id_template": "bvb_ticker_news",
+                "function_name": "get_ticker_news",
+                "arguments_mapping": {"tickers": "ticker_list"},
+                "required": True
+            },
+            {
+                "id_template": "bvb_business_metrics",
+                "function_name": "get_ticker_business_metrics",
+                "arguments_mapping": {"tickers": "ticker_list"},
+                "required": True
+            },
+            {
+                "id_template": "bvb_analyst_estimate",
+                "function_name": "get_ticker_analyst_estimate",
+                "arguments_mapping": {"tickers": "ticker_list"},
+                "required": True
+            },
+            {
+                "id_template": "bvb_analyst_rating",
+                "function_name": "get_ticker_analyst_rating",
+                "arguments_mapping": {"tickers": "ticker_list"},
+                "required": True
+            },
+            {
+                "id_template": "bvb_ticker_statistics",
+                "function_name": "get_ticker_statistics",
+                "arguments_mapping": {"tickers": "ticker_list"},
+                "required": True
+            },
+            {
+                "id_template": "bvb_ticker_quote",
+                "function_name": "get_ticker_quote",
+                "arguments_mapping": {"tickers": "ticker_list"},
+                "required": True
+            },
+        ],
+        "validate_all_calls_executed": True,
+    },
     "@Plot": {
         "description": "Analyzes the tickers",
         "parameter_extraction": {
@@ -767,7 +829,8 @@ async def _handle_configured_case(data, base_messages, config, user_query,
         final_response = await async_client.chat.completions.create(
             model=chat_model,
             messages=final_llm_messages,
-            max_tokens=max_tokens
+            max_tokens=max_tokens,
+            temperature=0.1,
         )
     final_assistant_msg = final_response.choices[0].message
     messages.append(final_assistant_msg)
@@ -819,6 +882,7 @@ async def process_request(data, async_client, function_map, request_semaphore, s
                     model=CHAT_MODEL,
                     messages=messages,
                     max_tokens=MAX_TOKENS,
+                    temperature=0.1,
                     tools=tools_payload,
                     tool_choice="auto" if tools_payload else "none"
                 )
@@ -835,6 +899,7 @@ async def process_request(data, async_client, function_map, request_semaphore, s
                         model=CHAT_MODEL,
                         messages=messages,
                         max_tokens=MAX_TOKENS,
+                        temperature=0.1,
                         tools=tools_payload,
                         tool_choice="auto" if tools_payload else "none" 
                     )
