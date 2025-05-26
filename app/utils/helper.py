@@ -301,13 +301,13 @@ TRIGGER_CONFIG = {
         "forced_tool_calls": [
             {
                 "id_template": "afunc1_{index}",
-                "function_name": "get_analyst_estimate",
+                "function_name": "get_ticker_analyst_estimate",
                 "arguments_mapping": {"tickers": "ticker_list"},
                 "required": True  # Ensures this function MUST be called
             },
             {
                 "id_template": "afunc2_{index}",
-                "function_name": "get_analyst_ratings",
+                "function_name": "get_ticker_analyst_rating",
                 "arguments_mapping": {"tickers": "ticker_list"},
                 "required": True
             }
@@ -354,7 +354,7 @@ TRIGGER_CONFIG = {
         ],
         "validate_all_calls_executed": True,
     },
-    "@News": {
+    "@TickerNews": {
         "description": "Handles news-related queries by forcing specific financial tool calls.",
         "parameter_extraction": {
             "prompt_template": "First identify the stock ticker symbols mentioned in the user's query: '{query}'. If no specific tickers are mentioned, identify which companies the user is likely interested in and determine their ticker symbols. Return ONLY the ticker symbols as a comma-separated list without any explanation or additional text. Example response format: 'AAPL,MSFT,GOOG'",
@@ -372,8 +372,8 @@ TRIGGER_CONFIG = {
                 "required": True
             },
             {
-                "id_template": "marketNews_{index}",
-                "function_name": "get_market_news",
+                "id_template": "ticker_news_{index}",
+                "function_name": "get_ticker_news",
                 "arguments_mapping": {"tickers": "ticker_list"},
                 "required": True
             }
@@ -399,7 +399,7 @@ TRIGGER_CONFIG = {
             },
             {
                 "id_template": "realtime_marketNews_{index}",
-                "function_name": "get_market_news",
+                "function_name": "get_ticker_news",
                 "arguments_mapping": {"tickers": "ticker_list"},
                 "required": True
             },
@@ -417,13 +417,13 @@ TRIGGER_CONFIG = {
             },
             {
                 "id_template": "realtime_analyst_rating_{index}",
-                "function_name": "get_analyst_ratings",
+                "function_name": "get_ticker_analyst_rating",
                 "arguments_mapping": {"tickers": "ticker_list"},
                 "required": True
             },
             {
                 "id_template": "realtime_stock_quote_{index}",
-                "function_name": "get_stock_quote",
+                "function_name": "get_ticker_quote",
                 "arguments_mapping": {"tickers": "ticker_list"},
                 "required": True
             }
@@ -779,7 +779,8 @@ async def process_request(data, async_client, function_map, request_semaphore, s
     Enhanced process_request function with guaranteed function execution for triggers.
     """
     user_query = data.query.lower()
-    current_messages_history = list(data.messages) 
+    # Get the latest 20 messages only
+    current_messages_history = list(data.messages)[-20:]
 
     prepared_initial_messages = [system_message] + current_messages_history + [
         {"role": "user", "content": user_query}

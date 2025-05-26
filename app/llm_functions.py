@@ -488,25 +488,25 @@ async def get_financial_statements(
     return {ticker: result for ticker, result in zip(tickers, results) if result}
 
 # Specialized financial statement functions using the generic function
-async def get_income_statement(
+async def get_ticker_income_statement(
     tickers: List[str], time_period: str = "annual", keep_keys: Optional[List[str]] = None
 ) -> Dict[str, List[Dict[str, Any]]]:
     """Get income statements for multiple companies."""
     return await get_financial_statements(tickers, "income", time_period, keep_keys)
 
-async def get_balance_sheet_statement(
+async def get_ticker_balance_sheet_statement(
     tickers: List[str], time_period: str = "annual", keep_keys: Optional[List[str]] = None
 ) -> Dict[str, List[Dict[str, Any]]]:
     """Get balance sheet statements for multiple companies."""
     return await get_financial_statements(tickers, "balance", time_period, keep_keys)
 
-async def get_cash_flow_statement(
+async def get_ticker_cash_flow_statement(
     tickers: List[str], time_period: str = "annual", keep_keys: Optional[List[str]] = None
 ) -> Dict[str, List[Dict[str, Any]]]:
     """Get cash flow statements for multiple companies."""
     return await get_financial_statements(tickers, "cash", time_period, keep_keys)
 
-async def get_ratios_statement(
+async def get_ticker_ratios_statement(
     tickers: List[str], time_period: str = "annual", keep_keys: Optional[List[str]] = None
 ) -> Dict[str, List[Dict[str, Any]]]:
     """Get financial ratios for multiple companies."""
@@ -552,7 +552,7 @@ async def get_ticker_specific_data(
     
     return filtered_results
 
-async def get_hottest_options_contracts(tickers: List[str], category: str = "volume") -> Dict[str, List[Dict[str, Any]]]:
+async def get_ticker_hottest_options_contracts(tickers: List[str], category: str = "volume") -> Dict[str, List[Dict[str, Any]]]:
     """Get the hottest options contracts based on volume or open interest."""
     if category not in ["volume", "openInterest"]:
         raise ValueError(f"Invalid category '{category}'. For hottest contracts, must be 'volume' or 'openInterest'.")
@@ -584,7 +584,7 @@ async def get_company_data(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
     
     return await get_ticker_specific_data(tickers, "stockdeck", process_company_data)
 
-async def get_short_data(tickers: List[str]) -> Dict[str, Any]:
+async def get_ticker_short_data(tickers: List[str]) -> Dict[str, Any]:
     """Get short interest data for multiple companies."""
     return await get_ticker_specific_data(tickers, "share-statistics")
 
@@ -592,11 +592,11 @@ async def get_why_priced_moved(tickers: List[str]) -> Dict[str, Any]:
     """Get data explaining price movements for multiple stocks."""
     return await get_ticker_specific_data(tickers, "wiim/company")
 
-async def get_business_metrics(tickers: List[str]) -> Dict[str, Any]:
+async def get_ticker_business_metrics(tickers: List[str]) -> Dict[str, Any]:
     """Get business metrics including revenue breakdowns for multiple stocks."""
     return await get_ticker_specific_data(tickers, "business-metrics")
 
-async def get_analyst_estimate(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+async def get_ticker_analyst_estimate(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     """Get forward-looking analyst estimates for multiple stocks."""
     def filter_by_year(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Filter analyst estimates to only include current year or later."""
@@ -605,28 +605,21 @@ async def get_analyst_estimate(tickers: List[str]) -> Dict[str, List[Dict[str, A
     result = await get_ticker_specific_data(tickers, "analyst-estimate", filter_by_year)
     return {ticker: data for ticker, data in result.items() if data}  # Remove empty results
 
-async def get_earnings_calendar(upper_threshold: str = "") -> List[Dict[str, Any]]:
-    """Get earnings events for stocks within a date range."""
+async def get_earnings_calendar() -> List[Dict[str, Any]]:
     file_path = BASE_DIR / "earnings-calendar/data.json"
-    
     try:
         async with aiofiles.open(file_path, mode="rb") as f:
             data = orjson.loads(await f.read())
 
-        # Set upper date threshold
-        upper_date = today if not upper_threshold else datetime.strptime(upper_threshold, "%Y-%m-%d").date()
-
         # Filter data between today and upper_date using list comprehension
-        return [
-            item for item in data
-            if today <= datetime.strptime(item['date'], "%Y-%m-%d").date() <= upper_date
-        ]
+        return [item for item in data if today <= datetime.strptime(item['date'], "%Y-%m-%d").date()]
 
     except FileNotFoundError:
         return []
     except (orjson.JSONDecodeError, KeyError, ValueError) as e:
         print(f"Error processing earnings calendar: {e}")
         return []
+
 
 async def get_top_rating_stocks():
     file_path = BASE_DIR / "analyst/top-stocks.json"
@@ -641,11 +634,11 @@ async def get_top_rating_stocks():
         print(f"Error processing get top rating stocks: {e}")
         return []
 
-async def get_earnings_price_reaction(tickers: List[str]) -> Dict[str, Any]:
+async def get_ticker_earnings_price_reaction(tickers: List[str]) -> Dict[str, Any]:
     """Get historical earnings price reactions for multiple stocks."""
     return await get_ticker_specific_data(tickers, "earnings/past")
 
-async def get_next_earnings(tickers: List[str]) -> Dict[str, Any]:
+async def get_ticker_next_earnings(tickers: List[str]) -> Dict[str, Any]:
     """Get upcoming earnings dates and estimates for multiple stocks."""
     return await get_ticker_specific_data(tickers, "earnings/next")
 
@@ -742,8 +735,8 @@ async def get_latest_dark_pool_feed(tickers: List[str]) -> Dict[str, List[Dict[s
         sort_key="premium",
     )
 
-async def get_market_news(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
-    """Get recent news for multiple stocks."""
+async def get_ticker_news(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+    
     base_dir = BASE_DIR / "market-news/companies"
     
     tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
@@ -764,7 +757,10 @@ async def get_market_news(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]
                 
     return filtered_results
 
-async def get_analyst_ratings(tickers: List[str]) -> Dict[str, Dict[str, List[Dict[str, Any]]]]:
+
+
+
+async def get_ticker_analyst_rating(tickers: List[str]) -> Dict[str, Dict[str, List[Dict[str, Any]]]]:
     """Get recent analyst ratings and summary for multiple stocks."""
     history_dir = BASE_DIR / "analyst" / "history"
     summary_dir = BASE_DIR / "analyst" / "summary" / "all_analyst"
@@ -947,7 +943,23 @@ async def get_potus_tracker():
     except Exception as e:
         return f"Error processing top losers data: {str(e)}"
 
-async def get_congress_activity(congress_id):
+async def get_market_news():
+    try:
+        with open(f"json/market-news/general-news.json", 'rb') as file:
+            data = orjson.loads(file.read())
+
+            fields_to_remove = {
+                "site",
+                "url",
+                "image",
+            }
+
+            data = [{k: v for k, v in entry.items() if k not in fields_to_remove} for entry in data]
+            return data[:30]
+    except Exception as e:
+        return f"Error processing market news data: {str(e)}"
+
+async def get_ticker_congress_activity(congress_id):
     try:
         with open(f"json/congress-trading/politician-db/{congress_id}.json", 'rb') as file:
             data = orjson.loads(file.read())
@@ -991,13 +1003,13 @@ async def get_market_flow():
     except Exception as e:
         return f"Error processing market flow data: {str(e)}"
 
-async def get_stock_quote(tickers: List[str]) -> Dict[str, Any]:
+async def get_ticker_quote(tickers: List[str]) -> Dict[str, Any]:
     """Get upcoming earnings dates and estimates for multiple stocks."""
     return await get_ticker_specific_data(tickers, "quote")
 
 
-async def get_insider_trading(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
-    """Get recent news for multiple stocks."""
+async def get_ticker_insider_trading(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+    
     base_dir = BASE_DIR / "insider-trading/history"
     
     tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
@@ -1014,8 +1026,8 @@ async def get_insider_trading(tickers: List[str]) -> Dict[str, List[Dict[str, An
                 
     return filtered_results
 
-async def get_shareholders(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
-    """Get recent news for multiple stocks."""
+async def get_ticker_shareholders(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+    
     base_dir = BASE_DIR / "shareholders"
     
     tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
@@ -1028,8 +1040,8 @@ async def get_shareholders(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]
                 
     return filtered_results
 
-async def get_company_options_data(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
-    """Get recent news for multiple stocks."""
+async def get_ticker_options_data(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+    
     base_dir = BASE_DIR / "options-historical-data/companies"
     
     tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
@@ -1045,6 +1057,41 @@ async def get_company_options_data(tickers: List[str]) -> Dict[str, List[Dict[st
                 filtered_results[ticker] = filtered_data[0]
                 
     return filtered_results
+
+async def get_ticker_max_pain(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+    
+    base_dir = BASE_DIR / "max-pain"
+    
+    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
+    results = await asyncio.gather(*tasks)
+    
+    return {ticker: result for ticker, result in zip(tickers, results) if result}
+
+async def get_ticker_open_interest_by_strike_and_expiry(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+    final_res = {}
+    today = datetime.today().date()
+
+    for category_type in ['expiry', 'strike']:
+        base_dir = BASE_DIR / f"oi/{category_type}"
+        tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
+        results = await asyncio.gather(*tasks)
+        
+        res = {}
+        for ticker, result in zip(tickers, results):
+            if not result:
+                continue
+
+            # Filter only valid expiry dates
+            filtered_result = [
+                item for item in result 
+                if 'expiry' not in item or datetime.strptime(item['expiry'], '%Y-%m-%d').date() >= today
+            ]
+            if filtered_result:
+                res[ticker] = filtered_result
+        
+        final_res[f"{category_type}-data"] = res
+                
+    return final_res
 
 '''
 async def get_historical_price(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
@@ -1101,7 +1148,7 @@ def get_function_definitions():
           }
         },
         {
-            "name": "get_income_statement",
+            "name": "get_ticker_income_statement",
             "description": (
                 "Retrieves historical income statements (profit and loss) for a list of stock tickers. "
                 f"Key metrics include: {', '.join(key_income)}. "
@@ -1127,7 +1174,7 @@ def get_function_definitions():
             "required": ["tickers", "time_period"]
         },
         {
-            "name": "get_balance_sheet_statement",
+            "name": "get_ticker_balance_sheet_statement",
             "description": (
                 "Fetches historical balance sheet statements for stock tickers. "
                 f"Includes metrics: {', '.join(key_balance_sheet)}. "
@@ -1153,7 +1200,7 @@ def get_function_definitions():
             "required": ["tickers", "time_period"]
         },
         {
-            "name": "get_cash_flow_statement",
+            "name": "get_ticker_cash_flow_statement",
             "description": (
                 "Obtains historical cash flow statements for stock tickers. "
                 f"Key items: {', '.join(key_cash_flow)}. "
@@ -1179,7 +1226,7 @@ def get_function_definitions():
             "required": ["tickers", "time_period"]
         },
         {
-            "name": "get_ratios_statement",
+            "name": "get_ticker_ratios_statement",
             "description": (
                 "Retrieves various historical financial ratios for stock tickers. "
                 f"Examples: {', '.join(key_ratios)}. "
@@ -1205,7 +1252,7 @@ def get_function_definitions():
             "required": ["tickers", "time_period"]
         },
         {
-            "name": "get_hottest_options_contracts",
+            "name": "get_ticker_hottest_options_contracts",
             "description": (
                 "Retrieves the hottest options contracts for stock tickers. "
                 "Returns contracts sorted by either volume or open interest."
@@ -1237,7 +1284,7 @@ def get_function_definitions():
             "required": ["tickers"]
         },
         {
-            "name": "get_short_data",
+            "name": "get_ticker_short_data",
             "description": "Retrieves the most recent and historical short interest data for multiple companies using their stock ticker symbols. Not useful for filtering or sorting data.",
             "parameters": {
                 "tickers": {
@@ -1261,7 +1308,7 @@ def get_function_definitions():
             "required": ["tickers"]
         },
         {
-            "name": "get_business_metrics",
+            "name": "get_ticker_business_metrics",
             "description": "Fetches business metrics for multiple stocks, including revenue breakdown by sector and geographic region, based on their ticker symbols.",
             "parameters": {
                 "tickers": {
@@ -1273,7 +1320,7 @@ def get_function_definitions():
             "required": ["tickers"]
         },
         {
-            "name": "get_analyst_estimate",
+            "name": "get_ticker_analyst_estimate",
             "description": "Fetches forward-looking analyst estimates for multiple stocks, including average, low, and high projections for EPS, revenue, EBITDA, and net income. Call it always if @Analyst is in the user query",
             "parameters": {
                 "tickers": {
@@ -1285,17 +1332,7 @@ def get_function_definitions():
             "required": ["tickers"]
         },
         {
-            "name": "get_earnings_calendar",
-            "description": "Fetches today's and upcoming earnings events for stocks within a specified date range (defaulting to today if no upper threshold is provided).",
-            "parameters": {
-                "upper_threshold": {
-                    "type": "string",
-                    "description": "Optional upper date threshold in YYYY-MM-DD format. If not provided, defaults to today."
-                }
-            },
-        },
-        {
-            "name": "get_earnings_price_reaction",
+            "name": "get_ticker_earnings_price_reaction",
             "description": "Fetches past earnings price reactions before and after earnings releases of multiple stocks based on their ticker symbols",
             "parameters": {
                 "tickers": {
@@ -1307,7 +1344,7 @@ def get_function_definitions():
             "required": ["tickers"]
         },
         {
-            "name": "get_next_earnings",
+            "name": "get_ticker_next_earnings",
             "description": "Retrieves the upcoming earnings dates for multiple stocks, along with EPS and revenue estimates. Also includes prior EPS and revenue figures for comparison.",
             "parameters": {
                 "tickers": {
@@ -1343,7 +1380,7 @@ def get_function_definitions():
             "required": ["tickers"]
         },
         {
-            "name": "get_market_news",
+            "name": "get_ticker_news",
             "description": "Retrieves the latest news for multiple stocks.",
             "parameters": {
                 "tickers": {
@@ -1355,7 +1392,7 @@ def get_function_definitions():
             "required": ["tickers"]
         },
         {
-            "name": "get_analyst_ratings",
+            "name": "get_ticker_analyst_rating",
             "description": "Retrieves the latest analyst ratings for multiple stocks.",
             "parameters": {
                 "tickers": {
@@ -1392,7 +1429,17 @@ def get_function_definitions():
             "parameters": {}
         },
         {
-            "name": "get_congress_activity",
+            "name": "get_market_news",
+            "description": "Retrieves the latest general news for the stock market.",
+            "parameters": {}
+        },
+        {
+            "name": "get_earnings_calendar",
+            "description": "Retrieves a list of upcoming earnings announcements, including company name, ticker symbol, scheduled date, market capitalization, prior and estimated earnings per share (EPS), prior and estimated revenue, and the time of release (e.g., 'bmo' for before market open).",
+            "parameters": {},
+        },
+        {
+            "name": "get_ticker_congress_activity",
             "description": (
                 f"Retrieves and filters congressional trading activity for a specific congressperson based on the id which can be found here {key_congress_db}. E.g. Nancy Pelosi, Marjorie Greene, Rob Bresnahan etc."
                 "Removes personally identifying and extraneous fields from transaction history. "
@@ -1407,7 +1454,7 @@ def get_function_definitions():
             "required": ["congress_id"]
         },
         {
-            "name": "get_stock_quote",
+            "name": "get_ticker_quote",
             "description": "Retrieves the most recent stock quote data for one or more ticker symbols. Returns real-time information including the latest trading price, percentage change, trading volume, day high and low, 52-week high and low, market capitalization, previous close, earnings per share (EPS), price-to-earnings (P/E) ratio, as well as current ask and bid prices. Ideal for use cases requiring timely and detailed market updates.",
             "parameters": {
                 "tickers": {
@@ -1419,7 +1466,7 @@ def get_function_definitions():
             "required": ["tickers"]
         },
         {
-            "name": "get_insider_trading",
+            "name": "get_ticker_insider_trading",
             "description": "Fetch detailed insider trading records—such as buys, sells, grant dates, and volumes—executed by corporate insiders (officers, directors, major shareholders) for the specified stock tickers.",
             "parameters": {
                 "tickers": {
@@ -1431,7 +1478,7 @@ def get_function_definitions():
             "required": ["tickers"]
         },
         {
-            "name": "get_shareholders",
+            "name": "get_ticker_shareholders",
             "description": "Fetch detailed current major shareholders for the specified stock tickers.",
             "parameters": {
                 "tickers": {
@@ -1443,7 +1490,7 @@ def get_function_definitions():
             "required": ["tickers"]
         },
         {
-            "name": "get_company_options_data",
+            "name": "get_ticker_options_data",
             "description": "Fetch comprehensive options statistics for the most recent trading day for the specified stock tickers. Includes volume, open interest, premiums, GEX/DEX, implied volatility metrics, and price changes.",
             "parameters": {
                 "tickers": {
@@ -1453,7 +1500,31 @@ def get_function_definitions():
                 }
             },
             "required": ["tickers"]
-        }
+        },
+        {
+            "name": "get_ticker_max_pain",
+            "description": "Retrieve max pain analysis for multiple stock tickers, including expiration dates, strike prices, call and put payouts, and the calculated max pain point per expiration.",
+            "parameters": {
+                "tickers": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "List of stock ticker symbols to analyze (e.g., [\"AAPL\", \"GOOGL\"])."
+                }
+            },
+            "required": ["tickers"]
+        },
+        {
+            "name": "get_ticker_open_interest_by_strike_and_expiry",
+            "description": "Fetch and aggregate options open interest data for one or more equity tickers, returning expiryData with total call and put OI grouped by each expiration date and strikeData with call and put OI broken down by individual strike price, where every entry includes its call_oi, put_oi, and the associated expiry or strike value for seamless analysis across both dimensions.",
+            "parameters": {
+                "tickers": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "List of stock ticker symbols to analyze (e.g., [\"AAPL\", \"GOOGL\"])."
+                }
+            },
+            "required": ["tickers"]
+        },
     ]
 
     definitions = []
@@ -1477,6 +1548,6 @@ def get_function_definitions():
 
 
 #Testing purposes
-#data = asyncio.run(get_latest_options_flow_feed([]))
+#data = asyncio.run(get_ticker_open_interest_by_strike_and_expiry(['AMD','SPY']))
 #print(data)
 
