@@ -669,19 +669,6 @@ async def get_feed_data(
     sort_key: str,
     limit: int = 20
 ) -> Dict[str, List[Dict[str, Any]]]:
-    """
-    Generic function to get feed data (options flow, dark pool) for multiple stocks.
-
-    Args:
-        tickers: List of ticker symbols. If empty or contains only invalid values, include all.
-        file_path: Path to the feed data file
-        filter_keys: Keys to exclude from the results
-        sort_key: Key to sort results by
-        limit: Maximum number of items to return per ticker
-
-    Returns:
-        Dictionary mapping tickers to their feed data
-    """
     try:
         async with aiofiles.open(file_path, mode="rb") as f:
             data = orjson.loads(await f.read())
@@ -693,30 +680,32 @@ async def get_feed_data(
             if isinstance(t, str) and t.strip() and t.strip() != '{}'
         }
 
-        # Group and filter items by ticker
-        filtered_results = defaultdict(list)
         if not valid_tickers:
-            no_ticker_results = []
-            for item in data:
-                try:
-                    ticker = item.get("ticker", "").upper()
-                    # Since valid_tickers is falsy, this check is not needed
-                    cleaned_item = {k: v for k, v in item.items() if k not in filter_keys}
-                    no_ticker_results.append(cleaned_item)
-                except:
-                    pass
-
-            result = sorted(
-                no_ticker_results,
+            # No valid tickers: return globally sorted top items
+            cleaned_data = [
+                {k: v for k, v in item.items() if k not in filter_keys}
+                for item in data
+            ]
+            sorted_data = sorted(
+                cleaned_data,
                 key=lambda x: x.get(sort_key, 0),
                 reverse=True
             )[:limit]
-            
-            return result
+            return {"ALL": sorted_data}
 
-        
+        # Filter and group by ticker
+        filtered_results = defaultdict(list)
+        for item in data:
+            try:
+                ticker = item.get("ticker", "").upper()
+                if ticker in valid_tickers:
+                    cleaned_item = {k: v for k, v in item.items() if k not in filter_keys}
+                    filtered_results[ticker].append(cleaned_item)
+            except Exception as e:
+                print(f"Skipping item due to error: {e}")
+                continue
 
-        # Sort and limit results
+        # Sort and limit results for each ticker
         result = {
             ticker: sorted(
                 items,
@@ -736,6 +725,7 @@ async def get_feed_data(
 
 
 
+
 async def get_latest_options_flow_feed(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     return await get_feed_data(
         tickers=tickers,
@@ -748,7 +738,7 @@ async def get_latest_dark_pool_feed(tickers: List[str]) -> Dict[str, List[Dict[s
     return await get_feed_data(
         tickers=tickers,
         file_path=BASE_DIR / "dark-pool/feed/data.json",
-        filter_keys={"assetType", "sector", "trackingID", "ticker"},
+        filter_keys={"assetType", "sector", "trackingID"},
         sort_key="premium",
     )
 
@@ -1731,5 +1721,5 @@ def get_function_definitions():
 
 
 #Testing purposes
-#data = asyncio.run(get_analyst_tracker())
+#data = asyncio.run(get_latest_options_flow_feed([]))
 #print(data)
