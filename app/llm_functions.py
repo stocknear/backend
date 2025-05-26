@@ -1762,5 +1762,5 @@ def get_function_definitions():
 
 
 #Testing purposes
-#data = asyncio.run(get_ticker_statistics(['AMD']))
+#data = asyncio.run(get_ticker_earnings_price_reaction(['AMD']))
 #print(data)

@@ -314,69 +314,97 @@ TRIGGER_CONFIG = {
         ],
         "validate_all_calls_executed": True,  # New flag to ensure all functions are called
     },
-    "@OptionsFlow": {
-        "description": "Handles options flow order related queries by forcing specific financial tool calls.",
+    "@DarkPoolData": {
+        "description": "Retrieves all the dark pool data for the company to find the sentiment.",
         "parameter_extraction": {
-            "prompt_template": "First identify the stock ticker symbols mentioned in the user's query: '{query}'. Return ONLY the ticker symbols as a comma-separated list without any explanation or additional text. Example response format: 'AAPL,MSFT,GOOG'. If no specific tickers are mentioned, set the argument to an empty list",
-            "regex_pattern": r'\$?([A-Z]{1,5})\b',
-            "default_value": [],
-            "param_name": "ticker_list"
-        },
-        "perform_initial_llm_call": True,
-        "pre_forced_tools_assistant_message_template": "Let me check the latest options flow orders information for {params}.",
-        "forced_tool_calls": [
-            {
-                "id_template": "ofeed_{index}",
-                "function_name": "get_latest_options_flow_feed",
-                "arguments_mapping": {"tickers": "ticker_list"},
-                "required": True
-            },
-        ],
-        "validate_all_calls_executed": True,
-    },
-    "@DarkPoolFlow": {
-        "description": "Handles dark pool flow order related queries by forcing specific financial tool calls.",
-        "parameter_extraction": {
-            "prompt_template": "First identify the stock ticker symbols mentioned in the user's query: '{query}'. Return ONLY the ticker symbols as a comma-separated list without any explanation or additional text. Example response format: 'AAPL,MSFT,GOOG'. If no specific tickers are mentioned, set the argument to an empty list",
-            "regex_pattern": r'\$?([A-Z]{1,5})\b',
-            "default_value": [],
-            "param_name": "ticker_list"
-        },
-        "perform_initial_llm_call": True,
-        "pre_forced_tools_assistant_message_template": "Let me check the latest dark pool flow orders information for {params}.",
-        "forced_tool_calls": [
-            {
-                "id_template": "dark_pool_feed_{index}",
-                "function_name": "get_latest_dark_pool_feed",
-                "arguments_mapping": {"tickers": "ticker_list"},
-                "required": True
-            },
-        ],
-        "validate_all_calls_executed": True,
-    },
-    "@TickerNews": {
-        "description": "Handles news-related queries by forcing specific financial tool calls.",
-        "parameter_extraction": {
-            "prompt_template": "First identify the stock ticker symbols mentioned in the user's query: '{query}'. If no specific tickers are mentioned, identify which companies the user is likely interested in and determine their ticker symbols. Return ONLY the ticker symbols as a comma-separated list without any explanation or additional text. Example response format: 'AAPL,MSFT,GOOG'",
-            "regex_pattern": r'\$?([A-Z]{1,5})\b',
+            "prompt_template": "Identify the stock ticker symbols mentioned in the user's query: '{query}'. If no explicit symbols are provided, infer which companies the user is likely referring to and return their ticker symbols. Output only the symbols as a comma-separated list with no additional text. Example: 'AAPL,MSFT,GOOG'.",
+            "regex_pattern": "\\$?([A-Z]{1,5})\\b",
             "default_value": ["AAPL"],
             "param_name": "ticker_list"
         },
         "perform_initial_llm_call": True,
-        "pre_forced_tools_assistant_message_template": "Let me check the latest news information for {params}.",
+        "pre_forced_tools_assistant_message_template": "Using the provided data, write an overview of each dark pool data section. Provide detailed insights into recent dark pool activity, presenting clear bullish and bearish interpretations. Conclude with a concise summary and a definitive investment signal—Bullish, Neutral, or Bearish. Do not include notes or disclaimers.",
         "forced_tool_calls": [
             {
-                "id_template": "wiim_{index}",
-                "function_name": "get_why_priced_moved",
+                "id_template": "dp_latest_flow",
+                "function_name": "get_latest_dark_pool_feed",
                 "arguments_mapping": {"tickers": "ticker_list"},
                 "required": True
             },
             {
-                "id_template": "ticker_news_{index}",
-                "function_name": "get_ticker_news",
+                "id_template": "dp_overview",
+                "function_name": "get_ticker_dark_pool",
                 "arguments_mapping": {"tickers": "ticker_list"},
                 "required": True
-            }
+            },
+            {
+                "id_template": "dp_ticker_quote",
+                "function_name": "get_ticker_quote",
+                "arguments_mapping": {"tickers": "ticker_list"},
+                "required": True
+            },
+        ],
+        "validate_all_calls_executed": True,
+    },
+    "@OptionsData": {
+        "description": "Retrieves all the options flow data for the company to find the sentiment.",
+        "parameter_extraction": {
+            "prompt_template": "Identify the stock ticker symbols mentioned in the user's query: '{query}'. If no explicit symbols are provided, infer which companies the user is likely referring to and return their ticker symbols. Output only the symbols as a comma-separated list with no additional text. Example: 'AAPL,MSFT,GOOG'.",
+            "regex_pattern": "\\$?([A-Z]{1,5})\\b",
+            "default_value": ["AAPL"],
+            "param_name": "ticker_list"
+        },
+        "perform_initial_llm_call": True,
+        "pre_forced_tools_assistant_message_template": "Using the provided data, write an overview of each options flow data section. Provide detailed insights into recent options activity, presenting clear bullish and bearish interpretations. Conclude with a concise summary and a definitive investment signal—Bullish, Neutral, or Bearish. Do not include notes or disclaimers.",
+        "forced_tool_calls": [
+            {
+                "id_template": "of_latest_flow",
+                "function_name": "get_latest_options_flow_feed",
+                "arguments_mapping": {"tickers": "ticker_list"},
+                "required": True
+            },
+            {
+                "id_template": "of_overview",
+                "function_name": "get_ticker_options_data",
+                "arguments_mapping": {"tickers": "ticker_list"},
+                "required": True
+            },
+            {
+                "id_template": "of_max_pain",
+                "function_name": "get_ticker_max_pain",
+                "arguments_mapping": {"tickers": "ticker_list"},
+                "required": True
+            },
+            {
+                "id_template": "of_oi_by_strike_expiry",
+                "function_name": "get_ticker_open_interest_by_strike_and_expiry",
+                "arguments_mapping": {"tickers": "ticker_list"},
+                "required": True
+            },
+            {
+                "id_template": "of_hottest_options_contracts",
+                "function_name": "get_ticker_hottest_options_contracts",
+                "arguments_mapping": {"tickers": "ticker_list"},
+                "required": True
+            },
+            {
+                "id_template": "of_next_earnings",
+                "function_name": "get_ticker_next_earnings",
+                "arguments_mapping": {"tickers": "ticker_list"},
+                "required": True
+            },
+            {
+                "id_template": "of_price_reaction",
+                "function_name": "get_ticker_earnings_price_reaction",
+                "arguments_mapping": {"tickers": "ticker_list"},
+                "required": True
+            },
+            {
+                "id_template": "of_ticker_quote",
+                "function_name": "get_ticker_quote",
+                "arguments_mapping": {"tickers": "ticker_list"},
+                "required": True
+            },
         ],
         "validate_all_calls_executed": True,
     },
