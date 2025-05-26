@@ -1152,7 +1152,7 @@ async def get_ticker_open_interest_by_strike_and_expiry(tickers: List[str]) -> D
     return final_res
 
 
-async def get_unusual_activity(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+async def get_ticker_unusual_activity(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     base_dir = BASE_DIR / "unusual-activity"
     
     tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
@@ -1166,6 +1166,26 @@ async def get_unusual_activity(tickers: List[str]) -> Dict[str, List[Dict[str, A
 
     return sorted_results
 
+async def get_ticker_dark_pool(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+    final_res = {}
+
+    for category_type in ['companies', 'price-level']:
+        base_dir = BASE_DIR / f"dark-pool/{category_type}"
+        tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
+        results = await asyncio.gather(*tasks)
+        
+        res = {}
+        for ticker, result in zip(tickers, results):
+            if not result:
+                continue
+        if category_type == 'companies':
+            res[ticker] = result[-1]
+            final_res[f"volume-summary"] = res
+        else:
+            res[ticker] = result
+            final_res['hottest_trades_and_price_level'] = res
+
+    return final_res
 
 '''
 async def get_historical_price(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
@@ -1615,8 +1635,20 @@ def get_function_definitions():
             "required": ["tickers"]
         },
         {
-            "name": "get_unusual_activity",
+            "name": "get_ticker_unusual_activity",
             "description": "Retrieve recent unusual options activity for one or more stock tickers, including large trades, sweeps, and high-premium orders.",
+            "parameters": {
+                "tickers": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "List of stock ticker symbols to analyze (e.g., [\"AAPL\", \"GOOGL\"])."
+                }
+            },
+            "required": ["tickers"]
+        },
+        {
+            "name": "get_ticker_dark_pool",
+            "description": "","description": "Retrieves dark pool trading data and related analytics for a list of stock ticker symbols, including volume summaries, hottest trades, price levels, and trend data.",
             "parameters": {
                 "tickers": {
                     "type": "array",
@@ -1649,5 +1681,5 @@ def get_function_definitions():
 
 
 #Testing purposes
-#data = asyncio.run(get_analyst_tracker())
+#data = asyncio.run(get_ticker_dark_pool(['AMD']))
 #print(data)
