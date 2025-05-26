@@ -689,6 +689,7 @@ async def _handle_configured_case(data, base_messages, config, user_query,
 
 
     # 2. Initial LLM Call (optional)
+    '''
     if config.get("perform_initial_llm_call", False):
         print("Performing initial LLM call...")
         async with semaphore:
@@ -699,6 +700,7 @@ async def _handle_configured_case(data, base_messages, config, user_query,
             )
         assistant_msg_before_forced = initial_response.choices[0].message
         messages.append(assistant_msg_before_forced)
+    '''
 
     # 3. Execute Forced Tool Calls (GUARANTEED EXECUTION)
     if "forced_tool_calls" in config and config["forced_tool_calls"]:
