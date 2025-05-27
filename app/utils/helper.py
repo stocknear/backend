@@ -790,7 +790,7 @@ def handle_call_component_case(trigger_phrase, extracted_data, ):
 
 async def _handle_configured_case(data, base_messages, config, user_query, 
                                   async_client, chat_model, max_tokens, semaphore, 
-                                  function_map, system_message, tools_payload, trigger_phrase=None):
+                                  function_map, system_message, tools_payload, trigger_phrase=None, add_plot=False):
     """Handles request processing for a specifically configured trigger case."""
     messages = base_messages.copy()
     extracted_data = {}
@@ -936,7 +936,15 @@ async def _handle_configured_case(data, base_messages, config, user_query,
             temperature=0.7,
         )
     final_assistant_msg = final_response.choices[0].message
-    messages.append(final_assistant_msg)
+    if add_plot: 
+        call_component = {'plot': True, "tickerList": extracted_data['ticker_list']}
+    else:
+        call_component = {}
+    messages.append({
+            "role": "assistant",
+            "content": final_assistant_msg.content,
+            "callComponent": call_component
+        })
 
     print("✓ Configured case processing completed successfully")
     return messages
@@ -957,12 +965,15 @@ async def process_request(data, async_client, function_map, request_semaphore, s
 
     active_config = None
     trigger_phrase_found = None
+    add_plot = False
 
     # Check for trigger phrases
     for trigger, config_item in TRIGGER_CONFIG.items():
         if trigger.lower() in user_query:
             active_config = config_item
             trigger_phrase_found = trigger
+            if "@comparestocks" in user_query:
+                add_plot = True
             print(f"Detected trigger: {trigger_phrase_found}")
             break
             
@@ -973,8 +984,7 @@ async def process_request(data, async_client, function_map, request_semaphore, s
             return await _handle_configured_case(
                 data, prepared_initial_messages, active_config, user_query,
                 async_client, CHAT_MODEL, MAX_TOKENS, request_semaphore,
-                function_map, system_message, tools_payload, trigger_phrase=trigger_phrase_found
-            )
+                function_map, system_message, tools_payload, trigger_phrase=trigger_phrase_found, add_plot=add_plot)
         else:
             # Standard flow: LLM decides on tool usage
             print("Processing standard request (no triggers detected)")
