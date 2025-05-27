@@ -335,7 +335,6 @@ def run_price_reaction():
         run_command(["python3", "cron_earnings_price_reaction.py"])
 
 
-
 def run_economy_indicator():
     week = datetime.today().weekday()
     if week <= 4:
@@ -352,6 +351,7 @@ def run_ai_score():
     run_command(["python3", "cron_stockdeck.py"])
     run_command(["python3", "restart_json.py"])
     run_command(["python3", "cron_statistics.py"])
+    run_command(["python3", "cron_bull_vs_bear.py"])
 
 def run_push_notifications():
     now = datetime.now(ny_tz)
