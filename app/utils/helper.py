@@ -594,7 +594,57 @@ TRIGGER_CONFIG = {
         ],
         "validate_all_calls_executed": True,
     },
-    
+    "@FundamentalData": {
+        "description": "Retrieves all the fundamental data.",
+        "parameter_extraction": {
+            "prompt_template": "Identify the stock ticker symbols mentioned in the user's query: '{query}'. If no explicit symbols are provided, infer which companies the user is likely referring to and return their ticker symbols. Output only the symbols as a comma-separated list with no additional text. Example: 'AAPL,MSFT,GOOG'.",
+            "regex_pattern": "\\$?([A-Z]{1,5})\\b",
+            "default_value": ["AAPL"],
+            "param_name": "ticker_list"
+        },
+        "perform_initial_llm_call": True,
+        "pre_forced_tools_assistant_message_template": "Conduct a comprehensive value investor analysis of the provided financial data across all key sections, including fundamental metrics, the income statement, balance sheet, cash flow statement, and financial ratios. For each section, deliver a well-structured and conclusive assessment, clearly determining which company demonstrates stronger performance or a more favorable outlook based on the data. Support your evaluation with specific, data-driven insights, incorporating both bullish and bearish interpretations to reflect the full scope of each company's financial health. Your response should be insightful and actionable, focusing on key indicators such as profitability, sustainability, efficiency, and risk. In the end create a summary with a clear Bullish, Neutral or Bearish Signal. Avoid disclaimers, editorial remarks, or vague commentary—ensure that the analysis is objective, comparative, and aimed at empowering confident decision-making.",
+        "forced_tool_calls": [
+            {
+                "id_template": "fund_ticker_income",
+                "function_name": "get_ticker_income_statement",
+                "arguments_mapping": {"tickers": "ticker_list"},
+                "required": True
+            },
+            {
+                "id_template": "fund_ticker_balance_sheet",
+                "function_name": "get_ticker_balance_sheet_statement",
+                "arguments_mapping": {"tickers": "ticker_list"},
+                "required": True
+            },
+            {
+                "id_template": "fund_ticker_cash_flow",
+                "function_name": "get_ticker_cash_flow_statement",
+                "arguments_mapping": {"tickers": "ticker_list"},
+                "required": True
+            },
+            {
+                "id_template": "fund_ticker_ratios",
+                "function_name": "get_ticker_ratios_statement",
+                "arguments_mapping": {"tickers": "ticker_list"},
+                "required": True
+            },
+            {
+                "id_template": "fund_ticker_key_metrics",
+                "function_name": "get_ticker_key_metrics",
+                "arguments_mapping": {"tickers": "ticker_list"},
+                "required": True
+            },
+            {
+                "id_template": "fund_ticker_owner_earnings",
+                "function_name": "get_ticker_owner_earnings",
+                "arguments_mapping": {"tickers": "ticker_list"},
+                "required": True
+            },
+        
+        ],
+        "validate_all_calls_executed": True,
+    },
     "@Plot": {
         "description": "Analyzes the tickers",
         "parameter_extraction": {
@@ -949,7 +999,7 @@ async def _handle_configured_case(data, base_messages, config, user_query,
     '''
     messages.append(final_assistant_msg)
 
-    
+
     print("✓ Configured case processing completed successfully")
     return messages
 

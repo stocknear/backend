@@ -368,6 +368,62 @@ key_statistics = ['sharesOutStanding', 'sharesQoQ', 'sharesYoY','institutionalOw
     'lastStockSplit','splitType','splitRatio','analystRating','analystCounter','priceTarget','upside'
     ]
 
+key_metrics = [
+    "marketCap",
+    "enterpriseValueTTM",
+    "evToSalesTTM",
+    "evToOperatingCashFlowTTM",
+    "evToFreeCashFlowTTM",
+    "evToEBITDATTM",
+    "netDebtToEBITDATTM",
+    "currentRatioTTM",
+    "incomeQualityTTM",
+    "grahamNumberTTM",
+    "grahamNetNetTTM",
+    "taxBurdenTTM",
+    "interestBurdenTTM",
+    "workingCapitalTTM",
+    "investedCapitalTTM",
+    "returnOnAssetsTTM",
+    "operatingReturnOnAssetsTTM",
+    "returnOnTangibleAssetsTTM",
+    "returnOnEquityTTM",
+    "returnOnInvestedCapitalTTM",
+    "returnOnCapitalEmployedTTM",
+    "earningsYieldTTM",
+    "freeCashFlowYieldTTM",
+    "capexToOperatingCashFlowTTM",
+    "capexToDepreciationTTM",
+    "capexToRevenueTTM",
+    "salesGeneralAndAdministrativeToRevenueTTM",
+    "researchAndDevelopementToRevenueTTM",
+    "stockBasedCompensationToRevenueTTM",
+    "intangiblesToTotalAssetsTTM",
+    "averageReceivablesTTM",
+    "averagePayablesTTM",
+    "averageInventoryTTM",
+    "daysOfSalesOutstandingTTM",
+    "daysOfPayablesOutstandingTTM",
+    "daysOfInventoryOutstandingTTM",
+    "operatingCycleTTM",
+    "cashConversionCycleTTM",
+    "freeCashFlowToEquityTTM",
+    "freeCashFlowToFirmTTM",
+    "tangibleAssetValueTTM",
+    "netCurrentAssetValueTTM"
+]
+
+key_owner_earnings = [
+    "fiscalYear",
+    "period",
+    "date",
+    "averagePPE",
+    "maintenanceCapex",
+    "ownersEarnings",
+    "growthCapex",
+    "ownersEarningsPerShare"
+]
+
 
 def load_congress_db():
     data = {}
@@ -504,19 +560,19 @@ async def get_financial_statements(
 
 # Specialized financial statement functions using the generic function
 async def get_ticker_income_statement(
-    tickers: List[str], time_period: str = "annual", keep_keys: Optional[List[str]] = None
+    tickers: List[str], time_period: str = "ttm", keep_keys: Optional[List[str]] = None
 ) -> Dict[str, List[Dict[str, Any]]]:
     """Get income statements for multiple companies."""
     return await get_financial_statements(tickers, "income", time_period, keep_keys)
 
 async def get_ticker_balance_sheet_statement(
-    tickers: List[str], time_period: str = "annual", keep_keys: Optional[List[str]] = None
+    tickers: List[str], time_period: str = "ttm", keep_keys: Optional[List[str]] = None
 ) -> Dict[str, List[Dict[str, Any]]]:
     """Get balance sheet statements for multiple companies."""
     return await get_financial_statements(tickers, "balance", time_period, keep_keys)
 
 async def get_ticker_cash_flow_statement(
-    tickers: List[str], time_period: str = "annual", keep_keys: Optional[List[str]] = None
+    tickers: List[str], time_period: str = "ttm", keep_keys: Optional[List[str]] = None
 ) -> Dict[str, List[Dict[str, Any]]]:
     """Get cash flow statements for multiple companies."""
     return await get_financial_statements(tickers, "cash", time_period, keep_keys)
@@ -1237,6 +1293,52 @@ async def get_ticker_statistics(tickers: List[str]) -> Dict[str, Dict[str, Any]]
 
     return res
 
+async def get_ticker_key_metrics(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
+    base_dir = BASE_DIR / "financial-statements/key-metrics/ttm"
+        
+    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
+    results = await asyncio.gather(*tasks)
+    
+    filtered_results = {}
+    for ticker, data in zip(tickers, results):
+        if data is not None:
+            # Filter for recent news only
+            filtered_data = [
+                {k: v for k, v in item.items() if k not in ['symbol']} for item in data]
+            if filtered_data:  # Only add if there's data
+                filtered_results[ticker] = filtered_data
+                
+    return filtered_results
+
+async def get_ticker_financial_score(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
+    base_dir = BASE_DIR / "financial-score"
+
+    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
+    results = await asyncio.gather(*tasks)
+
+    res = {}
+    for ticker, result in zip(tickers, results):
+        res[ticker] = result
+
+    return res
+
+async def get_ticker_owner_earnings(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
+    base_dir = BASE_DIR / "financial-statements/owner-earnings/quarter"
+        
+    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
+    results = await asyncio.gather(*tasks)
+    
+    filtered_results = {}
+    for ticker, data in zip(tickers, results):
+        if data is not None:
+            # Filter for recent news only
+            filtered_data = [
+                {k: v for k, v in item.items() if k not in ['symbol',"reportedCurrency"]} for item in data]
+            if filtered_data:  # Only add if there's data
+                filtered_results[ticker] = filtered_data
+                
+    return filtered_results
+
 '''
 async def get_historical_price(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     data = await get_ticker_specific_data(tickers, "historical-price/max")
@@ -1739,6 +1841,46 @@ def get_function_definitions():
             },
             "required": ["tickers"]
         },
+        {
+            "name": "get_ticker_key_metrics",
+            "description": (
+                "Retrieves fundamental key metrics data for a list of stock ticker symbols. "
+                f"This includes key data such as: {', '.join(key_metrics)}."),
+            "parameters": {
+                "tickers": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "List of stock ticker symbols to analyze (e.g., [\"AAPL\", \"GOOGL\"])."
+                }
+            },
+            "required": ["tickers"]
+        },
+        {
+            "name": "get_ticker_financial_score",
+            "description": "Retrieves fundamental financial score data such as altmanZScore, piotroskiScore, workingCapital, totalAssets for a list of stock ticker symbols.",
+            "parameters": {
+                "tickers": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "List of stock ticker symbols to analyze (e.g., [\"AAPL\", \"GOOGL\"])."
+                }
+            },
+            "required": ["tickers"]
+        },
+        {
+            "name": "get_ticker_owner_earnings",
+            "description": (
+                "Retrieves fundamental owner earnings data for a list of stock ticker symbols. "
+                f"This includes key data such as: {', '.join(key_metrics)}."),
+            "parameters": {
+                "tickers": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "List of stock ticker symbols to analyze (e.g., [\"AAPL\", \"GOOGL\"])."
+                }
+            },
+            "required": ["tickers"]
+        },
     ]
 
     definitions = []
@@ -1762,5 +1904,5 @@ def get_function_definitions():
 
 
 #Testing purposes
-#data = asyncio.run(get_ticker_earnings_price_reaction(['AMD']))
+#data = asyncio.run(get_ticker_owner_earnings(['AMD']))
 #print(data)
