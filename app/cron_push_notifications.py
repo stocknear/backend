@@ -16,7 +16,6 @@ from dotenv import load_dotenv
 import os
 
 load_dotenv()
-api_key = os.getenv('FMP_API_KEY')
 stocknear_api_key = os.getenv('STOCKNEAR_API_KEY')
 
 pb_admin_email = os.getenv('POCKETBASE_ADMIN_EMAIL')
@@ -117,7 +116,7 @@ async def push_wiim(user_id):
                     if date_string == today:
                         unique_id = generate_unique_id(date_string, data['text'])
                         #check if push notification already exist
-                        all_notification = pb.collection("notifications").get_full_list(query_params={"filter": f"opUser='{user_id}'"})
+                        all_notification = pb.collection("notifications").get_full_list(query_params={"filter": f"user='{user_id}'"})
                         exist = any(notify_item.push_hash == unique_id for notify_item in all_notification)
                         
 
@@ -160,8 +159,8 @@ async def push_wiim(user_id):
                                     link = None
                                 print(link)
                                 await push_notification(f'Why Priced Moved for {symbol}', data['text'], user_id, link=link)
-                except:
-                    pass
+                except Exception as e:
+                    print(e)
     except Exception as e:
         print(e)
 
@@ -196,7 +195,7 @@ async def push_earnings_release(user_id):
                             unique_id = hashlib.md5(sorted_data.encode()).hexdigest()
                             
                             #check if push notification already exist
-                            all_notification = pb.collection("notifications").get_full_list(query_params={"filter": f"opUser='{user_id}'"})
+                            all_notification = pb.collection("notifications").get_full_list(query_params={"filter": f"user='{user_id}'"})
                             exist = any(notify_item.push_hash == unique_id for notify_item in all_notification)
                             
 
@@ -232,8 +231,8 @@ async def push_earnings_release(user_id):
                                     title = f'Earnings release for {symbol}'
                                     text = f"Revenue of {format_number(data['revenue'])} and EPS of {data['eps']}"
                                     await push_notification(title, text, user_id)
-                except:
-                    pass
+                except Exception as e:
+                    print(e)
     except Exception as e:
         print(e)
 
@@ -267,7 +266,7 @@ async def push_top_analyst(user_id):
                             unique_id = hashlib.md5(sorted_data.encode()).hexdigest()
                             
                             #check if push notification already exist
-                            all_notification = pb.collection("notifications").get_full_list(query_params={"filter": f"opUser='{user_id}'"})
+                            all_notification = pb.collection("notifications").get_full_list(query_params={"filter": f"user='{user_id}'"})
                             exist = any(notify_item.push_hash == unique_id for notify_item in all_notification)
                             
 
@@ -299,8 +298,8 @@ async def push_top_analyst(user_id):
                                     await push_notification(title, text, user_id)
                         except Exception as e:
                             print(e)
-                except:
-                    pass
+                except Exception as e:
+                    print(e)
     except Exception as e:
         print(e)
 
@@ -310,6 +309,7 @@ async def run():
     for item in tqdm(all_users):
         try:
             user_id = item.id
+
             #is_pro = True if item.tier == 'Pro' else False
             result = pb.collection('notificationChannels').get_list(query_params={"filter": f"user='{user_id}'"})
             channels = result.items
