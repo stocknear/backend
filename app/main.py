@@ -4610,7 +4610,6 @@ async def generate_stream(messages: List[Dict[str, Any]]):
     except:
         pass
 
-    content_to_format = ""
 
 
     final_messages_for_llm = messages # messages should be pre-processed by process_request
