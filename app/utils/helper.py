@@ -420,6 +420,12 @@ TRIGGER_CONFIG = {
         "pre_forced_tools_assistant_message_template": "Using the provided data, write a short overview what the company does in 1-2 sentences. Construct both a bull case and a bear case for the company, clearly presenting arguments for each perspective. Conclude with a concise summary that includes a definitive investment signal—Buy, Hold, or Sell. Additionally, provide a 12-month price forecast with low, median, and high price targets, including the percentage upside or downside from the current stock price for each scenario. Don't add any Notes or disclaimers.",
         "forced_tool_calls": [
             {
+                "id_template": "bvb_bvb",
+                "function_name": "get_ticker_bull_vs_bear",
+                "arguments_mapping": {"tickers": "ticker_list"},
+                "required": True
+            },
+            {
                 "id_template": "bvb_wiim",
                 "function_name": "get_why_priced_moved",
                 "arguments_mapping": {"tickers": "ticker_list"},

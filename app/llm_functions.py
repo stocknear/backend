@@ -730,7 +730,9 @@ async def get_ticker_earnings(tickers: List[str]) -> Dict[str, Any]:
     """Get upcoming earnings dates and estimates for multiple stocks."""
     return await get_ticker_specific_data(tickers, "earnings/raw")
 
-
+async def get_ticker_bull_vs_bear(tickers: List[str]) -> Dict[str, Any]:
+    """Get historical earnings price reactions for multiple stocks."""
+    return await get_ticker_specific_data(tickers, "bull_vs_bear")
 
 
 async def get_feed_data(
@@ -1592,6 +1594,18 @@ def get_function_definitions():
         {
             "name": "get_ticker_earnings",
             "description": "Retrieves the historical, latest and upcoming earnings dates for multiple stocks, along with EPS and revenue estimates. Also includes prior EPS and revenue figures for comparison.",
+            "parameters": {
+                "tickers": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
+                }
+            },
+            "required": ["tickers"]
+        },
+        {
+            "name": "get_ticker_bull_vs_bear",
+            "description": "Provides detailed bull and bear case arguments for multiple companies, highlighting key drivers, financial metrics, and market dynamics that support each perspective.",
             "parameters": {
                 "tickers": {
                     "type": "array",
