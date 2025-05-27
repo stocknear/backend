@@ -22,6 +22,44 @@ min_date = ny_tz.localize(datetime.strptime("2015-01-01", "%Y-%m-%d"))
 N_days_ago = today - timedelta(days=10)
 
 
+def filter_keep_nearest_future_only(data):
+    if not data:
+        return []
+
+    ref_date = datetime.now().date()
+
+    past_present = []
+    future_records = []
+
+    for record in data:
+        try:
+            record_date = datetime.strptime(record['date'], '%Y-%m-%d').date()
+        except (ValueError, KeyError):
+            continue  # Skip records with invalid or missing date
+
+        if record_date <= ref_date:
+            past_present.append(record)
+        else:
+            future_records.append(record)
+
+    nearest_future = None
+    if future_records:
+        nearest_future = min(
+            future_records,
+            key=lambda x: datetime.strptime(x['date'], '%Y-%m-%d').date()
+        )
+
+    result = past_present.copy()
+    if nearest_future:
+        result.append(nearest_future)
+
+    # Optional: sort by date descending (latest first)
+    result.sort(key=lambda x: x['date'], reverse=True)
+
+    return result
+
+
+
 def check_existing_file(ticker, folder_name):
     file_path = f"json/earnings/{folder_name}/{ticker}.json"
     still_new = False
@@ -48,10 +86,12 @@ def check_existing_file(ticker, folder_name):
 
 
 async def save_json(data, symbol, dir_path):
+    # Ensure the directory exists
+    os.makedirs(dir_path, exist_ok=True)
+
     file_path = os.path.join(dir_path, f"{symbol}.json")
     async with aiofiles.open(file_path, 'w') as file:
         await file.write(ujson.dumps(data))
-
 
 async def get_data(session, ticker, con):
     querystring = {"token": api_key, "parameters[tickers]": ticker}
@@ -59,7 +99,12 @@ async def get_data(session, ticker, con):
         async with session.get(url, params=querystring, headers=headers) as response:
             data = ujson.loads(await response.text())['earnings']
             
-            #await get_past_data(data, ticker, con)
+            raw_data = [{k: v for k, v in item.items() if k not in ['currency','exchange','eps_type','revenue_type', 'name', 'notes','updated', 'ticker', 'importance', 'id','date_confirmed']} for item in data]
+            raw_data = filter_keep_nearest_future_only(raw_data)
+            #save all rawdata for llm
+            await save_json(raw_data, ticker, 'json/earnings/raw')
+
+
 
             # Filter for future earnings
             future_dates = [item for item in data if ny_tz.localize(datetime.strptime(item["date"], "%Y-%m-%d")) >= today]

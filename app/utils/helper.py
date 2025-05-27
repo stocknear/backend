@@ -408,56 +408,6 @@ TRIGGER_CONFIG = {
         ],
         "validate_all_calls_executed": True,
     },
-    "@RealtimeData": {
-        "description": "Retrieves and aggregates real-time market insights relevant to today's activity for specified stocks. This includes automatic invocation of financial tools to analyze price movements, news, dark pool activity, options flow, and analyst ratings.",
-        "parameter_extraction": {
-            "prompt_template": "Identify the stock ticker symbols mentioned in the user's query: '{query}'. If no explicit symbols are provided, infer which companies the user is likely referring to and return their ticker symbols. Output only the symbols as a comma-separated list with no additional text. Example: 'AAPL,MSFT,GOOG'.",
-            "regex_pattern": "\\$?([A-Z]{1,5})\\b",
-            "default_value": ["AAPL"],
-            "param_name": "ticker_list"
-        },
-        "perform_initial_llm_call": True,
-        "pre_forced_tools_assistant_message_template": "Provide only the relevant data for today's trading session. If today is a weekend or market holiday, reference the most recent trading day instead for {params}.",
-        "forced_tool_calls": [
-            {
-                "id_template": "realtime_wiim_{index}",
-                "function_name": "get_why_priced_moved",
-                "arguments_mapping": {"tickers": "ticker_list"},
-                "required": True
-            },
-            {
-                "id_template": "realtime_marketNews_{index}",
-                "function_name": "get_ticker_news",
-                "arguments_mapping": {"tickers": "ticker_list"},
-                "required": True
-            },
-            {
-                "id_template": "realtime_dp_{index}",
-                "function_name": "get_latest_dark_pool_feed",
-                "arguments_mapping": {"tickers": "ticker_list"},
-                "required": True
-            },
-            {
-                "id_template": "realtime_options_{index}",
-                "function_name": "get_latest_options_flow_feed",
-                "arguments_mapping": {"tickers": "ticker_list"},
-                "required": True
-            },
-            {
-                "id_template": "realtime_analyst_rating_{index}",
-                "function_name": "get_ticker_analyst_rating",
-                "arguments_mapping": {"tickers": "ticker_list"},
-                "required": True
-            },
-            {
-                "id_template": "realtime_stock_quote_{index}",
-                "function_name": "get_ticker_quote",
-                "arguments_mapping": {"tickers": "ticker_list"},
-                "required": True
-            }
-        ],
-        "validate_all_calls_executed": True,
-    },
     "@BullvsBear": {
         "description": "Retrieves all the data to decide to create a bull case and bear case for the company.",
         "parameter_extraction": {

@@ -726,9 +726,9 @@ async def get_ticker_earnings_price_reaction(tickers: List[str]) -> Dict[str, An
     """Get historical earnings price reactions for multiple stocks."""
     return await get_ticker_specific_data(tickers, "earnings/past")
 
-async def get_ticker_next_earnings(tickers: List[str]) -> Dict[str, Any]:
+async def get_ticker_earnings(tickers: List[str]) -> Dict[str, Any]:
     """Get upcoming earnings dates and estimates for multiple stocks."""
-    return await get_ticker_specific_data(tickers, "earnings/next")
+    return await get_ticker_specific_data(tickers, "earnings/raw")
 
 
 
@@ -1590,8 +1590,8 @@ def get_function_definitions():
             "required": ["tickers"]
         },
         {
-            "name": "get_ticker_next_earnings",
-            "description": "Retrieves the upcoming earnings dates for multiple stocks, along with EPS and revenue estimates. Also includes prior EPS and revenue figures for comparison.",
+            "name": "get_ticker_earnings",
+            "description": "Retrieves the historical, latest and upcoming earnings dates for multiple stocks, along with EPS and revenue estimates. Also includes prior EPS and revenue figures for comparison.",
             "parameters": {
                 "tickers": {
                     "type": "array",
