@@ -727,7 +727,6 @@ async def get_ticker_earnings_price_reaction(tickers: List[str]) -> Dict[str, An
     return await get_ticker_specific_data(tickers, "earnings/past")
 
 async def get_ticker_earnings(tickers: List[str]) -> Dict[str, Any]:
-    """Get upcoming earnings dates and estimates for multiple stocks."""
     return await get_ticker_specific_data(tickers, "earnings/raw")
 
 async def get_ticker_bull_vs_bear(tickers: List[str]) -> Dict[str, Any]:
@@ -999,6 +998,22 @@ async def get_top_gainers():
     except Exception as e:
         return f"Error processing top gainers data: {str(e)}"
 
+async def get_top_premarket_gainers():
+    try:
+        with open(f"json/market-movers/premarket/gainers.json", 'rb') as file:
+            data = orjson.loads(file.read())[:20]
+            return data
+    except Exception as e:
+        return f"Error processing top premarket gainers data: {str(e)}"
+
+async def get_top_aftermarket_gainers():
+    try:
+        with open(f"json/market-movers/afterhours/gainers.json", 'rb') as file:
+            data = orjson.loads(file.read())[:20]
+            return data
+    except Exception as e:
+        return f"Error processing top premarket gainers data: {str(e)}"
+
 async def get_top_losers():
     try:
         with open(f"json/market-movers/markethours/losers.json", 'rb') as file:
@@ -1006,6 +1021,24 @@ async def get_top_losers():
             return data
     except Exception as e:
         return f"Error processing top losers data: {str(e)}"
+
+
+async def get_top_premarket_losers():
+    try:
+        with open(f"json/market-movers/premarket/losers.json", 'rb') as file:
+            data = orjson.loads(file.read())[:20]
+            return data
+    except Exception as e:
+        return f"Error processing top premarket losers data: {str(e)}"
+
+async def get_top_aftermarket_losers():
+    try:
+        with open(f"json/market-movers/afterhours/losers.json", 'rb') as file:
+            data = orjson.loads(file.read())[:20]
+            return data
+    except Exception as e:
+        return f"Error processing top premarket losers data: {str(e)}"
+
 
 async def get_top_active_stocks():
     try:
@@ -1124,9 +1157,10 @@ async def get_market_flow():
         return f"Error processing market flow data: {str(e)}"
 
 async def get_ticker_quote(tickers: List[str]) -> Dict[str, Any]:
-    """Get upcoming earnings dates and estimates for multiple stocks."""
     return await get_ticker_specific_data(tickers, "quote")
 
+async def get_ticker_pre_post_quote(tickers: List[str]) -> Dict[str, Any]:
+    return await get_ticker_specific_data(tickers, "pre-post-quote")
 
 async def get_ticker_insider_trading(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     
@@ -1674,6 +1708,31 @@ def get_function_definitions():
             "parameters": {},
         },
         {
+            "name": "get_top_premarket_gainers",
+            "description": "Retrieves a list of stocks with the highest percentage gains for the premarket trading day. Returns stocks ranked by their daily price increase percentage, showing which securities have performed best today.",
+            "parameters": {},
+        },
+        {
+            "name": "get_top_aftermarket_gainers",
+            "description": "Retrieves a list of stocks with the highest percentage gains for the aftermarket trading day. Returns stocks ranked by their daily price increase percentage, showing which securities have performed best today.",
+            "parameters": {},
+        },
+        {
+            "name": "get_top_losers",
+            "description": "Retrieves a list of stocks with the highest percentage loss for the current trading day. Returns stocks ranked by their daily price increase percentage, showing which securities have performed best today.",
+            "parameters": {},
+        },
+        {
+            "name": "get_top_premarket_losers",
+            "description": "Retrieves a list of stocks with the highest percentage loss for the premarket trading day. Returns stocks ranked by their daily price increase percentage, showing which securities have performed best today.",
+            "parameters": {},
+        },
+        {
+            "name": "get_top_aftermarket_losers",
+            "description": "Retrieves a list of stocks with the highest percentage loss for the aftermarket trading day. Returns stocks ranked by their daily price increase percentage, showing which securities have performed best today.",
+            "parameters": {},
+        },
+        {
             "name": "get_top_active_stocks", 
             "description": "Retrieves a list of stocks with the largest trading volume for the current trading day. Returns stocks ranked by their daily volume, showing which securities have traded the most today.",
             "parameters": {},
@@ -1736,6 +1795,18 @@ def get_function_definitions():
         {
             "name": "get_ticker_quote",
             "description": "Retrieves the most recent stock quote data for one or more ticker symbols. Returns real-time information including the latest trading price, percentage change, trading volume, day high and low, 52-week high and low, market capitalization, previous close, earnings per share (EPS), price-to-earnings (P/E) ratio, as well as current ask and bid prices. Ideal for use cases requiring timely and detailed market updates.",
+            "parameters": {
+                "tickers": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
+                }
+            },
+            "required": ["tickers"]
+        },
+        {
+            "name": "get_ticker_pre_post_quote",
+            "description": "Retrieves the most recent stock premarket/aftermarket quote data for one or more ticker symbols. Returns real-time information including the latest trading price and percentage change.",
             "parameters": {
                 "tickers": {
                     "type": "array",
@@ -1918,5 +1989,5 @@ def get_function_definitions():
 
 
 #Testing purposes
-#data = asyncio.run(get_ticker_owner_earnings(['AMD']))
+#data = asyncio.run(get_top_aftermarket_losers())
 #print(data)
