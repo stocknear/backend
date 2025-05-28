@@ -388,18 +388,6 @@ TRIGGER_CONFIG = {
                 "required": True
             },
             {
-                "id_template": "of_next_earnings",
-                "function_name": "get_ticker_next_earnings",
-                "arguments_mapping": {"tickers": "ticker_list"},
-                "required": True
-            },
-            {
-                "id_template": "of_price_reaction",
-                "function_name": "get_ticker_earnings_price_reaction",
-                "arguments_mapping": {"tickers": "ticker_list"},
-                "required": True
-            },
-            {
                 "id_template": "of_ticker_quote",
                 "function_name": "get_ticker_quote",
                 "arguments_mapping": {"tickers": "ticker_list"},
