@@ -9,7 +9,7 @@ from collections import defaultdict
 
 
 
-#today = datetime.today()
+today = datetime.today()
 #N_days_ago = today - timedelta(days=90)
 
 query_template = """
@@ -41,12 +41,11 @@ def aggregate_data_by_date(symbol):
     data_by_date = {}
     
     today = datetime.today().date()
-    one_year_ago = today - timedelta(days=365)
+    one_year_ago = today - timedelta(days=365*5)
     one_year_ago_str = one_year_ago.strftime('%Y-%m-%d')
     
     contract_dir = f"json/all-options-contracts/{symbol}"
     contract_list = get_contracts_from_directory(contract_dir)
-
     if not contract_list:
         return []
 
@@ -56,6 +55,10 @@ def aggregate_data_by_date(symbol):
             with open(file_path, "r") as file:
                 data = orjson.loads(file.read())
             
+            expiration_date = datetime.strptime(data['expiration'], "%Y-%m-%d").date()
+            if today > expiration_date:
+                continue
+
             option_type = data.get('optionType')
             if option_type not in ['call', 'put']:
                 continue
@@ -63,58 +66,66 @@ def aggregate_data_by_date(symbol):
             is_call = option_type == 'call'
             
             for entry in data.get('history', []):
-                date = entry.get('date')
-                #if date < one_year_ago_str:
-                #    continue
-                
-                spot_price = price_list.get(date)
-                if not spot_price:
-                    continue
-
-                volume = entry.get('volume', 0) or 0
-                open_interest = entry.get('open_interest', 0) or 0
-                total_premium = entry.get('total_premium', 0) or 0
-                implied_volatility = entry.get('implied_volatility', 0) or 0
-                gamma = entry.get('gamma', 0) or 0
-                delta = entry.get('delta', 0) or 0
-
-                gex = open_interest * gamma * spot_price
-                dex = open_interest * delta * spot_price
-
-                if date not in data_by_date:
-                    data_by_date[date] = {
-                        "date": date,
-                        "call_volume": 0,
-                        "put_volume": 0,
-                        "call_open_interest": 0,
-                        "put_open_interest": 0,
-                        "call_premium": 0,
-                        "put_premium": 0,
-                        "call_gex": 0,
-                        "put_gex": 0,
-                        "call_dex": 0,
-                        "put_dex": 0,
-                        "iv": [],
-                        "iv_count": 0,
-                    }
-
-                daily_data = data_by_date[date]
-                
-                # Use conditional indexing instead of if-else
-                type_prefix = 'call_' if is_call else 'put_'
-                daily_data[f"{type_prefix}volume"] += int(volume)
-                daily_data[f"{type_prefix}open_interest"] += int(open_interest)
-                daily_data[f"{type_prefix}premium"] += int(total_premium)
-                daily_data[f"{type_prefix}gex"] += round(gex, 2)
-                daily_data[f"{type_prefix}dex"] += round(dex, 2)
-                
-                daily_data["iv"].append(round(implied_volatility, 2))
-                daily_data["iv_count"] += 1
-                
                 try:
-                    daily_data["putCallRatio"] = round(daily_data["put_volume"] / daily_data["call_volume"], 2)
-                except ZeroDivisionError:
-                    daily_data["putCallRatio"] = None
+                    date = entry.get('date')
+                    #if date < one_year_ago_str:
+                    #    continue
+                    
+                    spot_price = price_list.get(date)
+                    if not spot_price:
+                        continue
+
+                    volume = entry.get('volume', 0) or 0
+                    open_interest = entry.get('open_interest', 0) or 0
+                    total_premium = entry.get('total_premium', 0) or 0
+                    implied_volatility = entry.get('implied_volatility', 0) or 0
+                    gamma = entry.get('gamma', 0) or 0
+                    delta = entry.get('delta', 0) or 0
+
+                    gex = open_interest * gamma * spot_price
+                    dex = open_interest * delta * spot_price
+
+                    if date not in data_by_date:
+                        data_by_date[date] = {
+                            "date": date,
+                            "call_volume": 0,
+                            "put_volume": 0,
+                            "call_open_interest": 0,
+                            "put_open_interest": 0,
+                            "call_premium": 0,
+                            "put_premium": 0,
+                            "call_gex": 0,
+                            "put_gex": 0,
+                            "call_dex": 0,
+                            "put_dex": 0,
+                            "iv": [],
+                            "iv_count": 0,
+                        }
+
+                    daily_data = data_by_date[date]
+                    
+                    # Use conditional indexing instead of if-else
+                    type_prefix = 'call_' if is_call else 'put_'
+                    daily_data[f"{type_prefix}volume"] += int(volume)
+                    daily_data[f"{type_prefix}open_interest"] += int(open_interest)
+                    daily_data[f"{type_prefix}premium"] += int(total_premium)
+
+                    if type_prefix == 'call_':
+                        daily_data[f"{type_prefix}gex"] += round(gex, 2)
+                        daily_data[f"{type_prefix}dex"] += round(dex, 2)
+                    else:
+                        daily_data[f"{type_prefix}gex"] -= round(gex, 2)
+                        daily_data[f"{type_prefix}dex"] -= round(dex, 2)
+                    
+                    daily_data["iv"].append(round(implied_volatility, 2))
+                    daily_data["iv_count"] += 1
+                    
+                    try:
+                        daily_data["putCallRatio"] = round(daily_data["put_volume"] / daily_data["call_volume"], 2)
+                    except ZeroDivisionError:
+                        daily_data["putCallRatio"] = None
+                except:
+                    pass
         
         except:
             continue
@@ -287,7 +298,8 @@ index_cursor.execute("SELECT DISTINCT symbol FROM indices")
 index_symbols = [row[0] for row in index_cursor.fetchall()]
 
 total_symbols = stocks_symbols + etf_symbols + index_symbols
-
+#Testing mode
+#total_symbols = ['AUR']
 
 for symbol in tqdm(total_symbols):
     try:

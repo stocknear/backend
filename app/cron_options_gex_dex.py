@@ -153,8 +153,8 @@ def aggregate_data_by_strike_by_expiry(symbol):
                     slot["call_gex"] += round(gex, 2)
                     slot["call_dex"] += round(dex, 2)
                 else:
-                    slot["put_gex"] += round(gex, 2)
-                    slot["put_dex"] += round(dex, 2)
+                    slot["put_gex"] -= round(gex, 2)
+                    slot["put_dex"] -= round(dex, 2)
 
             except Exception:
                 continue
@@ -233,8 +233,8 @@ def aggregate_data_by_expiration(symbol):
                     daily_data["call_gex"] += round(gex, 2)
                     daily_data["call_dex"] += round(dex, 2)
                 elif option_type == "put":
-                    daily_data["put_gex"] += round(gex, 2)
-                    daily_data["put_dex"] += round(dex, 2)
+                    daily_data["put_gex"] -= round(gex, 2)
+                    daily_data["put_dex"] -= round(dex, 2)
 
             except:
                 continue
@@ -253,7 +253,7 @@ def get_overview_data():
     directory_path = "json/gex-dex/overview"
     
     #Test mode
-    #total_symbols = ['TSLA']
+    #total_symbols = ['AUR']
     for symbol in tqdm(total_symbols):
         try:
             with open(f"json/options-historical-data/companies/{symbol}.json","r") as file:
@@ -274,8 +274,8 @@ def get_overview_data():
 
             #prepare_data(data, symbol, directory_path)
             
-        except:
-            pass
+        except Exception as e:
+            print(e)
 
 def get_strike_data():
     directory_path = "json/gex-dex/strike/"
@@ -354,4 +354,3 @@ if __name__ == '__main__':
     get_overview_data()
     get_strike_data()
     get_expiry_data()
-    
