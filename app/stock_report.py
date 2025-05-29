@@ -23,13 +23,12 @@ from reportlab.graphics import renderPDF
 
 
 
-
 class StockAnalysisReport:
     def __init__(self, filename="stock_analysis_report.pdf"):
         self.filename = filename
         self.doc = SimpleDocTemplate(filename, pagesize=letter,
-                                   rightMargin=40, leftMargin=40,
-                                   topMargin=10, bottomMargin=18)
+                                     rightMargin=40, leftMargin=40,
+                                     topMargin=10, bottomMargin=18)
         self.styles = getSampleStyleSheet()
         self.story = []
         self._create_custom_styles()
@@ -45,17 +44,20 @@ class StockAnalysisReport:
             textColor=colors.HexColor('#4472C4')
         )
         
-        # Subheader style
+        # Modified Subheader style for the "Overview" text itself
+        # Properties like background color and full width will be handled by a Table
         self.subheader_style = ParagraphStyle(
             'CustomSubHeader',
-            parent=self.styles['Heading2'],
-            fontSize=18,
-            spaceAfter=20,
-            textColor=colors.HexColor('#4472C4'),
-            borderWidth=1,
-            borderColor=colors.HexColor('#4472C4'),
-            borderPadding=10,
-            backColor=colors.HexColor('#E7F3FF')
+            parent=self.styles['Normal'],  # Base on Normal for more direct control
+            fontName='Helvetica-Bold',
+            fontSize=16,                   # Adjusted for a typical section header look
+            textColor=colors.HexColor('#2F5597'), # Dark blue text from screenshot
+            leftIndent=10,                 # Padding from the left edge of the blue bar
+            rightIndent=10,                # Padding from the right edge of the blue bar
+            spaceBefore=0,                 # No extra space before paragraph within its container
+            spaceAfter=0,                  # No extra space after paragraph within its container
+            alignment=TA_LEFT,
+            leading=18                     # Line spacing (fontSiz * 1.2 is a common value)
         )
         
         # Company name style
@@ -78,7 +80,7 @@ class StockAnalysisReport:
         )
     
     def create_header(self, title="Stocknear", 
-                     generated_date=None, page_info="Page 1 of 11"):
+                      generated_date=None, page_info="Page 1 of 11"):
         """Create the report header"""
         if generated_date is None:
             generated_date = datetime.now().strftime("Generated on %b %d, %Y, %I:%M:%S %p %Z")
@@ -90,7 +92,7 @@ class StockAnalysisReport:
         
         header_table = Table(header_data, colWidths=[3.7*inch, 2.5*inch, 1.5*inch])
         header_table.setStyle(TableStyle([
-            ('FONTNAME', (0,0), (-1,-1), 'Helvetica-Bold'),
+            ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
             ('FONTSIZE', (0,0), (0,0), 14),
             ('FONTSIZE', (1,0), (-1,-1), 8),
             ('TEXTCOLOR', (0,0), (0,0), colors.HexColor('#4472C4')),
@@ -106,10 +108,30 @@ class StockAnalysisReport:
         self.story.append(Spacer(1, 12))
     
     def create_overview_section(self):
-        """Create the Overview section header"""
-        overview = Paragraph("Overview", self.subheader_style)
-        self.story.append(overview)
-        self.story.append(Spacer(1, 20))
+        overview_paragraph = Paragraph("Overview", self.subheader_style)
+
+        # Define the background color for the bar (light blue from screenshot: #DDEBF7)
+        background_color = colors.HexColor('#DDEBF7')
+
+        # Create a table to act as the full-width colored bar
+        # The table will have one cell containing the overview_paragraph
+        # self.doc.width gives the available width between page margins
+        overview_section_table = Table([[overview_paragraph]], colWidths=[self.doc.width])
+
+        overview_section_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (0,0), background_color),
+            ('VALIGN', (0,0), (0,0), 'MIDDLE'),
+            # Cell padding to create the bar's height.
+            # The paragraph's own leftIndent/rightIndent handles text padding horizontally.
+            ('LEFTPADDING', (0,0), (0,0), 0), 
+            ('RIGHTPADDING', (0,0), (0,0), 0),
+            ('TOPPADDING', (0,0), (0,0), 8),   # Padding above the text
+            ('BOTTOMPADDING', (0,0), (0,0), 8) # Padding below the text
+        ]))
+        
+        self.story.append(overview_section_table)
+        # Add space after the entire overview bar, similar to original spaceAfter in subheader_style
+        self.story.append(Spacer(1, 20)) 
     
     def create_company_info(self, symbol, company_name):
         """Create company name and thin divider"""
@@ -127,11 +149,11 @@ class StockAnalysisReport:
 
         # list your metrics in order
         rows = [
-            [("Market Cap", m['market_cap']),    ("Industry", m['industry']),
-             ("EPS (TTM)", m['eps_ttm']),        ("P/E (TTM)", m['pe_ttm'])],
+            [("Market Cap", m['market_cap']),     ("Industry", m['industry']),
+             ("EPS (TTM)", m['eps_ttm']),         ("P/E (TTM)", m['pe_ttm'])],
 
-            [("Div & Yield", m['div_yield']),    ("FCF Payout Ratio", m['fcf_payout_ratio']),
-             ("P/S (TTM)", m['ps_ttm']),         ("P/B", m['pb'])],
+            [("Div & Yield", m['div_yield']),     ("FCF Payout Ratio", m['fcf_payout_ratio']),
+             ("P/S (TTM)", m['ps_ttm']),          ("P/B", m['pb'])],
 
             [("Shares Outstanding", m['shares_outstanding']), ("Ex-Dividend", m['ex_dividend']),
              ("Next Earnings", m['next_earnings']),           ("Forward P/E", m['forward_pe'])],
@@ -150,8 +172,8 @@ class StockAnalysisReport:
 
         tbl = Table(table_data, colWidths=[1.8*inch]*4)
         tbl.setStyle(TableStyle([
-            ('BACKGROUND',   (0,0), (-1,-1), colors.HexColor('#F5F5F5')),
-            ('VALIGN',      (0,0), (-1,-1), 'TOP'),
+            ('BACKGROUND',     (0,0), (-1,-1), colors.HexColor('#F5F5F5')),
+            ('VALIGN',         (0,0), (-1,-1), 'TOP'),
             ('LEFTPADDING', (0,0), (-1,-1), 10),
             ('RIGHTPADDING',(0,0), (-1,-1), 6),
             ('TOPPADDING',  (0,0), (-1,-1), 6),
@@ -165,7 +187,7 @@ class StockAnalysisReport:
     
     def create_description_section(self, description_text):
         """Create the Description section"""
-        desc_header = Paragraph("Description", self.company_style)
+        desc_header = Paragraph("Description", self.company_style) # Using company_style for "Description" title
         self.story.append(desc_header)
         self.story.append(Spacer(1, 3))
         
@@ -198,8 +220,6 @@ class StockAnalysisReport:
         self.story.append(Spacer(1, 20))
         self.story.append(drawing)
         self.story.append(Spacer(1, 20))
-
-
 
 
     def generate_report(self, company_data):
