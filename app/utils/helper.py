@@ -630,6 +630,48 @@ html_formatting_system_prompt = {
     )
 } 
 
+filter_non_finance_system_prompt = {
+  "role": "system",
+  "content": "If the user asks about cryptocurrencies, commodities (such as gold or oil), or any asset class outside of stocks, ETFs, and indices, respond with: 'Stocknear currently supports only stocks, ETFs, and indices. We do not have data for cryptocurrencies, commodities, or other unsupported asset types at this time.'"
+}
+
+async def check_if_non_finance_query(user_query, async_client, request_semaphore, CHAT_MODEL):
+    """
+    Checks whether the user query is about unsupported asset types like crypto or commodities.
+    Returns an assistant message if unsupported, otherwise returns None.
+    """
+    filter_non_finance_system_prompt = {
+        "role": "system",
+        "content": (
+            "If the user asks about cryptocurrencies, commodities (such as gold or oil), or any asset class "
+            "outside of stocks, ETFs, and indices, respond with: 'Stocknear currently supports only stocks, ETFs, "
+            "and indices. We do not have data for cryptocurrencies, commodities, or other unsupported asset types "
+            "at this time.'"
+        )
+    }
+
+    messages = [
+        filter_non_finance_system_prompt,
+        {"role": "user", "content": user_query}
+    ]
+
+    async with request_semaphore:
+        response = await async_client.chat.completions.create(
+            model=CHAT_MODEL,
+            messages=messages,
+            max_tokens=50,
+        )
+
+    assistant_msg = response.choices[0].message
+    unsupported_response_trigger = "Stocknear currently supports only stocks, ETFs, and indices"
+
+    if unsupported_response_trigger.lower() in assistant_msg.content.lower():
+        return assistant_msg
+
+    return None
+
+
+
 # --- Enhanced Helper Functions ---
 class ForcedToolCallExecutionError(Exception):
     """Raised when forced tool calls fail to execute properly."""
@@ -797,6 +839,7 @@ def handle_call_component_case(trigger_phrase, extracted_data, ):
             })
 
     return messages
+
 
 async def _handle_configured_case(data, base_messages, config, user_query, 
                                   async_client, chat_model, max_tokens, semaphore, 
@@ -971,6 +1014,9 @@ async def process_request(data, async_client, function_map, request_semaphore, s
     Enhanced process_request function with guaranteed function execution for triggers.
     """
     user_query = data.query.lower()
+
+
+
     # Get the latest 20 messages only
     current_messages_history = list(data.messages)[-20:]
 
@@ -980,6 +1026,12 @@ async def process_request(data, async_client, function_map, request_semaphore, s
 
     active_config = None
     trigger_phrase_found = None
+
+
+    assistant_msg = await check_if_non_finance_query(user_query, async_client, request_semaphore, CHAT_MODEL)
+    if assistant_msg:
+        return prepared_initial_messages + [assistant_msg]
+
 
     # Check for trigger phrases
     for trigger, config_item in TRIGGER_CONFIG.items():
