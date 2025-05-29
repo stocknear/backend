@@ -614,6 +614,22 @@ UI_COMPONENT_CONFIG = {
     # Add new components here like:
 }
 
+html_formatting_system_prompt = {
+    "role": "system",
+    "content": (
+        "Format your entire response strictly using this HTML structure:\n\n"
+        "<h3 class=\"text-lg font-semibold mt-4 mb-2\">Section Title</h3>\n"
+        "<h4 class=\"text-md font-medium mt-3 mb-2\">Subsection Title</h4>\n"
+        "<ul class=\"list-disc pl-5 space-y-2 mb-4\">\n"
+        "  <li><strong>Label:</strong> Value</li>\n"
+        "</ul>\n"
+        "<p class=\"mt-2 mb-4\">Your text here.</p>\n"
+        "**DO NOT** use numbered lists or Markdown bullets. Each metric or value must be formatted as a separate bullet or div. Convert all raw assistant replies into this HTML format. "
+        "Ensure your entire output adheres to this HTML structure. If the user asks for something that doesn't fit well (e.g. 'hello'), "
+        "still try to use a <p> tag or appropriate HTML. If you are presenting data from tools, format that data using the specified HTML."
+    )
+} 
+
 # --- Enhanced Helper Functions ---
 class ForcedToolCallExecutionError(Exception):
     """Raised when forced tool calls fail to execute properly."""
@@ -920,8 +936,9 @@ async def _handle_configured_case(data, base_messages, config, user_query,
 
     # 4. Final Response from LLM
     print("Getting final response from LLM...")
+    #Append in the end the html format rules
+    messages.append(html_formatting_system_prompt)
     final_llm_messages = messages.copy()
-    
     async with semaphore:
         final_response = await async_client.chat.completions.create(
             model=chat_model,
@@ -988,7 +1005,8 @@ async def process_request(data, async_client, function_map, request_semaphore, s
             # Standard flow: LLM decides on tool usage
             print("Processing standard request (no triggers detected)")
             messages = prepared_initial_messages.copy()
-
+            #Append in the end the html format rules
+            messages.append(html_formatting_system_prompt)
             async with request_semaphore:
                 response = await async_client.chat.completions.create(
                     model=CHAT_MODEL,
