@@ -154,7 +154,7 @@ def aggregate_data_by_strike_by_expiry(symbol):
                     slot["call_dex"] += round(dex, 2)
                 else:
                     slot["put_gex"] -= round(gex, 2)
-                    slot["put_dex"] -= round(dex, 2)
+                    slot["put_dex"] += round(dex, 2)
 
             except Exception:
                 continue
@@ -234,7 +234,7 @@ def aggregate_data_by_expiration(symbol):
                     daily_data["call_dex"] += round(dex, 2)
                 elif option_type == "put":
                     daily_data["put_gex"] -= round(gex, 2)
-                    daily_data["put_dex"] -= round(dex, 2)
+                    daily_data["put_dex"] += round(dex, 2)
 
             except:
                 continue

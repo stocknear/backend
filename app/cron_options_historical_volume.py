@@ -115,7 +115,7 @@ def aggregate_data_by_date(symbol):
                         daily_data[f"{type_prefix}dex"] += round(dex, 2)
                     else:
                         daily_data[f"{type_prefix}gex"] -= round(gex, 2)
-                        daily_data[f"{type_prefix}dex"] -= round(dex, 2)
+                        daily_data[f"{type_prefix}dex"] += round(dex, 2)
                     
                     daily_data["iv"].append(round(implied_volatility, 2))
                     daily_data["iv_count"] += 1
