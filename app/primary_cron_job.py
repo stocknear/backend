@@ -295,7 +295,9 @@ def run_bot():
     if week <= 4:
         run_command(["python3", "cron_discord_bot.py"])
         run_command(["python3", "cron_bsky_bot.py"])
+        run_command(["python3", "cron_linkedin_bot.py"])
         run_command(["python3", "cron_reddit_bot.py"])
+
 
 
 def run_financial_statements():
