@@ -9,7 +9,6 @@ import pytz
 
 load_dotenv()
 
-API_KEY = os.getenv('BENZINGA_API_KEY')
 BSKY_USERNAME = os.getenv('BSYK_USERNAME')
 BSKY_SECRET = os.getenv('BSKY_SECRET')
 
