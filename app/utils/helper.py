@@ -99,6 +99,34 @@ def get_last_completed_quarter():
         return current_quarter - 1, year
 '''
 
+def load_congress_db():
+    data = {}
+    directory = "./json/congress-trading/politician-db/"
+    
+    try:
+        files = os.listdir(directory)
+        json_files = [f for f in files if f.endswith('.json')]
+        
+        for filename in json_files:
+            file_path = os.path.join(directory, filename)
+            try:
+                with open(file_path, "rb") as file:
+                    file_data = orjson.loads(file.read())
+                    
+                    if 'history' in file_data and len(file_data['history']) > 0:
+                        politician_id = file_data['history'][0]['id']
+                        name = file_data['history'][0]['office']
+                        data[name] = politician_id
+                        
+            except (KeyError, IndexError, orjson.JSONDecodeError) as e:
+                print(f"Error processing {filename}: {e}")
+                continue
+                
+    except FileNotFoundError:
+        print(f"Directory {directory} not found")
+    return data
+
+
 def get_last_completed_quarter():
     #return last two quarters ago
     today = datetime.today()
@@ -286,6 +314,8 @@ def json_to_string(json_data):
         return f"An unexpected error occurred: {e}"
 
 
+key_congress_db = load_congress_db()
+
 # --- Enhanced Configuration for Trigger Phrases ---
 TRIGGER_CONFIG = {
     "@Analyst": {
@@ -420,24 +450,6 @@ TRIGGER_CONFIG = {
                 "required": True
             },
             {
-                "id_template": "bvb_company_data",
-                "function_name": "get_company_data",
-                "arguments_mapping": {"tickers": "ticker_list"},
-                "required": True
-            },
-            {
-                "id_template": "bvb_ticker_news",
-                "function_name": "get_ticker_news",
-                "arguments_mapping": {"tickers": "ticker_list"},
-                "required": True
-            },
-            {
-                "id_template": "bvb_business_metrics",
-                "function_name": "get_ticker_business_metrics",
-                "arguments_mapping": {"tickers": "ticker_list"},
-                "required": True
-            },
-            {
                 "id_template": "bvb_analyst_estimate",
                 "function_name": "get_ticker_analyst_estimate",
                 "arguments_mapping": {"tickers": "ticker_list"},
@@ -446,18 +458,6 @@ TRIGGER_CONFIG = {
             {
                 "id_template": "bvb_analyst_rating",
                 "function_name": "get_ticker_analyst_rating",
-                "arguments_mapping": {"tickers": "ticker_list"},
-                "required": True
-            },
-            {
-                "id_template": "bvb_ticker_statistics",
-                "function_name": "get_ticker_statistics",
-                "arguments_mapping": {"tickers": "ticker_list"},
-                "required": True
-            },
-            {
-                "id_template": "bvb_ticker_quote",
-                "function_name": "get_ticker_quote",
                 "arguments_mapping": {"tickers": "ticker_list"},
                 "required": True
             },

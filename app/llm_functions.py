@@ -2,6 +2,7 @@ import os
 import asyncio
 import aiofiles
 import orjson
+from utils.helper import load_congress_db
 from dotenv import load_dotenv
 from collections import defaultdict
 from datetime import datetime, date, timedelta
@@ -425,35 +426,7 @@ key_owner_earnings = [
 ]
 
 
-def load_congress_db():
-    data = {}
-    directory = "json/congress-trading/politician-db/"
-    
-    try:
-        files = os.listdir(directory)
-        json_files = [f for f in files if f.endswith('.json')]
-        
-        for filename in json_files:
-            file_path = os.path.join(directory, filename)
-            try:
-                with open(file_path, "rb") as file:
-                    file_data = orjson.loads(file.read())
-                    
-                    if 'history' in file_data and len(file_data['history']) > 0:
-                        politician_id = file_data['history'][0]['id']
-                        name = file_data['history'][0]['office']
-                        data[name] = politician_id
-                        
-            except (KeyError, IndexError, orjson.JSONDecodeError) as e:
-                print(f"Error processing {filename}: {e}")
-                continue
-                
-    except FileNotFoundError:
-        print(f"Directory {directory} not found")
-    return data
-
 key_congress_db = load_congress_db()
-
 # Type variables for better typing
 T = TypeVar('T')
 JsonDict = Dict[str, Any]
@@ -1112,30 +1085,51 @@ async def get_market_news():
     except Exception as e:
         return f"Error processing market news data: {str(e)}"
 
-async def get_ticker_congress_activity(congress_id):
-    try:
-        with open(f"json/congress-trading/politician-db/{congress_id}.json", 'rb') as file:
-            data = orjson.loads(file.read())
+async def get_congress_activity(congress_ids: Union[str, List[str]]) -> Dict[str, List[Any]]:
+    # If input is a single string, wrap it in a list for uniform processing
+    if isinstance(congress_ids, str):
+        congress_ids = [congress_ids]
 
-            if "history" in data:
-                fields_to_remove = {
-                    "assetDescription",
-                    "firstName",
-                    "lastName",
-                    "office",
-                    "capitalGainsOver200USD",
-                    "comment",
-                    "link",
-                    "id"
-                }
+    result = {}
 
-                data["history"] = [
-                    {k: v for k, v in entry.items() if k not in fields_to_remove}
-                    for entry in data["history"]
-                ]
-            return data
-    except Exception as e:
-        return f"Error processing congress activity data: {str(e)}"
+    for congress_id in congress_ids:
+        try:
+            with open(f"json/congress-trading/politician-db/{congress_id}.json", 'rb') as file:
+                data = orjson.loads(file.read())
+
+                if "history" in data:
+                    fields_to_remove = {
+                        "assetDescription",
+                        "firstName",
+                        "lastName",
+                        "capitalGainsOver200USD",
+                        "comment",
+                        "congress",
+                        "office",
+                        "representative",
+                        "link",
+                        "id"
+                    }
+                    office = data['history'][0]['office']
+
+                    data["history"] = [
+                        {k: v for k, v in entry.items() if k not in fields_to_remove}
+                        for entry in data["history"]
+                    ]
+
+
+                # Initialize the list for this office if not already
+                if office not in result:
+                    result[office] = []
+
+                result[office].append(data)
+
+        except Exception as e:
+            # Instead of raising error, store the error message under a special key
+            error_key = f"error_{congress_id}"
+            result[error_key] = f"Error processing congress activity data: {str(e)}"
+
+    return result
 
 async def get_market_flow():
     market_flow_data = []
@@ -1778,19 +1772,27 @@ def get_function_definitions():
             "parameters": {},
         },
         {
-            "name": "get_ticker_congress_activity",
-            "description": (
-                f"Retrieves and filters congressional trading activity for a specific congressperson based on the id which can be found here {key_congress_db}. E.g. Nancy Pelosi, Marjorie Greene, Rob Bresnahan etc."
-                "Removes personally identifying and extraneous fields from transaction history. "
-                "Useful for analyzing political trading patterns without sensitive details."
-            ),
+            "name": "get_congress_activity",
+            "description": f"Retrieves and filters congressional trading activity for one or more congresspeople based on their unique IDs, which can be found here: {key_congress_db}. For example, Nancy Pelosi's ID is 61b59ab669. When multiple IDs are provided, the results are grouped by the office of each congressperson.",
             "parameters": {
-                "congress_id": {
-                    "type": "string",
-                    "description": "Unique identifier for a congressperson."
-                },
-            },
-            "required": ["congress_id"]
+                "congress_ids": {
+                "oneOf": [
+                    {
+                        "type": "string",
+                        "description": "Unique identifier for a single congressperson."
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "List of unique identifiers for multiple congresspeople."
+                }
+                ],
+                "description": "Single congressperson ID or a list of congressperson IDs to retrieve activity for."
+            }
+          },
+          "required": ["congress_ids"]
         },
         {
             "name": "get_ticker_quote",
@@ -1989,5 +1991,5 @@ def get_function_definitions():
 
 
 #Testing purposes
-#data = asyncio.run(get_top_aftermarket_losers())
+#data = asyncio.run(get_congress_activity(['18f16e3014','a9c12796a0']))
 #print(data)
