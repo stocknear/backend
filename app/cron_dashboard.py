@@ -9,9 +9,9 @@ import pytz
 import os
 from pathlib import Path
 from dotenv import load_dotenv
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, date, timezone
 import sqlite3
-
+import email.utils  # for parsing RFC 2822 dates like "Fri, 30 May 2025 16:01:09 -0400"
 
 headers = {"accept": "application/json"}
 
@@ -42,6 +42,27 @@ def check_market_hours():
         return 2 #"After-market hours."
     else:
         return 0 #"Market is closed."
+
+def add_time_ago(news_items):
+    now_utc = datetime.now(timezone.utc)
+    
+    for item in news_items:
+        created_dt = email.utils.parsedate_to_datetime(item['created']).astimezone(timezone.utc)
+        diff = now_utc - created_dt
+        minutes = int(diff.total_seconds() / 60)
+
+        if minutes < 1:
+            item['timeAgo'] = "1 Min"
+        elif minutes < 60:
+            item['timeAgo'] = f"{minutes} Min"
+        elif minutes < 1440:
+            hours = minutes // 60
+            item['timeAgo'] = f"{hours}h"
+        else:
+            days = minutes // 1440
+            item['timeAgo'] = f"{days}D"
+    
+    return news_items
 
 
 load_dotenv()
@@ -342,6 +363,7 @@ async def get_latest_wiim():
                     continue
                 
                 data = ujson.loads(await response.text())
+                data = add_time_ago(data)
                 for item in data:
                     try:
                         item['ticker'] = item['stocks'][0].get('name', None).replace('/', '-')  #important for BRK-A & BRK-B
@@ -361,6 +383,7 @@ async def get_latest_wiim():
                             'marketCap': item['marketCap'],
                             'ticker': item['ticker'],
                             'assetType': item['assetType'],
+                            "timeAgo": item['timeAgo']
                         })
                     except:
                         pass
@@ -415,11 +438,11 @@ def get_dark_pool():
 def get_options_flow():
     with open(f"json/options-flow/feed/data.json","rb") as file:
         data = orjson.loads(file.read())
-    n = 5
+    n = 10
     items = data[:]
     top = []
     count = min(n, len(items))
-    keys_to_keep = {"ticker", "strike_price","cost_basis", "underlying_type","sentiment", "open_interest"}
+    keys_to_keep = {"ticker", "strike_price","cost_basis", "underlying_type","sentiment", "put_call"}
 
     for _ in range(count):
         try:
@@ -541,8 +564,8 @@ async def run():
                     gainers = ujson.load(file)
                 with open("json/market-movers/markethours/losers.json", 'r') as file:
                     losers = ujson.load(file)
-                gainers_list = gainers['1D'][:5]
-                losers_list = losers['1D'][:5]
+                gainers_list = gainers['1D'][:10]
+                losers_list = losers['1D'][:10]
             except:
                 market_movers = {}
         elif market_status == 1:
@@ -552,7 +575,7 @@ async def run():
                     gainers = [
                         {'symbol': item['symbol'], 'name': item['name'], 'price': item['price'], 
                          'changesPercentage': item['changesPercentage'], 'marketCap': item['marketCap']} 
-                        for item in data[:5]
+                        for item in data[:10]
                     ]
 
                 with open("json/market-movers/premarket/losers.json", 'r') as file:
@@ -560,7 +583,7 @@ async def run():
                     losers = [
                         {'symbol': item['symbol'], 'name': item['name'], 'price': item['price'], 
                          'changesPercentage': item['changesPercentage'], 'marketCap': item['marketCap']} 
-                        for item in data[:5]
+                        for item in data[:10]
                     ]
         
                 gainers_list = gainers
@@ -576,7 +599,7 @@ async def run():
                     gainers = [
                         {'symbol': item['symbol'], 'name': item['name'], 'price': item['price'], 
                          'changesPercentage': item['changesPercentage'], 'marketCap': item['marketCap']} 
-                        for item in data[:5]
+                        for item in data[:10]
                     ]
 
                 with open("json/market-movers/afterhours/losers.json", 'r') as file:
@@ -584,7 +607,7 @@ async def run():
                     losers = [
                         {'symbol': item['symbol'], 'name': item['name'], 'price': item['price'], 
                          'changesPercentage': item['changesPercentage'], 'marketCap': item['marketCap']} 
-                        for item in data[:5]
+                        for item in data[:10]
                     ]
     
                 gainers_list = gainers
@@ -597,13 +620,12 @@ async def run():
             'gainers': gainers_list,
             'losers': losers_list,
             'marketStatus': market_status,
-            'recentEarnings': recent_earnings,
+            #'recentEarnings': recent_earnings,
             'upcomingEarnings': upcoming_earnings,
-            'analystReport': recent_analyst_report,
             'wiim': recent_wiim,
-            'darkpool': dark_pool_list,
+            #'darkpool': dark_pool_list,
             'optionsFlow': options_flow_list,
-            "economicCalendar": economic_calendar_list,
+            #"economicCalendar": economic_calendar_list,
         }
 
         if len(data) > 0:

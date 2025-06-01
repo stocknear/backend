@@ -2973,13 +2973,12 @@ async def get_wiim(data:TickerData, api_key: str = Security(get_api_key)):
         headers={"Content-Encoding": "gzip"}
     )
 
-@app.post("/dashboard-info")
-async def get_dashboard_info(data: CustomSettings, api_key: str = Security(get_api_key)):
+@app.get("/dashboard-info")
+async def get_dashboard_info(api_key: str = Security(get_api_key)):
     # Extract user-specified sections
-    custom_settings = data.customSettings + ['marketStatus']
 
     # Build cache key based on settings
-    cache_key = f"dashboard-info-{','.join(custom_settings)}"
+    cache_key = f"dashboard-info"
     cached = redis_client.get(cache_key)
     if cached:
         return StreamingResponse(
@@ -2996,15 +2995,14 @@ async def get_dashboard_info(data: CustomSettings, api_key: str = Security(get_a
         full_res = {}
 
     # Filter response based on user settings
-    filtered_res = { key: full_res.get(key) for key in custom_settings if key in full_res }
+    #filtered_res = { key: full_res.get(key) for key in custom_settings if key in full_res }
 
     # Serialize and compress
-    raw = orjson.dumps(filtered_res)
-    compressed = gzip.compress(raw)
+    compressed = gzip.compress(orjson.dumps(full_res))
 
     # Cache for 2 minutes
     redis_client.set(cache_key, compressed)
-    redis_client.expire(cache_key, 120)
+    redis_client.expire(cache_key, 60)
 
     return StreamingResponse(
         io.BytesIO(compressed),
