@@ -52,9 +52,9 @@ def add_time_ago(news_items):
         minutes = int(diff.total_seconds() / 60)
 
         if minutes < 1:
-            item['timeAgo'] = "1 min"
+            item['timeAgo'] = "1m"
         elif minutes < 60:
-            item['timeAgo'] = f"{minutes} min"
+            item['timeAgo'] = f"{minutes}m"
         elif minutes < 1440:
             hours = minutes // 60
             item['timeAgo'] = f"{hours}h"
