@@ -965,18 +965,76 @@ async def _handle_configured_case(data, base_messages, config, user_query,
     return messages
 
 
+async def _handle_output_only_case(messages, async_client, chat_model, max_tokens, semaphore):
+    """Direct response for output_only intent"""
+    messages.append(html_formatting_system_prompt)
+    
+    async with semaphore:
+        response = await async_client.chat.completions.create(
+            model=chat_model,
+            messages=messages,
+            max_tokens=max_tokens,
+            temperature=0.7
+        )
+    
+    assistant_msg = response.choices[0].message
+    print(assistant_msg)
+    messages.append(assistant_msg)
+    return messages
+
+async def _classify_intent(user_query, async_client, model, semaphore):
+    """Classify user intent into one of three categories."""
+    intent_prompt = """
+    Classify the user's intent into one of these categories:
+    1. function_code - Requires function calling + code generation (e.g., "plot the revenue of Tesla"). everything where external dataset is needed and to coding to achieve the goal to the fullest.
+    2. function_only - Requires function calling only (e.g., "what is Tesla's revenue?"). everything where external dataset is needed.
+    3. output_only - Can be answered directly (e.g., "who are you?")
+    
+    Respond ONLY with the intent category name (function_code, function_only, or output_only).
+    """
+    
+    messages = [
+        {"role": "system", "content": intent_prompt},
+        {"role": "user", "content": user_query}
+    ]
+    
+    async with semaphore:
+        response = await async_client.chat.completions.create(
+            model=model,
+            messages=messages,
+            max_tokens=20,
+            temperature=0
+        )
+    
+    intent = response.choices[0].message.content.strip().lower()
+    valid_intents = ["function_code", "function_only", "output_only"]
+    return intent if intent in valid_intents else "function_only"  # Default fallback
+
 async def process_request(data, async_client, function_map, request_semaphore, system_message, 
                          CHAT_MODEL, MAX_TOKENS, tools_payload):
     """
     Enhanced process_request function with guaranteed function execution for triggers.
     """
     user_query = data.query.lower()
+
+
     # Get the latest 20 messages only
     current_messages_history = list(data.messages)[-20:]
 
     prepared_initial_messages = [system_message] + current_messages_history + [
         {"role": "user", "content": user_query}
     ]
+
+    # Classify intent
+    '''
+    intent = await _classify_intent(
+        user_query, async_client, CHAT_MODEL, request_semaphore
+    )
+    print(f"Detected intent: {intent}")
+
+    if intent == 'output_only':
+        return await _handle_output_only_case(prepared_initial_messages, async_client, CHAT_MODEL, MAX_TOKENS, request_semaphore)
+    '''
 
     active_config = None
     trigger_phrase_found = None

@@ -1037,7 +1037,7 @@ async def get_insider_tracker():
     except Exception as e:
         return f"Error processing potus tracker data: {str(e)}"
 
-async def get_congress_tracker():
+async def get_latest_congress_trades():
     try:
         with open(f"json/congress-trading/rss-feed/data.json", 'rb') as file:
             data = orjson.loads(file.read())
@@ -1742,7 +1742,7 @@ def get_function_definitions():
             "parameters": {}
         },
         {
-            "name": "get_congress_tracker",
+            "name": "get_latest_congress_trades",
             "description": "Get the latest congressional stock trading disclosures, including transactions by members of Congress or their spouses, with details such as ticker, transaction type, amount, representative name, and disclosure dates.",
             "parameters": {}
         },
