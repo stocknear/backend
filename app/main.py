@@ -43,10 +43,15 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from functools import partial
 from datetime import datetime
-from utils.llm_response import process_request
+
+from llm.response import process_request
+from llm.functions import *
 
 from openai import OpenAI, AsyncOpenAI
-from llm_functions import *
+from openai.types.responses import ResponseTextDeltaEvent
+from agents import Agent, Runner
+from agents.stream_events import RunItemStreamEvent
+
 from contextlib import asynccontextmanager
 from functools import lru_cache
 from hashlib import md5
@@ -82,21 +87,18 @@ PRIORITY_STRATEGIES = {
 client = httpx.AsyncClient(http2=True, timeout=10.0)
 
 #================LLM Configuration====================#
-async_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-CHAT_MODEL = os.getenv("CHAT_MODEL")
-MAX_TOKENS = int(os.getenv("MAX_TOKENS"))
+#async_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 with open("json/llm/instructions.txt","r",encoding="utf-8") as file:
     INSTRUCTIONS = file.read()
 
-function_definitions = get_function_definitions()
-function_map = {fn["name"]: globals()[fn["name"]] for fn in function_definitions}
-tools_payload = ([{"type": "function", "function": fn} for fn in function_definitions] if function_definitions else None)
 
-# Keep the system instruction separate
-system_message = {"role": "system", "content": INSTRUCTIONS}
-RESPONSE_CACHE = {}
-MAX_CONCURRENT_REQUESTS = 500  # Limit concurrent requests
-request_semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
+agent = Agent(
+    name="Stocknear AI Agent",
+    instructions=INSTRUCTIONS,
+    model = "gpt-4.1-nano-2025-04-14",
+    tools=[get_ticker_bull_vs_bear, get_why_priced_moved, get_ticker_business_metrics, get_ticker_hottest_options_contracts]
+)
+
 #======================================================#
 
 def calculate_score(item: Dict, search_query: str) -> int:
@@ -4592,88 +4594,68 @@ async def compare_data_endpoint(data: CompareData, api_key: str = Security(get_a
 
 
 
-async def generate_stream(messages: List[Dict[str, Any]]):
-    try:
-        if messages and messages[-1].get('role') == 'assistant' and messages[-1].get('callComponent'):
-            content = messages[-1]['content']
-            payload = {
-                "content": content,
-                "callComponent": messages[-1].get('callComponent'),
-            }
-            yield orjson.dumps(payload) + b"\n"
-            return
-    except:
-        pass
-
-    final_messages_for_llm = messages
-    html_formatting_system_prompt = { ... }  # Unchanged
-
-    # ====== NEW RETRY LOGIC FOR LLM STREAM ======
-    retry_count = 0
-    max_retries = 2
-    
-    while retry_count < max_retries:
-        started_streaming = False
-        try:
-            async with request_semaphore:
-                stream = await async_client.chat.completions.create(
-                    model=CHAT_MODEL,
-                    messages=final_messages_for_llm,
-                    stream=True,
-                    max_tokens=MAX_TOKENS
-                )
-
-            full_content = ""
-            async for chunk in stream:
-                if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
-                    token = chunk.choices[0].delta.content
-                    full_content += token
-                    payload = {"content": full_content}
-                    started_streaming = True
-                    yield orjson.dumps(payload) + b"\n"
-            
-            # Successful completion - break retry loop
-            return
-        
-        except Exception as e:
-            retry_count += 1
-            if started_streaming or retry_count >= max_retries:
-                # Final attempt failed or already started streaming
-                error_payload = {"error": f"LLM streaming error: {str(e)}", "content": ""}
-                yield orjson.dumps(error_payload) + b"\n"
-                return
-            else:
-                # Log retry and continue loop
-                print(f"LLM streaming failed, retrying... (attempt {retry_count})")
-    # ====== END RETRY LOGIC ======
-
 
 @app.post("/chat")
 async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
-    # ====== NEW RETRY LOGIC FOR PROCESS_REQUEST ======
-    retry_count = 0
-    max_retries = 2
-    last_exception = None
+    user_query = data.query.strip().lower()
+    current_messages_history = list(data.messages)[-10:]
+    if len(current_messages_history) == 1:
+        prepared_initial_messages = current_messages_history
+    else:
+        prepared_initial_messages = current_messages_history + [{"role": "user", "content": user_query}]
     
-    while retry_count < max_retries:
+    prepared_initial_messages = [item for item in prepared_initial_messages if 'callComponent' not in item]
+
+
+
+    async def event_generator():
+        full_content = ""
         try:
-            messages = await process_request(
-                data, async_client, function_map, 
-                request_semaphore, system_message,
-                CHAT_MODEL, MAX_TOKENS, tools_payload
-            )
-            return StreamingResponse(
-                generate_stream(messages),
-                media_type="application/json"
-            )
+            result = Runner.run_streamed(agent, input=prepared_initial_messages)
+            async for event in result.stream_events():
+                try:
+                    if hasattr(event, 'type') and event.type == "raw_response_event":
+                        delta = getattr(event.data, "delta", "")
+                        if not delta:
+                            continue
+
+                        # Sanitize and normalize delta
+                        stripped_delta = delta.strip().lower()
+
+                        # Skip if delta is just the user input (or small variations of it)
+                        if stripped_delta == user_query or stripped_delta.startswith(user_query):
+                            continue
+
+                        full_content += delta
+                        payload = {
+                            "event": "response",
+                            "content": full_content
+                        }
+                        yield orjson.dumps(payload) + b"\n"
+
+                except Exception as e:
+                    print(f"Error processing event: {e}")
+                    error_payload = {
+                        "event": "error",
+                        "message": f"Event processing error: {str(e)}"
+                    }
+                    yield orjson.dumps(error_payload) + b"\n"
         except Exception as e:
-            retry_count += 1
-            last_exception = e
-            if retry_count < max_retries:
-                print(f"process_request failed, retrying... (attempt {retry_count})")
-            else:
-                print(f"process_request failed after {max_retries} attempts: {e}")
-                raise HTTPException(status_code=500, detail=str(e))
+            print(f"Streaming error: {e}")
+            error_payload = {
+                "event": "error", 
+                "message": f"Streaming failed: {str(e)}"
+            }
+            yield orjson.dumps(error_payload) + b"\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="application/x-ndjson",
+        headers={"Cache-Control": "no-cache"}
+    )
+
+
+
 
 @app.get("/newsletter")
 async def get_newsletter():

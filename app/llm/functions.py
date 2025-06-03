@@ -9,6 +9,7 @@ from datetime import datetime, date, timedelta
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Union, Callable, TypeVar, Set, Tuple, cast
 
+from agents import function_tool
 
 load_dotenv()
 
@@ -427,6 +428,7 @@ key_owner_earnings = [
 
 
 key_congress_db = load_congress_db()
+
 # Type variables for better typing
 T = TypeVar('T')
 JsonDict = Dict[str, Any]
@@ -596,49 +598,98 @@ async def get_ticker_specific_data(
     
     return filtered_results
 
-async def get_ticker_hottest_options_contracts(tickers: List[str], category: str = "volume") -> Dict[str, List[Dict[str, Any]]]:
-    """Get the hottest options contracts based on volume or open interest."""
+@function_tool
+async def get_ticker_hottest_options_contracts(
+    tickers: List[str],
+    category: str = "volume"
+) -> Dict[str, List[Dict[str, Any]]]:
+    """
+    Retrieves the hottest options contracts for stock tickers.
+
+    Parameters:
+    - tickers: List of stock ticker symbols (e.g., ["AAPL", "GOOGL"]).
+    - category: Category to sort contracts by. Must be either "volume" or "openInterest".
+    """
     if category not in ["volume", "openInterest"]:
-        raise ValueError(f"Invalid category '{category}'. For hottest contracts, must be 'volume' or 'openInterest'.")
-    
+        raise ValueError(f"Invalid category '{category}'. Must be 'volume' or 'openInterest'.")
+
     base_dir = BASE_DIR / "hottest-contracts/companies"
-    
+
     # Create tasks for each ticker
     tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
-    
+
     # Gather all results concurrently
     results = await asyncio.gather(*tasks)
 
     # Return top 5 for each ticker
     return {
-        ticker: result[category][:5] 
-        for ticker, result in zip(tickers, results) 
+        ticker: result[category][:10]
+        for ticker, result in zip(tickers, results)
         if result is not None and category in result
     }
 
+@function_tool
 async def get_company_data(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
-    """Get company overview data for multiple companies."""
+    """
+    Fetch financial and organizational overview data for multiple companies.
+
+    Args:
+        tickers (List[str]): List of stock ticker symbols (e.g., ["AAPL", "GOOGL"]).
+
+    Returns:
+        Dict[str, Dict[str, Any]]: Dictionary mapping each ticker to its cleaned company data.
+    """
     def process_company_data(data: Dict[str, Any]) -> Dict[str, Any]:
         """Remove specific fields from company data."""
-        # Create a copy to avoid modifying the original
         result = data.copy()
-        result.pop('website', None)
-        result.pop('financialPerformance', None)
+        result.pop("website", None)
+        result.pop("financialPerformance", None)
         return result
-    
+
     return await get_ticker_specific_data(tickers, "stockdeck", process_company_data)
 
+
+@function_tool
 async def get_ticker_short_data(tickers: List[str]) -> Dict[str, Any]:
-    """Get short interest data for multiple companies."""
+    """
+    Retrieve the most recent and historical short interest data for multiple companies.
+
+    Args:
+        tickers (List[str]): List of stock ticker symbols (e.g., ["AAPL", "GOOGL"]).
+
+    Returns:
+        Dict[str, Any]: Dictionary mapping each ticker to its short interest data.
+    """
     return await get_ticker_specific_data(tickers, "share-statistics")
 
+
+@function_tool
 async def get_why_priced_moved(tickers: List[str]) -> Dict[str, Any]:
-    """Get data explaining price movements for multiple stocks."""
+    """
+    Retrieve recent news explaining the price movement of multiple stocks based on their ticker symbols.
+
+    Args:
+        tickers (List[str]): List of stock ticker symbols (e.g., ["AAPL", "GOOGL"]).
+
+    Returns:
+        Dict[str, Any]: Dictionary mapping each ticker to the corresponding price movement explanation data.
+    """
     return await get_ticker_specific_data(tickers, "wiim/company")
 
+
+@function_tool
 async def get_ticker_business_metrics(tickers: List[str]) -> Dict[str, Any]:
-    """Get business metrics including revenue breakdowns for multiple stocks."""
+    """
+    Fetch business metrics for multiple stocks, including revenue breakdown by sector and geographic region.
+
+    Args:
+        tickers (List[str]): List of stock ticker symbols (e.g., ["AAPL", "GOOGL"]).
+
+    Returns:
+        Dict[str, Any]: Dictionary mapping each ticker to its business metrics.
+    """
     return await get_ticker_specific_data(tickers, "business-metrics")
+
 
 async def get_ticker_analyst_estimate(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     """Get forward-looking analyst estimates for multiple stocks."""
@@ -695,16 +746,48 @@ async def get_top_rating_stocks():
         print(f"Error processing get top rating stocks: {e}")
         return []
 
+@function_tool
 async def get_ticker_earnings_price_reaction(tickers: List[str]) -> Dict[str, Any]:
-    """Get historical earnings price reactions for multiple stocks."""
+    """
+    Fetch past earnings price reactions before and after earnings releases of multiple stocks based on their ticker symbols.
+
+    Args:
+        tickers (List[str]): List of stock ticker symbols (e.g., ["AAPL", "GOOGL"]).
+
+    Returns:
+        Dict[str, Any]: Dictionary mapping each ticker to its earnings reaction history.
+    """
     return await get_ticker_specific_data(tickers, "earnings/past")
 
+
+@function_tool
 async def get_ticker_earnings(tickers: List[str]) -> Dict[str, Any]:
+    """
+    Retrieve the historical, latest, and upcoming earnings dates for multiple stocks, including EPS and revenue estimates,
+    as well as prior EPS and revenue figures for comparison.
+
+    Args:
+        tickers (List[str]): List of stock ticker symbols (e.g., ["AAPL", "GOOGL"]).
+
+    Returns:
+        Dict[str, Any]: Dictionary mapping each ticker to its earnings data.
+    """
     return await get_ticker_specific_data(tickers, "earnings/raw")
 
+
+@function_tool
 async def get_ticker_bull_vs_bear(tickers: List[str]) -> Dict[str, Any]:
-    """Get historical earnings price reactions for multiple stocks."""
+    """
+    Get historical bull vs. bear sentiment data for multiple stocks.
+
+    Args:
+        tickers (List[str]): List of stock ticker symbols (e.g., ["AAPL", "GOOGL"]).
+
+    Returns:
+        Dict[str, Any]: Dictionary mapping each ticker to its bull vs. bear sentiment data.
+    """
     return await get_ticker_specific_data(tickers, "bull_vs_bear")
+
 
 
 async def get_feed_data(
@@ -1528,112 +1611,8 @@ def get_function_definitions():
             "required": ["tickers", "time_period"]
         },
         {
-            "name": "get_ticker_hottest_options_contracts",
-            "description": (
-                "Retrieves the hottest options contracts for stock tickers. "
-                "Returns contracts sorted by either volume or open interest."
-            ),
-            "parameters": {
-                "tickers": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
-                },
-                "category": {
-                    "type": "string",
-                    "enum": ["volume", "openInterest"],
-                    "description": "Category to sort contracts by: volume or openInterest."
-                }
-            },
-            "required": ["tickers", "category"]
-        },
-        {
-            "name": "get_company_data",
-            "description": "Fetches financial and organizational overview data for multiple companies by their stock symbols",
-            "parameters": {
-                "tickers": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
-                }
-            },
-            "required": ["tickers"]
-        },
-        {
-            "name": "get_ticker_short_data",
-            "description": "Retrieves the most recent and historical short interest data for multiple companies using their stock ticker symbols. Not useful for filtering or sorting data.",
-            "parameters": {
-                "tickers": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
-                }
-            },
-            "required": ["tickers"]
-        },
-        {
-            "name": "get_why_priced_moved",
-            "description": "Retrieves recent data explaining the price movement of multiple stocks based on their ticker symbols.",
-            "parameters": {
-                "tickers": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
-                }
-            },
-            "required": ["tickers"]
-        },
-        {
-            "name": "get_ticker_business_metrics",
-            "description": "Fetches business metrics for multiple stocks, including revenue breakdown by sector and geographic region, based on their ticker symbols.",
-            "parameters": {
-                "tickers": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
-                }
-            },
-            "required": ["tickers"]
-        },
-        {
             "name": "get_ticker_analyst_estimate",
             "description": "Fetches forward-looking analyst estimates for multiple stocks, including average, low, and high projections for EPS, revenue, EBITDA, and net income. Call it always if @Analyst is in the user query",
-            "parameters": {
-                "tickers": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
-                }
-            },
-            "required": ["tickers"]
-        },
-        {
-            "name": "get_ticker_earnings_price_reaction",
-            "description": "Fetches past earnings price reactions before and after earnings releases of multiple stocks based on their ticker symbols",
-            "parameters": {
-                "tickers": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
-                }
-            },
-            "required": ["tickers"]
-        },
-        {
-            "name": "get_ticker_earnings",
-            "description": "Retrieves the historical, latest and upcoming earnings dates for multiple stocks, along with EPS and revenue estimates. Also includes prior EPS and revenue figures for comparison.",
-            "parameters": {
-                "tickers": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
-                }
-            },
-            "required": ["tickers"]
-        },
-        {
-            "name": "get_ticker_bull_vs_bear",
-            "description": "Provides detailed bull and bear case arguments for multiple companies, highlighting key drivers, financial metrics, and market dynamics that support each perspective.",
             "parameters": {
                 "tickers": {
                     "type": "array",
