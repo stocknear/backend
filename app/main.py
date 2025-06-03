@@ -95,8 +95,8 @@ with open("json/llm/instructions.txt","r",encoding="utf-8") as file:
 agent = Agent(
     name="Stocknear AI Agent",
     instructions=INSTRUCTIONS,
-    model = "gpt-4.1-nano-2025-04-14",
-    tools=[get_ticker_bull_vs_bear, get_why_priced_moved, get_ticker_business_metrics, get_ticker_hottest_options_contracts]
+    model = os.getenv("CHAT_MODEL"),
+    tools=[get_market_flow, get_ticker_quote,get_earnings_calendar, get_ticker_bull_vs_bear, get_why_priced_moved, get_ticker_business_metrics, get_ticker_hottest_options_contracts]
 )
 
 #======================================================#
@@ -4603,10 +4603,12 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
         prepared_initial_messages = current_messages_history
     else:
         prepared_initial_messages = current_messages_history + [{"role": "user", "content": user_query}]
+
+    for item in prepared_initial_messages:
+        if 'callComponent' in item:
+            del item['callComponent']
     
-    prepared_initial_messages = [item for item in prepared_initial_messages if 'callComponent' not in item]
-
-
+    print(prepared_initial_messages)
 
     async def event_generator():
         full_content = ""
@@ -4618,21 +4620,17 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
                         delta = getattr(event.data, "delta", "")
                         if not delta:
                             continue
-
                         # Sanitize and normalize delta
                         stripped_delta = delta.strip().lower()
-
                         # Skip if delta is just the user input (or small variations of it)
                         if stripped_delta == user_query or stripped_delta.startswith(user_query):
                             continue
-
                         full_content += delta
                         payload = {
                             "event": "response",
                             "content": full_content
                         }
                         yield orjson.dumps(payload) + b"\n"
-
                 except Exception as e:
                     print(f"Error processing event: {e}")
                     error_payload = {
@@ -4647,13 +4645,11 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
                 "message": f"Streaming failed: {str(e)}"
             }
             yield orjson.dumps(error_payload) + b"\n"
-
     return StreamingResponse(
         event_generator(),
         media_type="application/x-ndjson",
         headers={"Cache-Control": "no-cache"}
     )
-
 
 
 

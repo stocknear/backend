@@ -502,69 +502,6 @@ async def _load_and_filter(
         print(f"Error loading/filtering file {file_path}: {e}")
         return []
 
-async def get_financial_statements(
-    tickers: List[str],
-    statement_type: str = "income",
-    time_period: str = "annual",
-    keep_keys: Optional[List[str]] = None,
-) -> Dict[str, List[Dict[str, Any]]]:
-    """
-    Generic function to retrieve financial statements for multiple companies.
-    
-    Args:
-        tickers: List of stock ticker symbols
-        statement_type: Type of statement ('income', 'balance', 'cash')
-        time_period: Period of data ('annual', 'quarter', 'ttm')
-        keep_keys: List of specific keys to keep in the output
-        
-    Returns:
-        Dictionary mapping tickers to their financial statement data
-    """
-    dir_name = STATEMENT_DIRS.get(statement_type)
-    if not dir_name:
-        raise ValueError(f"Invalid statement_type '{statement_type}'. Must be one of {list(STATEMENT_DIRS)}.")
-
-    base_dir = BASE_DIR / "financial-statements" / dir_name / time_period
-    
-    # Create all tasks at once for efficient concurrency
-    tasks = [_load_and_filter(base_dir / f"{ticker}.json", keep_keys) for ticker in tickers]
-    results = await asyncio.gather(*tasks)
-    
-    # Build result dictionary with non-empty results
-    return {ticker: result for ticker, result in zip(tickers, results) if result}
-
-# Specialized financial statement functions using the generic function
-async def get_ticker_income_statement(
-    tickers: List[str], time_period: str = "ttm", keep_keys: Optional[List[str]] = None
-) -> Dict[str, List[Dict[str, Any]]]:
-    """Get income statements for multiple companies."""
-    return await get_financial_statements(tickers, "income", time_period, keep_keys)
-
-async def get_ticker_balance_sheet_statement(
-    tickers: List[str], time_period: str = "ttm", keep_keys: Optional[List[str]] = None
-) -> Dict[str, List[Dict[str, Any]]]:
-    """Get balance sheet statements for multiple companies."""
-    return await get_financial_statements(tickers, "balance", time_period, keep_keys)
-
-async def get_ticker_cash_flow_statement(
-    tickers: List[str], time_period: str = "ttm", keep_keys: Optional[List[str]] = None
-) -> Dict[str, List[Dict[str, Any]]]:
-    """Get cash flow statements for multiple companies."""
-    return await get_financial_statements(tickers, "cash", time_period, keep_keys)
-
-async def get_ticker_ratios_statement(
-    tickers: List[str], time_period: str = "annual", keep_keys: Optional[List[str]] = None
-) -> Dict[str, List[Dict[str, Any]]]:
-    """Get financial ratios for multiple companies."""
-    if time_period not in ["annual", "quarter"]:
-        raise ValueError(f"Invalid time_period '{time_period}'. For ratios, must be 'annual' or 'quarter'.")
-    
-    base_dir = BASE_DIR / "financial-statements/ratios" / time_period
-    tasks = [_load_and_filter(base_dir / f"{ticker}.json", keep_keys) for ticker in tickers]
-    results = await asyncio.gather(*tasks)
-    
-    return {ticker: result for ticker, result in zip(tickers, results) if result}
-
 # Generic function for fetching ticker-specific data
 async def get_ticker_specific_data(
     tickers: List[str], 
@@ -597,6 +534,132 @@ async def get_ticker_specific_data(
             filtered_results[ticker] = process_func(result) if process_func else result
     
     return filtered_results
+
+async def get_financial_statements(
+    tickers: List[str],
+    statement_type: str = "income",
+    time_period: str = "annual",
+    keep_keys: Optional[List[str]] = None,
+) -> Dict[str, List[Dict[str, Any]]]:
+    """
+    Generic function to retrieve financial statements for multiple companies.
+    
+    Args:
+        tickers: List of stock ticker symbols
+        statement_type: Type of statement ('income', 'balance', 'cash')
+        time_period: Period of data ('annual', 'quarter', 'ttm')
+        keep_keys: List of specific keys to keep in the output
+        
+    Returns:
+        Dictionary mapping tickers to their financial statement data
+    """
+    dir_name = STATEMENT_DIRS.get(statement_type)
+    if not dir_name:
+        raise ValueError(f"Invalid statement_type '{statement_type}'. Must be one of {list(STATEMENT_DIRS)}.")
+
+    base_dir = BASE_DIR / "financial-statements" / dir_name / time_period
+    
+    # Create all tasks at once for efficient concurrency
+    tasks = [_load_and_filter(base_dir / f"{ticker}.json", keep_keys) for ticker in tickers]
+    results = await asyncio.gather(*tasks)
+    
+    # Build result dictionary with non-empty results
+    return {ticker: result for ticker, result in zip(tickers, results) if result}
+
+# Specialized financial statement functions using the generic function
+@function_tool
+async def get_ticker_income_statement(
+    tickers: List[str], time_period: str = "ttm", keep_keys: Optional[List[str]] = None
+) -> Dict[str, List[Dict[str, Any]]]:
+    f"""
+    Retrieves historical income statements (profit and loss) for a list of stock tickers.
+    Key metrics include: {', '.join(key_income)}.
+    Available for annual, quarter, and trailing twelve months (ttm).
+
+    Args:
+        tickers (List[str]): List of stock ticker symbols (e.g., ["AAPL", "GOOGL"]).
+        time_period (str): Time period for the data: "annual", "quarter", or "ttm".
+        keep_keys (Optional[List[str]]): List of data keys to retain in the output. If omitted, defaults will be used.
+
+    Returns:
+        Dict[str, List[Dict[str, Any]]]: A dictionary mapping each ticker to a list of its income statement entries.
+            Each entry is a dict containing only the requested keys (or all keys if keep_keys is None).
+    """
+    return await get_financial_statements(tickers, "income", time_period, keep_keys)
+
+
+@function_tool
+async def get_ticker_balance_sheet_statement(
+    tickers: List[str], time_period: str = "ttm", keep_keys: Optional[List[str]] = None
+) -> Dict[str, List[Dict[str, Any]]]:
+    f"""
+    Fetches historical balance sheet statements for stock tickers.
+    Includes metrics: {', '.join(key_balance_sheet)}.
+    Available for annual, quarter, and trailing twelve months (ttm).
+
+    Args:
+        tickers (List[str]): List of stock ticker symbols (e.g., ["AAPL", "GOOGL"]).
+        time_period (str): Time period for the data: "annual", "quarter", or "ttm".
+        keep_keys (Optional[List[str]]): List of data keys to retain in the output. If omitted, defaults will be used.
+
+    Returns:
+        Dict[str, List[Dict[str, Any]]]: A dictionary mapping each ticker to a list of its balance sheet entries.
+            Each entry is a dict containing only the requested keys (or all keys if keep_keys is None).
+    """
+    return await get_financial_statements(tickers, "balance", time_period, keep_keys)
+
+
+@function_tool
+async def get_ticker_cash_flow_statement(
+    tickers: List[str], time_period: str = "ttm", keep_keys: Optional[List[str]] = None
+) -> Dict[str, List[Dict[str, Any]]]:
+    f"""
+    Obtains historical cash flow statements for stock tickers.
+    Key items: {', '.join(key_cash_flow)}.
+    Available for annual, quarter, and trailing twelve months (ttm).
+
+    Args:
+        tickers (List[str]): List of stock ticker symbols (e.g., ["AAPL", "GOOGL"]).
+        time_period (str): Time period for the data: "annual", "quarter", or "ttm".
+        keep_keys (Optional[List[str]]): List of data keys to retain in the output. If omitted, defaults will be used.
+
+    Returns:
+        Dict[str, List[Dict[str, Any]]]: A dictionary mapping each ticker to a list of its cash flow entries.
+            Each entry is a dict containing only the requested keys (or all keys if keep_keys is None).
+    """
+    return await get_financial_statements(tickers, "cash", time_period, keep_keys)
+
+
+@function_tool
+async def get_ticker_ratios_statement(
+    tickers: List[str], time_period: str = "annual", keep_keys: Optional[List[str]] = None
+) -> Dict[str, List[Dict[str, Any]]]:
+    f"""
+    Retrieves various historical financial ratios for stock tickers.
+    Examples: {', '.join(key_ratios)}.
+    Available for annual and quarter periods.
+
+    Args:
+        tickers (List[str]): List of stock ticker symbols (e.g., ["AAPL", "GOOGL"]).
+        time_period (str): Time period for the data: "annual" or "quarter". For ratios, must be "annual" or "quarter".
+        keep_keys (Optional[List[str]]): List of data keys to retain in the output. If omitted, defaults will be used.
+
+    Returns:
+        Dict[str, List[Dict[str, Any]]]: A dictionary mapping each ticker to a list of its financial ratios entries.
+            Each entry is a dict containing only the requested keys (or all keys if keep_keys is None).
+    Raises:
+        ValueError: If time_period is not "annual" or "quarter".
+    """
+    if time_period not in ["annual", "quarter"]:
+        raise ValueError(f"Invalid time_period '{time_period}'. For ratios, must be 'annual' or 'quarter'.")
+
+    base_dir = BASE_DIR / "financial-statements/ratios" / time_period
+    tasks = [_load_and_filter(base_dir / f"{ticker}.json", keep_keys) for ticker in tickers]
+    results = await asyncio.gather(*tasks)
+
+    return {ticker: result for ticker, result in zip(tickers, results) if result}
+
+
 
 @function_tool
 async def get_ticker_hottest_options_contracts(
@@ -691,41 +754,63 @@ async def get_ticker_business_metrics(tickers: List[str]) -> Dict[str, Any]:
     return await get_ticker_specific_data(tickers, "business-metrics")
 
 
+@function_tool
 async def get_ticker_analyst_estimate(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
-    """Get forward-looking analyst estimates for multiple stocks."""
+    """
+    Fetch forward-looking analyst estimates for multiple stocks, including average, low, and high projections
+    for EPS, revenue, EBITDA, and net income. Call this function when 'Analyst' is mentioned in the query.
+
+    Args:
+        tickers (List[str]): List of stock ticker symbols (e.g., ["AAPL", "GOOGL"]).
+
+    Returns:
+        Dict[str, List[Dict[str, Any]]]: Dictionary mapping each ticker to its filtered analyst estimates.
+    """
     def filter_by_year(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Filter analyst estimates to only include current year or later."""
         return [entry for entry in data if entry.get("date", 0) >= current_year]
     
     result = await get_ticker_specific_data(tickers, "analyst-estimate", filter_by_year)
-    return {ticker: data for ticker, data in result.items() if data}  # Remove empty results
+    return {ticker: data for ticker, data in result.items() if data}
 
+
+@function_tool
 async def get_earnings_calendar() -> List[Dict[str, Any]]:
+    """
+    Retrieve a list of upcoming earnings announcements including company name, ticker symbol, scheduled date,
+    market capitalization, prior and estimated EPS, prior and estimated revenue, and time of release.
+
+    Returns:
+        List[Dict[str, Any]]: Filtered earnings events starting from today (max 20 items).
+    """
     file_path = BASE_DIR / "earnings-calendar/data.json"
     today = datetime.today().date()
     try:
         async with aiofiles.open(file_path, mode="rb") as f:
             data = orjson.loads(await f.read())
-
-        # Filter data between today and upper_date using list comprehension
         return [item for item in data if today <= datetime.strptime(item['date'], "%Y-%m-%d").date()][:20]
-
     except FileNotFoundError:
         return []
     except (orjson.JSONDecodeError, KeyError, ValueError) as e:
         print(f"Error processing earnings calendar: {e}")
         return []
 
+
+@function_tool
 async def get_economic_calendar() -> List[Dict[str, Any]]:
+    """
+    Retrieve a list of upcoming USA economic events for macroeconomic analysis, including event name, date, time,
+    previous/consensus/actual values (if available), event importance, and associated country code.
+
+    Returns:
+        List[Dict[str, Any]]: Filtered list of upcoming US economic calendar events (max 20 items).
+    """
     file_path = BASE_DIR / "economic-calendar/data.json"
     today = datetime.today().date()
     try:
         async with aiofiles.open(file_path, mode="rb") as f:
             data = orjson.loads(await f.read())
             data = [item for item in data if item['countryCode'] == 'us']
-
         return [item for item in data if today <= datetime.strptime(item['date'], "%Y-%m-%d").date()][:20]
-
     except FileNotFoundError:
         return []
     except (orjson.JSONDecodeError, KeyError, ValueError) as e:
@@ -733,7 +818,15 @@ async def get_economic_calendar() -> List[Dict[str, Any]]:
         return []
 
 
-async def get_top_rating_stocks():
+@function_tool
+async def get_top_rating_stocks() -> list[dict]:
+    """
+    Retrieves the top rating stocks from analysts.
+    Returns a list of stocks with the highest analyst ratings.
+
+    Returns:
+        list[dict]: A list of dictionaries containing top rated stocks from analysts.
+    """
     file_path = BASE_DIR / "analyst/top-stocks.json"
     
     try:
@@ -854,15 +947,35 @@ async def get_feed_data(
 
 
 
+@function_tool
 async def get_latest_options_flow_feed(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+    """
+    Retrieves the top options flow orders with the highest premiums for multiple stocks, highlighting activity from hedge funds and major traders.
+
+    Args:
+        tickers (List[str]): List of stock ticker symbols (e.g., ["AAPL", "GOOGL"]). If no tickers are available, set it to an empty list [].
+
+    Returns:
+        Dict[str, List[Dict[str, Any]]]: A dictionary mapping each ticker to a list of its top options flow entries, sorted by premium.
+    """
     return await get_feed_data(
         tickers=tickers,
         file_path=BASE_DIR / "options-flow/feed/data.json",
-        filter_keys={'aggressor_ind', "exchange","tradeCount", "trade_count", "underlying_type", "description"},
+        filter_keys={'aggressor_ind', "exchange", "tradeCount", "trade_count", "underlying_type", "description"},
         sort_key="cost_basis"
     )
 
+@function_tool
 async def get_latest_dark_pool_feed(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+    """
+    Retrieves the top dark pool trades for multiple stocks, sorted by the average price paid, highlighting significant activity from hedge funds and major traders.
+
+    Args:
+        tickers (List[str]): List of stock ticker symbols (e.g., ["AAPL", "GOOGL"]). If no tickers are available, set it to an empty list [].
+
+    Returns:
+        Dict[str, List[Dict[str, Any]]]: A dictionary mapping each ticker to a list of its top dark pool trade entries, sorted by premium.
+    """
     return await get_feed_data(
         tickers=tickers,
         file_path=BASE_DIR / "dark-pool/feed/data.json",
@@ -870,24 +983,32 @@ async def get_latest_dark_pool_feed(tickers: List[str]) -> Dict[str, List[Dict[s
         sort_key="premium",
     )
 
+@function_tool
 async def get_ticker_news(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
-    
+    """
+    Retrieves the latest news for multiple stocks.
+
+    Args:
+        tickers (List[str]): List of stock ticker symbols (e.g., ["AAPL", "GOOGL"]).
+
+    Returns:
+        Dict[str, List[Dict[str, Any]]]: A dictionary mapping each ticker to a list of recent news items.
+    """
     base_dir = BASE_DIR / "market-news/companies"
     
     tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
     results = await asyncio.gather(*tasks)
     
-    filtered_results = {}
+    filtered_results: Dict[str, List[Dict[str, Any]]] = {}
     for ticker, data in zip(tickers, results):
         if data is not None:
-            # Filter for recent news only
             filtered_data = [
                 {k: v for k, v in item.items() if k not in ['image', 'symbol', 'url', 'site']}
                 for item in data
                 if 'publishedDate' in item and 
                 week_ago <= datetime.strptime(item['publishedDate'], "%Y-%m-%d %H:%M:%S").date()
             ]
-            if filtered_data:  # Only add if there's data
+            if filtered_data:
                 filtered_results[ticker] = filtered_data
                 
     return filtered_results
@@ -895,16 +1016,25 @@ async def get_ticker_news(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]
 
 
 
+@function_tool
 async def get_ticker_analyst_rating(tickers: List[str]) -> Dict[str, Dict[str, List[Dict[str, Any]]]]:
-    """Get recent analyst ratings and summary for multiple stocks."""
+    """
+    Retrieves the latest analyst ratings for multiple stocks.
+
+    Args:
+        tickers (List[str]): List of stock ticker symbols (e.g., ["AAPL", "GOOGL"]).
+
+    Returns:
+        Dict[str, Dict[str, List[Dict[str, Any]]]]: A dictionary where each key is a ticker and each value is another dictionary with:
+            - 'analyst_rating': a list of up to 30 detailed analyst rating entries (each entry excludes the 'analystId' field).
+            - 'rating_summary': a single-item list containing a summary dictionary.
+    """
     history_dir = BASE_DIR / "analyst" / "history"
     summary_dir = BASE_DIR / "analyst" / "summary" / "all_analyst"
 
-    # Launch two sets of tasks: history (detailed ratings) and summary
     history_tasks = [fetch_ticker_data(t, history_dir) for t in tickers]
     summary_tasks = [fetch_ticker_data(t, summary_dir) for t in tickers]
 
-    # Gather both lists of results concurrently
     histories, summaries = await asyncio.gather(
         asyncio.gather(*history_tasks),
         asyncio.gather(*summary_tasks)
@@ -915,7 +1045,6 @@ async def get_ticker_analyst_rating(tickers: List[str]) -> Dict[str, Dict[str, L
     for ticker, hist_data, summ_data in zip(tickers, histories, summaries):
         results[ticker] = {}
 
-        # Process detailed history: remove 'analystId', limit to most recent 30
         if hist_data:
             cleaned_history = [
                 {k: v for k, v in entry.items() if k != 'analystId'}
@@ -923,92 +1052,87 @@ async def get_ticker_analyst_rating(tickers: List[str]) -> Dict[str, Dict[str, L
             ][:30]
             results[ticker]['analyst_rating'] = cleaned_history
 
-        # Process summary: remove 'recommendationList' from summary dict
         if isinstance(summ_data, dict):
             summary_clean = {
-                k: v for k, v in summ_data.items() if k != 'recommendationList' and k != 'pastPriceList'
+                k: v for k, v in summ_data.items() 
+                if k not in {'recommendationList', 'pastPriceList'}
             }
-            results[ticker]['rating_summary'] = [summary_clean]  # wrap in a list to match type hint
+            results[ticker]['rating_summary'] = [summary_clean]
+            
     return results
 
+
+
+'''
+@function_tool
 async def get_stock_screener(
-    rule_of_list: Optional[List[Dict[str, Any]]] = None, 
-    sort_by: Optional[str] = None, 
-    sort_order: str = "desc", 
+    rule_of_list: Optional[List[Dict[str, Any]]] = None,
+    sort_by: Optional[str] = None,
+    sort_order: str = "desc",
     limit: int = 10
 ) -> Dict[str, Any]:
-    """
-    Screen stocks based on specified criteria.
+    f"""
+    Screen stocks based on specified financial criteria to help filter stocks 
+    that meet certain thresholds (e.g., revenue > $10M, P/E ratio < 15, etc.).
+    All available screening metrics: {', '.join(key_screener)}.
     
     Args:
-        rule_of_list: List of filtering rules
+        rule_of_list: List of filtering rules with metric e.g. 'marketCap', operator e.g '>'', and value e.g. '10B'
         sort_by: Field to sort results by
         sort_order: Sort direction ('asc' or 'desc')
-        limit: Maximum number of results
-        
+        limit: Maximum number of results to return
+    
     Returns:
-        Dictionary with matched stocks and count
+        Dict[str, Any]: Dictionary containing matched stocks and metadata
     """
     try:
         file_path = BASE_DIR / "stock-screener/data.json"
         async with aiofiles.open(file_path, 'rb') as file:
             data = orjson.loads(await file.read())
 
-        # Initial filter to exclude PNK exchange
         filtered_data = [item for item in data if item.get('exchange') != 'PNK']
 
-        # Exit early if no rules provided
         if not rule_of_list:
             result = filtered_data
         else:
-            # Apply filtering rules
             result = []
             for stock in filtered_data:
                 meets_criteria = True
-                
-                # Check each rule
                 for rule in rule_of_list:
-                    # Get rule components
-                    metric = rule.get('metric', rule.get('name'))
+                    metric = rule.get('metric')
+                    operator_str = rule.get('operator', '>')
                     value = rule.get('value')
-                    operator = rule.get('operator', '>')
-                    
-                    # Skip invalid rules
-                    if not metric or metric not in stock or operator not in OPERATORS:
+
+                    if not metric or metric not in stock or operator_str not in OPERATORS:
                         meets_criteria = False
                         break
-                    
+
                     stock_value = stock[metric]
-                    
-                    # Handle None values
+
                     if stock_value is None:
                         meets_criteria = False
                         break
-                    
-                    # Apply comparison
+
                     try:
-                        if not OPERATORS[operator](stock_value, value):
+                        if not OPERATORS[operator_str](stock_value, value):
                             meets_criteria = False
                             break
-                    except (TypeError, ValueError):
+                    except Exception:
                         meets_criteria = False
                         break
-                
+
                 if meets_criteria:
                     result.append(stock)
 
-        # Sort results if requested
         if sort_by and result and sort_by in result[0]:
             result.sort(
                 key=lambda x: (x.get(sort_by) is None, x.get(sort_by)),
                 reverse=(sort_order.lower() == "desc")
             )
 
-        # Apply limit
         if limit and isinstance(limit, int):
             result = result[:limit]
 
-        # Format output
         filtered_result = []
         for stock in result:
             try:
@@ -1016,22 +1140,19 @@ async def get_stock_screener(
                     "symbol": stock.get("symbol", ""),
                     "company_name": stock.get("companyName", stock.get("name", "")),
                 }
-                
-                # Add metrics from rule_of_list
                 if rule_of_list:
                     metrics = {}
                     for rule in rule_of_list:
-                        metric_name = rule.get('metric', rule.get('name'))
+                        metric_name = rule.get('metric')
                         if metric_name and metric_name in stock:
                             metrics[metric_name] = stock[metric_name]
-                    
-                    # Add sort_by field if used for sorting
+
                     if sort_by and sort_by not in metrics and sort_by in stock:
                         metrics[sort_by] = stock[sort_by]
-                    
+
                     if metrics:
                         filtered_stock["metrics"] = metrics
-                
+
                 filtered_result.append(filtered_stock)
             except Exception as e:
                 print(f"Error processing stock in screener: {e}")
@@ -1045,84 +1166,176 @@ async def get_stock_screener(
         return {"matched_stocks": [], "count": 0, "error": "Screener data file not found"}
     except (orjson.JSONDecodeError, Exception) as e:
         return {"matched_stocks": [], "count": 0, "error": f"Error processing screener data: {str(e)}"}
+'''
 
-async def get_top_gainers():
+@function_tool
+async def get_top_gainers() -> list[dict]:
+    """
+    Retrieves a list of stocks with the highest percentage gains for the current trading day.
+    Returns the top 10 securities ranked by their daily price increase percentage.
+
+    Returns:
+        list[dict]: A list of up to 10 dictionaries representing top gaining stocks.
+        Each dictionary includes key fields such as symbol and percent gain.
+    """
     try:
-        with open(f"json/market-movers/markethours/gainers.json", 'rb') as file:
-            data = orjson.loads(file.read())['1D'][:10]
-            return data
+        with open("json/market-movers/markethours/gainers.json", "rb") as f:
+            raw = f.read()
+        data = orjson.loads(raw)["1D"][:10]
+        return data
     except Exception as e:
-        return f"Error processing top gainers data: {str(e)}"
+        return [{"error": f"Error processing top gainers data: {str(e)}"}]
 
-async def get_top_premarket_gainers():
+@function_tool
+async def get_top_premarket_gainers() -> list[dict]:
+    """
+    Retrieves a list of stocks with the highest percentage gains for the premarket trading session.
+    Returns the top 20 securities ranked by their price increase percentage in the premarket.
+
+    Returns:
+        list[dict]: A list of up to 20 dictionaries representing top premarket gaining stocks.
+            Each dictionary includes key fields such as symbol and percent gain.
+    """
     try:
-        with open(f"json/market-movers/premarket/gainers.json", 'rb') as file:
+        with open("json/market-movers/premarket/gainers.json", "rb") as file:
             data = orjson.loads(file.read())[:20]
             return data
     except Exception as e:
-        return f"Error processing top premarket gainers data: {str(e)}"
+        return [{"error": f"Error processing top premarket gainers data: {str(e)}"}]
 
-async def get_top_aftermarket_gainers():
+@function_tool
+async def get_top_aftermarket_gainers() -> list[dict]:
+    """
+    Retrieves a list of stocks with the highest percentage gains for the aftermarket trading session.
+    Returns the top 20 securities ranked by their price increase percentage in the aftermarket.
+
+    Returns:
+        list[dict]: A list of up to 20 dictionaries representing top aftermarket gaining stocks.
+            Each dictionary includes key fields such as symbol and percent gain.
+    """
     try:
-        with open(f"json/market-movers/afterhours/gainers.json", 'rb') as file:
+        with open("json/market-movers/afterhours/gainers.json", "rb") as file:
             data = orjson.loads(file.read())[:20]
             return data
     except Exception as e:
-        return f"Error processing top premarket gainers data: {str(e)}"
+        return [{"error": f"Error processing top aftermarket gainers data: {str(e)}"}]
 
-async def get_top_losers():
+
+@function_tool
+async def get_top_losers() -> list[dict]:
+    """
+    Retrieves a list of stocks with the highest percentage losses for the current trading day.
+    Returns the top 10 securities ranked by their daily percentage decrease.
+
+    Returns:
+        list[dict]: A list of up to 10 dictionaries representing top losing stocks of the trading day.
+            Each dictionary includes key fields such as symbol and percent loss.
+    """
     try:
-        with open(f"json/market-movers/markethours/losers.json", 'rb') as file:
-            data = orjson.loads(file.read())['1D'][:10]
+        with open("json/market-movers/markethours/losers.json", "rb") as file:
+            data = orjson.loads(file.read())["1D"][:10]
             return data
     except Exception as e:
-        return f"Error processing top losers data: {str(e)}"
+        return [{"error": f"Error processing top losers data: {str(e)}"}]
 
 
-async def get_top_premarket_losers():
+@function_tool
+async def get_top_premarket_losers() -> list[dict]:
+    """
+    Retrieves a list of stocks with the highest percentage losses for the premarket trading session.
+    Returns the top 20 securities ranked by their price decrease percentage in the premarket.
+
+    Returns:
+        list[dict]: A list of up to 20 dictionaries representing top premarket losing stocks.
+            Each dictionary includes key fields such as symbol and percent loss.
+    """
     try:
-        with open(f"json/market-movers/premarket/losers.json", 'rb') as file:
+        with open("json/market-movers/premarket/losers.json", "rb") as file:
             data = orjson.loads(file.read())[:20]
             return data
     except Exception as e:
-        return f"Error processing top premarket losers data: {str(e)}"
+        return [{"error": f"Error processing top premarket losers data: {str(e)}"}]
 
-async def get_top_aftermarket_losers():
+
+@function_tool
+async def get_top_aftermarket_losers() -> list[dict]:
+    """
+    Retrieves a list of stocks with the highest percentage losses for the aftermarket trading session.
+    Returns the top 20 securities ranked by their price decrease percentage in the aftermarket.
+
+    Returns:
+        list[dict]: A list of up to 20 dictionaries representing top aftermarket losing stocks.
+            Each dictionary includes key fields such as symbol and percent loss.
+    """
     try:
-        with open(f"json/market-movers/afterhours/losers.json", 'rb') as file:
+        with open("json/market-movers/afterhours/losers.json", "rb") as file:
             data = orjson.loads(file.read())[:20]
             return data
     except Exception as e:
-        return f"Error processing top premarket losers data: {str(e)}"
+        return [{"error": f"Error processing top aftermarket losers data: {str(e)}"}]
 
 
-async def get_top_active_stocks():
+
+@function_tool
+async def get_top_active_stocks() -> list[dict]:
+    """
+    Retrieves a list of stocks with the largest trading volume for the current trading day.
+    Returns stocks ranked by their daily volume, showing the most actively traded securities.
+
+    Returns:
+        list[dict]: A list of up to 10 dictionaries representing the most active stocks.
+    """
     try:
-        with open(f"json/market-movers/markethours/active.json", 'rb') as file:
-            data = orjson.loads(file.read())['1D'][:10]
+        with open("json/market-movers/markethours/active.json", "rb") as file:
+            data = orjson.loads(file.read())["1D"][:10]
             return data
     except Exception as e:
-        return f"Error processing most active stock data: {str(e)}"
+        return [{"error": f"Error processing most active stock data: {str(e)}"}]
 
-async def get_potus_tracker():
+@function_tool
+async def get_potus_tracker() -> dict:
+    """
+    Gets the latest POTUS tracker data, including presidential schedule, Truth Social posts,
+    executive orders, and S&P 500 (SPY) performance since the current president's inauguration.
+
+    Returns:
+        dict: A dictionary containing POTUS tracker data.
+    """
     try:
-        with open(f"json/tracker/potus/data.json", 'rb') as file:
+        with open("json/tracker/potus/data.json", "rb") as file:
             data = orjson.loads(file.read())
             return data
     except Exception as e:
-        return f"Error processing potus tracker data: {str(e)}"
+        return {"error": f"Error processing potus tracker data: {str(e)}"}
 
-async def get_insider_tracker():
+@function_tool
+async def get_insider_tracker() -> list[dict]:
+    """
+    Retrieves the latest insider trading activity, including recent stock sales or purchases by company executives,
+    with relevant company info like symbol, price, market cap, and filing date.
+
+    Returns:
+        list[dict]: A list of up to 20 dictionaries representing recent insider trades.
+    """
     try:
-        with open(f"json/tracker/insider/data.json", 'rb') as file:
+        with open("json/tracker/insider/data.json", "rb") as file:
             data = orjson.loads(file.read())
             return data[:20]
     except Exception as e:
-        return f"Error processing potus tracker data: {str(e)}"
+        return [{"error": f"Error processing insider tracker data: {str(e)}"}]
 
-async def get_latest_congress_trades():
+@function_tool
+async def get_latest_congress_trades() -> list[dict]:
+    """
+    Retrieves the latest congressional stock trading disclosures including transactions by members of Congress or their spouses.
+    Returns details such as ticker, transaction type, amount, representative name, and disclosure dates.
+    Some less relevant fields are excluded.
+
+    Returns:
+        list[dict]: A list of up to 20 cleaned congressional trade entries.
+    """
     try:
-        with open(f"json/congress-trading/rss-feed/data.json", 'rb') as file:
+        with open("json/congress-trading/rss-feed/data.json", "rb") as file:
             data = orjson.loads(file.read())
 
             fields_to_remove = {
@@ -1136,50 +1349,103 @@ async def get_latest_congress_trades():
             data = [{k: v for k, v in entry.items() if k not in fields_to_remove} for entry in data]
             return data[:20]
     except Exception as e:
-        return f"Error processing congress tracker data: {str(e)}"
+        return [{"error": f"Error processing congress tracker data: {str(e)}"}]
 
-async def get_analyst_tracker():
+@function_tool
+async def get_analyst_tracker() -> list[dict]:
+    """
+    Retrieves the latest analyst stock ratings, including upgrades, downgrades, maintained ratings,
+    price targets, analyst names, firms, and expected upside.
+    Removes analyst ID from the results for privacy.
+
+    Returns:
+        list[dict]: A list of up to 20 analyst rating entries.
+    """
     try:
-        with open(f"json/analyst/flow-data.json", 'rb') as file:
+        with open("json/analyst/flow-data.json", "rb") as file:
             data = orjson.loads(file.read())
 
-            fields_to_remove = {
-                "analystId",
-            }
+            fields_to_remove = {"analystId"}
 
             data = [{k: v for k, v in entry.items() if k not in fields_to_remove} for entry in data]
             return data[:20]
     except Exception as e:
-        return f"Error processing analyst tracker data: {str(e)}"
+        return [{"error": f"Error processing analyst tracker data: {str(e)}"}]
 
-async def get_market_news():
+@function_tool
+async def get_market_news() -> list[dict]:
+    """
+    Retrieves the latest general news for the stock market.
+    Removes some less relevant fields such as site, url, and image.
+
+    Returns:
+        list[dict]: A list of up to 30 news articles with essential fields.
+    """
     try:
-        with open(f"json/market-news/general-news.json", 'rb') as file:
+        with open("json/market-news/general-news.json", "rb") as file:
             data = orjson.loads(file.read())
 
-            fields_to_remove = {
-                "site",
-                "url",
-                "image",
-            }
+            fields_to_remove = {"site", "url", "image"}
 
             data = [{k: v for k, v in entry.items() if k not in fields_to_remove} for entry in data]
             return data[:30]
     except Exception as e:
-        return f"Error processing market news data: {str(e)}"
+        return [{"error": f"Error processing market news data: {str(e)}"}]
 
+
+@function_tool
+async def get_market_flow() -> Dict[str, Any]:
+    """
+    Retrieves the current market flow option sentiment of the S&P 500.
+
+    Returns:
+        Dict[str, Any]: A dictionary containing:
+            - "marketFlow": a list of market tide entries (only those with a 'close' value).
+            - "topPosNetPremium": a list of top tickers by net premium.
+    """
+    market_flow_data = []
+    res_dict: Dict[str, Any] = {}
+    try:
+        with open("json/market-flow/overview.json", "rb") as file:
+            data = orjson.loads(file.read())
+            for item in data["marketTide"]:
+                try:
+                    if item.get("close"):
+                        market_flow_data.append(item)
+                except:
+                    pass
+            res_dict["marketFlow"] = market_flow_data
+            res_dict["topPosNetPremium"] = data.get("topPosNetPremium", [])
+            return res_dict
+    except Exception as e:
+        return {"error": f"Error processing market flow data: {str(e)}"}
+
+@function_tool
 async def get_congress_activity(congress_ids: Union[str, List[str]]) -> Dict[str, List[Any]]:
+    """
+    Retrieves and filters congressional trading activity for one or more congresspeople based on their unique IDs.
+    Groups results by the office of each congressperson.
+
+    Args:
+        congress_ids (Union[str, List[str]]): Single congressperson ID or list of IDs 
+            (e.g., "61b59ab669" or ["61b59ab669", "anotherID"]).
+
+    Returns:
+        Dict[str, List[Any]]: A dictionary where keys are offices (e.g., "Senate", "House"), and values are lists of activity data objects.
+            If an error occurs for a specific ID, an "error_<ID>" key maps to the error message.
+    """
     # If input is a single string, wrap it in a list for uniform processing
     if isinstance(congress_ids, str):
         congress_ids = [congress_ids]
 
-    result = {}
+    result: Dict[str, List[Any]] = {}
 
     for congress_id in congress_ids:
         try:
-            with open(f"json/congress-trading/politician-db/{congress_id}.json", 'rb') as file:
+            with open(f"json/congress-trading/politician-db/{congress_id}.json", "rb") as file:
                 data = orjson.loads(file.read())
 
+                office = None
                 if "history" in data:
                     fields_to_remove = {
                         "assetDescription",
@@ -1191,82 +1457,120 @@ async def get_congress_activity(congress_ids: Union[str, List[str]]) -> Dict[str
                         "office",
                         "representative",
                         "link",
-                        "id"
+                        "id",
                     }
-                    office = data['history'][0]['office']
-
+                    office = data["history"][0].get("office", "Unknown")
                     data["history"] = [
                         {k: v for k, v in entry.items() if k not in fields_to_remove}
                         for entry in data["history"]
                     ]
 
-
-                # Initialize the list for this office if not already
                 if office not in result:
                     result[office] = []
-
                 result[office].append(data)
 
         except Exception as e:
-            # Instead of raising error, store the error message under a special key
             error_key = f"error_{congress_id}"
-            result[error_key] = f"Error processing congress activity data: {str(e)}"
+            result[error_key] = [f"Error processing congress activity data: {str(e)}"]
 
     return result
 
-async def get_market_flow():
-    market_flow_data = []
-    top_net_premium_tickers = []
-    res_dict = {}
-    try:
-        with open(f"json/market-flow/overview.json", 'rb') as file:
-            data = orjson.loads(file.read())
-            for item in data['marketTide']:
-                try:
-                    if item['close']:
-                        market_flow_data.append(item)
-                except:
-                    pass
-            res_dict['marketFlow'] = market_flow_data
-            res_dict['topPosNetPremium'] = data['topPosNetPremium']
-            return res_dict
-    except Exception as e:
-        return f"Error processing market flow data: {str(e)}"
 
+@function_tool
 async def get_ticker_quote(tickers: List[str]) -> Dict[str, Any]:
+    """
+    Retrieves the most recent stock quote data for one or more ticker symbols.
+    Returns real-time information including:
+    - latest trading price
+    - percentage change
+    - trading volume
+    - day high and low
+    - 52-week high and low
+    - market capitalization
+    - previous close
+    - earnings per share (EPS)
+    - price-to-earnings (P/E) ratio
+    - current ask and bid prices
+
+    Args:
+        tickers (List[str]): List of stock ticker symbols (e.g., ["AAPL", "GOOGL"]).
+
+    Returns:
+        Dict[str, Any]: A dictionary mapping each ticker to its quote data object.
+    """
     return await get_ticker_specific_data(tickers, "quote")
 
+
+@function_tool
 async def get_ticker_pre_post_quote(tickers: List[str]) -> Dict[str, Any]:
+    """
+    Retrieves the most recent stock premarket/aftermarket quote data for one or more ticker symbols.
+    Returns real-time information including:
+    - latest trading price
+    - percentage change
+
+    Args:
+        tickers (List[str]): List of stock ticker symbols (e.g., ["AAPL", "GOOGL"]).
+
+    Returns:
+        Dict[str, Any]: A dictionary mapping each ticker to its pre/post market quote data object.
+    """
     return await get_ticker_specific_data(tickers, "pre-post-quote")
 
+
+@function_tool
 async def get_ticker_insider_trading(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
-    
+    """
+    Fetch detailed insider trading records—such as buys, sells, grant dates, and volumes—executed by corporate insiders 
+    (officers, directors, major shareholders) for the specified stock tickers.
+    Returns up to the 50 most recent entries per ticker, excluding 'companyCik' and 'url' fields.
+
+    Args:
+        tickers (List[str]): List of stock ticker symbols (e.g., ["AAPL", "GOOGL"]).
+
+    Returns:
+        Dict[str, List[Dict[str, Any]]]: A dictionary mapping each ticker to a list of up to 50 insider trading entries.
+    """
     base_dir = BASE_DIR / "insider-trading/history"
     
     tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
     results = await asyncio.gather(*tasks)
     
-    filtered_results = {}
+    filtered_results: Dict[str, List[Dict[str, Any]]] = {}
     for ticker, data in zip(tickers, results):
         if data is not None:
-            # Filter for recent news only
             filtered_data = [
-                {k: v for k, v in item.items() if k not in ['companyCik', 'url']} for item in data]
-            if filtered_data:  # Only add if there's data
+                {k: v for k, v in item.items() if k not in ["companyCik", "url"]}
+                for item in data
+            ]
+            if filtered_data:
                 filtered_results[ticker] = filtered_data[:50]
                 
     return filtered_results
 
+@function_tool
 async def get_ticker_shareholders(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
-    final_res = {}
+    """
+    Fetch current institutional and major shareholder data for the specified stock tickers, including top institutional holders 
+    and ownership statistics such as investor counts, total invested value, and put/call ratios.
+
+    Args:
+        tickers (List[str]): List of stock ticker symbols (e.g., ["AAPL", "GOOGL"]).
+
+    Returns:
+        Dict[str, List[Dict[str, Any]]]: A dictionary with two keys:
+            - "top-shareholders": maps each ticker to a list of shareholder entries (excluding the 'cik' field).
+            - "ownership-stats": maps each ticker to its ownership statistics entries.
+    """
+    final_res: Dict[str, Dict[str, Any]] = {}
     
     for path in ['shareholders', 'ownership-stats']:
-        base_dir = BASE_DIR / path  # Use the path to differentiate file location
+        base_dir = BASE_DIR / path
         
         tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
         results = await asyncio.gather(*tasks)
 
-        filtered_results = {}
+        filtered_results: Dict[str, List[Dict[str, Any]]] = {}
         for ticker, data in zip(tickers, results):
             if data is None:
                 continue
@@ -1284,31 +1588,52 @@ async def get_ticker_shareholders(tickers: List[str]) -> Dict[str, List[Dict[str
         if path == 'shareholders':
             final_res['top-shareholders'] = filtered_results
         else:
-            final_res[path] = filtered_results
+            final_res['ownership-stats'] = filtered_results
                 
     return final_res
 
 
-async def get_ticker_options_data(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
-    
+@function_tool
+async def get_ticker_options_data(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
+    """
+    Fetch comprehensive options statistics for the most recent trading day for the specified stock tickers. 
+    Includes volume, open interest, premiums, GEX/DEX, implied volatility metrics, and price changes.
+
+    Args:
+        tickers (List[str]): List of stock ticker symbols (e.g., ["AAPL", "GOOGL"]).
+
+    Returns:
+        Dict[str, Dict[str, Any]]: A dictionary mapping each ticker to its latest options data entry,
+        filtered to exclude 'price' and 'changesPercentage' fields.
+    """
     base_dir = BASE_DIR / "options-historical-data/companies"
     
     tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
     results = await asyncio.gather(*tasks)
     
-    filtered_results = {}
+    filtered_results: Dict[str, Dict[str, Any]] = {}
     for ticker, data in zip(tickers, results):
-        if data is not None:
-            # Filter for recent news only
-            filtered_data = [
-                {k: v for k, v in item.items() if k not in ['price', 'changesPercentage']} for item in data]
-            if filtered_data:  # Only add if there's data
-                filtered_results[ticker] = filtered_data[0]
+        if data is not None and data:
+            # Filter out 'price' and 'changesPercentage' fields, then take the most recent entry
+            latest_entry = data[0]
+            filtered_entry = {k: v for k, v in latest_entry.items() if k not in ['price', 'changesPercentage']}
+            filtered_results[ticker] = filtered_entry
                 
     return filtered_results
 
+
+@function_tool
 async def get_ticker_max_pain(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
-    
+    """
+    Retrieve max pain analysis for multiple stock tickers, including expiration dates, strike prices, call and put payouts,
+    and the calculated max pain point per expiration.
+
+    Args:
+        tickers (List[str]): List of stock ticker symbols (e.g., ["AAPL", "GOOGL"]).
+
+    Returns:
+        Dict[str, List[Dict[str, Any]]]: A dictionary mapping each ticker to its list of max pain analysis entries.
+    """
     base_dir = BASE_DIR / "max-pain"
     
     tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
@@ -1316,7 +1641,24 @@ async def get_ticker_max_pain(tickers: List[str]) -> Dict[str, List[Dict[str, An
     
     return {ticker: result for ticker, result in zip(tickers, results) if result}
 
+
+
+@function_tool
 async def get_ticker_open_interest_by_strike_and_expiry(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+    """
+    Fetch and aggregate options open interest data for one or more equity tickers, returning:
+        - expiry-data: total call and put OI grouped by each expiration date (only future expiries)
+        - strike-data: call and put OI broken down by individual strike price
+
+    Args:
+        tickers (List[str]): List of stock ticker symbols to analyze (e.g., ["AAPL", "GOOGL"]).
+
+    Returns:
+        Dict[str, List[Dict[str, Any]]]: A dictionary with two keys:
+            - "expiry-data": maps each ticker to its list of expiry-level OI entries.
+            - "strike-data": maps each ticker to its list of strike-level OI entries.
+            Each entry is a dict containing fields like "call_oi", "put_oi", and the associated expiry or strike value.
+    """
     final_res = {}
     today = datetime.today().date()
 
@@ -1325,7 +1667,7 @@ async def get_ticker_open_interest_by_strike_and_expiry(tickers: List[str]) -> D
         tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
         results = await asyncio.gather(*tasks)
         
-        res = {}
+        res: Dict[str, List[Dict[str, Any]]] = {}
         for ticker, result in zip(tickers, results):
             if not result:
                 continue
@@ -1343,13 +1685,25 @@ async def get_ticker_open_interest_by_strike_and_expiry(tickers: List[str]) -> D
     return final_res
 
 
+@function_tool
 async def get_ticker_unusual_activity(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+    """
+    Retrieve recent unusual options activity for one or more stock tickers, including large trades, sweeps, and high-premium orders.
+    Returns the top 10 most recent entries per ticker, sorted by date descending.
+
+    Args:
+        tickers (List[str]): List of stock ticker symbols to analyze (e.g., ["AAPL", "GOOGL"]).
+
+    Returns:
+        Dict[str, List[Dict[str, Any]]]: A dictionary mapping each ticker to a list of its top 10 unusual activity entries.
+            Each entry is a dict containing fields like "date", "strike", "volume", etc., sorted by most recent first.
+    """
     base_dir = BASE_DIR / "unusual-activity"
     
     tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
     results = await asyncio.gather(*tasks)
 
-    sorted_results = {}
+    sorted_results: Dict[str, List[Dict[str, Any]]] = {}
     for ticker, result in zip(tickers, results):
         if result:
             sorted_result = sorted(result, key=lambda x: x['date'], reverse=True)
@@ -1357,30 +1711,63 @@ async def get_ticker_unusual_activity(tickers: List[str]) -> Dict[str, List[Dict
 
     return sorted_results
 
+
+@function_tool
 async def get_ticker_dark_pool(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
-    final_res = {}
+    """
+    Retrieves dark pool trading data and related analytics for a list of stock ticker symbols, including:
+        - volume-summary: latest volume summaries per ticker
+        - hottest_trades_and_price_level: full list of dark pool entries per ticker
+
+    Args:
+        tickers (List[str]): List of stock ticker symbols to analyze (e.g., ["AAPL", "GOOGL"]).
+
+    Returns:
+        Dict[str, List[Dict[str, Any]]]: A dictionary with two keys:
+            - "volume-summary": maps each ticker to its most recent volume summary entry (a dict).
+            - "hottest_trades_and_price_level": maps each ticker to its list of dark pool entries.
+    """
+    final_res: Dict[str, Dict[str, Any]] = {}
 
     for category_type in ['companies', 'price-level']:
         base_dir = BASE_DIR / f"dark-pool/{category_type}"
         tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
         results = await asyncio.gather(*tasks)
         
-        res = {}
+        res: Dict[str, Any] = {}
         for ticker, result in zip(tickers, results):
             if not result:
                 continue
+            if category_type == 'companies':
+                # Use only the latest volume summary entry per ticker
+                res[ticker] = result[-1]
+            else:
+                # Return the full list of entries for price-level analysis
+                res[ticker] = result
+
         if category_type == 'companies':
-            res[ticker] = result[-1]
-            final_res[f"volume-summary"] = res
+            final_res["volume-summary"] = res
         else:
-            res[ticker] = result
-            final_res['hottest_trades_and_price_level'] = res
+            final_res["hottest_trades_and_price_level"] = res
 
     return final_res
 
-async def get_ticker_dividend(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
-    base_dir = BASE_DIR / "dividends/companies"
 
+@function_tool
+async def get_ticker_dividend(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
+    """
+    Retrieve dividend data and related metrics for a list of stock ticker symbols, 
+    including payout frequency, annual dividend, dividend yield, payout ratio, 
+    and dividend growth. Also returns historical records with detailed information 
+    such as declaration date, record date, payment date, and adjusted dividend amount.
+
+    Args:
+        tickers (List[str]): List of stock ticker symbols to analyze.
+
+    Returns:
+        Dict[str, Dict[str, Any]]: A dictionary mapping each ticker to its dividend info.
+    """
+    base_dir = BASE_DIR / "dividends/companies"
     tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
     results = await asyncio.gather(*tasks)
 
@@ -1388,69 +1775,107 @@ async def get_ticker_dividend(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
     for ticker, result in zip(tickers, results):
         history = result.get('history', [])
         if history:
-            # Replace list of history with only the most recent entry
             result['history'] = history[0]
             res[ticker] = result
 
     return res
 
+
+@function_tool
 async def get_ticker_statistics(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
+    f"""
+    Retrieves a snapshot of statistical data for a list of stock ticker symbols.
+    This includes key statistics such as: {', '.join(key_statistics)}.
+
+    Args:
+        tickers (List[str]): List of stock ticker symbols to analyze.
+
+    Returns:
+        Dict[str, Dict[str, Any]]: A dictionary mapping each ticker to its statistics.
+    """
     base_dir = BASE_DIR / "statistics"
-
     tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
     results = await asyncio.gather(*tasks)
 
-    res = {}
-    for ticker, result in zip(tickers, results):
-        res[ticker] = result
+    return {ticker: result for ticker, result in zip(tickers, results)}
 
-    return res
 
+@function_tool
 async def get_ticker_key_metrics(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
+    f"""
+    Retrieves fundamental key metrics data for a list of stock ticker symbols.
+    This includes key data such as: {', '.join(key_metrics)}.
+
+    Args:
+        tickers (List[str]): List of stock ticker symbols to analyze.
+
+    Returns:
+        Dict[str, List[Dict[str, Any]]]: A dictionary mapping each ticker to a list of filtered key metrics.
+    """
     base_dir = BASE_DIR / "financial-statements/key-metrics/ttm"
-        
     tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
     results = await asyncio.gather(*tasks)
-    
+
     filtered_results = {}
     for ticker, data in zip(tickers, results):
         if data is not None:
-            # Filter for recent news only
             filtered_data = [
-                {k: v for k, v in item.items() if k not in ['symbol']} for item in data]
-            if filtered_data:  # Only add if there's data
+                {k: v for k, v in item.items() if k not in ['symbol']} for item in data
+            ]
+            if filtered_data:
                 filtered_results[ticker] = filtered_data
-                
+
     return filtered_results
 
+
+@function_tool
 async def get_ticker_financial_score(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
+    """
+    Retrieve fundamental financial score data for a list of stock ticker symbols. Includes metrics such as
+    Altman Z-Score, Piotroski Score, working capital, and total assets.
+
+    Args:
+        tickers (List[str]): List of stock ticker symbols to analyze (e.g., ["AAPL", "GOOGL"]).
+
+    Returns:
+        Dict[str, Dict[str, Any]]: A dictionary mapping each ticker to its financial score data.
+    """
     base_dir = BASE_DIR / "financial-score"
-
     tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
     results = await asyncio.gather(*tasks)
 
-    res = {}
-    for ticker, result in zip(tickers, results):
-        res[ticker] = result
+    return {ticker: result for ticker, result in zip(tickers, results)}
 
-    return res
 
+@function_tool
 async def get_ticker_owner_earnings(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
+    f"""
+    Retrieves fundamental owner earnings data for a list of stock ticker symbols.
+    This includes key data such as: {', '.join(key_metrics)}.
+
+    Args:
+        tickers (List[str]): List of stock ticker symbols to analyze (e.g., ["AAPL", "GOOGL"]).
+
+    Returns:
+        Dict[str, List[Dict[str, Any]]]: A dictionary mapping each ticker to a list of filtered owner earnings entries.
+    """
     base_dir = BASE_DIR / "financial-statements/owner-earnings/quarter"
-        
     tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
     results = await asyncio.gather(*tasks)
-    
+
     filtered_results = {}
     for ticker, data in zip(tickers, results):
         if data is not None:
-            # Filter for recent news only
             filtered_data = [
-                {k: v for k, v in item.items() if k not in ['symbol',"reportedCurrency"]} for item in data]
-            if filtered_data:  # Only add if there's data
+                {k: v for k, v in item.items() if k not in ['symbol', 'reportedCurrency']}
+                for item in data
+            ]
+            if filtered_data:
                 filtered_results[ticker] = filtered_data
-                
+
     return filtered_results
+
+
 
 '''
 async def get_historical_price(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
@@ -1469,504 +1894,6 @@ async def get_historical_price(tickers: List[str]) -> Dict[str, List[Dict[str, A
     return result
 '''
 
-
-def get_function_definitions():
-    templates = [
-        {
-          "name": "get_stock_screener",
-          "description": f"Retrieves stock data based on specified financial criteria to help filter stocks that meet certain thresholds (e.g., revenue > $10M, P/E ratio < 15, etc.) All rules are defined here: {', '.join(key_screener)}.",
-          "parameters": {
-            "rule_of_list": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "metric": {"type": "string", "description": "The financial metric to filter by (e.g., 'marketCap', 'priceToEarningsRatio', 'revenue')."},
-                        "operator": {"type": "string", "enum": [">", ">=", "<", "<=", "==", "!="], "description": "The comparison operator."},
-                        "value": {"type": ["number", "string"], "description": "The value to compare against."} # Value can be number or string depending on metric
-                    },
-                    "required": ["metric", "value"]
-                },
-                "description": "List of screening rules to filter stocks (e.g., [{\"metric\": \"marketCap\", \"operator\": \">\", \"value\": 100}, {\"metric\": \"priceToEarningsRatio\", \"operator\": \"<\", \"value\": 10}])."
-            },
-            "sort_by": {
-                "type": "string",
-                "description": "Field name to sort the results by (e.g., \"marketCap\", \"volume\", \"price\")."
-            },
-            "sort_order": {
-                "type": "string",
-                "enum": ["asc", "desc"],
-                "default": "desc",
-                "description": "Sort order for the results: 'asc' for ascending or 'desc' for descending."
-            },
-            "limit": {
-                "type": "integer",
-                "default": 10,
-                "description": "Maximum number of results to return."
-            }
-          }
-        },
-        {
-            "name": "get_ticker_income_statement",
-            "description": (
-                "Retrieves historical income statements (profit and loss) for a list of stock tickers. "
-                f"Key metrics include: {', '.join(key_income)}. "
-                "Available for annual, quarter, and trailing twelve months (ttm)."
-            ),
-            "parameters": {
-                "tickers": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
-                },
-                "time_period": {
-                    "type": "string",
-                    "enum": ["annual", "quarter", "ttm"],
-                    "description": "Time period for the data: annual, quarter, ttm."
-                },
-                "keep_keys": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of data keys to retain in the output. If omitted, defaults will be used."
-                }
-            },
-            "required": ["tickers", "time_period"]
-        },
-        {
-            "name": "get_ticker_balance_sheet_statement",
-            "description": (
-                "Fetches historical balance sheet statements for stock tickers. "
-                f"Includes metrics: {', '.join(key_balance_sheet)}. "
-                "Available for annual, quarter, and trailing twelve months (ttm)."
-            ),
-            "parameters": {
-                "tickers": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
-                },
-                "time_period": {
-                    "type": "string",
-                    "enum": ["annual", "quarter", "ttm"],
-                    "description": "Time period for the data: annual, quarter, ttm."
-                },
-                "keep_keys": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of data keys to retain in the output. If omitted, defaults will be used."
-                }
-            },
-            "required": ["tickers", "time_period"]
-        },
-        {
-            "name": "get_ticker_cash_flow_statement",
-            "description": (
-                "Obtains historical cash flow statements for stock tickers. "
-                f"Key items: {', '.join(key_cash_flow)}. "
-                "Available for annual, quarter, and trailing twelve months (ttm)."
-            ),
-            "parameters": {
-                "tickers": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
-                },
-                "time_period": {
-                    "type": "string",
-                    "enum": ["annual", "quarter", "ttm"],
-                    "description": "Time period for the data: annual, quarter, ttm."
-                },
-                "keep_keys": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of data keys to retain in the output. If omitted, defaults will be used."
-                }
-            },
-            "required": ["tickers", "time_period"]
-        },
-        {
-            "name": "get_ticker_ratios_statement",
-            "description": (
-                "Retrieves various historical financial ratios for stock tickers. "
-                f"Examples: {', '.join(key_ratios)}. "
-                "Available for annual and quarter periods."
-            ),
-            "parameters": {
-                "tickers": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
-                },
-                "time_period": {
-                    "type": "string",
-                    "enum": ["annual", "quarter"],
-                    "description": "Time period for the data: annual, quarter."
-                },
-                "keep_keys": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of data keys to retain in the output. If omitted, defaults will be used."
-                }
-            },
-            "required": ["tickers", "time_period"]
-        },
-        {
-            "name": "get_ticker_analyst_estimate",
-            "description": "Fetches forward-looking analyst estimates for multiple stocks, including average, low, and high projections for EPS, revenue, EBITDA, and net income. Call it always if @Analyst is in the user query",
-            "parameters": {
-                "tickers": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
-                }
-            },
-            "required": ["tickers"]
-        },
-        {
-            "name": "get_latest_options_flow_feed",
-            "description": "Retrieves the top options flow orders with the highest premiums for multiple stocks, highlighting activity from hedge funds and major traders.",
-            "parameters": {
-                "tickers": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"]). If no ticker are available set it to an empty list []."
-                }
-            },
-            "required": ["tickers"]
-        },
-        {
-            "name": "get_latest_dark_pool_feed",
-            "description": "Retrieves the top dark pool trades for multiple stocks, sorted by the average price paid, highlighting significant activity from hedge funds and major traders.",
-            "parameters": {
-                "tickers": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"]). If no ticker are available set it to an empty list []."
-                }
-            },
-            "required": ["tickers"]
-        },
-        {
-            "name": "get_ticker_news",
-            "description": "Retrieves the latest news for multiple stocks.",
-            "parameters": {
-                "tickers": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
-                }
-            },
-            "required": ["tickers"]
-        },
-        {
-            "name": "get_ticker_analyst_rating",
-            "description": "Retrieves the latest analyst ratings for multiple stocks.",
-            "parameters": {
-                "tickers": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
-                }
-            },
-            "required": ["tickers"]
-        },
-        {
-            "name": "get_top_rating_stocks",
-            "description": "Retrieves the top rating stocks from analyst.",
-            "parameters": {},
-        },
-        {
-            "name": "get_top_gainers",
-            "description": "Retrieves a list of stocks with the highest percentage gains for the current trading day. Returns stocks ranked by their daily price increase percentage, showing which securities have performed best today.",
-            "parameters": {},
-        },
-        {
-            "name": "get_top_premarket_gainers",
-            "description": "Retrieves a list of stocks with the highest percentage gains for the premarket trading day. Returns stocks ranked by their daily price increase percentage, showing which securities have performed best today.",
-            "parameters": {},
-        },
-        {
-            "name": "get_top_aftermarket_gainers",
-            "description": "Retrieves a list of stocks with the highest percentage gains for the aftermarket trading day. Returns stocks ranked by their daily price increase percentage, showing which securities have performed best today.",
-            "parameters": {},
-        },
-        {
-            "name": "get_top_losers",
-            "description": "Retrieves a list of stocks with the highest percentage loss for the current trading day. Returns stocks ranked by their daily price increase percentage, showing which securities have performed best today.",
-            "parameters": {},
-        },
-        {
-            "name": "get_top_premarket_losers",
-            "description": "Retrieves a list of stocks with the highest percentage loss for the premarket trading day. Returns stocks ranked by their daily price increase percentage, showing which securities have performed best today.",
-            "parameters": {},
-        },
-        {
-            "name": "get_top_aftermarket_losers",
-            "description": "Retrieves a list of stocks with the highest percentage loss for the aftermarket trading day. Returns stocks ranked by their daily price increase percentage, showing which securities have performed best today.",
-            "parameters": {},
-        },
-        {
-            "name": "get_top_active_stocks", 
-            "description": "Retrieves a list of stocks with the largest trading volume for the current trading day. Returns stocks ranked by their daily volume, showing which securities have traded the most today.",
-            "parameters": {},
-        },
-        {
-            "name": "get_potus_tracker",
-            "description": "Get the latest POTUS tracker data, including the latest presidential schedule, Truth Social posts, executive orders, and the performance of the S&P 500 (SPY) since the current president's inauguration.",
-            "parameters": {}
-        },
-        {
-            "name": "get_insider_tracker",
-            "description": "Get the latest insider trading activity, including recent stock sales or purchases by company executives, along with relevant company information such as symbol, price, market cap, and filing date.",
-            "parameters": {}
-        },
-        {
-            "name": "get_latest_congress_trades",
-            "description": "Get the latest congressional stock trading disclosures, including transactions by members of Congress or their spouses, with details such as ticker, transaction type, amount, representative name, and disclosure dates.",
-            "parameters": {}
-        },
-        {
-            "name": "get_analyst_tracker",
-            "description": "Get the latest analyst stock ratings, including upgrades, downgrades, maintained ratings, price targets, analyst names, firms, and expected upside.",
-            "parameters": {}
-        },
-        {
-            "name": "get_market_flow",
-            "description": "Retrieves the current market flow option sentiment of the S&P 500.",
-            "parameters": {}
-        },
-        {
-            "name": "get_market_news",
-            "description": "Retrieves the latest general news for the stock market.",
-            "parameters": {}
-        },
-        {
-            "name": "get_earnings_calendar",
-            "description": "Retrieves a list of upcoming earnings announcements, including company name, ticker symbol, scheduled date, market capitalization, prior and estimated earnings per share (EPS), prior and estimated revenue, and the time of release (e.g., 'bmo' for before market open).",
-            "parameters": {},
-        },
-        {
-            "name": "get_economic_calendar",
-            "description": "Retrieve a list of upcoming USA economic events, including event name, scheduled date and time, previous, consensus, and actual values (if available), event importance level, and associated country code for macroeconomic analysis and market forecasting.",
-            "parameters": {},
-        },
-        {
-            "name": "get_congress_activity",
-            "description": f"Retrieves and filters congressional trading activity for one or more congresspeople based on their unique IDs, which can be found here: {key_congress_db}. For example, Nancy Pelosi's ID is 61b59ab669. When multiple IDs are provided, the results are grouped by the office of each congressperson.",
-            "parameters": {
-                "congress_ids": {
-                "oneOf": [
-                    {
-                        "type": "string",
-                        "description": "Unique identifier for a single congressperson."
-                    },
-                    {
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        },
-                        "description": "List of unique identifiers for multiple congresspeople."
-                }
-                ],
-                "description": "Single congressperson ID or a list of congressperson IDs to retrieve activity for."
-            }
-          },
-          "required": ["congress_ids"]
-        },
-        {
-            "name": "get_ticker_quote",
-            "description": "Retrieves the most recent stock quote data for one or more ticker symbols. Returns real-time information including the latest trading price, percentage change, trading volume, day high and low, 52-week high and low, market capitalization, previous close, earnings per share (EPS), price-to-earnings (P/E) ratio, as well as current ask and bid prices. Ideal for use cases requiring timely and detailed market updates.",
-            "parameters": {
-                "tickers": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
-                }
-            },
-            "required": ["tickers"]
-        },
-        {
-            "name": "get_ticker_pre_post_quote",
-            "description": "Retrieves the most recent stock premarket/aftermarket quote data for one or more ticker symbols. Returns real-time information including the latest trading price and percentage change.",
-            "parameters": {
-                "tickers": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
-                }
-            },
-            "required": ["tickers"]
-        },
-        {
-            "name": "get_ticker_insider_trading",
-            "description": "Fetch detailed insider trading records—such as buys, sells, grant dates, and volumes—executed by corporate insiders (officers, directors, major shareholders) for the specified stock tickers.",
-            "parameters": {
-                "tickers": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
-                }
-            },
-            "required": ["tickers"]
-        },
-        {
-        "name": "get_ticker_shareholders",
-        "description": "Fetch current institutional and major shareholder data for the specified stock tickers, including top institutional holders and ownership statistics such as investor counts, total invested value, and put/call ratios.",
-        "parameters": {
-            "tickers": {
-                "type": "array",
-                "items": { "type": "string" },
-                "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
-                }
-            },
-        "required": ["tickers"]
-        },
-        {
-            "name": "get_ticker_options_data",
-            "description": "Fetch comprehensive options statistics for the most recent trading day for the specified stock tickers. Includes volume, open interest, premiums, GEX/DEX, implied volatility metrics, and price changes.",
-            "parameters": {
-                "tickers": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "List of stock ticker symbols (e.g., [\"AAPL\", \"GOOGL\"])."
-                }
-            },
-            "required": ["tickers"]
-        },
-        {
-            "name": "get_ticker_max_pain",
-            "description": "Retrieve max pain analysis for multiple stock tickers, including expiration dates, strike prices, call and put payouts, and the calculated max pain point per expiration.",
-            "parameters": {
-                "tickers": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "List of stock ticker symbols to analyze (e.g., [\"AAPL\", \"GOOGL\"])."
-                }
-            },
-            "required": ["tickers"]
-        },
-        {
-            "name": "get_ticker_open_interest_by_strike_and_expiry",
-            "description": "Fetch and aggregate options open interest data for one or more equity tickers, returning expiryData with total call and put OI grouped by each expiration date and strikeData with call and put OI broken down by individual strike price, where every entry includes its call_oi, put_oi, and the associated expiry or strike value for seamless analysis across both dimensions.",
-            "parameters": {
-                "tickers": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "List of stock ticker symbols to analyze (e.g., [\"AAPL\", \"GOOGL\"])."
-                }
-            },
-            "required": ["tickers"]
-        },
-        {
-            "name": "get_ticker_unusual_activity",
-            "description": "Retrieve recent unusual options activity for one or more stock tickers, including large trades, sweeps, and high-premium orders.",
-            "parameters": {
-                "tickers": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "List of stock ticker symbols to analyze (e.g., [\"AAPL\", \"GOOGL\"])."
-                }
-            },
-            "required": ["tickers"]
-        },
-        {
-            "name": "get_ticker_dark_pool",
-            "description": "Retrieves dark pool trading data and related analytics for a list of stock ticker symbols, including volume summaries, hottest trades, price levels, and trend data.",
-            "parameters": {
-                "tickers": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "List of stock ticker symbols to analyze (e.g., [\"AAPL\", \"GOOGL\"])."
-                }
-            },
-            "required": ["tickers"]
-        },
-        {
-            "name": "get_ticker_dividend",
-            "description": "Retrieve dividend data and related metrics for a list of stock ticker symbols, including payout frequency, annual dividend, dividend yield, payout ratio, and dividend growth. Also returns historical records with detailed information such as declaration date, record date, payment date, and adjusted dividend amount.",
-            "parameters": {
-                "tickers": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "List of stock ticker symbols to analyze (e.g., [\"AAPL\", \"GOOGL\"])."
-                }
-            },
-            "required": ["tickers"]
-        },
-        {
-            "name": "get_ticker_statistics",
-            "description": (
-                "Retrieves a snapshot of statistical data for a list of stock ticker symbols. "
-                f"This includes key statistics such as: {', '.join(key_statistics)}."),
-            "parameters": {
-                "tickers": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "List of stock ticker symbols to analyze (e.g., [\"AAPL\", \"GOOGL\"])."
-                }
-            },
-            "required": ["tickers"]
-        },
-        {
-            "name": "get_ticker_key_metrics",
-            "description": (
-                "Retrieves fundamental key metrics data for a list of stock ticker symbols. "
-                f"This includes key data such as: {', '.join(key_metrics)}."),
-            "parameters": {
-                "tickers": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "List of stock ticker symbols to analyze (e.g., [\"AAPL\", \"GOOGL\"])."
-                }
-            },
-            "required": ["tickers"]
-        },
-        {
-            "name": "get_ticker_financial_score",
-            "description": "Retrieves fundamental financial score data such as altmanZScore, piotroskiScore, workingCapital, totalAssets for a list of stock ticker symbols.",
-            "parameters": {
-                "tickers": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "List of stock ticker symbols to analyze (e.g., [\"AAPL\", \"GOOGL\"])."
-                }
-            },
-            "required": ["tickers"]
-        },
-        {
-            "name": "get_ticker_owner_earnings",
-            "description": (
-                "Retrieves fundamental owner earnings data for a list of stock ticker symbols. "
-                f"This includes key data such as: {', '.join(key_metrics)}."),
-            "parameters": {
-                "tickers": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "List of stock ticker symbols to analyze (e.g., [\"AAPL\", \"GOOGL\"])."
-                }
-            },
-            "required": ["tickers"]
-        },
-    ]
-
-    definitions = []
-    for tpl in templates:
-        func_def = {
-            "name": tpl.get("name", ""),
-            "description": tpl.get("description", ""),
-            "strict_json_schema": True,
-            "parameters": {
-                "type": "object",
-                "properties": tpl.get("parameters", {}),
-            }
-        }
-        # Only include "required" if explicitly provided
-        if "required" in tpl:
-            func_def["parameters"]["required"] = tpl["required"]
-
-        definitions.append(func_def)
-
-    return definitions
 
 
 #Testing purposes
