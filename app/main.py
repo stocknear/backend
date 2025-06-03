@@ -84,12 +84,6 @@ client = httpx.AsyncClient(http2=True, timeout=10.0)
 with open("json/llm/instructions.txt","r",encoding="utf-8") as file:
     INSTRUCTIONS = file.read()
 
-class FinancialReportData(BaseModel):
-    shortSummary: str
-    """A short 2‑3 sentence summary with clear bullish, neutral or bearish sentiment."""
-
-    htmlReport: str
-    """The full html report that follows the instructions with no markdown."""
 
 model_settings = ModelSettings(
     tool_choice="auto",  # Ensures the model uses tools when appropriate
@@ -101,7 +95,6 @@ agent = Agent(
     instructions=INSTRUCTIONS,
     model = os.getenv("CHAT_MODEL"),
     model_settings=model_settings,
-    output_type=FinancialReportData,
     tools=[get_ticker_owner_earnings, get_ticker_financial_score, get_ticker_key_metrics, get_ticker_statistics, get_ticker_dividend, get_ticker_dark_pool, get_ticker_unusual_activity, get_ticker_open_interest_by_strike_and_expiry, get_ticker_max_pain, get_ticker_options_data, get_ticker_shareholders, get_ticker_insider_trading, get_ticker_pre_post_quote, get_ticker_quote, get_congress_activity, get_market_flow, get_market_news, get_analyst_tracker, get_latest_congress_trades, get_insider_tracker, get_potus_tracker, get_top_active_stocks, get_top_aftermarket_losers, get_top_premarket_losers, get_top_losers, get_top_aftermarket_gainers, get_top_premarket_gainers, get_top_gainers, get_ticker_analyst_rating, get_ticker_news, get_latest_dark_pool_feed, get_latest_options_flow_feed, get_ticker_bull_vs_bear, get_ticker_earnings, get_ticker_earnings_price_reaction, get_top_rating_stocks, get_economic_calendar, get_earnings_calendar, get_ticker_analyst_estimate, get_ticker_business_metrics, get_why_priced_moved, get_ticker_short_data, get_company_data, get_ticker_hottest_options_contracts, get_ticker_ratios_statement, get_ticker_cash_flow_statement, get_ticker_income_statement, get_ticker_balance_sheet_statement, get_congress_activity],
 )
 
@@ -4601,56 +4594,114 @@ async def compare_data_endpoint(data: CompareData, api_key: str = Security(get_a
 
 
 
-
-
 @app.post("/chat")
 async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
     user_query = data.query.strip().lower()
     current_messages_history = list(data.messages)[-10:]
-
     if len(current_messages_history) == 1:
         prepared_initial_messages = current_messages_history
     else:
         prepared_initial_messages = current_messages_history + [{"role": "user", "content": user_query}]
-
     for item in prepared_initial_messages:
         if 'callComponent' in item:
             del item['callComponent']
-
+    
     async def event_generator():
         full_content = ""
+        found_end_of_dicts = False
         try:
             result = Runner.run_streamed(agent, input=prepared_initial_messages)
-
             async for event in result.stream_events():
                 try:
-                    # Skip tool-use events
-                    if hasattr(event, "type"):
-                        if event.type in {"tool_use", "tool_result", "tool_start"}:
-                            continue
-                    
-                    # Only look at LLM text responses
+                    # Process only raw_response_event events
                     if event.type == "raw_response_event":
                         delta = getattr(event.data, "delta", "")
                         if not delta:
                             continue
-
                         stripped_delta = delta.strip()
-
                         # Skip if it's echoing back the question
                         if stripped_delta.lower() == user_query or stripped_delta.lower().startswith(user_query):
                             continue
-
-                        # Skip if delta looks like a JSON dict (e.g., {"args": ...})
-                        if stripped_delta.startswith("{") and '"args"' in stripped_delta:
-                            continue
-
-                        # Append clean LLM content
-                        full_content += delta
-                        yield orjson.dumps({
-                            "event": "response",
-                            "content": full_content
-                        }) + b"\n"
+                        
+                        # Check if we've passed all the JSON dictionaries
+                        if not found_end_of_dicts:
+                            full_content += delta
+                            
+                            # First check if content starts with JSON objects
+                            temp_content = full_content.strip()
+                            if not temp_content:
+                                continue  # No content yet
+                            
+                            # If content doesn't start with '{', it's regular text - don't filter
+                            if not temp_content.startswith('{'):
+                                found_end_of_dicts = True
+                                yield orjson.dumps({
+                                    "event": "response",
+                                    "content": full_content
+                                }) + b"\n"
+                                continue
+                            
+                            # Content starts with JSON, so apply filtering logic
+                            last_json_end = -1
+                            
+                            i = 0
+                            while i < len(temp_content):
+                                if temp_content[i] == '{':
+                                    # Try to find the matching closing brace
+                                    brace_count = 1
+                                    j = i + 1
+                                    in_string = False
+                                    escape_next = False
+                                    
+                                    while j < len(temp_content) and brace_count > 0:
+                                        char = temp_content[j]
+                                        
+                                        if escape_next:
+                                            escape_next = False
+                                        elif char == '\\':
+                                            escape_next = True
+                                        elif char == '"' and not escape_next:
+                                            in_string = not in_string
+                                        elif not in_string:
+                                            if char == '{':
+                                                brace_count += 1
+                                            elif char == '}':
+                                                brace_count -= 1
+                                        
+                                        j += 1
+                                    
+                                    if brace_count == 0:
+                                        # Found complete JSON object
+                                        last_json_end = j - 1
+                                        i = j
+                                    else:
+                                        # Incomplete JSON object
+                                        break
+                                else:
+                                    # Found non-JSON content
+                                    if last_json_end >= 0:
+                                        found_end_of_dicts = True
+                                        # Keep only content after all JSON objects
+                                        full_content = temp_content[last_json_end + 1:].strip()
+                                        if full_content:  # Only yield if there's actual content
+                                            yield orjson.dumps({
+                                                "event": "response",
+                                                "content": full_content
+                                            }) + b"\n"
+                                        break
+                                    else:
+                                        # No JSON objects found yet, might be at the start
+                                        break
+                            
+                            # If no content after dictionaries yet, don't yield anything
+                        else:
+                            # We've already found the end of dictionaries, just append new deltas
+                            full_content += delta
+                            yield orjson.dumps({
+                                "event": "response",
+                                "content": full_content
+                            }) + b"\n"
+                            
                 except Exception as e:
                     print(f"Error processing event: {e}")
                     yield orjson.dumps({
@@ -4663,7 +4714,7 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
                 "event": "error",
                 "message": f"Streaming failed: {str(e)}"
             }) + b"\n"
-
+    
     return StreamingResponse(
         event_generator(),
         media_type="application/x-ndjson",
