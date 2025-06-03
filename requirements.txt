@@ -41,3 +41,4 @@ python-Levenshtein
 plotly==5.23.0
 kaleido==0.2.1
 atproto
+rapidfuzz

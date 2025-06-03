@@ -45,22 +45,15 @@ from functools import partial
 from datetime import datetime
 
 from llm.response import process_request
-from llm.functions import *
+from functions import *
 
 from openai import OpenAI, AsyncOpenAI
 from openai.types.responses import ResponseTextDeltaEvent
-from agents import Agent, Runner
+from agents import Agent, Runner, ModelSettings
 from agents.stream_events import RunItemStreamEvent
 
 from contextlib import asynccontextmanager
-from functools import lru_cache
 from hashlib import md5
-
-
-
-@lru_cache(maxsize=100)
-def get_cached_response(query_hash: str) -> Dict[str, Any]:
-    return RESPONSE_CACHE.get(query_hash)
 
 
 
@@ -91,12 +84,25 @@ client = httpx.AsyncClient(http2=True, timeout=10.0)
 with open("json/llm/instructions.txt","r",encoding="utf-8") as file:
     INSTRUCTIONS = file.read()
 
+class FinancialReportData(BaseModel):
+    shortSummary: str
+    """A short 2‑3 sentence summary with clear bullish, neutral or bearish sentiment."""
+
+    htmlReport: str
+    """The full html report that follows the instructions with no markdown."""
+
+model_settings = ModelSettings(
+    tool_choice="auto",  # Ensures the model uses tools when appropriate
+    parallel_tool_calls=True  # Enables parallel execution of tool calls
+)
 
 agent = Agent(
     name="Stocknear AI Agent",
     instructions=INSTRUCTIONS,
     model = os.getenv("CHAT_MODEL"),
-    tools=[get_market_flow, get_ticker_quote,get_earnings_calendar, get_ticker_bull_vs_bear, get_why_priced_moved, get_ticker_business_metrics, get_ticker_hottest_options_contracts]
+    model_settings=model_settings,
+    output_type=FinancialReportData,
+    tools=[get_ticker_owner_earnings, get_ticker_financial_score, get_ticker_key_metrics, get_ticker_statistics, get_ticker_dividend, get_ticker_dark_pool, get_ticker_unusual_activity, get_ticker_open_interest_by_strike_and_expiry, get_ticker_max_pain, get_ticker_options_data, get_ticker_shareholders, get_ticker_insider_trading, get_ticker_pre_post_quote, get_ticker_quote, get_congress_activity, get_market_flow, get_market_news, get_analyst_tracker, get_latest_congress_trades, get_insider_tracker, get_potus_tracker, get_top_active_stocks, get_top_aftermarket_losers, get_top_premarket_losers, get_top_losers, get_top_aftermarket_gainers, get_top_premarket_gainers, get_top_gainers, get_ticker_analyst_rating, get_ticker_news, get_latest_dark_pool_feed, get_latest_options_flow_feed, get_ticker_bull_vs_bear, get_ticker_earnings, get_ticker_earnings_price_reaction, get_top_rating_stocks, get_economic_calendar, get_earnings_calendar, get_ticker_analyst_estimate, get_ticker_business_metrics, get_why_priced_moved, get_ticker_short_data, get_company_data, get_ticker_hottest_options_contracts, get_ticker_ratios_statement, get_ticker_cash_flow_statement, get_ticker_income_statement, get_ticker_balance_sheet_statement, get_congress_activity],
 )
 
 #======================================================#
@@ -4595,10 +4601,13 @@ async def compare_data_endpoint(data: CompareData, api_key: str = Security(get_a
 
 
 
+
+
 @app.post("/chat")
 async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
     user_query = data.query.strip().lower()
     current_messages_history = list(data.messages)[-10:]
+
     if len(current_messages_history) == 1:
         prepared_initial_messages = current_messages_history
     else:
@@ -4607,50 +4616,59 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
     for item in prepared_initial_messages:
         if 'callComponent' in item:
             del item['callComponent']
-    
-    print(prepared_initial_messages)
 
     async def event_generator():
         full_content = ""
         try:
             result = Runner.run_streamed(agent, input=prepared_initial_messages)
+
             async for event in result.stream_events():
                 try:
-                    if hasattr(event, 'type') and event.type == "raw_response_event":
+                    # Skip tool-use events
+                    if hasattr(event, "type"):
+                        if event.type in {"tool_use", "tool_result", "tool_start"}:
+                            continue
+                    
+                    # Only look at LLM text responses
+                    if event.type == "raw_response_event":
                         delta = getattr(event.data, "delta", "")
                         if not delta:
                             continue
-                        # Sanitize and normalize delta
-                        stripped_delta = delta.strip().lower()
-                        # Skip if delta is just the user input (or small variations of it)
-                        if stripped_delta == user_query or stripped_delta.startswith(user_query):
+
+                        stripped_delta = delta.strip()
+
+                        # Skip if it's echoing back the question
+                        if stripped_delta.lower() == user_query or stripped_delta.lower().startswith(user_query):
                             continue
+
+                        # Skip if delta looks like a JSON dict (e.g., {"args": ...})
+                        if stripped_delta.startswith("{") and '"args"' in stripped_delta:
+                            continue
+
+                        # Append clean LLM content
                         full_content += delta
-                        payload = {
+                        yield orjson.dumps({
                             "event": "response",
                             "content": full_content
-                        }
-                        yield orjson.dumps(payload) + b"\n"
+                        }) + b"\n"
                 except Exception as e:
                     print(f"Error processing event: {e}")
-                    error_payload = {
+                    yield orjson.dumps({
                         "event": "error",
                         "message": f"Event processing error: {str(e)}"
-                    }
-                    yield orjson.dumps(error_payload) + b"\n"
+                    }) + b"\n"
         except Exception as e:
             print(f"Streaming error: {e}")
-            error_payload = {
-                "event": "error", 
+            yield orjson.dumps({
+                "event": "error",
                 "message": f"Streaming failed: {str(e)}"
-            }
-            yield orjson.dumps(error_payload) + b"\n"
+            }) + b"\n"
+
     return StreamingResponse(
         event_generator(),
         media_type="application/x-ndjson",
         headers={"Cache-Control": "no-cache"}
     )
-
 
 
 @app.get("/newsletter")

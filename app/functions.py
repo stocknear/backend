@@ -7,6 +7,7 @@ from collections import defaultdict
 from datetime import datetime, date, timedelta
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Union, Callable, TypeVar, Set, Tuple, cast
+from rapidfuzz import process, fuzz
 
 from agents import function_tool
 
@@ -487,7 +488,6 @@ def load_congress_db():
     return data
 
 key_congress_db = load_congress_db()
-print(key_congress_db)
 
 
 # Generic file fetching function
@@ -595,7 +595,7 @@ async def get_financial_statements(
     # Build result dictionary with non-empty results
     return {ticker: result for ticker, result in zip(tickers, results) if result}
 
-# Specialized financial statement functions using the generic function
+
 @function_tool
 async def get_ticker_income_statement(
     tickers: List[str], time_period: str = "ttm", keep_keys: Optional[List[str]] = None
@@ -1449,28 +1449,49 @@ async def get_market_flow() -> Dict[str, Any]:
     except Exception as e:
         return {"error": f"Error processing market flow data: {str(e)}"}
 
+
 @function_tool
 async def get_congress_activity(congress_ids: Union[str, List[str]]) -> Dict[str, List[Any]]:
-    f"""
-    Retrieves and filters congressional trading activity for one or more congresspeople based on their unique IDs.
-    Groups results by the office of each congressperson: {', '.join(key_congress_db)}.
-
+    """
+    Retrieves and filters congressional trading activity for one or more congresspeople based on their unique IDs or names.
+    Groups results by the office of each congressperson.
 
     Args:
-        congress_ids (Union[str, List[str]]): Single congressperson ID or list of IDs 
-            (e.g., "61b59ab669" or ["61b59ab669", "a9c12796a0"]).
+        congress_ids (Union[str, List[str]]): Single congressperson name/ID or list of names/IDs 
+            (e.g., "Nancy Pelosi" or ["Nancy Pelosi", "a9c12796a0"]).
 
     Returns:
         Dict[str, List[Any]]: A dictionary where keys are offices (e.g., "Senate", "House"), and values are lists of activity data objects.
             If an error occurs for a specific ID, an "error_<ID>" key maps to the error message.
     """
-    # If input is a single string, wrap it in a list for uniform processing
+    # Normalize input to a list
     if isinstance(congress_ids, str):
         congress_ids = [congress_ids]
 
     result: Dict[str, List[Any]] = {}
 
-    for congress_id in congress_ids:
+    # Prepare a list of known names for matching
+    known_names = list(key_congress_db.keys())
+
+    for identifier in congress_ids:
+        # Attempt to resolve name to ID using fuzzy matching
+        if identifier not in key_congress_db.values():
+            match = process.extractOne(
+                identifier,
+                known_names,
+                scorer=fuzz.WRatio,
+                score_cutoff=80  # Adjust the cutoff as needed
+            )
+            if match:
+                resolved_name = match[0]
+                congress_id = key_congress_db[resolved_name]
+            else:
+                error_key = f"error_{identifier}"
+                result[error_key] = [f"No matching congressperson found for '{identifier}'."]
+                continue
+        else:
+            congress_id = identifier
+
         try:
             with open(f"json/congress-trading/politician-db/{congress_id}.json", "rb") as file:
                 data = orjson.loads(file.read())
@@ -1504,7 +1525,6 @@ async def get_congress_activity(congress_ids: Union[str, List[str]]) -> Dict[str
             result[error_key] = [f"Error processing congress activity data: {str(e)}"]
 
     return result
-
 
 @function_tool
 async def get_ticker_quote(tickers: List[str]) -> Dict[str, Any]:
