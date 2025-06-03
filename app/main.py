@@ -44,7 +44,6 @@ from slowapi.errors import RateLimitExceeded
 from functools import partial
 from datetime import datetime
 
-from llm.response import process_request
 from functions import *
 
 from openai import OpenAI, AsyncOpenAI
@@ -90,13 +89,7 @@ model_settings = ModelSettings(
     parallel_tool_calls=True  # Enables parallel execution of tool calls
 )
 
-agent = Agent(
-    name="Stocknear AI Agent",
-    instructions=INSTRUCTIONS,
-    model = os.getenv("CHAT_MODEL"),
-    model_settings=model_settings,
-    tools=[get_ticker_owner_earnings, get_ticker_financial_score, get_ticker_key_metrics, get_ticker_statistics, get_ticker_dividend, get_ticker_dark_pool, get_ticker_unusual_activity, get_ticker_open_interest_by_strike_and_expiry, get_ticker_max_pain, get_ticker_options_data, get_ticker_shareholders, get_ticker_insider_trading, get_ticker_pre_post_quote, get_ticker_quote, get_congress_activity, get_market_flow, get_market_news, get_analyst_tracker, get_latest_congress_trades, get_insider_tracker, get_potus_tracker, get_top_active_stocks, get_top_aftermarket_losers, get_top_premarket_losers, get_top_losers, get_top_aftermarket_gainers, get_top_premarket_gainers, get_top_gainers, get_ticker_analyst_rating, get_ticker_news, get_latest_dark_pool_feed, get_latest_options_flow_feed, get_ticker_bull_vs_bear, get_ticker_earnings, get_ticker_earnings_price_reaction, get_top_rating_stocks, get_economic_calendar, get_earnings_calendar, get_ticker_analyst_estimate, get_ticker_business_metrics, get_why_priced_moved, get_ticker_short_data, get_company_data, get_ticker_hottest_options_contracts, get_ticker_ratios_statement, get_ticker_cash_flow_statement, get_ticker_income_statement, get_ticker_balance_sheet_statement, get_congress_activity],
-)
+all_tools = [get_ticker_owner_earnings, get_ticker_financial_score, get_ticker_key_metrics, get_ticker_statistics, get_ticker_dividend, get_ticker_dark_pool, get_ticker_unusual_activity, get_ticker_open_interest_by_strike_and_expiry, get_ticker_max_pain, get_ticker_options_data, get_ticker_shareholders, get_ticker_insider_trading, get_ticker_pre_post_quote, get_ticker_quote, get_congress_activity, get_market_flow, get_market_news, get_analyst_tracker, get_latest_congress_trades, get_insider_tracker, get_potus_tracker, get_top_active_stocks, get_top_aftermarket_losers, get_top_premarket_losers, get_top_losers, get_top_aftermarket_gainers, get_top_premarket_gainers, get_top_gainers, get_ticker_analyst_rating, get_ticker_news, get_latest_dark_pool_feed, get_latest_options_flow_feed, get_ticker_bull_vs_bear, get_ticker_earnings, get_ticker_earnings_price_reaction, get_top_rating_stocks, get_economic_calendar, get_earnings_calendar, get_ticker_analyst_estimate, get_ticker_business_metrics, get_why_priced_moved, get_ticker_short_data, get_company_data, get_ticker_hottest_options_contracts, get_ticker_ratios_statement, get_ticker_cash_flow_statement, get_ticker_income_statement, get_ticker_balance_sheet_statement, get_congress_activity]
 
 #======================================================#
 
@@ -4594,6 +4587,51 @@ async def compare_data_endpoint(data: CompareData, api_key: str = Security(get_a
 
 
 
+# Map trigger keywords to tool functions
+TRIGGER_CONFIG = {
+    "@OptionsData": [
+        get_ticker_options_data,
+        get_ticker_open_interest_by_strike_and_expiry,
+        get_ticker_max_pain,
+        get_latest_options_flow_feed,
+        get_ticker_hottest_options_contracts,
+        get_ticker_quote,
+    ],
+    "@Analyst": [
+        get_ticker_analyst_estimate,
+        get_ticker_analyst_rating,
+    ],
+    "@DarkPoolData": [
+        get_latest_dark_pool_feed,
+        get_ticker_dark_pool,
+        get_ticker_quote,
+    ],
+    "@BullvsBear": [
+        get_ticker_bull_vs_bear,
+        get_why_priced_moved,
+        get_ticker_analyst_estimate,
+        get_ticker_analyst_rating,
+        get_ticker_quote,
+    ],
+    "@CompareStocks": [
+        get_why_priced_moved,
+        get_company_data,
+        get_ticker_news,
+        get_ticker_business_metrics,
+        get_ticker_analyst_estimate,
+        get_ticker_analyst_rating,
+    ],
+}
+
+def get_tools_for_query(user_query: str) -> list:
+    for trigger, tools in TRIGGER_CONFIG.items():
+        if trigger.lower() in user_query:
+            print(f"Trigger Detected: {trigger}")
+            return tools
+    print("No trigger detected")
+    return all_tools
+
+
 @app.post("/chat")
 async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
     user_query = data.query.strip().lower()
@@ -4606,6 +4644,16 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
         if 'callComponent' in item:
             del item['callComponent']
     
+    selected_tools = get_tools_for_query(user_query)
+
+    agent = Agent(
+        name="Stocknear AI Agent",
+        instructions=INSTRUCTIONS,
+        model = os.getenv("CHAT_MODEL"),
+        model_settings=model_settings,
+        tools= selected_tools,
+    )
+
     async def event_generator():
         full_content = ""
         found_end_of_dicts = False
