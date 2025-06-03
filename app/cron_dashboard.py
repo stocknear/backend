@@ -505,9 +505,9 @@ async def run():
         economic_calendar_list = get_economic_calendar()
 
         options_flow_list = get_options_flow()
-        #dark_pool_list = get_dark_pool()
+        dark_pool_list = get_dark_pool()
             
-        #recent_earnings = await get_recent_earnings(session)
+        recent_earnings = await get_recent_earnings(session)
 
         upcoming_earnings = await get_upcoming_earnings(session, today, filter_today=False)
 
@@ -518,18 +518,17 @@ async def run():
         if len(upcoming_earnings) < 5:
             upcoming_earnings = await get_upcoming_earnings(session, tomorrow, filter_today=True)
 
-        #recent_analyst_report = await get_analyst_report()
+        recent_analyst_report = await get_analyst_report()
 
         recent_wiim = await get_latest_wiim()
 
-        '''
+        
         upcoming_earnings = [
             item for item in upcoming_earnings 
             if item['symbol'] not in [earning['symbol'] for earning in recent_earnings]
         ]
-        '''
-
         
+        analyst_report = await get_analyst_report()
         
         '''
         try:
@@ -618,11 +617,12 @@ async def run():
             'gainers': gainers_list,
             'losers': losers_list,
             'marketStatus': market_status,
-            #'recentEarnings': recent_earnings,
+            'recentEarnings': recent_earnings,
             'upcomingEarnings': upcoming_earnings,
             'wiim': recent_wiim,
-            #'darkpool': dark_pool_list,
+            'darkpool': dark_pool_list,
             'optionsFlow': options_flow_list,
+            'analystReport': analyst_report,
             #"economicCalendar": economic_calendar_list,
         }
 

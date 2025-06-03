@@ -2996,7 +2996,7 @@ async def get_dashboard_info(api_key: str = Security(get_api_key)):
         full_res = {}
 
     # Filter response based on user settings
-    #filtered_res = { key: full_res.get(key) for key in custom_settings if key in full_res }
+    filtered_res = { key: full_res.get(key) for key in ['gainers','losers','optionsFlow','upcomingEarnings','marketStatus'] if key in full_res }
 
     # Serialize and compress
     compressed = gzip.compress(orjson.dumps(full_res))
