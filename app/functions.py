@@ -1091,77 +1091,79 @@ async def get_ticker_analyst_rating(tickers: List[str]) -> Dict[str, Dict[str, L
     return results
 
 
-
-'''
-@function_tool
 async def get_stock_screener(
-    rule_of_list: Optional[List[Dict[str, Any]]] = None,
-    sort_by: Optional[str] = None,
-    sort_order: str = "desc",
-    limit: int = 10
+    rule_of_list: Optional[List[Dict[str, Any]]] = None, 
+    sort_by: Optional[str] = None, 
+    sort_order: str = "desc", 
+    limit: int = 15
 ) -> Dict[str, Any]:
     f"""
-    Screen stocks based on specified financial criteria to help filter stocks 
-    that meet certain thresholds (e.g., revenue > $10M, P/E ratio < 15, etc.).
+    Screens stocks based on a list of specified financial criteria.
+    This function filters stocks that meet defined thresholds for various metrics
+    (e.g., marketCap > 10E9, P/E ratio < 15, etc.).
+    If no 'rule_of_list' is provided, it returns a default list of stocks (excluding 'PNK' exchange).
     All available screening metrics: {', '.join(key_screener)}.
-    
-    Args:
-        rule_of_list: List of filtering rules with metric e.g. 'marketCap', operator e.g '>'', and value e.g. '10B'
-        sort_by: Field to sort results by
-        sort_order: Sort direction ('asc' or 'desc')
-        limit: Maximum number of results to return
-    
-    Returns:
-        Dict[str, Any]: Dictionary containing matched stocks and metadata
+
     """
     try:
         file_path = BASE_DIR / "stock-screener/data.json"
         async with aiofiles.open(file_path, 'rb') as file:
             data = orjson.loads(await file.read())
 
+        # Initial filter to exclude PNK exchange
         filtered_data = [item for item in data if item.get('exchange') != 'PNK']
 
+        # Exit early if no rules provided
         if not rule_of_list:
             result = filtered_data
         else:
+            # Apply filtering rules
             result = []
             for stock in filtered_data:
                 meets_criteria = True
+                
+                # Check each rule
                 for rule in rule_of_list:
-                    metric = rule.get('metric')
-                    operator_str = rule.get('operator', '>')
+                    # Get rule components
+                    metric = rule.get('metric', rule.get('name'))
                     value = rule.get('value')
-
-                    if not metric or metric not in stock or operator_str not in OPERATORS:
+                    operator = rule.get('operator', '>')
+                    
+                    # Skip invalid rules
+                    if not metric or metric not in stock or operator not in OPERATORS:
                         meets_criteria = False
                         break
-
+                    
                     stock_value = stock[metric]
-
+                    
+                    # Handle None values
                     if stock_value is None:
                         meets_criteria = False
                         break
 
                     try:
-                        if not OPERATORS[operator_str](stock_value, value):
+                        if not OPERATORS[operator](stock_value, value):
                             meets_criteria = False
                             break
-                    except Exception:
+                    except (TypeError, ValueError):
                         meets_criteria = False
                         break
-
+                
                 if meets_criteria:
                     result.append(stock)
 
+        # Sort results if requested
         if sort_by and result and sort_by in result[0]:
             result.sort(
                 key=lambda x: (x.get(sort_by) is None, x.get(sort_by)),
                 reverse=(sort_order.lower() == "desc")
             )
 
+        # Apply limit
         if limit and isinstance(limit, int):
             result = result[:limit]
 
+        # Format output
         filtered_result = []
         for stock in result:
             try:
@@ -1169,19 +1171,22 @@ async def get_stock_screener(
                     "symbol": stock.get("symbol", ""),
                     "company_name": stock.get("companyName", stock.get("name", "")),
                 }
+                
+                # Add metrics from rule_of_list
                 if rule_of_list:
                     metrics = {}
                     for rule in rule_of_list:
-                        metric_name = rule.get('metric')
+                        metric_name = rule.get('metric', rule.get('name'))
                         if metric_name and metric_name in stock:
                             metrics[metric_name] = stock[metric_name]
-
+                    
+                    # Add sort_by field if used for sorting
                     if sort_by and sort_by not in metrics and sort_by in stock:
                         metrics[sort_by] = stock[sort_by]
-
+                    
                     if metrics:
                         filtered_stock["metrics"] = metrics
-
+                
                 filtered_result.append(filtered_stock)
             except Exception as e:
                 print(f"Error processing stock in screener: {e}")
@@ -1195,7 +1200,6 @@ async def get_stock_screener(
         return {"matched_stocks": [], "count": 0, "error": "Screener data file not found"}
     except (orjson.JSONDecodeError, Exception) as e:
         return {"matched_stocks": [], "count": 0, "error": f"Error processing screener data: {str(e)}"}
-'''
 
 @function_tool
 async def get_top_gainers() -> list[dict]:
@@ -1932,5 +1936,5 @@ async def get_ticker_owner_earnings(tickers: List[str]) -> Dict[str, Dict[str, A
 
 
 #Testing purposes
-#data = asyncio.run(get_congress_activity(['18f16e3014','a9c12796a0']))
+#data = asyncio.run(get_stock_screener([{'metric': 'shortFloatPercent', 'operator': '>', "value": 10}]))
 #print(data)

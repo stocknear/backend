@@ -45,11 +45,10 @@ from functools import partial
 from datetime import datetime
 
 from functions import *
-
-from openai import OpenAI, AsyncOpenAI
+from openai import AsyncOpenAI
 from openai.types.responses import ResponseTextDeltaEvent
-from agents import Agent, Runner, ModelSettings
 from agents.stream_events import RunItemStreamEvent
+from agents import Agent, Runner, ModelSettings
 
 from contextlib import asynccontextmanager
 from hashlib import md5
@@ -79,7 +78,7 @@ PRIORITY_STRATEGIES = {
 client = httpx.AsyncClient(http2=True, timeout=10.0)
 
 #================LLM Configuration====================#
-#async_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+async_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 with open("json/llm/instructions.txt","r",encoding="utf-8") as file:
     INSTRUCTIONS = file.read()
 
@@ -90,6 +89,8 @@ model_settings = ModelSettings(
 )
 
 all_tools = [get_ticker_owner_earnings, get_ticker_financial_score, get_ticker_key_metrics, get_ticker_statistics, get_ticker_dividend, get_ticker_dark_pool, get_ticker_unusual_activity, get_ticker_open_interest_by_strike_and_expiry, get_ticker_max_pain, get_ticker_options_data, get_ticker_shareholders, get_ticker_insider_trading, get_ticker_pre_post_quote, get_ticker_quote, get_congress_activity, get_market_flow, get_market_news, get_analyst_tracker, get_latest_congress_trades, get_insider_tracker, get_potus_tracker, get_top_active_stocks, get_top_aftermarket_losers, get_top_premarket_losers, get_top_losers, get_top_aftermarket_gainers, get_top_premarket_gainers, get_top_gainers, get_ticker_analyst_rating, get_ticker_news, get_latest_dark_pool_feed, get_latest_options_flow_feed, get_ticker_bull_vs_bear, get_ticker_earnings, get_ticker_earnings_price_reaction, get_top_rating_stocks, get_economic_calendar, get_earnings_calendar, get_ticker_analyst_estimate, get_ticker_business_metrics, get_why_priced_moved, get_ticker_short_data, get_company_data, get_ticker_hottest_options_contracts, get_ticker_ratios_statement, get_ticker_cash_flow_statement, get_ticker_income_statement, get_ticker_balance_sheet_statement, get_congress_activity]
+
+
 
 #======================================================#
 
@@ -4621,7 +4622,199 @@ TRIGGER_CONFIG = {
         get_ticker_analyst_estimate,
         get_ticker_analyst_rating,
     ],
+    "@StockScreener": [],
 }
+
+key_screener = [
+  "avgVolume",
+  "volume",
+  "rsi",
+  "stochRSI",
+  "mfi",
+  "cci",
+  "atr",
+  "sma20",
+  "sma50",
+  "sma100",
+  "sma200",
+  "ema20",
+  "ema50",
+  "ema100",
+  "ema200",
+  "grahamNumber",
+  "price",
+  "change1W",
+  "change1M",
+  "change3M",
+  "change6M",
+  "change1Y",
+  "change3Y",
+  "marketCap",
+  "workingCapital",
+  "totalAssets",
+  "tangibleAssetValue",
+  "revenue",
+  "revenueGrowthYears",
+  "epsGrowthYears",
+  "netIncomeGrowthYears",
+  "grossProfitGrowthYears",
+  "growthRevenue",
+  "costOfRevenue",
+  "growthCostOfRevenue",
+  "costAndExpenses",
+  "growthCostAndExpenses",
+  "netIncome",
+  "growthNetIncome",
+  "grossProfit",
+  "growthGrossProfit",
+  "researchAndDevelopmentExpenses",
+  "growthResearchAndDevelopmentExpenses",
+  "payoutRatio",
+  "dividendYield",
+  "payoutFrequency",
+  "annualDividend",
+  "dividendGrowth",
+  "eps",
+  "growthEPS",
+  "interestIncome",
+  "interestExpense",
+  "growthInterestExpense",
+  "operatingExpenses",
+  "growthOperatingExpenses",
+  "ebit",
+  "operatingIncome",
+  "growthOperatingIncome",
+  "growthFreeCashFlow",
+  "growthOperatingCashFlow",
+  "growthStockBasedCompensation",
+  "growthTotalLiabilities",
+  "growthTotalDebt",
+  "growthTotalStockholdersEquity",
+  "researchDevelopmentRevenueRatio",
+  "cagr3YearRevenue",
+  "cagr5YearRevenue",
+  "cagr3YearEPS",
+  "cagr5YearEPS",
+  "returnOnInvestedCapital",
+  "returnOnCapitalEmployed",
+  "relativeVolume",
+  "institutionalOwnership",
+  "priceToEarningsGrowthRatio",
+  "forwardPE",
+  "forwardPS",
+  "priceToBookRatio",
+  "priceToSalesRatio",
+  "beta",
+  "ebitda",
+  "growthEBITDA",
+  "var",
+  "currentRatio",
+  "quickRatio",
+  "debtToEquityRatio",
+  "inventoryTurnover",
+  "returnOnAssets",
+  "returnOnEquity",
+  "returnOnTangibleAssets",
+  "enterpriseValue",
+  "evToSales",
+  "evToEBITDA",
+  "evToEBIT",
+  "evToFCF",
+  "freeCashFlowPerShare",
+  "cashPerShare",
+  "priceToFreeCashFlowRatio",
+  "interestCoverageRatio",
+  "sharesShort",
+  "shortRatio",
+  "shortFloatPercent",
+  "shortOutstandingPercent",
+  "failToDeliver",
+  "relativeFTD",
+  "freeCashFlow",
+  "operatingCashFlow",
+  "operatingCashFlowPerShare",
+  "revenuePerShare",
+  "netIncomePerShare",
+  "shareholdersEquityPerShare",
+  "interestDebtPerShare",
+  "capexPerShare",
+  "freeCashFlowMargin",
+  "totalDebt",
+  "operatingCashFlowSalesRatio",
+  "priceToOperatingCashFlowRatio",
+  "priceToEarningsRatio",
+  "stockBasedCompensation",
+  "stockBasedCompensationToRevenue",
+  "totalStockholdersEquity",
+  "sharesQoQ",
+  "sharesYoY",
+  "grossProfitMargin",
+  "netProfitMargin",
+  "pretaxProfitMargin",
+  "ebitdaMargin",
+  "ebitMargin",
+  "operatingMargin",
+  "interestIncomeToCapitalization",
+  "assetTurnover",
+  "earningsYield",
+  "freeCashFlowYield",
+  "effectiveTaxRate",
+  "fixedAssetTurnover",
+  "sharesOutStanding",
+  "employees",
+  "revenuePerEmployee",
+  "profitPerEmployee",
+  "totalLiabilities",
+  "altmanZScore",
+  "piotroskiScore"
+]
+
+
+
+extract_rule_of_list_function = {
+    "name": "extract_rule_of_list",
+    "description": f"Retrieves stock data based on specified financial criteria to help filter stocks that meet certain thresholds (e.g., revenue > $10M, P/E ratio < 15, etc.) All rules are defined here: {', '.join(key_screener)}. Operator can be >, >=, <, <=, == and !=",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "rule_of_list": {
+                "type": "array",
+                "description": "List of rule dictionaries for filtering stocks.",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "metric": {"type": "string"},
+                        "operator": {"type": "string"},
+                        "value": {}
+                    },
+                    "required": ["metric", "operator", "value"]
+                }
+            }
+        },
+        "required": ["rule_of_list"]
+    }
+}
+
+
+async def get_rule_of_list_from_llm(user_query: str) -> list | None:
+    try:
+        response = await async_client.chat.completions.create(
+            model=os.getenv("CHAT_MODEL"),
+            messages=[
+                {"role": "system", "content": "You extract stock screening rules from user queries. only return the result of rule_of_list"},
+                {"role": "user", "content": user_query}
+            ],
+            tools=[{"type": "function", "function": extract_rule_of_list_function}],
+            tool_choice="required"
+        )
+
+        choice = response.choices[0]
+        tool_call = choice.message.tool_calls[0]
+        arguments = tool_call.function.arguments
+        data = orjson.loads(arguments)
+        return data.get("rule_of_list")
+    except:
+        return None
 
 def get_tools_for_query(user_query: str) -> list:
     for trigger, tools in TRIGGER_CONFIG.items():
@@ -4646,6 +4839,11 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
     
     selected_tools = get_tools_for_query(user_query)
 
+    if "@stockscreener" in user_query:
+        rule_of_list = await get_rule_of_list_from_llm(user_query)
+        stock_screener_context = await get_stock_screener(rule_of_list)
+        print(stock_screener_context)
+
     agent = Agent(
         name="Stocknear AI Agent",
         instructions=INSTRUCTIONS,
@@ -4658,7 +4856,7 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
         full_content = ""
         found_end_of_dicts = False
         try:
-            result = Runner.run_streamed(agent, input=prepared_initial_messages)
+            result = Runner.run_streamed(agent, input=prepared_initial_messages, context=f"Stock Screener result to answer user query {stock_screener_context}. Never make up any companies only present the results that are available here." if "@stockscreener" in user_query else {})
             async for event in result.stream_events():
                 try:
                     # Process only raw_response_event events
