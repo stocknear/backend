@@ -65,6 +65,7 @@ time_frames = {
 
 one_year_ago = datetime.now() - timedelta(days=365)
 today = date.today()
+today_str = datetime.today().strftime('%Y-%m-%d')
 
 # YTD start (January 1st of the current year)
 ytd_start = date(today.year, 1, 1)
@@ -1201,7 +1202,12 @@ async def get_stock_screener(con):
             with open(f"json/earnings/raw/{symbol}.json", "r") as file:
                 res = orjson.loads(file.read())
                 res = sorted(res, key=lambda x: x['date'], reverse=True)
-                next_earning = res[0]
+                today_str = datetime.today().strftime('%Y-%m-%d')
+
+                # Try to find an entry with today's date
+                today_entry = next((x for x in res if x['date'] == today_str), None)
+                next_earning = today_entry if today_entry else res[0]
+
                 item['earningsDate'] = next_earning['date'] if res else None
                 if next_earning['eps_est'] != '' and next_earning['revenue_est'] != '':
                     item['earningsEPSEst'] = round(float(next_earning['eps_est']),2)
