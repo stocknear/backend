@@ -740,6 +740,24 @@ data = {
     "stockBasedCompensationToRevenue": {
         "text": "The company's stock-based compensation expenses as a percentage of total revenue in the last 12 months."
     },
+    "earningsDate": {
+        "text": "The earnings date is the day that the company releases its quarterly earnings. Check the company's investor relations page to confirm the date."
+    },
+    "earningsTime": {
+        "text": "The time that the company's earnings are released, either before market open or after market close."
+    },
+    "earningsRevenueEst": {
+        "text": "The estimated revenue for the fiscal quarter being reported, based on a consensus of analysts."
+    },
+    "earningsEPSEst": {
+        "text": "Estimated earnings per share (EPS) for the fiscal quarter being reported, based on analyst consensus."
+    },
+    "earningsRevenueGrowthEst": {
+        "text": "The estimated year-over-year revenue growth for the fiscal quarter being reported, based on a consensus of analysts."
+    },
+    "earningsEPSGrowthEst": {
+        "text": "The estimated year-over-year EPS growth for the fiscal quarter being reported, based on analyst consensus."
+    }
 
 }
 

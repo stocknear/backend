@@ -840,7 +840,7 @@ async def get_stock_screener(con):
 
     # Iterate through stock_screener_data and update 'price' and 'changesPercentage' if symbols match
     #test mode
-    #filtered_data = [item for item in stock_screener_data if item['symbol'] == 'TSLA']
+    #filtered_data = [item for item in stock_screener_data if item['symbol'] == 'MDB']
 
     for item in tqdm(stock_screener_data):
         symbol = item['symbol']
@@ -1198,6 +1198,43 @@ async def get_stock_screener(con):
 
 
         try:
+            with open(f"json/earnings/raw/{symbol}.json", "r") as file:
+                res = orjson.loads(file.read())
+                res = sorted(res, key=lambda x: x['date'], reverse=True)
+                next_earning = res[0]
+                item['earningsDate'] = next_earning['date'] if res else None
+                if next_earning['eps_est'] != '' and next_earning['revenue_est'] != '':
+                    item['earningsEPSEst'] = round(float(next_earning['eps_est']),2)
+                    item['earningsRevenueEst'] = round(float(next_earning['revenue_est']),0)
+
+                    eps_prior = float(next_earning['eps_prior'])
+                    revenue_prior = round(float(next_earning['revenue_prior']),0)
+
+                    item['earningsEPSGrowthEst'] = round((item['earningsEPSEst']/eps_prior-1)*100,2)
+                    item['earningsRevenueGrowthEst'] = round((item['earningsRevenueEst']/revenue_prior-1)*100,2)
+
+                else:
+                    item['earningsEPSEst'] = None
+                    item['earningsEPSGrowthEst'] = None
+                    item['earningsRevenueEst'] = None
+                    item['earningsRevenueGrowthEst'] = None
+
+                time = datetime.strptime(next_earning['time'], "%H:%M:%S").time()
+                if time < datetime.strptime("09:30:00", "%H:%M:%S").time():
+                    item['earningsTime'] = "Before Market Open"
+                else:
+                    item['earningsTime'] = "After Market Close"
+        except:
+            item['earningsDate'] = None
+            item['earningsTime'] = None
+            item['earningsEPSEst'] = None
+            item['earningsEPSGrowthEst'] = None
+            item['earningsRevenueEst'] = None
+            item['earningsRevenueGrowthEst'] = None
+
+        #print(item['earningsEPSEst'],item['earningsEPSGrowthEst'],item['earningsRevenueEst'],item['earningsRevenueGrowthEst'])
+        
+        try:
             with open(f"json/analyst-estimate/{symbol}.json", 'r') as file:
                 res = orjson.loads(file.read())[-1]
                 item['forwardPS'] = None
@@ -1329,7 +1366,7 @@ async def get_earnings_calendar(con, stock_symbols):
 
     today = datetime.now(berlin_tz)
     # Start date: 2 weeks ago, rounded to the previous Monday
-    start_date = today - timedelta(weeks=2)
+    start_date = today - timedelta(weeks=4)
     start_date -= timedelta(days=start_date.weekday())  # Reset to Monday
 
     # End date: 2 weeks ahead, rounded to the following Friday
@@ -1742,7 +1779,7 @@ async def save_json_files():
     # Save stock screener data
     stock_screener_data = await get_stock_screener(con)
     save_json(stock_screener_data, "json/stock-screener")
-
+    
     # Save IPO calendar
     data = await get_ipo_calendar(con, symbols)
     save_json(data, "json/ipo-calendar")
@@ -1768,6 +1805,8 @@ async def save_json_files():
     # Save ETF providers data
     data = await etf_providers(etf_con, etf_symbols)
     save_json(data, "json/all-etf-providers")
+    
+
 
     # Close connections
     con.close()
