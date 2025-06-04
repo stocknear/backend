@@ -4842,7 +4842,18 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
     if "@stockscreener" in user_query:
         rule_of_list = await get_rule_of_list_from_llm(user_query)
         stock_screener_context = await get_stock_screener(rule_of_list)
-        print(stock_screener_context)
+        #print(stock_screener_context)
+        system_prompt = {
+            "role": "system",
+            "content": (
+                "You are a stock screener assistant. Use ONLY the matched stocks provided below to answer the user's query. "
+                "Never make up any company names.\n\n"
+                f"Matched Stocks:\n{json.dumps(stock_screener_context['matched_stocks'], indent=2)}"
+            )
+        }
+        prepared_initial_messages = [system_prompt] + prepared_initial_messages
+
+
 
     agent = Agent(
         name="Stocknear AI Agent",
@@ -4856,7 +4867,7 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
         full_content = ""
         found_end_of_dicts = False
         try:
-            result = Runner.run_streamed(agent, input=prepared_initial_messages, context=f"Stock Screener result to answer user query {stock_screener_context}. Never make up any companies only present the results that are available here." if "@stockscreener" in user_query else {})
+            result = Runner.run_streamed(agent, input=prepared_initial_messages)
             async for event in result.stream_events():
                 try:
                     # Process only raw_response_event events
