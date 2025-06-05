@@ -841,7 +841,7 @@ async def get_stock_screener(con):
 
     # Iterate through stock_screener_data and update 'price' and 'changesPercentage' if symbols match
     #test mode
-    #filtered_data = [item for item in stock_screener_data if item['symbol'] == 'MDB']
+    #filtered_data = [item for item in stock_screener_data if item['symbol'] == 'TSLA']
 
     for item in tqdm(stock_screener_data):
         symbol = item['symbol']
@@ -928,17 +928,29 @@ async def get_stock_screener(con):
                 item['cagr5YearRevenue'] = calculate_cagr(revenue_5_years_ago, latest_revenue, 5)
                 item['cagr3YearEPS'] = calculate_cagr(eps_3_years_ago, latest_eps, 3)
                 item['cagr5YearEPS'] = calculate_cagr(eps_5_years_ago, latest_eps, 5)
+                if latest_eps >= 0:
+                    #computing lynch fair value
+                    growth_rate = min(max(item['cagr5YearEPS'], 5), 25)
+                    item['lynchFairValue'] = round(growth_rate * latest_eps, 2)
+                    item['lynchUpside'] = round((item['lynchFairValue'] / item['price'] - 1) * 100, 2)
+                else:
+                    item['lynchFairValue'] = None
+                    item['lynchUpside'] = None
             else:
                 item['cagr3YearRevenue'] = None
                 item['cagr5YearRevenue'] = None
                 item['cagr3YearEPS'] = None
                 item['cagr3YearEPS'] = None
+                item['lynchFairValue'] = None
+                item['lynchUpside'] = None
 
         except:
             item['cagr3YearRevenue'] = None
             item['cagr5YearRevenue'] = None
             item['cagr3YearEPS'] = None
             item['cagr5YearEPS'] = None
+            item['lynchFairValue'] = None
+            item['lynchUpside'] = None
 
 
         
@@ -1072,8 +1084,7 @@ async def get_stock_screener(con):
 
                 item['tangibleAssetValue'] = round(res['tangibleAssetValue'],2)
                 item['grahamNumber'] = round(res['grahamNumber'],2)
-
-
+                item['grahamUpside'] = round((item['grahamNumber'] / item['price'] - 1) * 100, 2)
 
         except:
             item['returnOnEquity'] = None
@@ -1092,6 +1103,7 @@ async def get_stock_screener(con):
             item['tangibleAssetValue'] = None
             item['returnOnTangibleAssets'] = None
             item['grahamNumber'] = None
+            item['grahamUpside'] = None
 
 
         try:

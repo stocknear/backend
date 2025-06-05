@@ -31,7 +31,8 @@ async def get_data(symbol):
     'capitalExpenditure','freeCashFlow','freeCashFlowPerShare','grossProfitMargin','operatingProfitMargin','pretaxProfitMargin',
     'netProfitMargin','ebitdaMargin','ebitMargin','freeCashFlowMargin','failToDeliver','relativeFTD',
     'annualDividend','dividendYield','payoutRatio','dividendGrowth','earningsYield','freeCashFlowYield','altmanZScore','piotroskiScore',
-    'lastStockSplit','splitType','splitRatio','analystRating','analystCounter','priceTarget','upside'
+    'lastStockSplit','splitType','splitRatio','analystRating','analystCounter','priceTarget','upside',
+    'grahamNumber','grahamUpside','lynchFairValue','lynchUpside'
     ]
     
     if symbol in stock_screener_data_dict:

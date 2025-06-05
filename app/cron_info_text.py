@@ -757,6 +757,16 @@ data = {
     },
     "earningsEPSGrowthEst": {
         "text": "The estimated year-over-year EPS growth for the fiscal quarter being reported, based on analyst consensus."
+    },
+    "grahamUpside": {
+        "text": "The upside/downside for the stock price according to the Graham Number formula, which can be used to estimate the intrinsic value of a stock according to classical value investing principles. If the number is positive, the stock may be undervalued. If the number is negative, the stock may be overvalued."
+    },
+    "lynchFairValue": {
+        "text": "The fair value formula associated with legendary investor Peter Lynch is used to estimate a company's intrinsic value based on its earnings per share and earnings growth rate. Earnings growth in the formula is capped at 25%. If it's less than 5%, then a value of 5% is used.",
+        "equation": "Lynch Fair Value = 5-Year Earnings Growth * EPS",
+    },
+    "lynchUpside": {
+        "text": "The upside/downside for the stock price according to the Peter Lynch Fair Value formula, which can be used to estimate a company's intrinsic value. If the number is positive, the stock may be undervalued. If the number is negative, the stock may be overvalued.",
     }
 
 }
