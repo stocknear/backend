@@ -809,6 +809,15 @@ data = {
         "text": "The interest coverage ratio is a measure of the ability of a company to pay its interest expenses. It is calculated by dividing the company's Earnings Before Interest and Taxes (EBIT) by its interest expenses.",
         "equation": "Interest Coverage Ratio = EBIT / Interest Expense",
     },
+    "lastStockSplit": {
+        "text": "The date when the company last performed a stock split.",
+    },
+    "splitType": {
+        "text": "There are two types of stock splits: Forward and Reverse. Forward means that the share count increases and the stock price goes down. Reverse means that the stock count decreases and the stock price goes up.",
+    },
+    "splitRatio": {
+        "text": "The split ratio, also called the split factor, is the ratio in which the amount of shares changes because of the stock split.",
+    }
 
 
 
