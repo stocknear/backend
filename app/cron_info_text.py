@@ -767,7 +767,39 @@ data = {
     },
     "lynchUpside": {
         "text": "The upside/downside for the stock price according to the Peter Lynch Fair Value formula, which can be used to estimate a company's intrinsic value. If the number is positive, the stock may be undervalued. If the number is negative, the stock may be overvalued.",
-    }
+    },
+    "cashAndCashEquivalents": {
+        "text": "Cash and short-term investments is the sum of 'Cash & Equivalents' and 'Short-Term Investments.' This is the amount of money that a company has quick access to, assuming that the cash equivalents and short-term investments can be sold at a short notice.",
+        "equation": "Cash & Cash Equivalents = Cash & Equivalents + Short-Term Investments",
+    },
+    "operatingProfitMargin": {
+        "text": "Operating margin is the percentage of revenue left as operating income, after subtracting cost of revenue and all operating expenses from the revenue.",
+        "equation": "Operating Margin = (Operating Income / Revenue) * 100%",
+    },
+    "evToOperatingCashFlow": {
+        "text": "The EV/EBIT is a valuation metric that measures a company's price relative to EBIT, or Earnings Before Interest and Taxes.",
+        "equation": "EV/EBIT Ratio = Enterprise Value / EBIT",
+    },
+    "evToFreeCashFlow": {
+        "text": "The enterprise value to free cash flow (EV/FCF) ratio is similar to the price to free cash flow ratio, except the price is adjusted for the company's cash and debt.",
+        "equation": "EV/FCF Ratio = Enterprise Value / Free Cash Flow",
+    },
+    "priceToFreeCashFlowRatio": {
+        "text": "The price to free cash flow (P/FCF) ratio is similar to the P/E ratio, except it uses free cash flow instead of accounting earnings.",
+        "equation": "P/FCF Ratio = Market Capitalization / Free Cash Flow",
+    },
+    "netCash": {
+        "text": "Net Cash / Debt is an indicator of the financial position of a company. It is calculated by taking the total amount of cash and cash equivalents and subtracting the total debt.",
+        "equation": "Net Cash / Debt = Total Cash - Total Debt",
+    },
+        "retainedEarnings": {
+        "text": "The portion of a company's net income that is retained and reinvested in the business rather than distributed as dividends. Positive retained earnings indicate accumulated profits over time, while negative retained earnings may suggest past losses or high dividend payouts."
+    },
+    "floatShare": {
+        "text": "The number of a company's shares that are available for trading by the public, excluding closely held shares by insiders or major shareholders. A lower float can lead to higher volatility, while a higher float typically indicates more liquidity."
+    },
+
+
 
 }
 
