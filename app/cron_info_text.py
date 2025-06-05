@@ -305,11 +305,6 @@ data = {
         'equation': 'Quick Ratio = (Cash + Short-Term Investments + Accounts Receivable) / Current Liabilities'
 
     },
-    'debtEquityRatio': {
-        'text': 'The debt-to-equity ratio measures a company`s debt levels relative to its shareholders equity or book value. A high ratio implies that a company has a lot of debt.',
-        'equation': 'Debt / Equity Ratio = Total Debt / Shareholders Equity'
-
-    },
     'debtRatio': {
         'text': 'The Debt Ratio measures the proportion of a company’s total debt to its total assets. It provides insight into the company’s financial leverage and risk by showing how much of the company’s assets are financed through debt.',
         'equation': 'Debt Ratio = Total Debt / Total Assets'
@@ -797,6 +792,22 @@ data = {
     },
     "floatShare": {
         "text": "The number of a company's shares that are available for trading by the public, excluding closely held shares by insiders or major shareholders. A lower float can lead to higher volatility, while a higher float typically indicates more liquidity."
+    },
+    "debtToEquityRatio": {
+        "text": "The debt-to-equity ratio measures a company's debt levels relative to its shareholders' equity or book value. A high ratio implies that a company has a lot of debt.",
+        "equation": "Debt / Equity Ratio = Total Debt / Shareholders' Equity",
+    },
+    "debtToEBITDARatio": {
+        "text": "The debt-to-EBITDA ratio is a company's debt levels relative to its trailing twelve-month EBITDA. A high ratio implies that debt is high relative to the company's earnings.",
+        "equation": "Debt / EBITDA Ratio = Total Debt / EBITDA (ttm)",
+    },
+    "debtToFreeCashFlowRatio": {
+        "text": "The debt-to-FCF ratio measures the debt levels relative to a company's free cash flow over the previous twelve months. If the ratio is high, it means that the company will need to spend a lot of the cash it generates on paying back debt.",
+        "equation": "Debt / FCF Ratio = Total Debt / Free Cash Flow (ttm)",
+    },
+    "interestCoverageRatio": {
+        "text": "The interest coverage ratio is a measure of the ability of a company to pay its interest expenses. It is calculated by dividing the company's Earnings Before Interest and Taxes (EBIT) by its interest expenses.",
+        "equation": "Interest Coverage Ratio = EBIT / Interest Expense",
     },
 
 
