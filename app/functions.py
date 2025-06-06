@@ -1930,11 +1930,135 @@ async def get_ticker_owner_earnings(tickers: List[str]) -> Dict[str, Dict[str, A
     return filtered_results
 
 
+@function_tool
+async def get_oversold_tickers() -> Dict[str, Dict[str, Any]]:
+    """
+    Retrieves the top 10 most oversold stocks based on the Relative Strength Index (RSI), 
+    sorted by the lowest RSI values.
+
+    Each stock entry includes:
+        - symbol: Stock ticker symbol
+        - name: Full company name
+        - price: Latest trading price
+        - changesPercentage: Percent change in price
+        - marketCap: Market capitalization in USD
+        - rsi: Relative Strength Index value
+        - rank: Position in the list based on RSI
+
+    Returns:
+        Dict[str, Dict[str, Any]]: A dictionary of the top 10 oversold stocks, keyed by their rank.
+    """
+    base_dir = BASE_DIR / "stocks-list/list/oversold-stocks.json"
+    with open(base_dir, "rb") as file:
+        result = orjson.loads(file.read())[:10]
+
+    return result
 
 
+@function_tool
+async def get_overbought_tickers() -> Dict[str, Dict[str, Any]]:
+    """
+    Retrieves the top 10 most overbought stocks based on the Relative Strength Index (RSI), 
+    sorted by the highest RSI values.
+
+    Each stock entry includes:
+        - symbol: Stock ticker symbol
+        - name: Full company name
+        - price: Latest trading price
+        - changesPercentage: Percent change in price
+        - marketCap: Market capitalization in USD
+        - rsi: Relative Strength Index value
+        - rank: Position in the list based on RSI
+
+    Returns:
+        Dict[str, Dict[str, Any]]: A dictionary of the top 10 oversold stocks, keyed by their rank.
+    """
+    base_dir = BASE_DIR / "stocks-list/list/overbought-stocks.json"
+    with open(base_dir, "rb") as file:
+        result = orjson.loads(file.read())[:10]
+
+    return result
+
+
+@function_tool
+async def get_dividend_kings() -> List[Dict[str, Any]]:
+    """
+    Retrieves the top 10 Dividend Kings—companies that have increased their dividend payouts 
+    for at least 50 consecutive years—sorted by the longest streak.
+
+    Each stock entry includes:
+        - symbol: Stock ticker symbol
+        - name: Full company name
+        - price: Latest trading price
+        - changesPercentage: Percent change in price
+        - dividendYield: Current dividend yield (percentage)
+        - years: Number of consecutive years of dividend increases
+        - rank: Position in the list based on number of years
+
+    Returns:
+        List[Dict[str, Any]]: A list of the top 10 Dividend Kings.
+    """
+    base_dir = BASE_DIR / "dividends/list/dividend-kings.json"
+    with open(base_dir, "rb") as file:
+        result = orjson.loads(file.read())[:10]
+
+    return result
+
+@function_tool
+async def get_dividend_aristocrats() -> List[Dict[str, Any]]:
+    """
+    Retrieves the top 10 Dividend Aristocrats—S&P 500 companies that have increased their 
+    dividend payouts for at least 25 consecutive years—sorted by the longest streak.
+
+    Each stock entry includes:
+        - symbol: Stock ticker symbol
+        - name: Full company name
+        - price: Latest trading price
+        - changesPercentage: Percent change in price
+        - dividendYield: Current dividend yield (percentage)
+        - years: Number of consecutive years of dividend increases
+        - rank: Position in the list based on number of years
+
+    Returns:
+        List[Dict[str, Any]]: A list of the top 10 Dividend Aristocrats.
+    """
+    base_dir = BASE_DIR / "dividends/list/dividend-aristocrats.json"
+    with open(base_dir, "rb") as file:
+        result = orjson.loads(file.read())[:10]
+    return result
+
+
+@function_tool
+async def get_top_rated_dividend_stocks() -> List[Dict[str, Any]]:
+    """
+    Retrieves the top 10 dividend-paying stocks with strong analyst ratings 
+    and attractive dividend yields.
+
+    Each stock meets the following criteria:
+        - Dividend yield of at least 2%
+        - Average analyst rating of 'buy' or 'strong buy' (from at least 10 analysts)
+        - Sustainable payout ratio (typically below 60%)
+        - Large market capitalization indicating stability
+
+    Each entry includes:
+        - symbol: Stock ticker symbol
+        - name: Full company name
+        - price: Latest trading price
+        - changesPercentage: Percent change in price
+        - marketCap: Market capitalization in USD
+        - dividendYield: Current dividend yield (percentage)
+        - rank: Position in the list based on composite score
+
+    Returns:
+        List[Dict[str, Any]]: A list of the top 10 top-rated dividend-paying stocks.
+    """
+    base_dir = BASE_DIR / "stocks-list/list/top-rated-dividend-stocks.json"
+    with open(base_dir, "rb") as file:
+        result = orjson.loads(file.read())[:10]
+    return result
 
 
 
 #Testing purposes
-#data = asyncio.run(get_stock_screener([{'metric': 'shortFloatPercent', 'operator': '>', "value": 10}]))
+#data = asyncio.run(get_top_rated_dividend_stocks())
 #print(data)
