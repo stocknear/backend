@@ -2057,8 +2057,62 @@ async def get_top_rated_dividend_stocks() -> List[Dict[str, Any]]:
         result = orjson.loads(file.read())[:10]
     return result
 
+@function_tool
+async def get_monthly_dividend_stocks() -> List[Dict[str, Any]]:
+    """
+    Retrieves the top 10 monthly dividend-paying stocks with high yields 
+    and strong income-generating potential.
+
+    These stocks typically distribute dividends every month rather than quarterly,
+    making them attractive to income-focused investors seeking regular cash flow.
+
+    Each entry includes:
+        - symbol: Stock ticker symbol
+        - name: Full company name
+        - price: Latest trading price
+        - changesPercentage: Percent change in price
+        - marketCap: Market capitalization in USD
+        - dividendYield: Current dividend yield (percentage)
+        - rank: Position in the list based on dividend consistency and yield
+
+    Returns:
+        List[Dict[str, Any]]: A list of the top 10 monthly dividend-paying stocks.
+    """
+    base_dir = BASE_DIR / "stocks-list/list/monthly-dividend-stocks.json"
+    with open(base_dir, "rb") as file:
+        result = orjson.loads(file.read())[:10]
+    return result
+
+@function_tool
+async def get_ticker_trend_forecast(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
+    """
+    AI Trend Forecast: Uses an AI model analyzing historical price data to forecast stock trends.
+    It detects patterns, seasonality, and trends to predict future price movements and estimate
+    price targets over the next 12 months.
+
+    Args:
+        tickers (List[str]): List of stock ticker symbols (e.g., ["AAPL", "GOOGL"]).
+
+    Returns:
+        Dict[str, Dict[str, Any]]: A dictionary mapping each ticker symbol to a dictionary of
+        price target estimates including:
+            - avgPriceTarget: Average predicted price
+            - highPriceTarget: Highest predicted price target
+            - lowPriceTarget: Lowest predicted price target
+            - medianPriceTarget: Median predicted price target
+    """
+    result = await get_ticker_specific_data(tickers, "price-analysis")
+    
+    filtered_result = {}
+    for ticker, data in result.items():
+        if data:
+            data_copy = dict(data)  # shallow copy to avoid mutating original
+            data_copy.pop("pastPriceList", None)  # remove unnecessary large data
+            filtered_result[ticker] = data_copy
+
+    return filtered_result
 
 
 #Testing purposes
-#data = asyncio.run(get_top_rated_dividend_stocks())
+#data = asyncio.run(get_ticker_trend_forecast(['A']))
 #print(data)
