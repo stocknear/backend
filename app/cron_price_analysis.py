@@ -24,9 +24,11 @@ def convert_symbols(symbol_list):
     return converted_symbols
 
 async def save_json(symbol, data):
-    with open(f"json/price-analysis/{symbol}.json", 'w') as file:
+    path = "json/price-analysis"
+    os.makedirs(path, exist_ok=True)  # Ensure directory exists
+    with open(f"{path}/{symbol}.json", 'w') as file:
         ujson.dump(data, file)
-
+        
 async def download_data(ticker: str, start_date: str, end_date: str):
     try:
         with open(f"json/historical-price/max/{ticker}.json", "r") as file:
@@ -63,10 +65,10 @@ async def download_data(ticker: str, start_date: str, end_date: str):
         return None
 
 async def process_symbol(ticker, start_date, end_date):
+    file_path = f"json/price-analysis/{ticker}.json"  # Declare early to avoid UnboundLocalError
     try:
         df = await download_data(ticker, start_date, end_date)
         data = PricePredictor().run(df)
-        file_path = f"json/price-analysis/{ticker}.json"
 
         if data and data['lowPriceTarget'] > 0:
             print(data)
@@ -75,10 +77,12 @@ async def process_symbol(ticker, start_date, end_date):
             await asyncio.to_thread(os.remove, file_path)
     
     except Exception as e:
+        print(f"Error in process_symbol for {ticker}: {e}")
         try:
             await asyncio.to_thread(os.remove, file_path)
         except FileNotFoundError:
             pass  # The file might not exist, so we ignore the error
+
 
 
 async def run():
