@@ -2112,7 +2112,176 @@ async def get_ticker_trend_forecast(tickers: List[str]) -> Dict[str, Dict[str, A
 
     return filtered_result
 
+@function_tool
+async def get_dividend_calendar() -> List[Dict[str, Any]]:
+    """
+    Fetches a list of upcoming dividend-paying stocks along with key payout details.
+
+    This function is designed for income-focused investors and financial analysts who 
+    track dividend events. It retrieves data on upcoming ex-dividend dates and other 
+    relevant information, enabling timely decision-making around dividend capture strategies.
+
+    Each returned entry contains:
+        - symbol (str): The stock's ticker symbol.
+        - name (str): The full name of the company.
+        - adjDividend (float): The adjusted dividend amount per share.
+        - date (str): The ex-dividend date—when the stock starts trading without the dividend.
+        - recordDate (str): The date by which investors must own the stock to be eligible for the dividend.
+        - paymentDate (str): The date on which the dividend will be paid.
+        - marketCap (float): The company's market capitalization in USD.
+
+    Returns:
+        List[Dict[str, Any]]: A filtered list of dictionaries, each representing 
+        an upcoming dividend event with essential payout information.
+    """
+
+    base_dir = BASE_DIR / "dividends-calendar/data.json"
+    with open(base_dir, "rb") as file:
+        raw_data = orjson.loads(file.read())
+
+    # Remove unwanted keys from each dictionary item
+    result = [
+        {
+            key: value
+            for key, value in item.items()
+            if key not in ["declarationDate", "revenue", "label","dividend"]
+        }
+        for item in raw_data
+    ]
+
+    return result
+
+
+@function_tool
+async def get_ipo_calendar() -> List[Dict[str, Any]]:
+    """
+    Retrieves data on the 50 most recent initial public offerings (IPOs).
+
+    This function provides a snapshot of newly listed companies, including pricing 
+    and performance data since going public. It's useful for investors and analysts 
+    tracking recent IPO activity and post-IPO performance.
+
+    Each entry contains:
+        - symbol (str): The stock ticker symbol.
+        - name (str): The full company name.
+        - ipoDate (str): The date the company went public.
+        - ipoPrice (float): The offering price at IPO.
+        - currentPrice (float | None): The latest trading price, if available.
+        - return (float | None): Percentage return since IPO, calculated as 
+          (currentPrice - ipoPrice) / ipoPrice * 100, if currentPrice is available.
+
+    Returns:
+        List[Dict[str, Any]]: A list of dictionaries, each representing a recently 
+        listed IPO with relevant market data.
+    """
+
+
+    base_dir = BASE_DIR / "ipo-calendar/data.json"
+    with open(base_dir, "rb") as file:
+        result = orjson.loads(file.read())[:50]
+
+    return result
+
+@function_tool
+async def get_penny_stocks() -> List[Dict[str, Any]]:
+    """
+    Retrieves a list of actively traded penny stocks, defined as stocks priced below $5 per share
+    and with a trading volume exceeding 10,000 shares.
+
+    The result is sorted by volume in descending order and limited to the top 10 entries.
+
+    Returns:
+        List[Dict[str, Any]]: A list of the top 10 most active penny stocks with:
+            - symbol: Ticker symbol
+            - name: Company name
+            - price: Current trading price
+            - changesPercentage: Percent price change
+            - marketCap: Market capitalization
+            - volume: Daily trading volume
+            - rank: Rank based on trading activity
+    """
+    base_dir = BASE_DIR / "stocks-list/list/penny-stocks.json"
+    with open(base_dir, "rb") as file:
+        data = orjson.loads(file.read())[:10]
+
+    return data
+
+@function_tool
+async def get_most_shorted_stocks() -> List[Dict[str, Any]]:
+    """
+    Retrieves a list of the most heavily shorted stocks based on short float percentage,
+    which indicates the percentage of a company's float that is sold short.
+
+    This list is useful for identifying stocks with high short interest that may be
+    vulnerable to short squeezes or strong price movements.
+
+    Returns:
+        List[Dict[str, Any]]: A list of the top 10 most shorted stocks, each with:
+            - symbol: Stock ticker symbol
+            - name: Full company name
+            - price: Latest trading price
+            - changesPercentage: Percent change in price
+            - shortFloatPercent: Short float percentage
+            - rank: Position based on short interest
+    """
+    base_dir = BASE_DIR / "stocks-list/list/most-shorted-stocks.json"
+    with open(base_dir, "rb") as file:
+        data = orjson.loads(file.read())[:10]
+
+    return data
+
+@function_tool
+async def get_bitcoin_etfs() -> List[Dict[str, Any]]:
+    """
+    Retrieves a list of Bitcoin Exchange-Traded Funds (ETFs), which are financial instruments
+    designed to track the price of Bitcoin and are traded on stock exchanges.
+
+    These ETFs allow investors to gain exposure to Bitcoin without directly holding the cryptocurrency.
+
+    Returns:
+        List[Dict[str, Any]]: A list of up to 30 Bitcoin ETFs, each including:
+            - symbol: ETF ticker symbol
+            - name: Full ETF name
+            - expenseRatio: Annual fee as a percentage of total assets
+            - totalAssets: Total assets under management (in USD)
+            - price: Latest trading price
+            - changesPercentage: Percent change in price
+            - rank: Rank based on assets or popularity
+    """
+    base_dir = BASE_DIR / "etf-bitcoin-list/data.json"
+    with open(base_dir, "rb") as file:
+        data = orjson.loads(file.read())[:30]
+
+    return data
+
+@function_tool
+async def get_all_sector_overview() -> List[Dict[str, Any]]:
+    """
+    Retrieves an overview of all stock market sectors, including aggregated and median-based metrics.
+
+    For each sector:
+    - `totalMarketCap` is the sum of all stocks in the sector.
+    - All other fields (e.g. dividend yield, profit margin) represent median values across stocks.
+
+    Returns:
+        List[Dict[str, Any]]: A list of sectors with the following fields:
+            - sector: Name of the sector
+            - numStocks: Number of stocks in the sector
+            - totalMarketCap: Total market capitalization of the sector
+            - avgDividendYield: Median dividend yield (%)
+            - profitMargin: Median profit margin (%)
+            - avgChange1D: Median 1-day % change
+            - avgChange1Y: Median 1-year % change
+            - pe: Median price-to-earnings ratio
+    """
+    base_dir = BASE_DIR/"industry/sector-overview.json"
+    with open(base_dir, "rb") as file:
+        data = orjson.loads(file.read())
+
+    return data
+
+
 
 #Testing purposes
-#data = asyncio.run(get_ticker_trend_forecast(['A']))
+#data = asyncio.run(get_all_sector_overview())
 #print(data)
