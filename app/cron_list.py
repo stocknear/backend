@@ -825,7 +825,7 @@ async def get_most_shorted_stocks():
         try:
             # Load quote data from JSON file
             short_percent_float = stock_screener_data_dict[symbol].get('shortFloatPercent',None)
-            if short_percent_float > 10:
+            if short_percent_float > 10 and short_percent_float < 100:
                 quote_data = await get_quote_data(symbol)
                 # Assign price and volume, and check if they meet the penny stock criteria
                 if quote_data:
