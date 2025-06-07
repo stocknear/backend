@@ -162,11 +162,11 @@ async def refresh_bulk_credits():
         try:
             if item.tier == 'Plus':
                 pb.collection("users").update(item.id, {
-                    "credits": 50,
+                    "credits": 150,
                 })
             elif item.tier == 'Pro':
                 pb.collection("users").update(item.id, {
-                    "credits": 100,
+                    "credits": 1000,
                 })
 
             else:
