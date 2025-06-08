@@ -49,10 +49,9 @@ from openai import AsyncOpenAI
 from openai.types.responses import ResponseTextDeltaEvent
 from agents.stream_events import RunItemStreamEvent
 from agents import Agent, Runner, ModelSettings
-
+from llm.agents import *
 from contextlib import asynccontextmanager
 from hashlib import md5
-
 
 
 # DB constants & context manager
@@ -89,7 +88,6 @@ model_settings = ModelSettings(
 )
 
 all_tools = [get_all_sector_overview, get_bitcoin_etfs, get_most_shorted_stocks, get_penny_stocks, get_ipo_calendar, get_dividend_calendar, get_ticker_trend_forecast, get_monthly_dividend_stocks, get_top_rated_dividend_stocks, get_dividend_aristocrats, get_dividend_kings, get_overbought_tickers, get_oversold_tickers, get_ticker_owner_earnings, get_ticker_financial_score, get_ticker_key_metrics, get_ticker_statistics, get_ticker_dividend, get_ticker_dark_pool, get_ticker_unusual_activity, get_ticker_open_interest_by_strike_and_expiry, get_ticker_max_pain, get_ticker_options_data, get_ticker_shareholders, get_ticker_insider_trading, get_ticker_pre_post_quote, get_ticker_quote, get_congress_activity, get_market_flow, get_market_news, get_analyst_tracker, get_latest_congress_trades, get_insider_tracker, get_potus_tracker, get_top_active_stocks, get_top_aftermarket_losers, get_top_premarket_losers, get_top_losers, get_top_aftermarket_gainers, get_top_premarket_gainers, get_top_gainers, get_ticker_analyst_rating, get_ticker_news, get_latest_dark_pool_feed, get_latest_options_flow_feed, get_ticker_bull_vs_bear, get_ticker_earnings, get_ticker_earnings_price_reaction, get_top_rating_stocks, get_economic_calendar, get_earnings_calendar, get_ticker_analyst_estimate, get_ticker_business_metrics, get_why_priced_moved, get_ticker_short_data, get_company_data, get_ticker_hottest_options_contracts, get_ticker_ratios_statement, get_ticker_cash_flow_statement, get_ticker_income_statement, get_ticker_balance_sheet_statement, get_congress_activity]
-
 
 
 #======================================================#
@@ -4623,6 +4621,78 @@ TRIGGER_CONFIG = {
         get_ticker_analyst_rating,
     ],
     "@StockScreener": [],
+    "@WarrenBuffet": [
+        get_ticker_quote,
+        get_ticker_bull_vs_bear,
+        get_ticker_business_metrics,
+        get_ticker_income_statement,
+        get_ticker_balance_sheet_statement,
+        get_ticker_cash_flow_statement,
+        get_ticker_ratios_statement,
+        get_ticker_key_metrics,
+        get_ticker_owner_earnings,
+        get_ticker_statistics,
+    ],
+    "@CharlieMunger": [
+        get_ticker_quote,
+        get_ticker_bull_vs_bear,
+        get_ticker_business_metrics,
+        get_ticker_income_statement,
+        get_ticker_balance_sheet_statement,
+        get_ticker_cash_flow_statement,
+        get_ticker_ratios_statement,
+        get_ticker_key_metrics,
+        get_ticker_owner_earnings,
+        get_ticker_statistics,
+    ],
+    "@BillAckman": [
+        get_ticker_quote,
+        get_ticker_bull_vs_bear,
+        get_ticker_business_metrics,
+        get_ticker_income_statement,
+        get_ticker_balance_sheet_statement,
+        get_ticker_cash_flow_statement,
+        get_ticker_ratios_statement,
+        get_ticker_key_metrics,
+        get_ticker_owner_earnings,
+        get_ticker_statistics,
+    ],
+    "@MichaelBurry": [
+        get_ticker_quote,
+        get_ticker_bull_vs_bear,
+        get_ticker_business_metrics,
+        get_ticker_income_statement,
+        get_ticker_balance_sheet_statement,
+        get_ticker_cash_flow_statement,
+        get_ticker_ratios_statement,
+        get_ticker_key_metrics,
+        get_ticker_owner_earnings,
+        get_ticker_statistics,
+    ],
+    "@PeterLynch": [
+        get_ticker_quote,
+        get_ticker_bull_vs_bear,
+        get_ticker_business_metrics,
+        get_ticker_income_statement,
+        get_ticker_balance_sheet_statement,
+        get_ticker_cash_flow_statement,
+        get_ticker_ratios_statement,
+        get_ticker_key_metrics,
+        get_ticker_owner_earnings,
+        get_ticker_statistics,
+    ],
+    "@BenjaminGraham": [
+        get_ticker_quote,
+        get_ticker_bull_vs_bear,
+        get_ticker_business_metrics,
+        get_ticker_income_statement,
+        get_ticker_balance_sheet_statement,
+        get_ticker_cash_flow_statement,
+        get_ticker_ratios_statement,
+        get_ticker_key_metrics,
+        get_ticker_owner_earnings,
+        get_ticker_statistics,
+    ],
 }
 
 key_screener = [
@@ -4853,7 +4923,46 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
         }
         prepared_initial_messages = [system_prompt] + prepared_initial_messages
 
+    elif "@warrenbuffet" in user_query:
+        system_prompt = {
+            "role": "system",
+            "content": generate_buffet_instruction()
+        }
+        prepared_initial_messages = [system_prompt] + prepared_initial_messages
 
+    elif "@charliemunger" in user_query:
+        system_prompt = {
+            "role": "system",
+            "content": generate_munger_instruction()
+        }
+        prepared_initial_messages = [system_prompt] + prepared_initial_messages
+
+    elif "@billackman" in user_query:
+        system_prompt = {
+            "role": "system",
+            "content": generate_ackman_instruction()
+        }
+        prepared_initial_messages = [system_prompt] + prepared_initial_messages
+
+    elif "@michaelburry" in user_query:
+        system_prompt = {
+            "role": "system",
+            "content": generate_burry_instruction()
+        }
+        prepared_initial_messages = [system_prompt] + prepared_initial_messages
+    elif "@peterlynch" in user_query:
+        system_prompt = {
+            "role": "system",
+            "content": generate_lynch_instruction()
+        }
+        prepared_initial_messages = [system_prompt] + prepared_initial_messages
+
+    elif "@benjamingraham" in user_query:
+        system_prompt = {
+            "role": "system",
+            "content": generate_graham_instruction()
+        }
+        prepared_initial_messages = [system_prompt] + prepared_initial_messages
 
     agent = Agent(
         name="Stocknear AI Agent",

@@ -2,6 +2,7 @@ import os
 import asyncio
 import aiofiles
 import orjson
+import sqlite3
 from dotenv import load_dotenv
 from collections import defaultdict
 from datetime import datetime, date, timedelta
@@ -12,6 +13,13 @@ from rapidfuzz import process, fuzz
 from agents import function_tool
 
 load_dotenv()
+
+con = sqlite3.connect('stocks.db')
+
+cursor = con.cursor()
+cursor.execute("PRAGMA journal_mode = wal")
+cursor.execute("SELECT DISTINCT symbol FROM stocks")
+stock_symbols = [row[0] for row in cursor.fetchall()]
 
 
 key_ratios = [
@@ -211,6 +219,7 @@ key_balance_sheet = [
 "netDebt"
 ]
 
+
 key_screener = [
   "avgVolume",
   "volume",
@@ -228,6 +237,7 @@ key_screener = [
   "ema100",
   "ema200",
   "grahamNumber",
+  "grahamUpside",
   "price",
   "change1W",
   "change1M",
@@ -352,23 +362,33 @@ key_screener = [
   "profitPerEmployee",
   "totalLiabilities",
   "altmanZScore",
-  "piotroskiScore"
+  "piotroskiScore",
+  'floatShares',
+    'evToOperatingCashFlow',
+    'evToFreeCashFlow',
+    'debtToFreeCashFlowRatio',
+    'debtToEBITDARatio',
+    'cashFlowToDebtRatio',
+    'debtToMarketCap',
+    'operatingProfitMargin',
+    'cashAndCashEquivalents',
+    'retainedEarnings',
+    'capitalExpenditure',
+    'lastStockSplit',
+    'splitType',
+    'splitRatio',
+    'analystRating',
+    'analystCounter',
+    'priceTarget',
+    'upside',
+    'incomeTaxExpense',
+    'lynchFairValue',
+    'lynchUpside'
 ]
 
-key_statistics = ['sharesOutStanding', 'sharesQoQ', 'sharesYoY','institutionalOwnership','floatShares',
-    'priceToEarningsGrowthRatio','priceToEarningsRatio','forwardPE','priceToSalesRatio','forwardPS','priceToBookRatio','priceToFreeCashFlowRatio',
-    'sharesShort','shortOutstandingPercent','shortFloatPercent','shortRatio',
-    'enterpriseValue','evToSales','evToEBITDA','evToOperatingCashFlow','evToFreeCashFlow',
-    'currentRatio','quickRatio','debtToFreeCashFlowRatio','debtToEBITDARatio','debtToEquityRatio','interestCoverageRatio','cashFlowToDebtRatio','debtToMarketCap',
-    'returnOnEquity','returnOnAssets','returnOnInvestedCapital','revenuePerEmployee','profitPerEmployee',
-    'employees','assetTurnover','inventoryTurnover','incomeTaxExpense','effectiveTaxRate','beta',
-    'change1Y','sma50','sma200','rsi','avgVolume','revenue','netIncome','grossProfit','operatingIncome','ebitda','ebit','eps',
-    'cashAndCashEquivalents','totalDebt','retainedEarnings','totalAssets','workingCapital','operatingCashFlow',
-    'capitalExpenditure','freeCashFlow','freeCashFlowPerShare','grossProfitMargin','operatingProfitMargin','pretaxProfitMargin',
-    'netProfitMargin','ebitdaMargin','ebitMargin','freeCashFlowMargin','failToDeliver','relativeFTD',
-    'annualDividend','dividendYield','payoutRatio','dividendGrowth','earningsYield','freeCashFlowYield','altmanZScore','piotroskiScore',
-    'lastStockSplit','splitType','splitRatio','analystRating','analystCounter','priceTarget','upside'
-    ]
+
+
+
 
 key_metrics = [
     "marketCap",
@@ -1838,8 +1858,9 @@ async def get_ticker_dividend(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
 @function_tool
 async def get_ticker_statistics(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
     f"""
-    Retrieves a snapshot of statistical data for a list of stock ticker symbols.
-    This includes key statistics such as: {', '.join(key_statistics)}.
+    Retrieves a snapshot of all latest data for a list of stock ticker symbols.
+    This includes key quantities such as: {', '.join(key_screener)}.
+    Upside in this context is compared the percentage change compared to the current stock price. Positive upside indicates stock is undervalued and negative overvalued.
 
     Args:
         tickers (List[str]): List of stock ticker symbols to analyze.
@@ -1847,11 +1868,25 @@ async def get_ticker_statistics(tickers: List[str]) -> Dict[str, Dict[str, Any]]
     Returns:
         Dict[str, Dict[str, Any]]: A dictionary mapping each ticker to its statistics.
     """
-    base_dir = BASE_DIR / "statistics"
-    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
-    results = await asyncio.gather(*tasks)
+    file_path = BASE_DIR / "stock-screener/data.json"
+    async with aiofiles.open(file_path, 'rb') as file:
+        data = orjson.loads(await file.read())
 
-    return {ticker: result for ticker, result in zip(tickers, results)}
+    # Initial filter to exclude PNK exchange
+    stock_screener_data = [item for item in data if item.get('exchange') != 'PNK']
+    stock_screener_data_dict = {item['symbol']: item for item in stock_screener_data}
+
+    result = {}
+    if len(tickers) > 0:
+        for symbol in tickers:
+            try:
+                if symbol in stock_screener_data_dict:
+                    item_data = stock_screener_data_dict[symbol]
+                    result[symbol] = {col: item_data.get(col, None) for col in key_screener}
+            except:
+                pass
+    return result
+
 
 
 @function_tool
@@ -1905,7 +1940,7 @@ async def get_ticker_financial_score(tickers: List[str]) -> Dict[str, Dict[str, 
 async def get_ticker_owner_earnings(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
     f"""
     Retrieves fundamental owner earnings data for a list of stock ticker symbols.
-    This includes key data such as: {', '.join(key_metrics)}.
+    This includes key data such as: {', '.join(key_owner_earnings)}.
 
     Args:
         tickers (List[str]): List of stock ticker symbols to analyze (e.g., ["AAPL", "GOOGL"]).
@@ -2283,5 +2318,5 @@ async def get_all_sector_overview() -> List[Dict[str, Any]]:
 
 
 #Testing purposes
-#data = asyncio.run(get_all_sector_overview())
+#data = asyncio.run(get_ticker_statistics(['TSLA']))
 #print(data)
