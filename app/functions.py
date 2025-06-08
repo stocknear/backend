@@ -9,10 +9,15 @@ from datetime import datetime, date, timedelta
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Union, Callable, TypeVar, Set, Tuple, cast
 from rapidfuzz import process, fuzz
+import aiohttp
+import re
 
 from agents import function_tool
 
 load_dotenv()
+
+api_key = os.getenv('FMP_API_KEY')
+
 
 con = sqlite3.connect('stocks.db')
 
@@ -508,6 +513,45 @@ def load_congress_db():
     return data
 
 key_congress_db = load_congress_db()
+
+
+def remove_text_before_operator(text):
+    # Find the index of the first occurrence of "Operator"
+    operator_index = text.find("Operator")
+
+    # If "Operator" was found, create a new string starting from that index
+    if operator_index != -1:
+        new_text = text[operator_index:]
+        return new_text
+    else:
+        return "Operator not found in the text."
+
+
+
+def extract_names_and_descriptions(text):
+    pattern = r'([A-Z][a-zA-Z\s]+):\s+(.*?)(?=\n[A-Z][a-zA-Z\s]+:|$)'
+    matches = re.findall(pattern, text, re.DOTALL)
+    extracted_data = []
+    
+    for match in matches:
+        name = match[0].strip()
+        description = match[1].strip()
+        
+        # Split the description into sentences
+        sentences = re.split(r'(?<=[.!?])\s+', description)
+        
+        # Add line breaks every 3 sentences
+        formatted_description = ""
+        for i, sentence in enumerate(sentences, 1):
+            formatted_description += sentence + " "
+            if i % 3 == 0:
+                formatted_description += "<br><br>"
+        
+        formatted_description = formatted_description.strip()
+        
+        extracted_data.append({'name': name, 'description': formatted_description})
+    
+    return extracted_data
 
 
 # Generic file fetching function
@@ -2368,7 +2412,63 @@ async def get_all_sector_overview() -> List[Dict[str, Any]]:
     return data
 
 
+@function_tool
+async def get_ticker_earnings_call_transcripts(
+    tickers: List[str],
+    year: int,
+    quarter: int
+) -> Dict[str, Dict[str, Any]]:
+    """
+    Retrieves earnings call transcripts for a list of stock tickers for a specific year and quarter.
+
+    Each transcript includes the call date and a parsed summary of participant dialogues.
+
+    Args:
+        tickers (List[str]): List of stock ticker symbols (e.g., ["AAPL", "MSFT"]).
+        year (int): The fiscal year of the earnings call (e.g., 2024).
+        quarter (int): The fiscal quarter (1–4).
+
+    Returns:
+        Dict[str, Dict[str, Any]]: A dictionary mapping each ticker to its earnings call data:
+            {
+                "AAPL": {
+                    "date": "2024-01-25",
+                    "chat": [ ... parsed transcript content ... ]
+                },
+                ...
+            }
+        If no data is found or an error occurs, that ticker will be omitted.
+    """
+    results = {}
+
+    async with aiohttp.ClientSession() as session:
+        for ticker in tickers:
+            try:
+                url = (
+                    f"https://financialmodelingprep.com/stable/earning-call-transcript"
+                    f"?symbol={ticker}&year={year}&quarter={quarter}&apikey={api_key}"
+                )
+
+                async with session.get(url) as response:
+                    raw_data = await response.json()
+                    if not raw_data:
+                        continue
+
+                    entry = raw_data[0]
+                    content = remove_text_before_operator(entry.get("content", ""))
+                    chat = extract_names_and_descriptions(content)
+
+                    results[ticker] = {
+                        "date": entry.get("date"),
+                        "chat": chat
+                    }
+
+            except Exception as e:
+                print(f"Error retrieving transcript for {ticker}: {e}")
+
+    return results
+
 
 #Testing purposes
-#data = asyncio.run(get_ticker_statistics(['TSLA']))
+#data = asyncio.run(get_ticker_earnings_call_transcripts(['AAPL'],2024,2))
 #print(data)
