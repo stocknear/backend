@@ -456,6 +456,9 @@ async def load_json_async(file_path):
 async def hello_world():
     return {"stocknear api"}
 
+@app.on_event("shutdown")
+async def shutdown_event():
+    await client.aclose()
 
 @app.post("/historical-adj-price")
 async def get_stock(data: TickerData, api_key: str = Security(get_api_key)):
@@ -4583,38 +4586,46 @@ async def compare_data_endpoint(data: CompareData, api_key: str = Security(get_a
         headers={"Content-Encoding": "gzip"}
     )
 
+# Define fundamental tools once (DRY principle)
+FUNDAMENTAL_TOOLS = [
+    get_ticker_quote,
+    get_ticker_bull_vs_bear,
+    get_ticker_business_metrics,
+    get_ticker_income_statement,
+    get_ticker_balance_sheet_statement,
+    get_ticker_cash_flow_statement,
+    get_ticker_ratios_statement,
+    get_ticker_key_metrics,
+    get_ticker_owner_earnings,
+    get_ticker_statistics,
+]
 
-
-
-# Map trigger keywords to tool functions
 TRIGGER_CONFIG = {
-    "@OptionsData": [
+    "@optionsdata": [
         get_ticker_options_data,
         get_ticker_open_interest_by_strike_and_expiry,
         get_ticker_max_pain,
         get_ticker_hottest_options_contracts,
         get_ticker_quote,
     ],
-    "@OptionsFlowFeed": [
-        get_latest_options_flow_feed,
-    ],
-    "@Analyst": [
+    "@optionsflowfeed": [get_latest_options_flow_feed],
+    "@analyst": [
         get_ticker_analyst_estimate,
         get_ticker_analyst_rating,
     ],
-    "@DarkPoolData": [
+    "@darkpooldata": [
         get_latest_dark_pool_feed,
         get_ticker_dark_pool,
         get_ticker_quote,
     ],
-    "@BullvsBear": [
+    "@bullvsbear": [
         get_ticker_bull_vs_bear,
         get_why_priced_moved,
         get_ticker_analyst_estimate,
         get_ticker_analyst_rating,
         get_ticker_quote,
     ],
-    "@CompareStocks": [
+    "@comparestocks": [
         get_why_priced_moved,
         get_company_data,
         get_ticker_news,
@@ -4622,236 +4633,38 @@ TRIGGER_CONFIG = {
         get_ticker_analyst_estimate,
         get_ticker_analyst_rating,
     ],
-    "@StockScreener": [],
-    "@WarrenBuffet": [
-        get_ticker_quote,
-        get_ticker_bull_vs_bear,
-        get_ticker_business_metrics,
-        get_ticker_income_statement,
-        get_ticker_balance_sheet_statement,
-        get_ticker_cash_flow_statement,
-        get_ticker_ratios_statement,
-        get_ticker_key_metrics,
-        get_ticker_owner_earnings,
-        get_ticker_statistics,
-    ],
-    "@CharlieMunger": [
-        get_ticker_quote,
-        get_ticker_bull_vs_bear,
-        get_ticker_business_metrics,
-        get_ticker_income_statement,
-        get_ticker_balance_sheet_statement,
-        get_ticker_cash_flow_statement,
-        get_ticker_ratios_statement,
-        get_ticker_key_metrics,
-        get_ticker_owner_earnings,
-        get_ticker_statistics,
-    ],
-    "@BillAckman": [
-        get_ticker_quote,
-        get_ticker_bull_vs_bear,
-        get_ticker_business_metrics,
-        get_ticker_income_statement,
-        get_ticker_balance_sheet_statement,
-        get_ticker_cash_flow_statement,
-        get_ticker_ratios_statement,
-        get_ticker_key_metrics,
-        get_ticker_owner_earnings,
-        get_ticker_statistics,
-    ],
-    "@MichaelBurry": [
-        get_ticker_quote,
-        get_ticker_bull_vs_bear,
-        get_ticker_business_metrics,
-        get_ticker_income_statement,
-        get_ticker_balance_sheet_statement,
-        get_ticker_cash_flow_statement,
-        get_ticker_ratios_statement,
-        get_ticker_key_metrics,
-        get_ticker_owner_earnings,
-        get_ticker_statistics,
-    ],
-    "@PeterLynch": [
-        get_ticker_quote,
-        get_ticker_bull_vs_bear,
-        get_ticker_business_metrics,
-        get_ticker_income_statement,
-        get_ticker_balance_sheet_statement,
-        get_ticker_cash_flow_statement,
-        get_ticker_ratios_statement,
-        get_ticker_key_metrics,
-        get_ticker_owner_earnings,
-        get_ticker_statistics,
-    ],
-    "@BenjaminGraham": [
-        get_ticker_quote,
-        get_ticker_bull_vs_bear,
-        get_ticker_business_metrics,
-        get_ticker_income_statement,
-        get_ticker_balance_sheet_statement,
-        get_ticker_cash_flow_statement,
-        get_ticker_ratios_statement,
-        get_ticker_key_metrics,
-        get_ticker_owner_earnings,
-        get_ticker_statistics,
-    ],
+    "@stockscreener": [],
+    "@warrenbuffet": FUNDAMENTAL_TOOLS,
+    "@charlie munger": FUNDAMENTAL_TOOLS,
+    "@billackman": FUNDAMENTAL_TOOLS,
+    "@michaelburry": FUNDAMENTAL_TOOLS,
+    "@peterlynch": FUNDAMENTAL_TOOLS,
+    "@benjamingraham": FUNDAMENTAL_TOOLS,
+    "@cathywood": FUNDAMENTAL_TOOLS,
 }
 
-key_screener = [
-  "avgVolume",
-  "volume",
-  "rsi",
-  "stochRSI",
-  "mfi",
-  "cci",
-  "atr",
-  "sma20",
-  "sma50",
-  "sma100",
-  "sma200",
-  "ema20",
-  "ema50",
-  "ema100",
-  "ema200",
-  "grahamNumber",
-  "price",
-  "change1W",
-  "change1M",
-  "change3M",
-  "change6M",
-  "change1Y",
-  "change3Y",
-  "marketCap",
-  "workingCapital",
-  "totalAssets",
-  "tangibleAssetValue",
-  "revenue",
-  "revenueGrowthYears",
-  "epsGrowthYears",
-  "netIncomeGrowthYears",
-  "grossProfitGrowthYears",
-  "growthRevenue",
-  "costOfRevenue",
-  "growthCostOfRevenue",
-  "costAndExpenses",
-  "growthCostAndExpenses",
-  "netIncome",
-  "growthNetIncome",
-  "grossProfit",
-  "growthGrossProfit",
-  "researchAndDevelopmentExpenses",
-  "growthResearchAndDevelopmentExpenses",
-  "payoutRatio",
-  "dividendYield",
-  "payoutFrequency",
-  "annualDividend",
-  "dividendGrowth",
-  "eps",
-  "growthEPS",
-  "interestIncome",
-  "interestExpense",
-  "growthInterestExpense",
-  "operatingExpenses",
-  "growthOperatingExpenses",
-  "ebit",
-  "operatingIncome",
-  "growthOperatingIncome",
-  "growthFreeCashFlow",
-  "growthOperatingCashFlow",
-  "growthStockBasedCompensation",
-  "growthTotalLiabilities",
-  "growthTotalDebt",
-  "growthTotalStockholdersEquity",
-  "researchDevelopmentRevenueRatio",
-  "cagr3YearRevenue",
-  "cagr5YearRevenue",
-  "cagr3YearEPS",
-  "cagr5YearEPS",
-  "returnOnInvestedCapital",
-  "returnOnCapitalEmployed",
-  "relativeVolume",
-  "institutionalOwnership",
-  "priceToEarningsGrowthRatio",
-  "forwardPE",
-  "forwardPS",
-  "priceToBookRatio",
-  "priceToSalesRatio",
-  "beta",
-  "ebitda",
-  "growthEBITDA",
-  "var",
-  "currentRatio",
-  "quickRatio",
-  "debtToEquityRatio",
-  "inventoryTurnover",
-  "returnOnAssets",
-  "returnOnEquity",
-  "returnOnTangibleAssets",
-  "enterpriseValue",
-  "evToSales",
-  "evToEBITDA",
-  "evToEBIT",
-  "evToFCF",
-  "freeCashFlowPerShare",
-  "cashPerShare",
-  "priceToFreeCashFlowRatio",
-  "interestCoverageRatio",
-  "sharesShort",
-  "shortRatio",
-  "shortFloatPercent",
-  "shortOutstandingPercent",
-  "failToDeliver",
-  "relativeFTD",
-  "freeCashFlow",
-  "operatingCashFlow",
-  "operatingCashFlowPerShare",
-  "revenuePerShare",
-  "netIncomePerShare",
-  "shareholdersEquityPerShare",
-  "interestDebtPerShare",
-  "capexPerShare",
-  "freeCashFlowMargin",
-  "totalDebt",
-  "operatingCashFlowSalesRatio",
-  "priceToOperatingCashFlowRatio",
-  "priceToEarningsRatio",
-  "stockBasedCompensation",
-  "stockBasedCompensationToRevenue",
-  "totalStockholdersEquity",
-  "sharesQoQ",
-  "sharesYoY",
-  "grossProfitMargin",
-  "netProfitMargin",
-  "pretaxProfitMargin",
-  "ebitdaMargin",
-  "ebitMargin",
-  "operatingMargin",
-  "interestIncomeToCapitalization",
-  "assetTurnover",
-  "earningsYield",
-  "freeCashFlowYield",
-  "effectiveTaxRate",
-  "fixedAssetTurnover",
-  "sharesOutStanding",
-  "employees",
-  "revenuePerEmployee",
-  "profitPerEmployee",
-  "totalLiabilities",
-  "altmanZScore",
-  "piotroskiScore"
-]
 
+# Map triggers to instruction generators
+TRIGGER_TO_INSTRUCTION = {
+    "@warrenbuffet": generate_buffet_instruction,
+    "@charlie munger": generate_munger_instruction,
+    "@billackman": generate_ackman_instruction,
+    "@michaelburry": generate_burry_instruction,
+    "@peterlynch": generate_lynch_instruction,
+    "@benjamingraham": generate_graham_instruction,
+    "@cathywood": generate_wood_instruction,
+}
 
-
-extract_rule_of_list_function = {
+# Precomputed for efficiency
+KEY_SCREENER_STR = ', '.join(key_screener)
+EXTRACT_RULE_FUNCTION = {
     "name": "extract_rule_of_list",
-    "description": f"Retrieves stock data based on specified financial criteria to help filter stocks that meet certain thresholds (e.g., revenue > $10M, P/E ratio < 15, etc.) All rules are defined here: {', '.join(key_screener)}. Operator can be >, >=, <, <=, == and !=",
+    "description": f"Retrieves stock data based on specified financial criteria. Available metrics: {KEY_SCREENER_STR}. Operators: >, >=, <, <=, ==, !=",
     "parameters": {
         "type": "object",
         "properties": {
             "rule_of_list": {
                 "type": "array",
-                "description": "List of rule dictionaries for filtering stocks.",
                 "items": {
                     "type": "object",
                     "properties": {
@@ -4867,238 +4680,178 @@ extract_rule_of_list_function = {
     }
 }
 
+def normalize_query(query: str) -> str:
+    """Normalize query for case-insensitive matching and handle spaces"""
+    return query.strip().replace(" ", "").lower()
+
+def get_tools_for_query(user_query: str) -> tuple[list, str | None]:
+    """Get tools and matched trigger for query with efficient lookup"""
+    clean_query = normalize_query(user_query)
+    for trigger, tools in TRIGGER_CONFIG.items():
+        if trigger in clean_query:
+            return tools, trigger
+    return all_tools, None
 
 async def get_rule_of_list_from_llm(user_query: str) -> list | None:
+    """Efficient rule extraction with pre-defined schema"""
     try:
         response = await async_client.chat.completions.create(
             model=os.getenv("CHAT_MODEL"),
             messages=[
-                {"role": "system", "content": "You extract stock screening rules from user queries. only return the result of rule_of_list"},
+                {"role": "system", "content": "Extract stock screening rules from user queries."},
                 {"role": "user", "content": user_query}
             ],
-            tools=[{"type": "function", "function": extract_rule_of_list_function}],
+            tools=[{"type": "function", "function": EXTRACT_RULE_FUNCTION}],
             tool_choice="required"
         )
-
-        choice = response.choices[0]
-        tool_call = choice.message.tool_calls[0]
-        arguments = tool_call.function.arguments
-        data = orjson.loads(arguments)
-        return data.get("rule_of_list")
-    except:
+        args = response.choices[0].message.tool_calls[0].function.arguments
+        return orjson.loads(args).get("rule_of_list")
+    except Exception:
         return None
-
-def get_tools_for_query(user_query: str) -> list:
-    for trigger, tools in TRIGGER_CONFIG.items():
-        if trigger.lower() in user_query:
-            print(f"Trigger Detected: {trigger}")
-            return tools
-    print("No trigger detected")
-    return all_tools
-
 
 @app.post("/chat")
 async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
-    user_query = data.query.strip().lower()
-    current_messages_history = list(data.messages)[-10:]
-    if len(current_messages_history) == 1:
-        prepared_initial_messages = current_messages_history
-    else:
-        prepared_initial_messages = current_messages_history + [{"role": "user", "content": user_query}]
-    for item in prepared_initial_messages:
-        if 'callComponent' in item:
-            del item['callComponent']
+    user_query = data.query
+    current_messages = [msg for msg in data.messages[-10:] if 'callComponent' not in msg]
     
-    selected_tools = get_tools_for_query(user_query)
-
-    if "@stockscreener" in user_query:
-        rule_of_list = await get_rule_of_list_from_llm(user_query)
-        stock_screener_context = await get_stock_screener(rule_of_list)
-        #print(stock_screener_context)
-        system_prompt = {
+    # Get tools and matched trigger in single pass
+    selected_tools, matched_trigger = get_tools_for_query(user_query)
+    
+    # Handle special triggers
+    if matched_trigger == "@stockscreener":
+        rules = await get_rule_of_list_from_llm(user_query)
+        context = await get_stock_screener(rules)
+        system_msg = {
             "role": "system",
-            "content": (
-                "You are a stock screener assistant. Use ONLY the matched stocks provided below to answer the user's query. "
-                "Never make up any company names.\n\n"
-                f"Matched Stocks:\n{json.dumps(stock_screener_context['matched_stocks'], indent=2)}"
-            )
+            "content": f"Use ONLY these matched stocks: {json.dumps(context['matched_stocks'])}"
         }
-        prepared_initial_messages = [system_prompt] + prepared_initial_messages
-
-    elif "@warrenbuffet" in user_query:
-        system_prompt = {
+        current_messages = [system_msg] + current_messages
+    elif matched_trigger in TRIGGER_TO_INSTRUCTION:
+        system_msg = {
             "role": "system",
-            "content": generate_buffet_instruction()
+            "content": TRIGGER_TO_INSTRUCTION[matched_trigger]()
         }
-        prepared_initial_messages = [system_prompt] + prepared_initial_messages
+        current_messages = [system_msg] + current_messages
 
-    elif "@charliemunger" in user_query:
-        system_prompt = {
-            "role": "system",
-            "content": generate_munger_instruction()
-        }
-        prepared_initial_messages = [system_prompt] + prepared_initial_messages
-
-    elif "@billackman" in user_query:
-        system_prompt = {
-            "role": "system",
-            "content": generate_ackman_instruction()
-        }
-        prepared_initial_messages = [system_prompt] + prepared_initial_messages
-
-    elif "@michaelburry" in user_query:
-        system_prompt = {
-            "role": "system",
-            "content": generate_burry_instruction()
-        }
-        prepared_initial_messages = [system_prompt] + prepared_initial_messages
-    elif "@peterlynch" in user_query:
-        system_prompt = {
-            "role": "system",
-            "content": generate_lynch_instruction()
-        }
-        prepared_initial_messages = [system_prompt] + prepared_initial_messages
-
-    elif "@benjamingraham" in user_query:
-        system_prompt = {
-            "role": "system",
-            "content": generate_graham_instruction()
-        }
-        prepared_initial_messages = [system_prompt] + prepared_initial_messages
-
+    # Agent setup
     agent = Agent(
         name="Stocknear AI Agent",
         instructions=INSTRUCTIONS,
-        model = os.getenv("CHAT_MODEL"),
-        model_settings=model_settings,
-        tools= selected_tools,
+        model=os.getenv("CHAT_MODEL"),
+        tools=selected_tools,
     )
 
     async def event_generator():
-        full_content = ""
-        found_end_of_dicts = False
-        try:
-            result = Runner.run_streamed(agent, input=prepared_initial_messages)
-            async for event in result.stream_events():
-                try:
-                    # Process only raw_response_event events
-                    if event.type == "raw_response_event":
-                        delta = getattr(event.data, "delta", "")
-                        if not delta:
-                            continue
-                        stripped_delta = delta.strip()
-                        # Skip if it's echoing back the question
-                        if stripped_delta.lower() == user_query or stripped_delta.lower().startswith(user_query):
-                            continue
-                        
-                        # Check if we've passed all the JSON dictionaries
-                        if not found_end_of_dicts:
-                            full_content += delta
+            full_content = ""
+            found_end_of_dicts = False
+            try:
+                result = Runner.run_streamed(agent, input=current_messages)
+                async for event in result.stream_events():
+                    try:
+                        # Process only raw_response_event events
+                        if event.type == "raw_response_event":
+                            delta = getattr(event.data, "delta", "")
+                            if not delta:
+                                continue
+                            stripped_delta = delta.strip()
+                            # Skip if it's echoing back the question
+                            if stripped_delta.lower() == user_query or stripped_delta.lower().startswith(user_query):
+                                continue
                             
-                            # First check if content starts with JSON objects
-                            temp_content = full_content.strip()
-                            if not temp_content:
-                                continue  # No content yet
-                            
-                            # If content doesn't start with '{', it's regular text - don't filter
-                            if not temp_content.startswith('{'):
-                                found_end_of_dicts = True
+                            # Check if we've passed all the JSON dictionaries
+                            if not found_end_of_dicts:
+                                full_content += delta
+                                
+                                # First check if content starts with JSON objects
+                                temp_content = full_content.strip()
+                                if not temp_content:
+                                    continue  # No content yet
+                                
+                                # If content doesn't start with '{', it's regular text - don't filter
+                                if not temp_content.startswith('{'):
+                                    found_end_of_dicts = True
+                                    yield orjson.dumps({
+                                        "event": "response",
+                                        "content": full_content
+                                    }) + b"\n"
+                                    continue
+                                
+                                # Content starts with JSON, so apply filtering logic
+                                last_json_end = -1
+                                
+                                i = 0
+                                while i < len(temp_content):
+                                    if temp_content[i] == '{':
+                                        # Try to find the matching closing brace
+                                        brace_count = 1
+                                        j = i + 1
+                                        in_string = False
+                                        escape_next = False
+                                        
+                                        while j < len(temp_content) and brace_count > 0:
+                                            char = temp_content[j]
+                                            
+                                            if escape_next:
+                                                escape_next = False
+                                            elif char == '\\':
+                                                escape_next = True
+                                            elif char == '"' and not escape_next:
+                                                in_string = not in_string
+                                            elif not in_string:
+                                                if char == '{':
+                                                    brace_count += 1
+                                                elif char == '}':
+                                                    brace_count -= 1
+                                            
+                                            j += 1
+                                        
+                                        if brace_count == 0:
+                                            # Found complete JSON object
+                                            last_json_end = j - 1
+                                            i = j
+                                        else:
+                                            # Incomplete JSON object
+                                            break
+                                    else:
+                                        # Found non-JSON content
+                                        if last_json_end >= 0:
+                                            found_end_of_dicts = True
+                                            # Keep only content after all JSON objects
+                                            full_content = temp_content[last_json_end + 1:].strip()
+                                            if full_content:  # Only yield if there's actual content
+                                                yield orjson.dumps({
+                                                    "event": "response",
+                                                    "content": full_content
+                                                }) + b"\n"
+                                            break
+                                        else:
+                                            # No JSON objects found yet, might be at the start
+                                            break
+                                
+                                # If no content after dictionaries yet, don't yield anything
+                            else:
+                                # We've already found the end of dictionaries, just append new deltas
+                                full_content += delta
                                 yield orjson.dumps({
                                     "event": "response",
                                     "content": full_content
                                 }) + b"\n"
-                                continue
-                            
-                            # Content starts with JSON, so apply filtering logic
-                            last_json_end = -1
-                            
-                            i = 0
-                            while i < len(temp_content):
-                                if temp_content[i] == '{':
-                                    # Try to find the matching closing brace
-                                    brace_count = 1
-                                    j = i + 1
-                                    in_string = False
-                                    escape_next = False
-                                    
-                                    while j < len(temp_content) and brace_count > 0:
-                                        char = temp_content[j]
-                                        
-                                        if escape_next:
-                                            escape_next = False
-                                        elif char == '\\':
-                                            escape_next = True
-                                        elif char == '"' and not escape_next:
-                                            in_string = not in_string
-                                        elif not in_string:
-                                            if char == '{':
-                                                brace_count += 1
-                                            elif char == '}':
-                                                brace_count -= 1
-                                        
-                                        j += 1
-                                    
-                                    if brace_count == 0:
-                                        # Found complete JSON object
-                                        last_json_end = j - 1
-                                        i = j
-                                    else:
-                                        # Incomplete JSON object
-                                        break
-                                else:
-                                    # Found non-JSON content
-                                    if last_json_end >= 0:
-                                        found_end_of_dicts = True
-                                        # Keep only content after all JSON objects
-                                        full_content = temp_content[last_json_end + 1:].strip()
-                                        if full_content:  # Only yield if there's actual content
-                                            yield orjson.dumps({
-                                                "event": "response",
-                                                "content": full_content
-                                            }) + b"\n"
-                                        break
-                                    else:
-                                        # No JSON objects found yet, might be at the start
-                                        break
-                            
-                            # If no content after dictionaries yet, don't yield anything
-                        else:
-                            # We've already found the end of dictionaries, just append new deltas
-                            full_content += delta
-                            yield orjson.dumps({
-                                "event": "response",
-                                "content": full_content
-                            }) + b"\n"
-                            
-                except Exception as e:
-                    print(f"Error processing event: {e}")
-                    yield orjson.dumps({
-                        "event": "error",
-                        "message": f"Event processing error: {str(e)}"
-                    }) + b"\n"
-        except Exception as e:
-            print(f"Streaming error: {e}")
-            yield orjson.dumps({
-                "event": "error",
-                "message": f"Streaming failed: {str(e)}"
-            }) + b"\n"
+                                
+                    except Exception as e:
+                        print(f"Error processing event: {e}")
+                        yield orjson.dumps({
+                            "event": "error",
+                            "message": f"Event processing error: {str(e)}"
+                        }) + b"\n"
+            except Exception as e:
+                print(f"Streaming error: {e}")
+                yield orjson.dumps({
+                    "event": "error",
+                    "message": f"Streaming failed: {str(e)}"
+                }) + b"\n"
     
     return StreamingResponse(
         event_generator(),
         media_type="application/x-ndjson",
         headers={"Cache-Control": "no-cache"}
     )
-
-
-@app.get("/newsletter")
-async def get_newsletter():
-    try:
-        with open(f"json/newsletter/data.json", 'rb') as file:
-            res = orjson.loads(file.read())
-    except:
-        res = []
-    return res
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    await client.aclose()
