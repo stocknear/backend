@@ -620,19 +620,31 @@ async def get_financial_statements(
 async def get_ticker_income_statement(
     tickers: List[str], time_period: str = "ttm", keep_keys: Optional[List[str]] = None
 ) -> Dict[str, List[Dict[str, Any]]]:
-    f"""
-    Retrieves historical income statements (profit and loss) for a list of stock tickers.
-    Key metrics include: {', '.join(key_income)}.
-    Available for annual, quarter, and trailing twelve months (ttm).
+    """
+    Retrieves historical income statements (profit and loss reports) for one or more stock tickers.
+
+    This includes key financial metrics such as: revenue, gross profit, operating income, net income, and more.
+    Data is available by fiscal year (annual), fiscal quarter (quarter), or trailing twelve months (ttm).
 
     Args:
         tickers (List[str]): List of stock ticker symbols (e.g., ["AAPL", "GOOGL"]).
-        time_period (str): Time period for the data: "annual", "quarter", or "ttm".
-        keep_keys (Optional[List[str]]): List of data keys to retain in the output. If omitted, defaults will be used.
+        time_period (str): Time range for the statements: 
+            - "annual": Returns year-by-year data.
+            - "quarter": Returns data for each fiscal quarter (e.g., Q1, Q2, etc.).
+            - "ttm": Returns trailing twelve months data.
+        keep_keys (Optional[List[str]]): A list of specific financial metrics to return (e.g., ["revenue", "netIncome"]).
+            If None, all available fields will be returned.
 
     Returns:
-        Dict[str, List[Dict[str, Any]]]: A dictionary mapping each ticker to a list of its income statement entries.
-            Each entry is a dict containing only the requested keys (or all keys if keep_keys is None).
+        Dict[str, List[Dict[str, Any]]]: A dictionary mapping each ticker to a list of historical income statement records.
+            The list is ordered from most recent to oldest.
+            Each record is a dictionary with financial metrics for that specific period.
+
+    Note:
+        To answer questions like "What is Apple's revenue for the first quarter?", call this function with:
+            - tickers=["AAPL"]
+            - time_period="quarter"
+            Then extract the revenue from the most recent Q1 entry.
     """
     return await get_financial_statements(tickers, "income", time_period, keep_keys)
 
@@ -641,63 +653,102 @@ async def get_ticker_income_statement(
 async def get_ticker_balance_sheet_statement(
     tickers: List[str], time_period: str = "ttm", keep_keys: Optional[List[str]] = None
 ) -> Dict[str, List[Dict[str, Any]]]:
-    f"""
-    Fetches historical balance sheet statements for stock tickers.
-    Includes metrics: {', '.join(key_balance_sheet)}.
-    Available for annual, quarter, and trailing twelve months (ttm).
+    """
+    Retrieves historical balance sheet statements for one or more stock tickers.
+
+    This includes key financial metrics such as: total assets, total liabilities, shareholders' equity, cash, inventory, and more.
+    Data is available by fiscal year ("annual"), fiscal quarter ("quarter"), or trailing twelve months ("ttm").
 
     Args:
         tickers (List[str]): List of stock ticker symbols (e.g., ["AAPL", "GOOGL"]).
-        time_period (str): Time period for the data: "annual", "quarter", or "ttm".
-        keep_keys (Optional[List[str]]): List of data keys to retain in the output. If omitted, defaults will be used.
+        time_period (str): Time range for the statements:
+            - "annual": Returns data for each fiscal year.
+            - "quarter": Returns data for each fiscal quarter (e.g., Q1, Q2, etc.).
+            - "ttm": Returns data for the trailing twelve months.
+        keep_keys (Optional[List[str]]): A list of specific balance sheet metrics to include 
+            (e.g., ["totalAssets", "totalLiabilities"]). If None, all available fields will be returned.
 
     Returns:
-        Dict[str, List[Dict[str, Any]]]: A dictionary mapping each ticker to a list of its balance sheet entries.
-            Each entry is a dict containing only the requested keys (or all keys if keep_keys is None).
+        Dict[str, List[Dict[str, Any]]]: A dictionary mapping each ticker to a list of historical balance sheet records.
+            The list is ordered from most recent to oldest.
+            Each record is a dictionary with financial metrics for that specific period.
+
+    Note:
+        To answer questions like "What are Apple's total assets in the first quarter?", call this function with:
+            - tickers=["AAPL"]
+            - time_period="quarter"
+        Then extract the "totalAssets" field from the most recent Q1 entry.
     """
     return await get_financial_statements(tickers, "balance", time_period, keep_keys)
+
 
 
 @function_tool
 async def get_ticker_cash_flow_statement(
     tickers: List[str], time_period: str = "ttm", keep_keys: Optional[List[str]] = None
 ) -> Dict[str, List[Dict[str, Any]]]:
-    f"""
-    Obtains historical cash flow statements for stock tickers.
-    Key items: {', '.join(key_cash_flow)}.
-    Available for annual, quarter, and trailing twelve months (ttm).
+    """
+    Retrieves historical cash flow statements for one or more stock tickers.
+
+    This includes key cash flow metrics such as: operating cash flow, investing cash flow, financing cash flow, 
+    capital expenditures, and free cash flow. Data is available by fiscal year ("annual"), fiscal quarter ("quarter"), 
+    or trailing twelve months ("ttm").
 
     Args:
         tickers (List[str]): List of stock ticker symbols (e.g., ["AAPL", "GOOGL"]).
-        time_period (str): Time period for the data: "annual", "quarter", or "ttm".
-        keep_keys (Optional[List[str]]): List of data keys to retain in the output. If omitted, defaults will be used.
+        time_period (str): Time range for the statements:
+            - "annual": Returns data for each fiscal year.
+            - "quarter": Returns data for each fiscal quarter (e.g., Q1, Q2, etc.).
+            - "ttm": Returns data for the trailing twelve months.
+        keep_keys (Optional[List[str]]): A list of specific cash flow metrics to include 
+            (e.g., ["operatingCashFlow", "freeCashFlow"]). If None, all available fields will be returned.
 
     Returns:
-        Dict[str, List[Dict[str, Any]]]: A dictionary mapping each ticker to a list of its cash flow entries.
-            Each entry is a dict containing only the requested keys (or all keys if keep_keys is None).
+        Dict[str, List[Dict[str, Any]]]: A dictionary mapping each ticker to a list of historical cash flow records.
+            The list is ordered from most recent to oldest.
+            Each record is a dictionary with financial metrics for that specific period.
+
+    Note:
+        To answer questions like "What is Apple's free cash flow in Q1?", call this function with:
+            - tickers=["AAPL"]
+            - time_period="quarter"
+        Then extract the "freeCashFlow" field from the most recent Q1 entry.
     """
     return await get_financial_statements(tickers, "cash", time_period, keep_keys)
+
 
 
 @function_tool
 async def get_ticker_ratios_statement(
     tickers: List[str], time_period: str = "annual", keep_keys: Optional[List[str]] = None
 ) -> Dict[str, List[Dict[str, Any]]]:
-    f"""
-    Retrieves various historical financial ratios for stock tickers.
-    Examples: {', '.join(key_ratios)}.
-    Available for annual and quarter periods.
+    """
+    Retrieves historical financial ratios for one or more stock tickers.
+
+    Includes key metrics such as: return on equity (ROE), return on assets (ROA), debt-to-equity ratio, 
+    current ratio, price-to-earnings (P/E), and more. Available for both annual and quarterly periods.
 
     Args:
         tickers (List[str]): List of stock ticker symbols (e.g., ["AAPL", "GOOGL"]).
-        time_period (str): Time period for the data: "annual" or "quarter". For ratios, must be "annual" or "quarter".
-        keep_keys (Optional[List[str]]): List of data keys to retain in the output. If omitted, defaults will be used.
+        time_period (str): Time period for the data:
+            - "annual": Returns year-by-year ratio data.
+            - "quarter": Returns data for each fiscal quarter.
+        keep_keys (Optional[List[str]]): A list of specific ratio metrics to return 
+            (e.g., ["roe", "peRatio"]). If None, all available fields will be returned.
 
     Returns:
-        Dict[str, List[Dict[str, Any]]]: A dictionary mapping each ticker to a list of its financial ratios entries.
-            Each entry is a dict containing only the requested keys (or all keys if keep_keys is None).
+        Dict[str, List[Dict[str, Any]]]: A dictionary mapping each ticker to a list of financial ratio records.
+            The list is ordered from most recent to oldest.
+            Each record is a dictionary with ratio values for that period.
+
     Raises:
-        ValueError: If time_period is not "annual" or "quarter".
+        ValueError: If `time_period` is not "annual" or "quarter".
+
+    Note:
+        To answer questions like "What is Apple's return on equity for the latest quarter?", use:
+            - tickers=["AAPL"]
+            - time_period="quarter"
+        Then extract the "roe" field from the most recent entry.
     """
     if time_period not in ["annual", "quarter"]:
         raise ValueError(f"Invalid time_period '{time_period}'. For ratios, must be 'annual' or 'quarter'.")
@@ -707,6 +758,7 @@ async def get_ticker_ratios_statement(
     results = await asyncio.gather(*tasks)
 
     return {ticker: result for ticker, result in zip(tickers, results) if result}
+
 
 
 
