@@ -4641,7 +4641,7 @@ TRIGGER_CONFIG = {
     "@michaelburry": FUNDAMENTAL_TOOLS,
     "@peterlynch": FUNDAMENTAL_TOOLS,
     "@benjamingraham": FUNDAMENTAL_TOOLS,
-    "@cathywood": FUNDAMENTAL_TOOLS,
+    "@cathiewood": FUNDAMENTAL_TOOLS,
 }
 
 
@@ -4653,7 +4653,7 @@ TRIGGER_TO_INSTRUCTION = {
     "@michaelburry": generate_burry_instruction,
     "@peterlynch": generate_lynch_instruction,
     "@benjamingraham": generate_graham_instruction,
-    "@cathywood": generate_wood_instruction,
+    "@cathiewood": generate_wood_instruction,
 }
 
 # Precomputed for efficiency
