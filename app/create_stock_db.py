@@ -16,6 +16,7 @@ from ta.volume import *
 import warnings
 from utils.helper import get_last_completed_quarter
 import time
+from typing import List, Dict, Set
 
 from dotenv import load_dotenv
 import os
@@ -225,46 +226,45 @@ class StockDatabase:
         ticker_data = []
 
         for stock in stocks:
-            exchange_short_name = stock.get('exchangeShortName', '')
-            ticker_type = stock.get('type', '')
-            if exchange_short_name in ['NYSE', 'NASDAQ','AMEX', 'PNK'] and ticker_type in ['stock']:
-                symbol = stock.get('symbol', '')
-                #if exchange_short_name == 'PNK' and symbol not in ['VWAGY','SAABF','ODYS','FSRNQ','TSSI','DRSHF','NTDOY','OTGLF','TCEHY', 'KRKNF','BYDDY','XIACY','NSRGY','TLPFY','TLPFF']:
-                #    pass
-                #else:
+            try:
+                symbol = stock.get('symbol',None)
+                exchange_short_name = stock.get('exchangeShortName', '')
+                ticker_type = stock.get('type', '')
                 name = stock.get('name', '')
                 exchange = stock.get('exchange', '')
 
-                #if name and '-' not in symbol:
-                if name:
-                    symbols.append(symbol)
-                    names.append(name)
-
-                    ticker_data.append((symbol, name, exchange, exchange_short_name, ticker_type))
+                symbols.append(symbol)
+                names.append(name)
+                ticker_data.append((symbol, name, exchange, exchange_short_name, ticker_type))
+            except Exception as e:
+                print(e)
         
 
         self.cursor.execute("BEGIN TRANSACTION")  # Begin a transaction
 
         for data in ticker_data:
-            symbol, name, exchange, exchange_short_name, ticker_type = data
+            try:
+                symbol, name, exchange, exchange_short_name, ticker_type = data
 
-            # Check if the symbol already exists
-            self.cursor.execute("SELECT symbol FROM stocks WHERE symbol = ?", (symbol,))
-            exists = self.cursor.fetchone()
+                # Check if the symbol already exists
+                self.cursor.execute("SELECT symbol FROM stocks WHERE symbol = ?", (symbol,))
+                exists = self.cursor.fetchone()
 
-            # If it doesn't exist, insert it
-            if not exists:
-                self.cursor.execute("""
-                INSERT INTO stocks (symbol, name, exchange, exchangeShortName, type)
-                VALUES (?, ?, ?, ?, ?)
-                """, (symbol, name, exchange, exchange_short_name, ticker_type))
+                # If it doesn't exist, insert it
+                if not exists:
+                    self.cursor.execute("""
+                    INSERT INTO stocks (symbol, name, exchange, exchangeShortName, type)
+                    VALUES (?, ?, ?, ?, ?)
+                    """, (symbol, name, exchange, exchange_short_name, ticker_type))
 
-            # Update the existing row
-            else:
-                self.cursor.execute("""
-                UPDATE stocks SET name = ?, exchange = ?, exchangeShortName = ?, type = ?
-                WHERE symbol = ?
-                """, (name, exchange, exchange_short_name, ticker_type, symbol))
+                # Update the existing row
+                else:
+                    self.cursor.execute("""
+                    UPDATE stocks SET name = ?, exchange = ?, exchangeShortName = ?, type = ?
+                    WHERE symbol = ?
+                    """, (name, exchange, exchange_short_name, ticker_type, symbol))
+            except:
+                pass
 
         self.conn.commit()
 
@@ -273,17 +273,20 @@ class StockDatabase:
             tasks = []
             i = 0
             for stock_data in tqdm(ticker_data):
-                symbol, name, exchange, exchange_short_name, ticker_type = stock_data
-                #symbol = symbol.replace("-", "")  # Remove "-" from symbol
-                tasks.append(self.save_ohlc_data(session, symbol))
-                tasks.append(self.save_fundamental_data(session, symbol))
+                try:
+                    symbol, name, exchange, exchange_short_name, ticker_type = stock_data
+                    #symbol = symbol.replace("-", "")  # Remove "-" from symbol
+                    tasks.append(self.save_ohlc_data(session, symbol))
+                    tasks.append(self.save_fundamental_data(session, symbol))
 
-                i += 1
-                if i % 60 == 0:
-                    await asyncio.gather(*tasks)
-                    tasks = []
-                    print('sleeping')
-                    await asyncio.sleep(60)  # Pause for 60 seconds
+                    i += 1
+                    if i % 60 == 0:
+                        await asyncio.gather(*tasks)
+                        tasks = []
+                        print('sleeping')
+                        await asyncio.sleep(60)  # Pause for 60 seconds
+                except:
+                    pass
 
             
             if tasks:
@@ -348,50 +351,90 @@ class StockDatabase:
 
 
 
-async def fetch_all_tickers(api_key: str):
-    url = f"https://financialmodelingprep.com/api/v3/stock/list?apikey={api_key}"
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            data = await response.json()
-            return data
 
-async def fetch_pnk_tickers(api_key: str):
-    url = f"https://financialmodelingprep.com/stable/company-screener?exchange=PNK&marketCapMoreThan=1000000000&isETF=false&limit=5000&apikey={api_key}"
-    async with aiohttp.ClientSession() as session:
+
+
+async def fetch_json(session: aiohttp.ClientSession, url: str) -> List[Dict]:
+    """Generic async JSON fetcher with error handling."""
+    try:
         async with session.get(url) as response:
-            data = await response.json()
-            return data
+            response.raise_for_status()
+            return await response.json()
+    except aiohttp.ClientError as e:
+        print(f"Error fetching {url}: {e}")
+        return []
+
+async def fetch_all_data(api_key: str) -> tuple[List[Dict], Set[str]]:
+    """Fetch both all tickers and PNK tickers concurrently."""
+    all_tickers_url = f"https://financialmodelingprep.com/api/v3/stock/list?apikey={api_key}"
+    pnk_url = f"https://financialmodelingprep.com/stable/company-screener?exchange=PNK&marketCapMoreThan=10000000000&isETF=false&limit=5000&apikey={api_key}"
+    
+    async with aiohttp.ClientSession() as session:
+        # Fetch both URLs concurrently
+        all_tickers_task = fetch_json(session, all_tickers_url)
+        pnk_task = fetch_json(session, pnk_url)
+        
+        all_tickers_data, pnk_data = await asyncio.gather(all_tickers_task, pnk_task)
+    
+    # Filter exchanges and symbols in one pass
+    valid_exchanges = {'PNK', 'AMEX', 'NYSE', 'NASDAQ'}
+    allowed_dash_symbols = {'BRK-A', 'BRK-B'}
+    
+    filtered_tickers = [
+        item for item in all_tickers_data
+        if (item.get('exchangeShortName') in valid_exchanges and
+            ('-' not in item.get('symbol', '') or item.get('symbol') in allowed_dash_symbols))
+    ]
+    
+    # Create PNK symbols set, excluding specific symbols
+    excluded_pnk = {'VWAPY', 'VLKAF', 'VLKPF', 'DTEGF', 'RNMBF'}
+    pnk_symbols = {item['symbol'] for item in pnk_data} - excluded_pnk
+    
+    return filtered_tickers, pnk_symbols
+
+def filter_tickers(all_tickers: List[Dict], pnk_symbols: Set[str]) -> List[Dict]:
+    """Filter tickers based on exchange and PNK inclusion rules."""
+    filtered = []
+    
+    for ticker in all_tickers:
+        try:
+            exchange = ticker.get('exchangeShortName')
+            symbol = ticker.get('symbol')
+            asset_type = ticker.get('type',None)
+            price = ticker.get('price',0)
+
+            if asset_type == 'stock' and price > 0.5:
+                if exchange == 'PNK':
+                    # Only include PNK tickers that are in our filtered PNK list
+                    if symbol in pnk_symbols:
+                        filtered.append(ticker)
+                else:
+                    # Include all non-PNK tickers
+                    filtered.append(ticker)
+        except:
+            pass
+    
+    return filtered
 
 async def main():
     db = StockDatabase('backup_db/stocks.db')
-
-    # Fetch all tickers and filter out symbols containing a dash (except BRK-A/BRK-B)
-    all_tickers = await fetch_all_tickers(api_key)
-    all_tickers = [
-        t for t in all_tickers
-        if ('-' not in t['symbol'] or t['symbol'] in ['BRK-A', 'BRK-B'])
-    ]
-
-    # Fetch tickers on the PNK exchange with market cap > 1B
-    pnk_list = await fetch_pnk_tickers(api_key)
-    pnk_symbols = {item['symbol'] for item in pnk_list}
-
-    pnk_symbols -= {'VWAPY','VLKAF','VLKPF','DTEGF','RNMBF'}  # difference: remove both
-
-
-    filtered = []
-    for t in all_tickers:
-        if t.get('exchangeShortName') == 'PNK':
-            if t['symbol'] in pnk_symbols:
-                filtered.append(t)
-        else:
-            filtered.append(t)
-
-    #testing mode
-    #filtered = [item for item in filtered if item['symbol'] in ['AAPL','AMD','AXTLF']]
-    
-    await db.save_stocks(filtered)
-    db.close_connection()
+    try:
+        # Fetch all data concurrently
+        all_tickers, pnk_symbols = await fetch_all_data(api_key)
+        
+        # Filter the tickers
+        filtered_data = filter_tickers(all_tickers, pnk_symbols)
+        
+        # For testing - uncomment to limit results
+        # test_symbols = {'AAPL', 'AMD', 'AXTLF'}
+        # filtered_data = [t for t in filtered_data if t.get('symbol') in test_symbols]
+        print(filtered_data)
+        await db.save_stocks(filtered_data)
+        
+    except Exception as e:
+        print(f"Error in main execution: {e}")
+    finally:
+        db.close_connection()
 
 if __name__ == '__main__':
     asyncio.run(main())
