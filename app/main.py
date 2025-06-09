@@ -4633,6 +4633,7 @@ TRIGGER_CONFIG = {
         get_ticker_analyst_estimate,
         get_ticker_analyst_rating,
     ],
+    "@fundamentaldata": FUNDAMENTAL_TOOLS,
     "@stockscreener": [],
     "@warrenbuffet": FUNDAMENTAL_TOOLS,
     "@charlie munger": FUNDAMENTAL_TOOLS,
