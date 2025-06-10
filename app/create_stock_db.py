@@ -120,10 +120,18 @@ class StockDatabase:
                         # ----- NEW: filter out stale quotes -----
                         if isinstance(parsed_data, list) and "quote" in url:
                             quote = parsed_data[0]
+                            symbol = quote.get('symbol')
 
-                            avg_volume = quote.get('avgVolume',0)
+                            # --- ADD THIS EXCEPTION ---
+                            if symbol in ["BRK-A", "BRK-B"]:
+                                print(f"Skipping deletion for {symbol} as it's an exempted symbol.")
+                                return # Exit the function, do not process deletion for these symbols
+                            # --- END OF EXCEPTION ---
+
+                            avg_volume = quote.get('avgVolume', 0)
                             quote_ts = quote.get("timestamp")
                             now_ts = datetime.now(timezone.utc).timestamp()
+
                             # If older than 5 days, delete symbol and stop processing
                             if avg_volume < 1000 or (quote_ts and (now_ts - quote_ts) > 10 * 24 * 3600):
                                 self.cursor.execute("DELETE FROM stocks WHERE symbol = ?", (symbol,))
@@ -418,7 +426,7 @@ async def main():
         all_tickers, OTC_symbols = await fetch_all_data(api_key)
         
         # Filter the tickers
-        filtered_data = filter_tickers(all_tickers, OTC_symbols)
+        filtered_data = filter_tickers(all_tickers, OTC_symbols)[:500]
         
         # For testing - uncomment to limit results
         # test_symbols = {'AAPL', 'AMD', 'AXTLF'}
