@@ -8,11 +8,6 @@ import os
 from tqdm import tqdm
 import pandas as pd
 from datetime import datetime, timezone
-from ta.utils import *
-from ta.volatility import *
-from ta.momentum import *
-from ta.trend import *
-from ta.volume import *
 import warnings
 from utils.helper import get_last_completed_quarter
 import time
@@ -365,19 +360,19 @@ async def fetch_json(session: aiohttp.ClientSession, url: str) -> List[Dict]:
         return []
 
 async def fetch_all_data(api_key: str) -> tuple[List[Dict], Set[str]]:
-    """Fetch both all tickers and PNK tickers concurrently."""
+    """Fetch both all tickers and OTC tickers concurrently."""
     all_tickers_url = f"https://financialmodelingprep.com/api/v3/stock/list?apikey={api_key}"
-    pnk_url = f"https://financialmodelingprep.com/stable/company-screener?exchange=PNK&marketCapMoreThan=10000000000&isETF=false&limit=5000&apikey={api_key}"
+    OTC_url = f"https://financialmodelingprep.com/stable/company-screener?exchange=OTC&marketCapMoreThan=10000000000&isETF=false&limit=5000&apikey={api_key}"
     
     async with aiohttp.ClientSession() as session:
         # Fetch both URLs concurrently
         all_tickers_task = fetch_json(session, all_tickers_url)
-        pnk_task = fetch_json(session, pnk_url)
+        OTC_task = fetch_json(session, OTC_url)
         
-        all_tickers_data, pnk_data = await asyncio.gather(all_tickers_task, pnk_task)
+        all_tickers_data, OTC_data = await asyncio.gather(all_tickers_task, OTC_task)
     
     # Filter exchanges and symbols in one pass
-    valid_exchanges = {'PNK', 'AMEX', 'NYSE', 'NASDAQ'}
+    valid_exchanges = {'OTC', 'AMEX', 'NYSE', 'NASDAQ'}
     allowed_dash_symbols = {'BRK-A', 'BRK-B'}
     
     filtered_tickers = [
@@ -386,14 +381,14 @@ async def fetch_all_data(api_key: str) -> tuple[List[Dict], Set[str]]:
             ('-' not in item.get('symbol', '') or item.get('symbol') in allowed_dash_symbols))
     ]
     
-    # Create PNK symbols set, excluding specific symbols
-    excluded_pnk = {'VWAPY', 'VLKAF', 'VLKPF', 'DTEGF', 'RNMBF'}
-    pnk_symbols = {item['symbol'] for item in pnk_data} - excluded_pnk
+    # Create OTC symbols set, excluding specific symbols
+    excluded_OTC = {'VWAPY', 'VLKAF', 'VLKPF', 'DTEGF', 'RNMBF'}
+    OTC_symbols = {item['symbol'] for item in OTC_data} - excluded_OTC
     
-    return filtered_tickers, pnk_symbols
+    return filtered_tickers, OTC_symbols
 
-def filter_tickers(all_tickers: List[Dict], pnk_symbols: Set[str]) -> List[Dict]:
-    """Filter tickers based on exchange and PNK inclusion rules."""
+def filter_tickers(all_tickers: List[Dict], OTC_symbols: Set[str]) -> List[Dict]:
+    """Filter tickers based on exchange and OTC inclusion rules."""
     filtered = []
     
     for ticker in all_tickers:
@@ -404,12 +399,12 @@ def filter_tickers(all_tickers: List[Dict], pnk_symbols: Set[str]) -> List[Dict]
             price = ticker.get('price',0)
 
             if asset_type == 'stock' and price > 0.5:
-                if exchange == 'PNK':
-                    # Only include PNK tickers that are in our filtered PNK list
-                    if symbol in pnk_symbols:
+                if exchange == 'OTC':
+                    # Only include OTC tickers that are in our filtered OTC list
+                    if symbol in OTC_symbols:
                         filtered.append(ticker)
                 else:
-                    # Include all non-PNK tickers
+                    # Include all non-OTC tickers
                     filtered.append(ticker)
         except:
             pass
@@ -420,15 +415,16 @@ async def main():
     db = StockDatabase('backup_db/stocks.db')
     try:
         # Fetch all data concurrently
-        all_tickers, pnk_symbols = await fetch_all_data(api_key)
+        all_tickers, OTC_symbols = await fetch_all_data(api_key)
         
         # Filter the tickers
-        filtered_data = filter_tickers(all_tickers, pnk_symbols)
+        filtered_data = filter_tickers(all_tickers, OTC_symbols)
         
         # For testing - uncomment to limit results
         # test_symbols = {'AAPL', 'AMD', 'AXTLF'}
         # filtered_data = [t for t in filtered_data if t.get('symbol') in test_symbols]
-        print(filtered_data)
+       
+
         await db.save_stocks(filtered_data)
         
     except Exception as e:
