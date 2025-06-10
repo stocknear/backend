@@ -1226,11 +1226,68 @@ async def get_all_reits_list(cursor):
         for rank, item in enumerate(res_list, 1):
             item['rank'] = rank
 
-        import orjson
+        
         with open("json/industry/list/reits.json", 'wb') as file:
             file.write(orjson.dumps(res_list))
     
     return res_list
+
+
+async def get_all_spacs_list(cursor):
+    base_query = """
+        SELECT DISTINCT s.symbol, s.name, s.exchangeShortName, s.marketCap, s.industry
+        FROM stocks s 
+        WHERE {}
+    """
+    
+    condition = "industry LIKE '%Shell Companies%' AND symbol NOT LIKE '%-%'"
+    full_query = base_query.format(condition)
+    
+    cursor.execute(full_query)
+    raw_data = cursor.fetchall()
+    
+    res_list = []
+    for row in raw_data:
+        symbol = row[0]
+        
+        try:
+            quote_data = await get_quote_data(symbol)
+            if not quote_data:
+                continue
+                
+            price = quote_data.get('price')
+            changes_percentage = quote_data.get('changesPercentage')
+            
+            item = {
+                'symbol': symbol,
+                'name': row[1],
+                'price': round(float(price) if price is not None else 0, 2),
+                'changesPercentage': round(float(changes_percentage) if changes_percentage is not None else 0, 2),
+                'marketCap': quote_data.get('marketCap', 0),
+            }
+            
+            #dividend_yield = stock_screener_data_dict.get(symbol, {}).get('dividendYield')
+            #item['dividendYield'] = dividend_yield
+
+            if item['marketCap'] > 0:
+                res_list.append(item)
+                
+        except Exception as e:
+            print(f"Error processing {symbol}: {e}")
+            continue
+    
+    if res_list:
+        res_list = sorted(res_list, key=lambda x: x['marketCap'] or 0, reverse=True)
+        
+        for rank, item in enumerate(res_list, 1):
+            item['rank'] = rank
+
+        
+        with open("json/stocks-list/list/spacs-stocks.json", 'wb') as file:
+            file.write(orjson.dumps(res_list))
+
+    return res_list
+
 
 
 async def get_index_list():
@@ -1485,7 +1542,8 @@ async def run():
         etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
 
-        
+        await get_all_spacs_list(cursor)
+
         await get_all_reits_list(cursor)
         
         for category, condition in exchange_conditions.items():
