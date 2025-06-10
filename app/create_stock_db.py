@@ -426,7 +426,7 @@ async def main():
         all_tickers, OTC_symbols = await fetch_all_data(api_key)
         
         # Filter the tickers
-        filtered_data = filter_tickers(all_tickers, OTC_symbols)[:500]
+        filtered_data = filter_tickers(all_tickers, OTC_symbols)
         
         # For testing - uncomment to limit results
         # test_symbols = {'AAPL', 'AMD', 'AXTLF'}

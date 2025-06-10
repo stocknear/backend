@@ -1217,7 +1217,7 @@ async def get_stock_screener(
     Screens stocks based on a list of specified financial criteria.
     This function filters stocks that meet defined thresholds for various metrics
     (e.g., marketCap > 10E9, P/E ratio < 15, etc.).
-    If no 'rule_of_list' is provided, it returns a default list of stocks (excluding 'PNK' exchange).
+    If no 'rule_of_list' is provided, it returns a default list of stocks (excluding 'OTC' exchange).
     All available screening metrics: {', '.join(key_screener)}.
 
     """
@@ -1226,8 +1226,8 @@ async def get_stock_screener(
         async with aiofiles.open(file_path, 'rb') as file:
             data = orjson.loads(await file.read())
 
-        # Initial filter to exclude PNK exchange
-        filtered_data = [item for item in data if item.get('exchange') != 'PNK']
+        # Initial filter to exclude OTC exchange
+        filtered_data = [item for item in data if item.get('exchange') != 'OTC']
 
         # Exit early if no rules provided
         if not rule_of_list:
@@ -1968,8 +1968,8 @@ async def get_ticker_statistics(tickers: List[str]) -> Dict[str, Dict[str, Any]]
     async with aiofiles.open(file_path, 'rb') as file:
         data = orjson.loads(await file.read())
 
-    # Initial filter to exclude PNK exchange
-    stock_screener_data = [item for item in data if item.get('exchange') != 'PNK']
+    # Initial filter to exclude OTC exchange
+    stock_screener_data = [item for item in data if item.get('exchange') != 'OTC']
     stock_screener_data_dict = {item['symbol']: item for item in stock_screener_data}
 
     result = {}

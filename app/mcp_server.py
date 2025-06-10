@@ -246,8 +246,8 @@ async def get_stock_screener(
         async with aiofiles.open(file_path, 'rb') as file:
             data = orjson.loads(await file.read())
 
-        # Initial filter to exclude PNK exchange
-        filtered_data = [item for item in data if item.get('exchange') != 'PNK']
+        # Initial filter to exclude OTC exchange
+        filtered_data = [item for item in data if item.get('exchange') != 'OTC']
 
         # Exit early if no rules provided
         if not rule_of_list:
