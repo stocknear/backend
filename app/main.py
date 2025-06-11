@@ -4683,13 +4683,12 @@ EXTRACT_RULE_FUNCTION = {
 
 def normalize_query(query: str) -> str:
     """Normalize query for case-insensitive matching and handle spaces"""
-    return query.strip().replace(" ", "").lower()
+    return query.strip().lower()
 
 def get_tools_for_query(user_query: str) -> tuple[list, str | None]:
     """Get tools and matched trigger for query with efficient lookup"""
-    clean_query = normalize_query(user_query)
     for trigger, tools in TRIGGER_CONFIG.items():
-        if trigger in clean_query:
+        if trigger in user_query:
             return tools, trigger, os.getenv('REASON_CHAT_MODEL')
     return all_tools, None, os.getenv('CHAT_MODEL')
 
@@ -4711,13 +4710,24 @@ async def get_rule_of_list_from_llm(user_query: str) -> list | None:
     except Exception:
         return None
 
+from bs4 import BeautifulSoup
+
+def strip_html(content):
+    return BeautifulSoup(content, "html.parser").get_text()
+
 @app.post("/chat")
 async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
-    user_query = data.query
-    current_messages = data.messages[-10:]
-    for item in current_messages:
+    user_query = normalize_query(data.query)
+    history_messages = data.messages[-10:]
+    cleaned_messages = []
+    for item in history_messages:
         if 'callComponent' in item:
             del item['callComponent']
+        if item['role'] == 'system' and '<' in item['content']:
+            item['content'] = strip_html(item['content'])
+        cleaned_messages.append(item)
+
+    history_messages = cleaned_messages
 
     # Get tools and matched trigger in single pass
     selected_tools, matched_trigger, selected_model = get_tools_for_query(user_query)
@@ -4730,15 +4740,16 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
             "role": "system",
             "content": f"Use ONLY these matched stocks: {json.dumps(context['matched_stocks'])}"
         }
-        current_messages = [system_msg] + current_messages
+        history_messages = [system_msg] + history_messages
 
     elif matched_trigger in TRIGGER_TO_INSTRUCTION:
         system_msg = {
             "role": "system",
             "content": TRIGGER_TO_INSTRUCTION[matched_trigger]()
         }
-        current_messages = [system_msg] + current_messages
-   
+        history_messages = [system_msg] + history_messages
+    history_messages += [{'role': 'user', "content": user_query}]
+  
     # Agent setup
     agent = Agent(
         name="Stocknear AI Agent",
@@ -4751,7 +4762,7 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
             full_content = ""
             found_end_of_dicts = False
             try:
-                result = Runner.run_streamed(agent, input=current_messages)
+                result = Runner.run_streamed(agent, input=history_messages)
                 async for event in result.stream_events():
                     try:
                         # Process only raw_response_event events
