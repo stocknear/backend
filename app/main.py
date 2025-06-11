@@ -4636,7 +4636,7 @@ TRIGGER_CONFIG = {
     "@fundamentaldata": FUNDAMENTAL_TOOLS,
     "@stockscreener": [],
     "@warrenbuffet": FUNDAMENTAL_TOOLS,
-    "@charlie munger": FUNDAMENTAL_TOOLS,
+    "@charliemunger": FUNDAMENTAL_TOOLS,
     "@billackman": FUNDAMENTAL_TOOLS,
     "@michaelburry": FUNDAMENTAL_TOOLS,
     "@peterlynch": FUNDAMENTAL_TOOLS,
@@ -4648,7 +4648,7 @@ TRIGGER_CONFIG = {
 # Map triggers to instruction generators
 TRIGGER_TO_INSTRUCTION = {
     "@warrenbuffet": generate_buffet_instruction,
-    "@charlie munger": generate_munger_instruction,
+    "@charliemunger": generate_munger_instruction,
     "@billackman": generate_ackman_instruction,
     "@michaelburry": generate_burry_instruction,
     "@peterlynch": generate_lynch_instruction,
@@ -4690,8 +4690,9 @@ def get_tools_for_query(user_query: str) -> tuple[list, str | None]:
     clean_query = normalize_query(user_query)
     for trigger, tools in TRIGGER_CONFIG.items():
         if trigger in clean_query:
-            return tools, trigger
-    return all_tools, None
+            return tools, trigger, os.getenv('REASON_CHAT_MODEL')
+    return all_tools, None, os.getenv('CHAT_MODEL')
+
 
 async def get_rule_of_list_from_llm(user_query: str) -> list | None:
     """Efficient rule extraction with pre-defined schema"""
@@ -4716,7 +4717,7 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
     current_messages = [msg for msg in data.messages[-10:] if 'callComponent' not in msg]
     
     # Get tools and matched trigger in single pass
-    selected_tools, matched_trigger = get_tools_for_query(user_query)
+    selected_tools, matched_trigger, selected_model = get_tools_for_query(user_query)
     
     # Handle special triggers
     if matched_trigger == "@stockscreener":
@@ -4727,18 +4728,20 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
             "content": f"Use ONLY these matched stocks: {json.dumps(context['matched_stocks'])}"
         }
         current_messages = [system_msg] + current_messages
+
     elif matched_trigger in TRIGGER_TO_INSTRUCTION:
         system_msg = {
             "role": "system",
             "content": TRIGGER_TO_INSTRUCTION[matched_trigger]()
         }
         current_messages = [system_msg] + current_messages
-
+    
+    print(selected_model)    
     # Agent setup
     agent = Agent(
         name="Stocknear AI Agent",
         instructions=INSTRUCTIONS,
-        model=os.getenv("CHAT_MODEL"),
+        model=selected_model,
         tools=selected_tools,
     )
 
