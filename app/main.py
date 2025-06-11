@@ -4736,7 +4736,6 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
         }
         current_messages = [system_msg] + current_messages
     
-    print(selected_model)    
     # Agent setup
     agent = Agent(
         name="Stocknear AI Agent",
