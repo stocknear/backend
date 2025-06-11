@@ -4714,8 +4714,11 @@ async def get_rule_of_list_from_llm(user_query: str) -> list | None:
 @app.post("/chat")
 async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
     user_query = data.query
-    current_messages = [msg for msg in data.messages[-10:] if 'callComponent' not in msg]
-    
+    current_messages = data.messages[-10:]
+    for item in current_messages:
+        if 'callComponent' in item:
+            del item['callComponent']
+
     # Get tools and matched trigger in single pass
     selected_tools, matched_trigger, selected_model = get_tools_for_query(user_query)
     
@@ -4735,7 +4738,7 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
             "content": TRIGGER_TO_INSTRUCTION[matched_trigger]()
         }
         current_messages = [system_msg] + current_messages
-    
+   
     # Agent setup
     agent = Agent(
         name="Stocknear AI Agent",
