@@ -7,16 +7,11 @@ import asyncio
 import pandas as pd
 import time
 import os
-from dotenv import load_dotenv
 from datetime import datetime, timedelta
 from ta.momentum import *
 from tqdm import tqdm
 import pytz
 
-headers = {"accept": "application/json"}
-url = "https://api.benzinga.com/api/v2.1/calendar/earnings"
-load_dotenv()
-api_key = os.getenv('BENZINGA_API_KEY')
 
 ny_tz = pytz.timezone('America/New_York')
 today = datetime.now(ny_tz).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -24,11 +19,12 @@ min_date = ny_tz.localize(datetime.strptime("2020-01-01", "%Y-%m-%d"))
 N_days_ago = today - timedelta(days=10)
 
 
-
 async def save_json(data, symbol, dir_path):
+    os.makedirs(dir_path, exist_ok=True)  # Create directory if it doesn't exist
     file_path = os.path.join(dir_path, f"{symbol}.json")
     async with aiofiles.open(file_path, 'w') as file:
         await file.write(ujson.dumps(data))
+
 
 
 async def compute_rsi(price_history, time_period=14):
@@ -168,7 +164,6 @@ async def get_past_data(data, ticker):
             # Add stats to first result entry if results exist
             if results:
                 res_dict = {'stats': stats_dict, 'history': results}
-                print(res_dict)
                 await save_json(res_dict, ticker, 'json/earnings/past')
             
 
@@ -177,11 +172,10 @@ async def get_past_data(data, ticker):
 
 
 async def get_data(session, ticker):
-    querystring = {"token": api_key, "parameters[tickers]": ticker}
     try:
-        async with session.get(url, params=querystring, headers=headers) as response:
-            data = ujson.loads(await response.text())['earnings']
-            
+        with open(f"json/earnings/raw/{ticker}.json","rb") as file:
+            data = orjson.loads(file.read())
+
             await get_past_data(data, ticker)
             
     except Exception as e:
@@ -202,7 +196,7 @@ try:
     cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
     stock_symbols = [row[0] for row in cursor.fetchall()]
     #Testing mode
-    stock_symbols = ['ORCL']
+    #stock_symbols = ['ORCL']
 
     con.close()
 
