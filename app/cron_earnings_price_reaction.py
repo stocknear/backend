@@ -168,6 +168,7 @@ async def get_past_data(data, ticker):
             # Add stats to first result entry if results exist
             if results:
                 res_dict = {'stats': stats_dict, 'history': results}
+                print(res_dict)
                 await save_json(res_dict, ticker, 'json/earnings/past')
             
 
@@ -200,7 +201,8 @@ try:
     cursor.execute("PRAGMA journal_mode = wal")
     cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
     stock_symbols = [row[0] for row in cursor.fetchall()]
-    #stock_symbols = ['TSLA']
+    #Testing mode
+    stock_symbols = ['ORCL']
 
     con.close()
 
