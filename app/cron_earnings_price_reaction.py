@@ -175,7 +175,6 @@ async def get_data(session, ticker):
     try:
         with open(f"json/earnings/raw/{ticker}.json","rb") as file:
             data = orjson.loads(file.read())
-
             await get_past_data(data, ticker)
             
     except Exception as e:
@@ -189,7 +188,6 @@ async def run(stock_symbols):
             await f
 
 try:
-    
     con = sqlite3.connect('stocks.db')
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")

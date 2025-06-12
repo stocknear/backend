@@ -28,12 +28,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Precompute holidays and use a set for faster lookups
-US_HOLIDAYS = {
-    "2024-01-01", "2024-01-15", "2024-02-19", 
-    "2024-03-29", "2024-05-27", "2024-06-19", 
-    "2024-07-04", "2024-09-02", "2024-11-28", 
-    "2024-12-25"
-}
+US_HOLIDAYS = {'2025-01-01', '2025-01-09','2025-01-20', '2025-02-17', '2025-04-18', '2025-05-26', '2025-06-19', '2025-07-04', '2025-09-01', '2025-11-27', '2025-12-25'}
 
 # Use functools.cache to memoize market hours check
 @functools.cache
@@ -79,6 +74,7 @@ class WebSocketStockTicker:
             "event": "subscribe",
             "data": {"ticker": ["*"]}
         })
+
 
     async def _safe_write(self, file_path: Path, data: Dict[str, Any]) -> None:
         """Safely write data to file using aiofiles for non-blocking I/O."""
@@ -151,10 +147,6 @@ class WebSocketStockTicker:
 async def main():
     load_dotenv()
     api_key = os.getenv('FMP_API_KEY')
-    
-    if not api_key:
-        logger.error("API Key not found. Please set FMP_API_KEY in .env file.")
-        return
     
     ticker = WebSocketStockTicker(api_key)
     await ticker.connect()
