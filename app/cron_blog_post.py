@@ -75,7 +75,6 @@ def get_overview(symbol, screener_data):
     res['sector'] = screener_data.get('sector',None)
 
     res['cumulativeReturns'] = get_cumulative_returns(symbol)
-
     return res
 
 def main():
@@ -103,6 +102,8 @@ def main():
         screener_data = stock_screener_data_dict.get(symbol)
 
         res['overview'] = get_overview(symbol, screener_data)
+        res['name'] = screener_data.get('name',None)
+        res['symbol'] = screener_data.get('symbol',None)
         
         save_json(res, symbol, quarter, fiscal_year)
     else:
