@@ -77,6 +77,102 @@ def get_overview(symbol, screener_data):
     res['cumulativeReturns'] = get_cumulative_returns(symbol)
     return res
 
+def get_sentiment(value):
+    if value is None:
+        return "Very Bad"
+    elif value < 0:
+        return "Very Bad"
+    elif value < 5:
+        return "Bad"
+    elif value < 15:
+        return "Average"
+    elif value < 25:
+        return "Good"
+    else:
+        return "Very Good"
+
+def get_financial_health(symbol, screener_data):
+    fields = [
+        ("Gross Profit Margin", "grossProfitMargin"),
+        ("Operating Profit Margin", "operatingProfitMargin"),
+        ("Net Margin", "netProfitMargin"),
+        ("FCF Margin", "freeCashFlowMargin"),
+        ("EBITDA Margin", "ebitdaMargin"),
+    ]
+
+    res = []
+    for label, key in fields:
+        value = screener_data.get(key)
+        sentiment = get_sentiment(value)
+        res.append({
+            "label": label,
+            "value": value,
+            "sentiment": sentiment
+        })
+
+    return res
+
+
+def get_sentiment_growth(value):
+    if value is None:
+        return "Very Bad"
+    elif value < -10:
+        return "Very Bad"
+    elif value < 0:
+        return "Bad"
+    elif value < 10:
+        return "Average"
+    elif value < 30:
+        return "Good"
+    else:
+        return "Very Good"
+
+def calculate_growth(current, previous):
+    if current is None or previous is None or previous == 0:
+        return None
+    return ((current - previous) / abs(previous)) * 100
+
+
+def get_growth(symbol):
+    # Define the metrics in a way that is easy to extend
+    metrics = [
+        ("Revenue Growth", "revenue", "income-statement"),
+        ("Gross Profit Growth", "grossProfit", "income-statement"),
+        ("Operating Income Growth", "operatingIncome", "income-statement"),
+        ("Net Income Growth", "netIncome", "income-statement"),
+        ("Free Cash Flow Growth", "freeCashFlow", "cash-flow-statement"),
+        ("Operating Cash Flow Growth", "freeCashFlow", "cash-flow-statement"),
+    ]
+
+    # Cache loaded data by statement type
+    data_cache = {}
+
+    summary = []
+
+    for label, key, statement_type in metrics:
+        # Load and cache the data for each statement type only once
+        if statement_type not in data_cache:
+            with open(f"json/financial-statements/{statement_type}/annual/{symbol}.json", "rb") as file:
+                data_cache[statement_type] = orjson.loads(file.read())
+
+        current = data_cache[statement_type][0]
+        previous = data_cache[statement_type][1]
+
+        growth = calculate_growth(current.get(key), previous.get(key))
+        sentiment = get_sentiment_growth(growth)
+
+        summary.append({
+            "label": label,
+            "value": round(growth, 2) if growth is not None else None,
+            "sentiment": sentiment
+        })
+
+    print(summary)
+    return summary
+
+
+
+
 def main():
     symbol = "NVDA"
     res = {}
@@ -105,6 +201,9 @@ def main():
         res['name'] = screener_data.get('name',None)
         res['symbol'] = screener_data.get('symbol',None)
         
+        res['financialHealth'] = get_financial_health(symbol, screener_data)
+        res['growth'] = get_growth(symbol)
+
         save_json(res, symbol, quarter, fiscal_year)
     else:
         print("No earnings data found.")
