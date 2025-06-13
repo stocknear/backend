@@ -164,7 +164,6 @@ async def get_past_data(data, ticker):
             # Add stats to first result entry if results exist
             if results and stats_dict:
                 res_dict = {'stats': stats_dict, 'history': results}
-                print(res_dict)
                 await save_json(res_dict, ticker, 'json/earnings/past')
             
 
