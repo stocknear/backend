@@ -162,8 +162,9 @@ async def get_past_data(data, ticker):
                 stats_dict['positiveRevenuePercent'] = 0
 
             # Add stats to first result entry if results exist
-            if results:
+            if results and stats_dict:
                 res_dict = {'stats': stats_dict, 'history': results}
+                print(res_dict)
                 await save_json(res_dict, ticker, 'json/earnings/past')
             
 
@@ -194,7 +195,7 @@ try:
     cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
     stock_symbols = [row[0] for row in cursor.fetchall()]
     #Testing mode
-    #stock_symbols = ['ORCL']
+    #stock_symbols = ['ORCL','NVDA','INSE']
 
     con.close()
 
