@@ -31,15 +31,14 @@ def get_text_instructions():
 
         The summary must:
 
-        1. Start with an SEO-rich opening that includes the phrase "pre-earnings review" or "earnings preview".
-        2. Highlight key strengths (e.g., high return metrics) with H2-style subheadings in plain text.
-        3. Discuss average or weak areas, explaining implications, under subheadings like "Areas to Watch".
-        4. Conclude with a forward-looking outlook statement, avoiding generic closing phrases.
+        1. Highlight key strengths (e.g., high return metrics) in plain text.
+        2. Discuss average or weak areas, explaining implications, under subheadings like "Areas to Watch".
+        3. Conclude with a forward-looking outlook statement, avoiding generic closing phrases.
 
         Formatting and Tone:
         • Wrap each paragraph in <p class="mb-4">…</p> for consistency.
         • Keep tone balanced, professional, and reader-friendly, aimed at investors and stakeholders.
-        • Ensure SEO by using target keywords at least 2–3 times without keyword stuffing.
+        • Ensure SEO by using target keywords at least once without keyword stuffing.
         """
 
 # Existing functions unchanged
@@ -78,6 +77,7 @@ def get_summary_instructions():
         • Write 3–5 paragraphs, each wrapped in HTML:  
           ```html
           <p class="mb-4">…</p>
+          <h3 class="text-xl sm:text-2xl font-bold mb-4">…</h3>
           ```  
         • Maintain a balanced, professional yet approachable tone—insightful, not promotional or overly critical.
         ALWAYS USE THE CORRECT html style for each paragraph: <p class="mb-4">...closing paragraph...</p>
@@ -152,7 +152,7 @@ def get_agent_instructions():
         <p class="mb-4">However, profit margins were slightly lower, likely because of rising supply chain costs. That’s something to keep an eye on next quarter.</p>
 
         Always aim to give people useful takeaways, not just numbers.
-        ALWAYS USE THE CORRECT html style <p class="mb-4">...closing paragraph...</p>
+        ALWAYS USE THE CORRECT html style <p class="mb-4">...closing paragraph...</p> <h3 class="text-xl sm:text-2xl font-bold mb-4">…</h3>
         """
 
 
@@ -636,7 +636,7 @@ def get_seo_title_description(symbol, data, earnings_date, quarter, fiscal_year)
     return text
 
 def main():
-    symbol = "NVDA"
+    symbol = "FDX"
     version = "1.0"
     res = {}
     try:
