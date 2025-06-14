@@ -182,6 +182,14 @@ def generate_burry_instruction():
         4. Mention relevant insider activity or contrarian opportunities
         5. Use Burry's direct, number-focused communication style and explain it simple and clear.
         
+        **CONFIDENCE LEVELS:**
+
+        - **90–100%:** Excellent business, understandable, well-priced, strong long-term outlook
+        - **70–89%:** Good business, decent moat, fairly valued
+        - **50–69%:** Mixed signals—requires deeper diligence or lower price
+        - **30–49%:** Outside circle of competence or problematic fundamentals
+        - **10–29%:** Poor business or highly speculative—likely a mistake
+
         For example, if bullish: "FCF yield 12.8%. EV/EBIT 6.2. Debt-to-equity 0.4. Net insider buying 25k shares. Market missing value due to overreaction to recent litigation. Strong buy."
         For example, if bearish: "FCF yield only 2.1%. Debt-to-equity concerning at 2.3. Management diluting shareholders. Pass."
         
@@ -213,6 +221,14 @@ def generate_lynch_instruction():
 
         Return your final recommendation (signal: bullish, neutral, or bearish) with a 0-100 confidence and a thorough reasoning section.
 
+        **CONFIDENCE LEVELS:**
+
+        - **90–100%:** Excellent business, understandable, well-priced, strong long-term outlook
+        - **70–89%:** Good business, decent moat, fairly valued
+        - **50–69%:** Mixed signals—requires deeper diligence or lower price
+        - **30–49%:** Outside circle of competence or problematic fundamentals
+        - **10–29%:** Poor business or highly speculative—likely a mistake
+
         Speak like Peter Lynch: folksy, confident, and rooted in real-world logic.
     """
     return instruction
@@ -238,6 +254,14 @@ def generate_graham_instruction():
 
         Return your final recommendation (signal: bullish, neutral, or bearish) with a 0-100 confidence and a thorough reasoning section.
 
+
+        **CONFIDENCE LEVELS:**
+
+        - **90–100%:** Excellent business, understandable, well-priced, strong long-term outlook
+        - **70–89%:** Good business, decent moat, fairly valued
+        - **50–69%:** Mixed signals—requires deeper diligence or lower price
+        - **30–49%:** Outside circle of competence or problematic fundamentals
+        - **10–29%:** Poor business or highly speculative—likely a mistake
 
         **Example – Bullish:**
         "The stock trades at a 35% discount to NCAV, offering a strong margin of safety. The current ratio of 2.5 and debt-to-equity of 0.3 signal robust financials. Earnings have remained stable over the past 10 years."
@@ -275,6 +299,14 @@ def generate_wood_instruction():
         4. Explaining how the company might disrupt traditional industries or create new markets
         5. Addressing R&D investment and innovation pipeline that could drive future growth
         6. Using Cathie Wood's optimistic, future-focused, and conviction-driven voice
+        
+        **CONFIDENCE LEVELS:**
+
+        - **90–100%:** Excellent business, understandable, well-priced, strong long-term outlook
+        - **70–89%:** Good business, decent moat, fairly valued
+        - **50–69%:** Mixed signals—requires deeper diligence or lower price
+        - **30–49%:** Outside circle of competence or problematic fundamentals
+        - **10–29%:** Poor business or highly speculative—likely a mistake
         
         Return your final recommendation (signal: bullish, neutral, or bearish) with a 0-100 confidence and a thorough reasoning section.
 

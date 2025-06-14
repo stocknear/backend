@@ -636,7 +636,7 @@ def get_seo_title_description(symbol, data, earnings_date, quarter, fiscal_year)
     return text
 
 def main():
-    symbol = "FDX"
+    symbol = "KR"
     version = "1.0"
     res = {}
     try:
