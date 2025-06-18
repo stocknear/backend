@@ -1388,7 +1388,7 @@ async def get_earnings_calendar(con, stock_symbols):
     start_date -= timedelta(days=start_date.weekday())  # Reset to Monday
 
     # End date: 2 weeks ahead, rounded to the following Friday
-    end_date = today + timedelta(weeks=2)
+    end_date = today + timedelta(weeks=4)
     end_date += timedelta(days=(4 - end_date.weekday()))  # Set to Friday
 
     res_list = []

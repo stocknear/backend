@@ -10,11 +10,12 @@ load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 TEST_MODE = False
+SYMBOL = "META"
 
-def save_json(data, symbol, quarter, fiscal_year, version):
+def save_json(data,  quarter, fiscal_year, version):
     dir_path = "json/blog"
     os.makedirs(dir_path, exist_ok=True)  # Create directory if it doesn't exist
-    file_path = os.path.join(dir_path, f"{symbol}-{quarter}-{fiscal_year}-v{version}.json")
+    file_path = os.path.join(dir_path, f"{SYMBOL}-{quarter}-{fiscal_year}-v{version}.json")
     with open(file_path, 'wb') as file:
         file.write(orjson.dumps(data))
 
@@ -25,7 +26,7 @@ def get_text_instructions():
 
         The summary should:
 
-        • Begin with a general overview of the company’s financial or operational profile using SEO-focused headlines and keywords (e.g., "pre-earnings outlook", "earnings preview", "analyst insights").
+        • Begin with a general overview of the company’s financial or operational profile.
         • Use clear, descriptive subheadings in the text for improved search visibility (e.g., "Key Strengths: High ROE", "Areas to Watch: SBC Ratio").
         • Naturally integrate relevant long-tail keywords like "pre-earnings review", "upcoming earnings analysis", and "financial performance snapshot".
 
@@ -221,11 +222,11 @@ def calculate_growth(current, previous):
     return ((current - previous) / abs(previous)) * 100
 
 
-def get_cumulative_returns(symbol):
+def get_cumulative_returns(SYMBOL):
 
-    with open(f"json/historical-price/max/{symbol}.json", "rb") as file:
-        symbol_price = orjson.loads(file.read())[-252:]
-    initial_close = symbol_price[0]['close']
+    with open(f"json/historical-price/max/{SYMBOL}.json", "rb") as file:
+        SYMBOL_price = orjson.loads(file.read())[-252:]
+    initial_close = SYMBOL_price[0]['close']
 
     # Load SPY benchmark data
     with open("json/historical-price/max/SPY.json", "rb") as file:
@@ -234,12 +235,12 @@ def get_cumulative_returns(symbol):
 
     # Calculate cumulative returns for both the stock and SPY benchmark
     cumulative_returns = []
-    for i in range(len(symbol_price)):
+    for i in range(len(SYMBOL_price)):
         try:
-            date = symbol_price[i]['time']
+            date = SYMBOL_price[i]['time']
             
             # Stock cumulative return
-            close = symbol_price[i]['close']
+            close = SYMBOL_price[i]['close']
             cumulative_roi = round(((close / initial_close) - 1) * 100, 2)
             
             # SPY cumulative return
@@ -259,9 +260,9 @@ def get_cumulative_returns(symbol):
     # Example output
     return cumulative_returns
 
-def get_overview(symbol, screener_data):
+def get_overview( screener_data):
     res = {}
-    with open(f"json/profile/{symbol}.json","rb") as file:
+    with open(f"json/profile/{SYMBOL}.json","rb") as file:
         data = orjson.loads(file.read())
         
         if TEST_MODE:
@@ -270,7 +271,7 @@ def get_overview(symbol, screener_data):
             user_query = f"Summarize the text: {data['description']}"
             res['description'] = get_llm_output(user_query)
     
-    with open(f"json/quote/{symbol}.json", 'r') as file:
+    with open(f"json/quote/{SYMBOL}.json", 'r') as file:
         data = orjson.loads(file.read())
         res['marketCap'] = data['marketCap']
         dt = datetime.strptime(data['earningsAnnouncement'], '%Y-%m-%dT%H:%M:%S.%f%z')
@@ -288,13 +289,13 @@ def get_overview(symbol, screener_data):
     res['forwardPE'] = screener_data.get('forwardPE',None)
     res['sector'] = screener_data.get('sector',None)
 
-    res['cumulativeReturns'] = get_cumulative_returns(symbol)
+    res['cumulativeReturns'] = get_cumulative_returns(SYMBOL)
     return res
 
 
 
 
-def get_financial_health(symbol, screener_data):
+def get_financial_health( screener_data):
     fields = [
         ("Gross Profit Margin", "grossProfitMargin"),
         ("Operating Profit Margin", "operatingProfitMargin"),
@@ -316,13 +317,13 @@ def get_financial_health(symbol, screener_data):
     if TEST_MODE:
         text = ""
     else:
-        user_query = f"Follow the instruction for the company {symbol} with the data {res}: {get_text_instructions()}"
+        user_query = f"Follow the instruction for the company {SYMBOL} with the data {res}: {get_text_instructions()}"
         text = get_llm_output(user_query)
     return {'data': res, 'text': text}
 
 
 
-def get_growth(symbol):
+def get_growth():
     # Define the metrics in a way that is easy to extend
     metrics = [
         ("Revenue Growth", "revenue", "income-statement"),
@@ -341,7 +342,7 @@ def get_growth(symbol):
     for label, key, statement_type in metrics:
         # Load and cache the data for each statement type only once
         if statement_type not in data_cache:
-            with open(f"json/financial-statements/{statement_type}/annual/{symbol}.json", "rb") as file:
+            with open(f"json/financial-statements/{statement_type}/annual/{SYMBOL}.json", "rb") as file:
                 data_cache[statement_type] = orjson.loads(file.read())
 
         current = data_cache[statement_type][0]
@@ -359,19 +360,19 @@ def get_growth(symbol):
     if TEST_MODE:
         text = ""
     else:
-        user_query = f"Follow the instruction for the company {symbol} with the data {summary}: {get_text_instructions()}"
+        user_query = f"Follow the instruction for the company {SYMBOL} with the data {summary}: {get_text_instructions()}"
         text = get_llm_output(user_query)
     return {'data': summary, 'text': text}
 
     return summary
 
 
-def get_valuation(symbol, screener_data):
+def get_valuation(screener_data):
     
     keys = ['priceToEarningsRatio', 'priceToFreeCashFlowRatio', 'priceToSalesRatio','priceToBookRatio','priceToEarningsGrowthRatio']
 
     # Load the ratio data
-    with open(f"json/financial-statements/ratios/annual/{symbol}.json", "rb") as file:
+    with open(f"json/financial-statements/ratios/annual/{SYMBOL}.json", "rb") as file:
         data = orjson.loads(file.read())
 
     # Ensure we have at least 5 years of data (excluding the most recent one)
@@ -417,11 +418,11 @@ def get_valuation(symbol, screener_data):
     if TEST_MODE:
         text = ""
     else:
-        user_query = f"Follow the instruction for the company {symbol} with the data {result}: {get_text_instructions()}"
+        user_query = f"Follow the instruction for the company {SYMBOL} with the data {result}: {get_text_instructions()}"
         text = get_llm_output(user_query)
     return {'data': result, 'text': text}
         
-def get_industry(symbol, screener_data):
+def get_industry( screener_data):
     result = []
     industry = screener_data.get('industry')
 
@@ -489,20 +490,20 @@ def get_industry(symbol, screener_data):
             elif item['key'] in ['altmanZScore','operatingProfitMargin','netProfitMargin','grossProfitMargin']:
                 table_3.append(item)
         
-        user_query = f"Follow the instruction for the company {symbol} with the context of Industry Average. The data {table_1}: {get_text_instructions()}"
+        user_query = f"Follow the instruction for the company {SYMBOL} with the context of Industry Average. The data {table_1}: {get_text_instructions()}"
         text_1 = get_llm_output(user_query)
 
-        user_query = f"Follow the instruction for the company {symbol} with the context of Industry Average. The data {table_2}: {get_text_instructions()}"
+        user_query = f"Follow the instruction for the company {SYMBOL} with the context of Industry Average. The data {table_2}: {get_text_instructions()}"
         text_2 = get_llm_output(user_query)
 
-        user_query = f"Follow the instruction for the company {symbol} with the context of Industry Average. The data {table_3}: {get_text_instructions()}"
+        user_query = f"Follow the instruction for the company {SYMBOL} with the context of Industry Average. The data {table_3}: {get_text_instructions()}"
         text_3 = get_llm_output(user_query)
 
     return {'data': result, 'textOne': text_1, 'textTwo': text_2, 'textThree': text_3}
 
 
-def get_price_reaction(symbol):
-    with open(f"json/earnings/past/{symbol}.json","rb") as file:
+def get_price_reaction():
+    with open(f"json/earnings/past/{SYMBOL}.json","rb") as file:
         data = orjson.loads(file.read())
 
     stats = data.get('stats')
@@ -539,13 +540,13 @@ def get_price_reaction(symbol):
     if TEST_MODE:
         text = ""
     else:
-        user_query = f"Follow the instruction for the company {symbol} with the context of Price Reaction for Earnings Day. The data {result}: {get_text_instructions()}"
+        user_query = f"Follow the instruction for the company {SYMBOL} with the context of Price Reaction for Earnings Day. The data {result}: {get_text_instructions()}"
         text = get_llm_output(user_query)
 
     return {'data': result, 'text': text}
 
 
-def get_management(symbol, screener_data):
+def get_management( screener_data):
     result = []
 
     # Extract necessary values from screener_data
@@ -608,27 +609,27 @@ def get_management(symbol, screener_data):
     if TEST_MODE:
         text=""
     else:
-        user_query = f"Follow the instruction for the company {symbol} with the context of how good the Management is. The data {result}: {get_text_instructions()}"
+        user_query = f"Follow the instruction for the company {SYMBOL} with the context of how good the Management is. The data {result}: {get_text_instructions()}"
         text = get_llm_output(user_query)
 
     return {'data': result, 'text': text}
 
 
-def get_summary(symbol, data):
+def get_summary( data):
     if TEST_MODE:
         text =""
     else:
-        user_query = f"Write a good summary for my blog post for the company {symbol}. The context data is data {data}: {get_summary_instructions()}"
+        user_query = f"Write a good summary for my blog post for the company {SYMBOL}. The context data is data {data}: {get_summary_instructions()}"
         text = get_llm_output(user_query)
 
     return text
 
-def get_seo_title_description(symbol, data, earnings_date, quarter, fiscal_year):
+def get_seo_title_description( data, earnings_date, quarter, fiscal_year):
     if TEST_MODE:
         text =""
     else:
         user_query = (
-        f"Generate an SEO‑optimized title and meta description for my blog post about {symbol}'s upcoming earnings preview "
+        f"Generate an SEO‑optimized title and meta description for my blog post about {SYMBOL}'s upcoming earnings preview "
         f"({quarter} {fiscal_year}) on {earnings_date}, using this financial summary: {data}. "
         f"{get_seo_title_desc_instructions()}")
 
@@ -636,13 +637,12 @@ def get_seo_title_description(symbol, data, earnings_date, quarter, fiscal_year)
     return text
 
 def main():
-    symbol = "KR"
     version = "1.0"
     res = {}
     try:
-        with open(f"json/earnings/next/{symbol}.json","rb") as file:
+        with open(f"json/earnings/next/{SYMBOL}.json","rb") as file:
             earnings_data = orjson.loads(file.read())
-        with open(f"json/earnings/raw/{symbol}.json","rb") as file:
+        with open(f"json/earnings/raw/{SYMBOL}.json","rb") as file:
             data = orjson.loads(file.read())[0] #next quarter and fiscal year
             quarter = data.get('period')
             fiscal_year = data.get('period_year')
@@ -662,46 +662,46 @@ def main():
             stock_screener_data = orjson.loads(file.read())
 
         stock_screener_data_dict = {item['symbol']: item for item in stock_screener_data}
-        screener_data = stock_screener_data_dict.get(symbol)
+        screener_data = stock_screener_data_dict.get(SYMBOL)
 
 
-        res['overview'] = get_overview(symbol, screener_data)
+        res['overview'] = get_overview( screener_data)
         res['name'] = screener_data.get('name', None)
         res['symbol'] = screener_data.get('symbol', None)
         print(f"Overview Done! {step}/{total_steps}")
         step += 1
 
-        res['financialHealth'] = get_financial_health(symbol, screener_data)
+        res['financialHealth'] = get_financial_health( screener_data)
         print(f"Financial Health Done! {step}/{total_steps}")
         step += 1
 
-        res['growth'] = get_growth(symbol)
+        res['growth'] = get_growth()
         print(f"Growth Done! {step}/{total_steps}")
         step += 1
 
-        res['valuation'] = get_valuation(symbol, screener_data)
+        res['valuation'] = get_valuation(screener_data)
         print(f"Valuation Done! {step}/{total_steps}")
         step += 1
 
-        res['industry'] = get_industry(symbol, screener_data)
+        res['industry'] = get_industry(screener_data)
         print(f"Industry Done! {step}/{total_steps}")
         step += 1
 
-        res['priceReaction'] = get_price_reaction(symbol)
+        res['priceReaction'] = get_price_reaction()
         print(f"Price Reaction Done! {step}/{total_steps}")
         step += 1
 
-        res['management'] = get_management(symbol, screener_data)
+        res['management'] = get_management( screener_data)
         print(f"Management Done! {step}/{total_steps}")
         step += 1
 
-        res['summary'] = get_summary(symbol, screener_data)
+        res['summary'] = get_summary( screener_data)
         print(f"Summary Done! {step}/{total_steps}")
 
         print("#=========SEO Meta Data============#")
-        print(get_seo_title_description(symbol, res['summary'], earnings_date, quarter, fiscal_year))
+        print(get_seo_title_description( res['summary'], earnings_date, quarter, fiscal_year))
 
-        save_json(res, symbol, quarter, fiscal_year, version)
+        save_json(res,  quarter, fiscal_year, version)
 
 
     else:
