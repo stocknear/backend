@@ -52,6 +52,7 @@ from agents import Agent, Runner, ModelSettings
 from llm.agents import *
 from contextlib import asynccontextmanager
 from hashlib import md5
+from bs4 import BeautifulSoup
 
 
 # DB constants & context manager
@@ -4710,7 +4711,6 @@ async def get_rule_of_list_from_llm(user_query: str) -> list | None:
     except Exception:
         return None
 
-from bs4 import BeautifulSoup
 
 def strip_html(content):
     return BeautifulSoup(content, "html.parser").get_text()

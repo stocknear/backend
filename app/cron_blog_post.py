@@ -10,7 +10,7 @@ load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 TEST_MODE = False
-SYMBOL = "META"
+SYMBOL = "GOOGL"
 
 def save_json(data,  quarter, fiscal_year, version):
     dir_path = "json/blog"
