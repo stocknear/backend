@@ -1235,6 +1235,63 @@ async def ethereum_bitcoin_list():
     except:
         pass
 
+
+async def get_covered_call_etfs():
+    try:
+        etf_symbols = [
+            "JEPQ", "QYLD", "MSTY", "XYLD", "NVDY", "RYLD", "TSLY", "TLTW", "EIPI", "YMAX",
+            "QDTE", "BUYW", "FTQI", "ULTY", "XDTE", "YMAG", "AIPI", "BTCI", "AMZY", "OMAH",
+            "LQDW", "YBTC", "HYGW", "SMCY", "IWMI", "FBY", "IQQQ", "NFLY", "YBIT", "AMDY",
+            "PBP", "RDTE", "DJIA", "LFGY", "APLY", "MSFO", "GOOY", "QYLG", "MDST", "KLIP",
+            "AIYY", "SNOY", "GDXY", "MRNY", "IMST", "OARK", "QDVO", "MARO", "JPMO", "PYPY",
+            "XOMO", "XYLG", "SRHR", "ITWO", "CVRD", "CEPI", "IVVW", "DISO", "YETH", "GPTY",
+            "EGGY", "IWMW", "DIVP", "FEAT", "SDTY", "MAGY", "FYEE", "MLPD", "HOOY", "TYLG",
+            "TLTP", "FIVY", "BIGY", "QDTY", "RYLG", "BTCC", "SOXY", "BITY", "RDTY", "BPI",
+            "NVII", "ICOI", "BAGY", "RNTY", "DYLG", "QDCC", "BCCC", "BRKC", "COII", "IAUI",
+            "IGME", "MSII", "TSII"
+        ]
+
+        res_list = []            
+        for symbol in etf_symbols:
+            try:
+                with open(f"json/dividends/companies/{symbol}.json","rb") as file:
+                    data = orjson.loads(file.read())
+                    dividend_yield = data.get('dividendYield',0)
+                try:
+                    with open(f"json/quote/{symbol}.json", "rb") as file:
+                        quote_data = orjson.loads(file.read())
+
+                except (FileNotFoundError, orjson.JSONDecodeError):
+                    quote_data = None
+
+                price = round(quote_data.get('price'), 2) if quote_data else None
+                changesPercentage = round(quote_data.get('changesPercentage'), 2) if quote_data else None
+                market_cap = quote_data.get('marketCap',0)
+                name = quote_data.get('name')
+                
+                if dividend_yield > 0 and market_cap > 0:
+                    res_list.append({
+                        'symbol': symbol,
+                        'name': name,
+                        'dividendYield': dividend_yield,
+                        'marketCap': market_cap,
+                        'price': price,
+                        'changesPercentage': changesPercentage
+                    })
+            except Exception as e:
+                print(e)
+        
+        if res_list:
+            res_list = sorted(res_list, key=lambda x: x['marketCap'], reverse=True)
+            for rank, item in enumerate(res_list, start=1):
+                item['rank'] = rank
+                
+            with open("json/stocks-list/list/covered-call-etfs.json", 'wb') as file:
+                file.write(orjson.dumps(res_list))
+
+    except:
+        pass
+
 async def get_monthly_dividends_etfs():
     with sqlite3.connect('etf.db') as con:
         cursor = con.cursor()
@@ -1573,6 +1630,7 @@ async def run():
         get_index_list(),
         etf_bitcoin_list(),
         ethereum_bitcoin_list(),
+        get_covered_call_etfs(),
         get_monthly_dividends_etfs(),
         get_magnificent_seven(),
         get_faang(),
