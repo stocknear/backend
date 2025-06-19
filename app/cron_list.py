@@ -1177,6 +1177,64 @@ async def etf_bitcoin_list():
     except:
         pass
 
+async def ethereum_bitcoin_list():
+    try:
+        with sqlite3.connect('etf.db') as etf_con:
+            etf_cursor = etf_con.cursor()
+            etf_cursor.execute("PRAGMA journal_mode = wal")
+            etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
+            etf_symbols = [row[0] for row in etf_cursor.fetchall()]
+
+            res_list = []
+            query_template = """
+                SELECT 
+                    symbol, name, expenseRatio, totalAssets
+                FROM 
+                    etfs
+                WHERE
+                    symbol = ?
+            """
+            
+            for symbol in etf_symbols:
+                try:
+                    data = pd.read_sql_query(query_template, etf_con, params=(symbol,))
+                    name = data['name'].iloc[0]
+                    
+                    if 'ether' in name.lower() or 'ethereum' in name.lower():
+                        expense_ratio = round(float(data['expenseRatio'].iloc[0]), 2)
+                        total_assets = int(data['totalAssets'].iloc[0])
+                        
+                        try:
+                            with open(f"json/quote/{symbol}.json", "rb") as file:
+                                quote_data = orjson.loads(file.read())
+                        except (FileNotFoundError, orjson.JSONDecodeError):
+                            quote_data = None
+
+                        price = round(quote_data.get('price'), 2) if quote_data else None
+                        changesPercentage = round(quote_data.get('changesPercentage'), 2) if quote_data else None
+                        if total_assets > 0:
+                            res_list.append({
+                                'symbol': symbol,
+                                'name': name,
+                                'expenseRatio': expense_ratio,
+                                'totalAssets': total_assets,
+                                'price': price,
+                                'changesPercentage': changesPercentage
+                            })
+                except:
+                    pass
+            
+            if res_list:
+                res_list = sorted(res_list, key=lambda x: x['totalAssets'], reverse=True)
+                for rank, item in enumerate(res_list, start=1):
+                    item['rank'] = rank
+                    
+                with open("json/stocks-list/list/ethereum-etfs.json", 'wb') as file:
+                    file.write(orjson.dumps(res_list))
+
+    except:
+        pass
+
 async def get_all_reits_list(cursor):
     base_query = """
         SELECT DISTINCT s.symbol, s.name, s.exchangeShortName, s.marketCap, s.sector
@@ -1466,6 +1524,7 @@ async def run():
         get_all_etf_tickers(),
         get_index_list(),
         etf_bitcoin_list(),
+        ethereum_bitcoin_list(),
         get_magnificent_seven(),
         get_faang(),
         get_penny_stocks(),
