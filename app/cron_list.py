@@ -1235,6 +1235,54 @@ async def ethereum_bitcoin_list():
     except:
         pass
 
+async def get_monthly_dividends_etfs():
+    with sqlite3.connect('etf.db') as con:
+        cursor = con.cursor()
+        cursor.execute("PRAGMA journal_mode = wal")
+        cursor.execute("SELECT DISTINCT symbol FROM etfs")
+        symbols = [row[0] for row in cursor.fetchall()]
+
+    res_list = []
+    for symbol in symbols:
+        try:
+            # Load quote data from JSON file
+            with open(f"json/dividends/companies/{symbol}.json","rb") as file:
+                data = orjson.loads(file.read())
+
+            payout_frequency = data.get('payoutFrequency',None)
+            dividend_yield = data.get('dividendYield',None)
+            if dividend_yield > 0 and payout_frequency == 'Monthly':
+                quote_data = await get_quote_data(symbol)
+                # Assign price and volume, and check if they meet the penny stock criteria
+                if quote_data:
+                    price = round(quote_data.get('price',None), 2)
+                    changesPercentage = round(quote_data.get('changesPercentage'), 2)
+                    marketCap = quote_data.get('marketCap')
+                    name = quote_data.get('name')
+                    if marketCap > 0:
+                        res_list.append({
+                            'symbol': symbol,
+                            'name': name,
+                            'dividendYield': dividend_yield,
+                            'price': price,
+                            'changesPercentage': changesPercentage,
+                            'marketCap': marketCap,
+                        })
+        except:
+            pass
+    if res_list:
+        # Sort by market cap in descending order
+        res_list = sorted(res_list, key=lambda x: x['dividendYield'], reverse=True)
+        
+        # Assign rank to each stock
+        for rank, item in enumerate(res_list, start=1):
+            item['rank'] = rank
+
+        # Write the filtered and ranked penny stocks to a JSON file
+        with open("json/stocks-list/list/monthly-dividend-etfs.json", 'wb') as file:
+            file.write(orjson.dumps(res_list))
+
+
 async def get_all_reits_list(cursor):
     base_query = """
         SELECT DISTINCT s.symbol, s.name, s.exchangeShortName, s.marketCap, s.sector
@@ -1525,6 +1573,7 @@ async def run():
         get_index_list(),
         etf_bitcoin_list(),
         ethereum_bitcoin_list(),
+        get_monthly_dividends_etfs(),
         get_magnificent_seven(),
         get_faang(),
         get_penny_stocks(),
