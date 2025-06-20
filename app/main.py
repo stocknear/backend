@@ -4607,6 +4607,7 @@ TRIGGER_CONFIG = {
         get_ticker_open_interest_by_strike_and_expiry,
         get_ticker_max_pain,
         get_ticker_hottest_options_contracts,
+        get_ticker_unusual_activity,
         get_ticker_quote,
     ],
     "@optionsflowfeed": [get_latest_options_flow_feed],
