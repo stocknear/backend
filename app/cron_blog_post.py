@@ -10,7 +10,7 @@ load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 TEST_MODE = False
-SYMBOL = "GOOGL"
+SYMBOL = "CRH"
 
 def save_json(data,  quarter, fiscal_year, version):
     dir_path = "json/blog"
@@ -639,6 +639,8 @@ def get_seo_title_description( data, earnings_date, quarter, fiscal_year):
 def main():
     version = "1.0"
     res = {}
+    
+    
     try:
         with open(f"json/earnings/next/{SYMBOL}.json","rb") as file:
             earnings_data = orjson.loads(file.read())
@@ -650,6 +652,10 @@ def main():
             print(earnings_date)
     except:
         print("No earnings data found.")
+        return
+
+    if os.path.exists(f"json/blog/{SYMBOL}-{quarter}-{fiscal_year}-v{version}.json"):
+        print(f'Blog post for {SYMBOL} {quarter}-{fiscal_year}-v{version} already exist!')
         return
 
     if earnings_data and quarter and fiscal_year:

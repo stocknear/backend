@@ -29,7 +29,7 @@ async def get_data(ticker, con):
         df = pd.read_sql_query(query_template, con, params=(ticker,))
         shareholders_list = ujson.loads(df.to_dict()['shareholders'][0])
         # Keys to keep
-        keys_to_keep = ["cik","ownership", "investorName", "changeInSharesNumberPercentage", "weight", "sharesNumber", "marketValue"]
+        keys_to_keep = ["cik","filingDate","ownership", "investorName", "changeInSharesNumberPercentage", "weight", "sharesNumber", "marketValue"]
 
         # Create new list with only the specified keys
         shareholders_list = [
