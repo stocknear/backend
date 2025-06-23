@@ -4,7 +4,7 @@ import aiohttp
 import sqlite3
 from datetime import datetime
 import pytz
-
+from tqdm import tqdm
 from dotenv import load_dotenv
 import os
 load_dotenv()
@@ -24,15 +24,15 @@ def delete_files_in_directory(directory):
             print(f"Failed to delete {file_path}. Reason: {e}")
 
 
-async def get_quote_of_stocks(ticker_list):
+async def get_quote_of_stocks(session, ticker_list):
     ticker_str = ','.join(ticker_list)
-    async with aiohttp.ClientSession() as session:
-        url = f"https://financialmodelingprep.com/api/v3/quote/{ticker_str}?apikey={api_key}" 
-        async with session.get(url) as response:
-            if response.status == 200:
-                return await response.json()
-            else:
-                return {}
+    
+    url = f"https://financialmodelingprep.com/api/v3/quote/{ticker_str}?apikey={api_key}" 
+    async with session.get(url) as response:
+        if response.status == 200:
+            return await response.json()
+        else:
+            return {}
 
 async def get_pre_post_quote_of_stocks(ticker_list):
     ticker_str = ','.join(ticker_list)
@@ -154,13 +154,16 @@ async def run():
     chunk_size = len(total_symbols) // 20  # Divide the list into N chunks
     chunks = [total_symbols[i:i + chunk_size] for i in range(0, len(total_symbols), chunk_size)]
     delete_files_in_directory("json/pre-post-quote")
-    for chunk in chunks:
+    for chunk in tqdm(chunks):
         if is_market_closed == False:
-            latest_quote = await get_quote_of_stocks(chunk)
-            for item in latest_quote:
-                symbol = item['symbol']
-                await save_quote_as_json(symbol, item)
-                #print(f"Saved data for {symbol}.")
+            async with aiohttp.ClientSession() as session:
+                latest_quote = await get_quote_of_stocks(session, chunk)
+                save_tasks = []
+                for item in latest_quote:
+                    symbol = item['symbol']
+                    await save_quote_as_json(symbol, item)
+                    save_tasks.append(save_quote_as_json(symbol, item))
+                await asyncio.gather(*save_tasks)
 
         if is_market_closed == True:
             latest_quote = await get_pre_post_quote_of_stocks(chunk)

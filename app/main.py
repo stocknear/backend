@@ -204,8 +204,6 @@ with open(f"json/stock-screener/data.json", 'rb') as file:
 # Convert stock_screener_data into a dictionary keyed by symbol
 stock_screener_data_dict = {item['symbol']: item for item in stock_screener_data}
 
-with open(f"json/screener/options-screener.json", 'rb') as file:
-    options_screener_data = orjson.loads(file.read())
 #------End Stock Screener--------#
 
 
@@ -1570,6 +1568,11 @@ async def get_data(data: OptionsScreenerData, api_key: str = Security(get_api_ke
             headers={"Content-Encoding": "gzip"}
         )
 
+    #need to load the data everytime since moneyness is computed every 5 min
+    
+    with open(f"json/screener/options-screener.json", 'rb') as file:
+        options_screener_data = orjson.loads(file.read())
+
     # Compute counts per expiration
     expirations = [item.get('expiration') for item in options_screener_data if 'expiration' in item]
     count_by_date = Counter(expirations)
@@ -1607,9 +1610,8 @@ async def get_data(data: OptionsScreenerData, api_key: str = Security(get_api_ke
     serialized = orjson.dumps(payload)
     compressed_data = gzip.compress(serialized)
 
-    # Cache result for 1 day
     redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 86400)
+    redis_client.expire(cache_key, 5*60)
 
     return StreamingResponse(
         io.BytesIO(compressed_data),

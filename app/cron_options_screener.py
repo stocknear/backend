@@ -9,6 +9,10 @@ from dotenv import load_dotenv
 from tqdm import tqdm
 import time
 
+import asyncio
+import aiofiles
+
+
 
 load_dotenv()
 today = date.today()
@@ -168,7 +172,7 @@ def is_fully_defined(item):
                     return False
     return True
 
-def main():
+def create_dataset():
 
 
     symbols_dict = load_symbol_list()
@@ -201,8 +205,7 @@ def main():
 
     if res:
         sorted_res = sorted(res,key=lambda x: datetime.strptime(x['expiration'], "%Y-%m-%d"))
-        print(sorted_res[0])
-        print(len(sorted_res))
+        
         #unique_expirations = get_unique_expirations(sorted_res)
         #filtered_res = [item for item in sorted_res if item['expiration'] == unique_expirations[0]]
 
@@ -210,5 +213,65 @@ def main():
 
         save_json(clean_data)
 
+
+async def load_quote_data_async(symbol):
+    """Asynchronously load quote data for a single symbol"""
+    try:
+        quote_path = f"json/quote/{symbol}.json"
+        if os.path.exists(quote_path):
+            async with aiofiles.open(quote_path, 'rb') as file:
+                content = await file.read()
+                quote_data = orjson.loads(content)
+                return symbol, quote_data.get('price')
+    except Exception as e:
+        print(f"Error loading {symbol}: {e}")
+    return symbol, None
+
+async def update_dataset():
+    # Load symbols once
+    symbols_dict = load_symbol_list()
+    total_symbols = (symbols_dict.get('stocks', []) + 
+                    symbols_dict.get('etfs', []) + 
+                    symbols_dict.get('indices', []))
+    
+    # Load options screener data once
+    async with aiofiles.open("json/screener/options-screener.json", 'rb') as file:
+        content = await file.read()
+        options_screener_data = orjson.loads(content)
+    
+    # Create semaphore to limit concurrent file operations
+    semaphore = asyncio.Semaphore(50)  # Adjust based on system limits
+    
+    async def bounded_load_quote(symbol):
+        async with semaphore:
+            return await load_quote_data_async(symbol)
+    
+    # Load all quotes asynchronously
+    print("Loading quote data...")
+    tasks = [bounded_load_quote(symbol) for symbol in total_symbols]
+    quote_results = await asyncio.gather(*tasks)
+    
+    # Create price lookup dictionary
+    symbol_prices = {symbol: price for symbol, price in quote_results if price is not None}
+    
+    # Update moneyness calculations
+    print("Calculating moneyness...")
+    for item in options_screener_data:
+        symbol = item.get('symbol')  # Assuming options have symbol field
+        if symbol in symbol_prices:
+            current_stock_price = symbol_prices[symbol]
+            strike = item.get('strike')
+            if current_stock_price and strike:
+                item['moneyness'] = round((current_stock_price/strike - 1) * 100, 2)
+    
+    # Filter fully defined items
+    clean_data = [item for item in options_screener_data if is_fully_defined(item)]
+    print(f"Processed {len(clean_data)} valid options")
+    print(clean_data[0])
+    return clean_data
+
+
 if __name__ == "__main__":
-    main()
+    #create_dataset()
+
+    asyncio.run(update_dataset())
