@@ -1568,6 +1568,8 @@ async def get_data(data: OptionsScreenerData, api_key: str = Security(get_api_ke
             headers={"Content-Encoding": "gzip"}
         )
 
+    unique_expirations = sorted(set(item['expiration'] for item in options_screener_data if 'expiration' in item))
+
     try:
         if selected_dates:
             filtered_data = [
@@ -1575,9 +1577,6 @@ async def get_data(data: OptionsScreenerData, api_key: str = Security(get_api_ke
                 if item.get('expiration') in selected_dates
             ]
         else:
-            unique_expirations = sorted(
-                set(item['expiration'] for item in options_screener_data if 'expiration' in item)
-            )
             earliest = unique_expirations[0] if unique_expirations else None
             filtered_data = [
                 item for item in options_screener_data 
@@ -1585,7 +1584,7 @@ async def get_data(data: OptionsScreenerData, api_key: str = Security(get_api_ke
             ] if earliest else []
 
         filtered_data.sort(key=lambda x: x.get("totalPrem", 0), reverse=True)
-        
+
     except Exception as e:
         print(f"Error filtering data: {e}")
         filtered_data = []
@@ -1593,7 +1592,7 @@ async def get_data(data: OptionsScreenerData, api_key: str = Security(get_api_ke
     print(f"Filtered {len(filtered_data)} items")
 
     # Compress and cache
-    res = orjson.dumps(filtered_data)
+    res = orjson.dumps({'expirationList': unique_expirations, 'data': filtered_data})
     compressed_data = gzip.compress(res)
 
     redis_client.set(cache_key, compressed_data)
