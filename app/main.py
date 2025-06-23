@@ -53,6 +53,7 @@ from llm.agents import *
 from contextlib import asynccontextmanager
 from hashlib import md5
 from bs4 import BeautifulSoup
+from collections import Counter
 
 
 # DB constants & context manager
@@ -1553,13 +1554,14 @@ async def stock_finder(data:StockScreenerData, api_key: str = Security(get_api_k
     )
 
 
+
 @app.post("/options-screener-data")
 async def get_data(data: OptionsScreenerData, api_key: str = Security(get_api_key)):
+    # Sort selected dates
     selected_dates = sorted(data.selectedDates)
 
-    # Safe cache key
+    # Prepare cache key
     cache_key = f"options-screener-data-{selected_dates}"
-
     cached_result = redis_client.get(cache_key)
     if cached_result:
         return StreamingResponse(
@@ -1568,21 +1570,27 @@ async def get_data(data: OptionsScreenerData, api_key: str = Security(get_api_ke
             headers={"Content-Encoding": "gzip"}
         )
 
-    unique_expirations = sorted(set(item['expiration'] for item in options_screener_data if 'expiration' in item))
+    # Compute counts per expiration
+    expirations = [item.get('expiration') for item in options_screener_data if 'expiration' in item]
+    count_by_date = Counter(expirations)
+    # Build unique_expirations list with date and contractLength
+    unique_expirations = [
+        {'date': date, 'contractLength': count_by_date[date]}
+        for date in sorted(count_by_date)
+    ]
 
     try:
+        # Filter by selected dates if provided, else use earliest
         if selected_dates:
-            filtered_data = [
-                item for item in options_screener_data 
-                if item.get('expiration') in selected_dates
-            ]
+            filtered_data = [item for item in options_screener_data if item.get('expiration') in selected_dates]
         else:
-            earliest = unique_expirations[0] if unique_expirations else None
+            earliest = unique_expirations[0]['date'] if unique_expirations else None
             filtered_data = [
                 item for item in options_screener_data 
                 if item.get('expiration') == earliest
             ] if earliest else []
 
+        # Sort filtered data by totalPrem descending
         filtered_data.sort(key=lambda x: x.get("totalPrem", 0), reverse=True)
 
     except Exception as e:
@@ -1591,18 +1599,24 @@ async def get_data(data: OptionsScreenerData, api_key: str = Security(get_api_ke
 
     print(f"Filtered {len(filtered_data)} items")
 
-    # Compress and cache
-    res = orjson.dumps({'expirationList': unique_expirations, 'data': filtered_data})
-    compressed_data = gzip.compress(res)
+    # Serialize response including unique_expirations
+    payload = {
+        'expirationList': unique_expirations,
+        'data': filtered_data
+    }
+    serialized = orjson.dumps(payload)
+    compressed_data = gzip.compress(serialized)
 
+    # Cache result for 1 day
     redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 86400)  # 1 day in seconds
+    redis_client.expire(cache_key, 86400)
 
     return StreamingResponse(
         io.BytesIO(compressed_data),
         media_type="application/json",
         headers={"Content-Encoding": "gzip"}
     )
+
 
 @app.post("/congress-trading-ticker")
 async def get_fair_price(data: TickerData, api_key: str = Security(get_api_key)):

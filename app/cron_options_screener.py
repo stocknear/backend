@@ -154,6 +154,20 @@ def load_symbol_list():
     return symbol_dict
 
 
+def is_fully_defined(item):
+    """
+    Returns True if all values in the item are not None.
+    If a value is a dict, ensures all its sub-values are not None.
+    """
+    for v in item.values():
+        if v is None:
+            return False
+        if isinstance(v, dict):
+            for sv in v.values():
+                if sv is None:
+                    return False
+    return True
+
 def main():
 
 
@@ -192,8 +206,9 @@ def main():
         #unique_expirations = get_unique_expirations(sorted_res)
         #filtered_res = [item for item in sorted_res if item['expiration'] == unique_expirations[0]]
 
+        clean_data = [item for item in sorted_res if is_fully_defined(item)]
 
-        save_json(sorted_res)
+        save_json(clean_data)
 
 if __name__ == "__main__":
     main()
