@@ -11,7 +11,7 @@ import time
 
 import asyncio
 import aiofiles
-
+import sys
 
 
 load_dotenv()
@@ -272,6 +272,9 @@ async def update_dataset():
 
 
 if __name__ == "__main__":
-    #create_dataset()
-
-    asyncio.run(update_dataset())
+    if len(sys.argv) > 1 and sys.argv[1] == 'update':
+        print("Updating screener")
+        asyncio.run(update_dataset())
+    else:
+        print("Create options screener from scratch:")
+        create_dataset()

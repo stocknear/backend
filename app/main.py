@@ -1569,7 +1569,7 @@ async def get_data(data: OptionsScreenerData, api_key: str = Security(get_api_ke
         )
 
     #need to load the data everytime since moneyness is computed every 5 min
-    
+
     with open(f"json/screener/options-screener.json", 'rb') as file:
         options_screener_data = orjson.loads(file.read())
 
@@ -1611,7 +1611,7 @@ async def get_data(data: OptionsScreenerData, api_key: str = Security(get_api_ke
     compressed_data = gzip.compress(serialized)
 
     redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 5*60)
+    redis_client.expire(cache_key, 15*60)
 
     return StreamingResponse(
         io.BytesIO(compressed_data),
