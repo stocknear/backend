@@ -202,7 +202,11 @@ with open(f"json/stock-screener/data.json", 'rb') as file:
 
 # Convert stock_screener_data into a dictionary keyed by symbol
 stock_screener_data_dict = {item['symbol']: item for item in stock_screener_data}
+
+with open(f"json/screener/options-screener.json", 'rb') as file:
+    options_screener_data = orjson.loads(file.read())
 #------End Stock Screener--------#
+
 
 #------Init Searchbar Data------------#
 #index_list_data = [{'symbol': '^SPX','name': 'S&P 500 Index', 'type': 'Index'}, {'symbol': '^VIX','name': 'CBOE Volatility Index', 'type': 'Index'},]
@@ -390,6 +394,9 @@ class HeatMapData(BaseModel):
 
 class StockScreenerData(BaseModel):
     ruleOfList: List[str]
+
+class OptionsScreenerData(BaseModel):
+    selectedDates: List[str]
 
 class IndicatorListData(BaseModel):
     ruleOfList: list
@@ -1545,6 +1552,58 @@ async def stock_finder(data:StockScreenerData, api_key: str = Security(get_api_k
         headers={"Content-Encoding": "gzip"}
     )
 
+
+@app.post("/options-screener-data")
+async def get_data(data: OptionsScreenerData, api_key: str = Security(get_api_key)):
+    selected_dates = sorted(data.selectedDates)
+
+    # Safe cache key
+    cache_key = f"options-screener-data-{selected_dates}"
+
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
+
+    try:
+        if selected_dates:
+            filtered_data = [
+                item for item in options_screener_data 
+                if item.get('expiration') in selected_dates
+            ]
+        else:
+            unique_expirations = sorted(
+                set(item['expiration'] for item in options_screener_data if 'expiration' in item)
+            )
+            earliest = unique_expirations[0] if unique_expirations else None
+            filtered_data = [
+                item for item in options_screener_data 
+                if item.get('expiration') == earliest
+            ] if earliest else []
+
+        filtered_data.sort(key=lambda x: x.get("totalPrem", 0), reverse=True)
+        
+    except Exception as e:
+        print(f"Error filtering data: {e}")
+        filtered_data = []
+
+    print(f"Filtered {len(filtered_data)} items")
+
+    # Compress and cache
+    res = orjson.dumps(filtered_data)
+    compressed_data = gzip.compress(res)
+
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 86400)  # 1 day in seconds
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
 
 @app.post("/congress-trading-ticker")
 async def get_fair_price(data: TickerData, api_key: str = Security(get_api_key)):
