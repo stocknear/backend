@@ -573,6 +573,10 @@ data = {
     "moneyness": {
         "text": "Select the moneyness of the option. The options are: 'In the Money' (ITM) and 'Out of the Money' (OTM). ITM options have intrinsic value and OTM options are not yet profitable."
     },
+    "moneynessPercentage": {
+        "text": "Moneyness indicates how far an option's strike price is from the current stock price. It reflects whether an option is in the money (profitable if exercised now), at the money (strike equals stock price), or out of the money (not profitable). Moneyness is expressed as a percentage and calculated differently for calls and puts.",
+        "equation": "Moneyness (Call) = ((Stock Price / Strike Price) - 1) × 100\nMoneyness (Put) = ((Strike Price / Stock Price) - 1) × 100"
+    },
     "cost_basis": {
         "text": "It is the price at which the option was purchased and represents the total investment required to acquire the option. Large premiums (whale activity) can signal significant trading strategies, such as large bets on price movement or hedging strategies."
     },
@@ -616,7 +620,8 @@ data = {
         "text": "The GEX ratio or Gamma Exposure ratio, measures the sensitivity of the options market to changes in the price of the underlying asset. It is calculated by comparing the net gamma exposure of call and put options, providing insight into potential price stability or volatility."
     },
     "ivRank": {
-        "text": "Implied Volatility (IV) Rank, measures the current level of implied volatility relative to its range over a specific period. It is expressed as a percentage, helping traders assess whether options are relatively expensive or cheap compared to their historical levels."
+        "text": "Implied Volatility (IV) Rank indicates how the current implied volatility compares to its historical range over a specific period. Expressed as a percentage, it helps traders determine whether options are relatively expensive (high IV Rank) or cheap (low IV Rank) compared to past volatility levels.",
+        "equation": "IV Rank = ((Current IV - IV_min) / (IV_max - IV_min)) × 100"
     },
     "iv30d": {
         "text": "IV30d refers to the Implied Volatility over the past 30 days. It represents the market's expectations of the underlying asset's volatility over the next 30 days, as implied by the pricing of options, and is often used to gauge short-term market sentiment."
@@ -627,11 +632,17 @@ data = {
     "changeOI": {
         "text": "Change in Open Interest (Change OI) refers to the difference in the number of outstanding options contracts from one trading session to the next. A positive change indicates new positions are being opened, while a negative change suggests positions are being closed."
     },
+    "changesPercentageOI": {
+        "text": "Change in Open Interest (Change OI) refers to the difference in the number of outstanding options contracts from one trading session to the next. A positive change indicates new positions are being opened, while a negative change suggests positions are being closed."
+    },
     "netCallPrem": {
         "text": "Net Call Premium (Net Call Prem) represents the net amount of premium paid for call options, calculated by subtracting the premium received from the premium paid. It provides insight into market sentiment and the demand for call options on the underlying asset."
     },
     "netPutPrem": {
         "text": "Net Put Premium (Net Put Prem) represents the net amount of premium paid for put options, calculated by subtracting the premium received from the premium paid. It indicates the demand for put options and can signal bearish market sentiment for the underlying asset."
+    },
+    "totalPrem": {
+        "text": "Total Premium represents the total dollar value traded in option premiums, calculated by multiplying the option price by the volume for both calls and puts. It provides insight into the overall activity and sentiment in the options market for the underlying asset."
     },
     "pcRatio": {
         "text": "The Put/Call Ratio (P/C Ratio) measures the volume of put options traded relative to call options. A higher ratio suggests more bearish sentiment, while a lower ratio indicates more bullish sentiment, helping traders gauge market outlook and investor sentiment."
@@ -644,6 +655,9 @@ data = {
     },
     "strikePrice": {  
         "text": "The strike price is the predetermined price at which the holder of an options contract can buy (Call) or sell (Put) the underlying asset. It plays a key role in determining an option's intrinsic value and profitability relative to the market price."  
+    },
+    "assetType": {
+        "text": "The asset type indicates the classification of the financial instrument. It helps differentiate between stocks, which represent ownership in individual companies, and ETFs (Exchange-Traded Funds), which are investment funds that hold a diversified portfolio of assets and trade on exchanges like individual stocks.",
     },
     "interestExpense": {
         "text": "Interest expense is the amount that the company paid in interest.",

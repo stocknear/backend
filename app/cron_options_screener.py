@@ -96,7 +96,11 @@ def get_screener(symbol: str, name:str, current_stock_price: float, asset_type:s
             #mark = latest_data.get('mark',None)
             close = latest_data.get('close',None)
             volume = latest_data.get('volume',None)
-            moneyness = round((current_stock_price/strike -1)*100,2)
+            if opt_type == 'Call':
+                moneyness = round((current_stock_price/strike -1)*100,2)
+            elif opt_type == 'Put':
+                moneyness = round((strike / current_price - 1) * 100, 2)
+
             total_prem = latest_data.get('total_premium',0)
 
             iv_rank = compute_iv_rank(data.get('history', []))
@@ -113,7 +117,7 @@ def get_screener(symbol: str, name:str, current_stock_price: float, asset_type:s
                     "optionType": opt_type,
                     "iv": implied_volatility,
                     "ivRank": iv_rank,
-                    "changeOI": change_oi,
+                    #"changeOI": change_oi,
                     "changesPercentageOI": change_oi_percentage,
                     #"mark": mark,
                     "volume": volume,
@@ -122,7 +126,7 @@ def get_screener(symbol: str, name:str, current_stock_price: float, asset_type:s
                     "gamma": gamma,
                     "theta": theta,
                     "vega": vega,
-                    "moneyness": moneyness,
+                    "moneynessPercentage": moneyness,
                     "totalPrem": total_prem,
                 })
                 
@@ -174,7 +178,6 @@ def is_fully_defined(item):
 
 def create_dataset():
 
-
     symbols_dict = load_symbol_list()
     stock_symbols = symbols_dict.get('stocks')
     etf_symbols = symbols_dict.get('etfs')
@@ -192,11 +195,11 @@ def create_dataset():
                 current_stock_price = quote_data.get('price', None)
                 name = quote_data.get('name')
                 if symbol in stock_symbols:
-                    asset_type = 'stocks'
+                    asset_type = 'Stock'
                 elif symbol in etf_symbols:
-                    asset_type = 'etf'
+                    asset_type = 'ETF'
                 else:
-                    asset_type = 'index'
+                    asset_type = 'Index'
 
             if current_stock_price:
                 res += get_screener(symbol, name, current_stock_price, asset_type)
