@@ -99,7 +99,7 @@ def get_screener(symbol: str, name:str, current_stock_price: float, asset_type:s
             if opt_type == 'Call':
                 moneyness = round((current_stock_price/strike -1)*100,2)
             elif opt_type == 'Put':
-                moneyness = round((strike / current_price - 1) * 100, 2)
+                moneyness = round((strike / current_stock_price - 1) * 100, 2)
 
             total_prem = latest_data.get('total_premium',0)
 
@@ -130,8 +130,8 @@ def get_screener(symbol: str, name:str, current_stock_price: float, asset_type:s
                     "totalPrem": total_prem,
                 })
                 
-        except:
-            continue
+        except Exception as e:
+            print(e)
     
     return results
 
@@ -184,7 +184,7 @@ def create_dataset():
     index_symbols = symbols_dict.get('indices')
     total_symbols = stock_symbols + etf_symbols + index_symbols
 
-    #total_symbols = ['TSLA']  # override for testing
+    #total_symbols = ['BLDR']  # override for testing
 
     res = []
     
@@ -270,7 +270,7 @@ async def update_dataset():
                     if opt_type == 'Call':
                         moneyness = round((current_stock_price/strike -1)*100,2)
                     elif opt_type == 'Put':
-                        moneyness = round((strike / current_price - 1) * 100, 2)
+                        moneyness = round((strike / current_stock_price - 1) * 100, 2)
                     item['moneynessPercentage'] = moneyness
         except:
             pass
