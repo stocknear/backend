@@ -260,12 +260,20 @@ async def update_dataset():
     # Update moneyness calculations
     print("Calculating moneyness...")
     for item in options_screener_data:
-        symbol = item.get('symbol')  # Assuming options have symbol field
-        if symbol in symbol_prices:
-            current_stock_price = symbol_prices[symbol]
-            strike = item.get('strike')
-            if current_stock_price and strike:
-                item['moneyness'] = round((current_stock_price/strike - 1) * 100, 2)
+        try:
+            symbol = item.get('symbol')  # Assuming options have symbol field
+            opt_type = item.get('optionType')
+            if symbol in symbol_prices:
+                current_stock_price = symbol_prices[symbol]
+                strike = item.get('strike')
+                if current_stock_price and strike:
+                    if opt_type == 'Call':
+                        moneyness = round((current_stock_price/strike -1)*100,2)
+                    elif opt_type == 'Put':
+                        moneyness = round((strike / current_price - 1) * 100, 2)
+                    item['moneynessPercentage'] = moneyness
+        except:
+            pass
     
     # Filter fully defined items
     clean_data = [item for item in options_screener_data if is_fully_defined(item)]
