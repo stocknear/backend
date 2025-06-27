@@ -15,8 +15,7 @@ import pytz
 
 ny_tz = pytz.timezone('America/New_York')
 today = datetime.now(ny_tz).replace(hour=0, minute=0, second=0, microsecond=0)
-min_date = ny_tz.localize(datetime.strptime("2020-01-01", "%Y-%m-%d"))
-N_days_ago = today - timedelta(days=10)
+min_date = ny_tz.localize(datetime.strptime("2015-01-01", "%Y-%m-%d"))
 
 
 async def save_json(data, symbol, dir_path):
@@ -136,6 +135,8 @@ async def get_past_data(data, ticker):
     # Sort the filtered data by date
     if len(filtered_data) > 0:
         filtered_data.sort(key=lambda x: x['date'], reverse=True)
+        #consider only 8 last quarters
+        #filtered_data = filtered_data[:8]
 
         try:
             # Load the price history data
@@ -147,9 +148,9 @@ async def get_past_data(data, ticker):
             #print(results[0])
             # Calculate statistics for earnings and revenue surprises
             stats_dict = {
-                'totalReports': len(filtered_data[:8]),
-                'positiveEpsSurprises': len([r for r in filtered_data[:8] if r.get('epsSurprisePercent', 0) > 0]),
-                'positiveRevenueSurprises': len([r for r in filtered_data[:8] if r.get('revenueSurprisePercent', 0) > 0])
+                'totalReports': len(filtered_data),
+                'positiveEpsSurprises': len([r for r in filtered_data if r.get('epsSurprisePercent', 0) > 0]),
+                'positiveRevenueSurprises': len([r for r in filtered_data if r.get('revenueSurprisePercent', 0) > 0])
             }
 
 
@@ -194,7 +195,7 @@ try:
     cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
     stock_symbols = [row[0] for row in cursor.fetchall()]
     #Testing mode
-    #stock_symbols = ['ORCL','NVDA','INSE']
+    #stock_symbols = ['NKE']
 
     con.close()
 
