@@ -25,13 +25,12 @@ async def save_json(data, symbol, dir_path):
         await file.write(ujson.dumps(data))
 
 
-
 async def compute_rsi(price_history, time_period=14):
     df_price = pd.DataFrame(price_history)
     df_price['rsi'] = rsi(df_price['close'], window=time_period)
     result = df_price.to_dict(orient='records')
     return result
-    
+
 
 async def calculate_price_reactions(ticker, filtered_data, price_history):
     # Ensure price_history is sorted by date
@@ -39,8 +38,12 @@ async def calculate_price_reactions(ticker, filtered_data, price_history):
 
     results = []
 
-    with open(f"json/options-historical-data/companies/{ticker}.json",'r') as file:
-        iv_data = ujson.load(file)
+    try:
+        with open(f"json/options-historical-data/companies/{ticker}.json",'r') as file:
+            iv_data = ujson.load(file)
+    except FileNotFoundError:
+        print(f"Warning: IV data not found for {ticker}")
+        iv_data = []
 
     for item in filtered_data:
         report_date = item['date']
@@ -54,19 +57,14 @@ async def calculate_price_reactions(ticker, filtered_data, price_history):
         # Initialize a dictionary for price reactions
         iv_value = next((entry['iv'] for entry in iv_data if entry['date'] == report_date), None)
 
-        #if iv_value is None:
-        #    continue  # Skip if no matching iv_data is found for the report_date
-
         price_reactions = {
             'date': report_date,
             'quarter': item['quarter'],
             'year': item['year'],
             'time': item['time'],
-            'rsi': int(price_history[report_index]['rsi']),
+            'rsi': int(price_history[report_index]['rsi']) if not pd.isna(price_history[report_index]['rsi']) else None,
             'iv': iv_value,
         }
-
-        
 
         for offset in [-4,-3,-2,-1,0,1,2,3,4,6]:
             target_index = report_index + offset
@@ -75,8 +73,6 @@ async def calculate_price_reactions(ticker, filtered_data, price_history):
             if 0 <= target_index < len(price_history):
                 target_price_data = price_history[target_index]
                 previous_index = target_index - 1
-
-        
 
                 # Ensure the previous index is within bounds
                 if 0 <= previous_index < len(price_history):
@@ -92,7 +88,7 @@ async def calculate_price_reactions(ticker, filtered_data, price_history):
                             (target_price_data['close'] / previous_price_data['close'] - 1) * 100, 2
                         )
 
-                    if offset ==1:
+                    if offset == 1:
                         price_reactions['open'] = target_price_data['open']
                         price_reactions['high'] = target_price_data['high']
                         price_reactions['low'] = target_price_data['low']
@@ -103,10 +99,10 @@ async def calculate_price_reactions(ticker, filtered_data, price_history):
                         price_reactions[f"low_change_percent"] = round((target_price_data['low'] / previous_price_data['close'] - 1) * 100, 2)
                         price_reactions[f"close_change_percent"] = round((target_price_data['close'] / previous_price_data['close'] - 1) * 100, 2)
 
-
         results.append(price_reactions)
 
     return results
+
 
 async def get_past_data(data, ticker):
     # Filter data based on date constraints
@@ -129,13 +125,14 @@ async def get_past_data(data, ticker):
                         'time': item['time']
                     }
                 )
-        except:
+        except Exception as e:
+            #print(f"Error processing item for {ticker}: {e}")
             pass
 
     # Sort the filtered data by date
     if len(filtered_data) > 0:
         filtered_data.sort(key=lambda x: x['date'], reverse=True)
-        #consider only 8 last quarters
+        #consider last 8 quarters
         #filtered_data = filtered_data[:8]
 
         try:
@@ -145,14 +142,13 @@ async def get_past_data(data, ticker):
 
             price_history = await compute_rsi(price_history)
             results = await calculate_price_reactions(ticker, filtered_data, price_history)
-            #print(results[0])
+            
             # Calculate statistics for earnings and revenue surprises
             stats_dict = {
                 'totalReports': len(filtered_data),
                 'positiveEpsSurprises': len([r for r in filtered_data if r.get('epsSurprisePercent', 0) > 0]),
                 'positiveRevenueSurprises': len([r for r in filtered_data if r.get('revenueSurprisePercent', 0) > 0])
             }
-
 
             # Calculate percentages if there are results
             if stats_dict['totalReports'] > 0:
@@ -166,42 +162,84 @@ async def get_past_data(data, ticker):
             if results and stats_dict:
                 res_dict = {'stats': stats_dict, 'history': results}
                 await save_json(res_dict, ticker, 'json/earnings/past')
+                return True
             
-
-        except:
-            pass
-
-
-async def get_data(session, ticker):
-    try:
-        with open(f"json/earnings/raw/{ticker}.json","rb") as file:
-            data = orjson.loads(file.read())
-            await get_past_data(data, ticker)
-            
-    except Exception as e:
-        print(e)
-        #pass
-
-async def run(stock_symbols):
-    async with aiohttp.ClientSession() as session:
-        tasks = [get_data(session, symbol) for symbol in stock_symbols]
-        for f in tqdm(asyncio.as_completed(tasks), total=len(stock_symbols)):
-            await f
-
-try:
-    con = sqlite3.connect('stocks.db')
-    cursor = con.cursor()
-    cursor.execute("PRAGMA journal_mode = wal")
-    cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
-    stock_symbols = [row[0] for row in cursor.fetchall()]
-    #Testing mode
-    #stock_symbols = ['NKE']
-
-    con.close()
-
-    asyncio.run(run(stock_symbols))
+        except Exception as e:
+            print(f"Error processing price data for {ticker}: {e}")
+            return False
     
-except Exception as e:
-    print(e)
-finally:
-    con.close()
+    return False
+
+
+async def process_single_symbol(ticker):
+    """Process a single symbol and return success status"""
+    try:
+        with open(f"json/earnings/raw/{ticker}.json", "rb") as file:
+            data = orjson.loads(file.read())
+            success = await get_past_data(data, ticker)
+            return success
+            
+    except FileNotFoundError:
+        return False
+    except Exception as e:
+        return False
+
+
+async def run_sequential(stock_symbols):
+    """Process symbols one by one sequentially"""
+    successful_count = 0
+    failed_count = 0
+    
+    print(f"Processing {len(stock_symbols)} symbols sequentially...")
+    
+    for i, symbol in enumerate(stock_symbols, 1):
+        print(f"[{i}/{len(stock_symbols)}] Processing {symbol}...")
+        
+        success = await process_single_symbol(symbol)
+        
+        if success:
+            successful_count += 1
+        else:
+            failed_count += 1
+            
+        # Optional: Add a small delay between symbols to avoid overwhelming the system
+        # await asyncio.sleep(0.1)
+    
+    print(f"\nProcessing complete!")
+    print(f"✓ Successful: {successful_count}")
+    print(f"✗ Failed: {failed_count}")
+    print(f"Total: {len(stock_symbols)}")
+
+
+def main():
+    con = None
+    try:
+        con = sqlite3.connect('stocks.db')
+        cursor = con.cursor()
+        cursor.execute("PRAGMA journal_mode = wal")
+        cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
+        stock_symbols = [row[0] for row in cursor.fetchall()]
+        
+        # Testing mode - uncomment to test with single symbol
+        # stock_symbols = ['NKE']
+        
+        print(f"Found {len(stock_symbols)} symbols to process")
+
+    except Exception as e:
+        print(f"Database error: {e}")
+        return
+    finally:
+        if con:
+            con.close()
+
+    # Run the sequential processing
+    try:
+        asyncio.run(run_sequential(stock_symbols))
+    except KeyboardInterrupt:
+        print("\nProcessing interrupted by user")
+    except Exception as e:
+        print(f"Runtime error: {e}")
+
+
+if __name__ == "__main__":
+    main()
