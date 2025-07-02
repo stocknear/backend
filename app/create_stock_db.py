@@ -121,19 +121,14 @@ class StockDatabase:
                         if isinstance(parsed_data, list) and "quote" in url:
                             quote = parsed_data[0]
                             symbol = quote.get('symbol')
-
-                            # --- ADD THIS EXCEPTION ---
-                            if symbol in ["BRK-A", "BRK-B"]:
-                                print(f"Skipping deletion for {symbol} as it's an exempted symbol.")
-                                continue
-                            # --- END OF EXCEPTION ---
+                            exchange = quote.get('exchange', None)
 
                             avg_volume = quote.get('avgVolume', 0)
                             quote_ts = quote.get("timestamp")
                             now_ts = datetime.now(timezone.utc).timestamp()
 
                             # If older than 5 days, delete symbol and stop processing
-                            if avg_volume < 1000 or (quote_ts and (now_ts - quote_ts) > 10 * 24 * 3600):
+                            if exchange == 'OTC' and (avg_volume < 1000 or (quote_ts and (now_ts - quote_ts) > 10 * 24 * 3600)):
                                 self.cursor.execute("DELETE FROM stocks WHERE symbol = ?", (symbol,))
                                 self.cursor.execute(f"DROP TABLE IF EXISTS '{symbol}'")
                                 self.conn.commit()
@@ -163,12 +158,6 @@ class StockDatabase:
                                         'eps': parsed_data[0]['eps'],
                                         'pe': parsed_data[0]['pe'],
                                         }
-                            fundamental_data.update(data_dict)
-
-                        elif isinstance(parsed_data, list) and "sector-benchmark" in url:
-                            # Handle list response, save as JSON object
-                            fundamental_data['esg_sector_benchmark'] = ujson.dumps(parsed_data)
-
                             fundamental_data.update(data_dict)
                        
                         elif "dividends" in url:
@@ -429,10 +418,9 @@ async def main():
         filtered_data = filter_tickers(all_tickers, OTC_symbols)
         
         # For testing - uncomment to limit results
-        #test_symbols = {'BRK-A', 'BRK-B', 'AMD'}
+        #test_symbols = {'BRK-A', 'BRK-B', 'AMD', 'NTDOY'}
         #filtered_data = [t for t in filtered_data if t.get('symbol') in test_symbols]
        
-
         await db.save_stocks(filtered_data)
         
     except Exception as e:
