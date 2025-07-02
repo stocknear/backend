@@ -125,7 +125,7 @@ class StockDatabase:
                             # --- ADD THIS EXCEPTION ---
                             if symbol in ["BRK-A", "BRK-B"]:
                                 print(f"Skipping deletion for {symbol} as it's an exempted symbol.")
-                                return # Exit the function, do not process deletion for these symbols
+                                continue
                             # --- END OF EXCEPTION ---
 
                             avg_volume = quote.get('avgVolume', 0)
@@ -429,8 +429,8 @@ async def main():
         filtered_data = filter_tickers(all_tickers, OTC_symbols)
         
         # For testing - uncomment to limit results
-        # test_symbols = {'AAPL', 'AMD', 'AXTLF'}
-        # filtered_data = [t for t in filtered_data if t.get('symbol') in test_symbols]
+        #test_symbols = {'BRK-A', 'BRK-B', 'AMD'}
+        #filtered_data = [t for t in filtered_data if t.get('symbol') in test_symbols]
        
 
         await db.save_stocks(filtered_data)
