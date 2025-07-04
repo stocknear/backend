@@ -123,7 +123,7 @@ async def downgrade_user():
                         "credits": 10,
                     })
                 '''
-
+                
                 stock_screener_data = pb.collection("stockscreener").get_full_list(query_params = {"filter": f"user = '{item.id}'"})
                 for screener in stock_screener_data:
                     pb.collection('stockscreener').delete(screener.id)
@@ -136,6 +136,44 @@ async def downgrade_user():
                 payment_data = pb.collection("payments").get_full_list(query_params = {"filter": f"user = '{item.id}'"})
                 for item in payment_data:
                     pb.collection('payments').delete(item.id)
+                
+
+
+                watchlist_data = pb.collection("watchlist").get_full_list(query_params={"filter": f"user = '{item.id}'"})
+
+                watchlist_data = pb.collection("watchlist").get_full_list(query_params={"filter": f"user = '{item.id}'"})
+
+                if len(watchlist_data) > 1:
+
+                    # Keep the first one
+                    keep = watchlist_data[0]
+
+                    # Limit tickers to max 5
+                    tickers = keep.ticker  # assuming list
+                    if len(tickers) > 5:
+                        new_tickers = tickers[:5]
+                        pb.collection("watchlist").update(keep.id, {"ticker": new_tickers})
+
+                    # Delete all others
+                    for watchlist in watchlist_data[1:]:
+                        pb.collection("watchlist").delete(watchlist.id)
+
+                elif len(watchlist_data) == 1:
+                    watchlist = watchlist_data[0]
+                    tickers = watchlist.ticker  # assuming list
+
+                    if len(tickers) > 5:
+                        new_tickers = tickers[:5]
+                        # Update the watchlist with the first 5 tickers only
+                        pb.collection("watchlist").update(watchlist.id, {"ticker": new_tickers})
+
+
+
+
+
+                #for watchlist in watchlist_data:
+
+
             except:
                 pass
 
