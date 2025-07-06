@@ -21,12 +21,17 @@ api_key = os.getenv('INTRINIO_API_KEY')
 directory_path = "json/all-options-contracts"
 current_date = datetime.now().date()
 
+with sqlite3.connect('index.db') as index_con:
+    index_cursor = index_con.cursor()
+    index_cursor.execute("PRAGMA journal_mode = wal")
+    index_cursor.execute("SELECT DISTINCT symbol FROM indices")
+    #important: don't add ^ since intrino doesn't add it to the symbol
+    index_symbols = [row[0].replace("^","") for row in index_cursor.fetchall()]
+
+
+
 async def save_json(data, symbol, contract_id):
-    if symbol in 'SPX':
-        symbol = '^SPX'
-        contract_id = "^"+contract_id
-    elif symbol == 'VIX':
-        symbol = '^VIX'
+    if symbol in index_symbols:
         contract_id = "^"+contract_id
 
     directory_path = f"json/all-options-contracts/{symbol}"
@@ -256,9 +261,14 @@ def get_total_symbols():
         etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
         etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
-    #important: don't add ^ since intrino doesn't add it to the symbol
-    index_symbols =["SPX","VIX"]
-    return stocks_symbols + etf_symbols +index_symbols
+    with sqlite3.connect('index.db') as index_con:
+        index_cursor = index_con.cursor()
+        index_cursor.execute("PRAGMA journal_mode = wal")
+        index_cursor.execute("SELECT DISTINCT symbol FROM indices")
+        #important: don't add ^ since intrino doesn't add it to the symbol
+        index_symbols = [row[0].replace("^","") for row in index_cursor.fetchall()]
+
+    return ['SPX'] #stocks_symbols + etf_symbols +index_symbols
 
 
 def get_expiration_date(option_symbol):

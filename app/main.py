@@ -2560,7 +2560,6 @@ async def get_pre_post_quote(data:TickerData, api_key: str = Security(get_api_ke
 async def get_data(data:OptionContract, api_key: str = Security(get_api_key)):
     contract_id = data.contract
     ticker = data.ticker
-
     cache_key = f"options-contract-history-{ticker}-{contract_id}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -2572,7 +2571,8 @@ async def get_data(data:OptionContract, api_key: str = Security(get_api_key)):
     try:
         with open(f"json/all-options-contracts/{ticker}/{contract_id}.json", 'rb') as file:
             res = orjson.loads(file.read())
-    except:
+            print(res)
+    except Exception as e:
         res = []
 
     data = orjson.dumps(res)
@@ -4201,6 +4201,7 @@ async def get_data(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     cache_key = f"contract-lookup-summary-{ticker}"
     cached_result = redis_client.get(cache_key)
+    print(data)
     if cached_result:
         return StreamingResponse(
             io.BytesIO(cached_result),
