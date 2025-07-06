@@ -32,6 +32,7 @@ with sqlite3.connect('index.db') as index_con:
 
 async def save_json(data, symbol, contract_id):
     if symbol in index_symbols:
+        symbol = "^"+symbol
         contract_id = "^"+contract_id
 
     directory_path = f"json/all-options-contracts/{symbol}"
