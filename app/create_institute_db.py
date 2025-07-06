@@ -24,7 +24,6 @@ def normalize_name(name):
 
 con = sqlite3.connect('stocks.db')
 etf_con = sqlite3.connect('etf.db')
-crypto_con = sqlite3.connect('crypto.db')
 
 cursor = con.cursor()
 cursor.execute("PRAGMA journal_mode = wal")
@@ -56,8 +55,14 @@ etf_con.close()
 
 load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
-quarter_date = '2024-12-31'
 
+today = pd.Timestamp.today()
+# get the second-to-last quarter
+second_last_q = (today - 2 * pd.offsets.QuarterEnd(startingMonth=12)).to_pydatetime()
+# format as YYYY-MM-DD
+quarter_date = second_last_q.strftime("%Y-%m-%d")
+
+print(quarter_date)
 
 
 if os.path.exists("backup_db/institute.db"):
@@ -281,6 +286,6 @@ async def fetch_tickers():
 db = InstituteDatabase('backup_db/institute.db')
 loop = asyncio.get_event_loop()
 all_tickers = loop.run_until_complete(fetch_tickers())
-#all_tickers = [{'cik': '0001364742', 'name': "GARDA CAPITAL PARTNERS LP"}]
+#all_tickers = [{'cik': '0000102909', 'name': "GARDA CAPITAL PARTNERS LP"}]
 loop.run_until_complete(db.save_insitute(all_tickers))
 db.close_connection()
