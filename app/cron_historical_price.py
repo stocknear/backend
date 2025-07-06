@@ -38,19 +38,22 @@ async def get_historical_data(ticker, query_con, session):
 
         data = []
         for resp in responses:
-            if isinstance(resp, Exception):
-                print(f"Error fetching data for {ticker}: {resp}")
-                continue
-            async with resp:
-                if resp.status != 200:
-                    print(f"Non-200 response for {ticker}: {resp.status}")
+            try:
+                if isinstance(resp, Exception):
+                    print(f"Error fetching data for {ticker}: {resp}")
                     continue
-                else:
-                    json_data = await resp.json()
-                    # Reverse rows so that oldest data comes first and reset the index
-                    df = pd.DataFrame(json_data).iloc[::-1].reset_index(drop=True)
-                    df = df.round(2).rename(columns={"date": "time"})
-                    data.append(df.to_json(orient="records"))
+                async with resp:
+                    if resp.status != 200:
+                        print(f"Non-200 response for {ticker}: {resp.status}")
+                        continue
+                    else:
+                        json_data = await resp.json()
+                        # Reverse rows so that oldest data comes first and reset the index
+                        df = pd.DataFrame(json_data).iloc[::-1].reset_index(drop=True)
+                        df = df.round(2).rename(columns={"date": "time"})
+                        data.append(df.to_json(orient="records"))
+            except:
+                pass
 
         # Database queries for additional periods
         query_template = """
