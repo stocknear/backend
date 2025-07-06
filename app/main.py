@@ -2571,8 +2571,7 @@ async def get_data(data:OptionContract, api_key: str = Security(get_api_key)):
     try:
         with open(f"json/all-options-contracts/{ticker}/{contract_id}.json", 'rb') as file:
             res = orjson.loads(file.read())
-            print(res)
-    except Exception as e:
+    except:
         res = []
 
     data = orjson.dumps(res)
