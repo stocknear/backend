@@ -269,7 +269,7 @@ def get_total_symbols():
         #important: don't add ^ since intrino doesn't add it to the symbol
         index_symbols = [row[0].replace("^","") for row in index_cursor.fetchall()]
 
-    return ['SPX'] #stocks_symbols + etf_symbols +index_symbols
+    return stocks_symbols + etf_symbols +index_symbols
 
 
 def get_expiration_date(option_symbol):
