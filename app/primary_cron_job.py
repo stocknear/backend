@@ -348,13 +348,14 @@ def run_economy_indicator():
         run_command(["python3", "cron_economic_indicator.py"])
 
 
-def run_ai_score():
+def run_weekly_and_daily_jobs():
     now = datetime.now(ny_tz)
-    week = now.weekday()
-    if week == 5:
+    weekday = now.weekday()
+    if weekday == 5:
         run_command(["python3", "cron_ai_score.py"])
         run_command(["python3", "cron_price_analysis.py"])
         run_command(["python3", "cron_options_oi.py"])
+        run_command(["python3","cron_etf_sector.py"])
     
     run_command(["python3", "cron_stockdeck.py"])
     run_command(["python3", "restart_json.py"])
@@ -384,7 +385,7 @@ schedule.every().day.at("08:00").do(run_threaded, run_options_historical_flow).t
 
 
 schedule.every().day.at("06:00").do(run_threaded, run_historical_price).tag('historical_job')
-schedule.every().day.at("06:30").do(run_threaded, run_ai_score).tag('ai_score_job')
+schedule.every().day.at("06:30").do(run_threaded, run_weekly_and_daily_jobs).tag('weekly_daily_job')
 
 schedule.every().day.at("07:00").do(run_threaded, run_ta_rating).tag('ta_rating_job')
 schedule.every().day.at("08:00").do(run_threaded, run_price_reaction).tag('price_reaction_job')

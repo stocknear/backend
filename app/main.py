@@ -1994,6 +1994,7 @@ async def etf_holdings(data: TickerData, api_key: str = Security(get_api_key)):
     try:
         with open(f"json/etf-sector/{ticker}.json", 'rb') as file:
             res = orjson.loads(file.read())
+            print(res)
     except:
         res = []
 

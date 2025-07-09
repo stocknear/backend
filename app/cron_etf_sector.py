@@ -28,7 +28,7 @@ async def get_data(session, symbol):
                             res_list.append({'sector': item['sector'], 'weightPercentage': round(float(item['weightPercentage'].replace("%","")),2)})
                     except:
                         pass
-                res_list = sorted(res_list, key=lambda x: x['weightPercentage'], reverse=True)[0:5]
+                res_list = sorted(res_list, key=lambda x: x['weightPercentage'], reverse=True)
                 if res_list:
                     save_json(res_list, symbol)  # Removed await since it's not async
                 
