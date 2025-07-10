@@ -12,16 +12,27 @@ api_key = os.getenv('FMP_API_KEY')
 
 ny_timezone = pytz.timezone("America/New_York")
 
+today = datetime.now().strftime("%Y-%m-%d")
+today_str = datetime.now().strftime("%b %d, %Y")  # e.g. "Jul 10, 2025"
 
 # Function to delete all files in a directory
 def delete_files_in_directory(directory):
     for filename in os.listdir(directory):
         file_path = os.path.join(directory, filename)
+        if not os.path.isfile(file_path):
+            continue
         try:
-            if os.path.isfile(file_path):
+            with open(file_path, 'r') as file:
+                data = orjson.loads(file.read())
+            file_time = data.get("time", "")
+            # extract date part of "time"
+            file_date = ", ".join(file_time.split(", ")[:2])  # "Jul 10, 2025"
+
+            if file_date != today_str:
                 os.remove(file_path)
-        except Exception as e:
-            print(f"Failed to delete {file_path}. Reason: {e}")
+
+        except:
+            pass
 
 
 async def get_quote_of_stocks(session, ticker_list):
@@ -42,7 +53,15 @@ async def get_pre_post_quote_of_stocks(ticker_list):
         async with session.get(url) as response:
             if response.status == 200:
                 data = await response.json()
-                return data
+                res = []
+                for item in data:
+                    try:
+                        item['date'] = datetime.fromtimestamp(item['timestamp']/1000, ny_timezone).strftime('%Y-%m-%d')
+                        if item['date'] == today:
+                            res.append(item)
+                    except:
+                        pass
+                return res
             else:
                 return []
 
@@ -67,7 +86,7 @@ async def save_pre_post_quote_as_json(symbol, data):
             exchange = quote_data.get('exchange',None)
             previous_close = quote_data['price']
             changes_percentage = round((data['price']/previous_close-1)*100,2)
-        if exchange in ['NASDAQ','AMEX','NYSE']:
+        if exchange in ['NASDAQ','AMEX','NYSE','OTC']:
             with open(f"json/pre-post-quote/{symbol}.json", 'w') as file:
                 dt = datetime.fromtimestamp(data['timestamp']/1000, ny_timezone)
                 formatted_date = dt.strftime("%b %d, %Y, %I:%M %p %Z")
@@ -150,7 +169,6 @@ async def run():
     # Stock and ETF Quotes
     
     total_symbols = stocks_symbols+etf_symbols+index_symbols
-    
     chunk_size = len(total_symbols) // 20  # Divide the list into N chunks
     chunks = [total_symbols[i:i + chunk_size] for i in range(0, len(total_symbols), chunk_size)]
     delete_files_in_directory("json/pre-post-quote")
@@ -160,9 +178,12 @@ async def run():
                 latest_quote = await get_quote_of_stocks(session, chunk)
                 save_tasks = []
                 for item in latest_quote:
-                    symbol = item['symbol']
-                    await save_quote_as_json(symbol, item)
-                    save_tasks.append(save_quote_as_json(symbol, item))
+                    try:
+                        symbol = item['symbol']
+                        await save_quote_as_json(symbol, item)
+                        save_tasks.append(save_quote_as_json(symbol, item))
+                    except:
+                        pass
                 await asyncio.gather(*save_tasks)
 
         if is_market_closed == True:
