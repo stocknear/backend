@@ -104,8 +104,6 @@ async def get_data(session, ticker, con):
             #save all rawdata for llm
             await save_json(raw_data, ticker, 'json/earnings/raw')
 
-
-
             # Filter for future earnings
             future_dates = [item for item in data if ny_tz.localize(datetime.strptime(item["date"], "%Y-%m-%d")) >= today]
             if future_dates:
@@ -140,13 +138,16 @@ async def get_data(session, ticker, con):
                     nearest_recent = min(recent_dates, key=lambda x: datetime.strptime(x["date"], "%Y-%m-%d"))
                     try:
                         date = nearest_recent['date']
+                        eps_est = float(nearest_future['eps_est']) if nearest_future['eps_est'] else None
+                        revenue_est = float(nearest_future['revenue_est']) if nearest_future['revenue_est'] else None
+
                         eps_prior = float(nearest_recent['eps_prior']) if nearest_recent['eps_prior'] != '' else None
-                        eps_surprise = float(nearest_recent['eps_surprise']) if nearest_recent['eps_surprise'] != '' else None
                         eps = float(nearest_recent['eps']) if nearest_recent['eps'] != '' else None
+                        eps_surprise = round(eps - eps_est,2) if eps is not None and eps_est not in (None, 0) else None
                         revenue_prior = float(nearest_recent['revenue_prior']) if nearest_recent['revenue_prior'] != '' else None
-                        revenue_surprise = float(nearest_recent['revenue_surprise']) if nearest_recent['revenue_surprise'] != '' else None
                         revenue = float(nearest_recent['revenue']) if nearest_recent['revenue'] != '' else None
-                        if revenue is not None and revenue_prior is not None and eps_prior is not None and eps is not None and revenue_surprise is not None and eps_surprise is not None:
+                        revenue_surprise = round(revenue - revenue_est,0) if revenue is not None and revenue_est not in (None, 0) else None
+                        if revenue and revenue_prior and eps_prior and eps and revenue_surprise and eps_surprise:
                             res_list = {
                                 'epsPrior':eps_prior,
                                 'epsSurprise': eps_surprise,
@@ -156,6 +157,7 @@ async def get_data(session, ticker, con):
                                 'revenue': revenue,
                                 'date': date,
                                 }
+
                             await save_json(res_list, symbol, 'json/earnings/surprise')
                     except Exception as e:
                         print(e)
@@ -178,7 +180,7 @@ try:
     cursor.execute("PRAGMA journal_mode = wal")
     cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%' AND symbol NOT LIKE '%-%'")
     stock_symbols = [row[0] for row in cursor.fetchall()]
-    #stock_symbols = ['TSLA']
+    #stock_symbols = ['DAL']
 
     asyncio.run(run(stock_symbols, con))
     
