@@ -12,6 +12,7 @@ from GetStartEndDate import GetStartEndDate
 
 #Update Market Movers Price, ChangesPercentage, Volume and MarketCap regularly
 berlin_tz = pytz.timezone('Europe/Berlin')
+ny_timezone = pytz.timezone("America/New_York")
 
 from dotenv import load_dotenv
 import os
@@ -22,6 +23,8 @@ api_key = os.getenv('FMP_API_KEY')
 market_cap_threshold = 10E9
 volume_threshold = 50_000
 price_threshold = 10
+today = datetime.now(ny_timezone).date()
+
 
 def check_market_hours():
 
@@ -89,9 +92,9 @@ async def get_gainer_loser_active_stocks(symbols):
                 changes_percentage = data.get("changesPercentage", None)
                 price = data.get("price", None)
                 exchange = data.get('exchange',None)
-
+                dt = datetime.fromtimestamp(data['timestamp'], ny_timezone).date()
                 # Ensure the stock meets criteria
-                if market_cap >= market_cap_threshold and price >= price_threshold and exchange in ['AMEX','NASDAQ','NYSE']:
+                if (today - dt).days <= 5 and market_cap >= market_cap_threshold and price >= price_threshold and exchange in ['AMEX','NASDAQ','NYSE','OTC']:
                     if price and changes_percentage:
                         res_list.append({
                             "symbol": symbol,
@@ -270,7 +273,6 @@ try:
         with open(f"json/market-movers/markethours/{category}.json", 'w') as file:
             file.write(orjson.dumps(data[category]).decode("utf-8"))
     
-
     
     data = asyncio.run(get_pre_after_market_movers(symbols))
     if market_status == 1:
