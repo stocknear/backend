@@ -95,7 +95,7 @@ async def get_gainer_loser_active_stocks(symbols):
                 dt = datetime.fromtimestamp(data['timestamp'], ny_timezone).date()
                 # Ensure the stock meets criteria
                 if (today - dt).days <= 5 and market_cap >= market_cap_threshold and price >= price_threshold and exchange in ['AMEX','NASDAQ','NYSE','OTC']:
-                    if price and changes_percentage:
+                    if price and changes_percentage and changes_percentage < 100:
                         res_list.append({
                             "symbol": symbol,
                             "name": name,
