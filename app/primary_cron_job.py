@@ -263,6 +263,18 @@ def run_dashboard():
         run_command(["python3", "cron_market_movers.py"])
         run_command(["python3", "cron_dashboard.py"])
 
+def run_quote():
+    now = datetime.now(ny_tz)
+    # only Mon–Fri
+    if now.weekday() <= 4:
+        current_time = now.time()
+        # pre-market: 4:00–9:30
+        if datetime_time(4, 0) <= current_time < datetime_time(9, 30):
+            run_command(["python3", "cron_quote.py"])
+        # post-market: 16:00–20:00
+        elif datetime_time(16, 0) <= current_time < datetime_time(20, 0):
+            run_command(["python3", "cron_quote.py"])
+
 
 def run_tracker():
 
@@ -450,6 +462,7 @@ schedule.every(15).minutes.do(run_threaded, run_dark_pool_level).tag('dark_pool_
 schedule.every(10).minutes.do(run_threaded, run_dark_pool_flow).tag('dark_pool_flow_job')
 
 schedule.every(2).minutes.do(run_threaded, run_dashboard).tag('dashboard_job')
+schedule.every(15).seconds.do(run_threaded, run_quote).tag('quote_job')
 
 
 schedule.every(15).seconds.do(run_threaded, run_if_not_running(run_cron_options_flow, 'options_flow_job')).tag('options_flow_job')
