@@ -45,10 +45,11 @@ async def get_quote_of_stocks(session, ticker_list):
         else:
             return {}
 
+
 async def get_pre_post_quote_of_stocks(ticker_list):
     ticker_str = ','.join(ticker_list)
+    today_dt = datetime.now(ny_timezone).date()
     async with aiohttp.ClientSession() as session:
-        #url = f"https://financialmodelingprep.com/api/v4/batch-pre-post-market/{ticker_str}?apikey={api_key}" 
         url = f"https://financialmodelingprep.com/stable/batch-aftermarket-trade?symbols={ticker_str}&apikey={api_key}"
         async with session.get(url) as response:
             if response.status == 200:
@@ -56,14 +57,16 @@ async def get_pre_post_quote_of_stocks(ticker_list):
                 res = []
                 for item in data:
                     try:
-                        item['date'] = datetime.fromtimestamp(item['timestamp']/1000, ny_timezone).strftime('%Y-%m-%d')
-                        if item['date'] == today:
+                        item_date = datetime.fromtimestamp(item['timestamp'] / 1000, ny_timezone).date()
+                        if (today_dt - item_date).days <= 5:
+                            item['date'] = item_date.strftime('%Y-%m-%d')
                             res.append(item)
-                    except:
-                        pass
+                    except Exception as e:
+                        print(f"Error parsing item: {e}")
                 return res
             else:
                 return []
+
 
 async def get_bid_ask_quote_of_stocks(ticker_list):
     ticker_str = ','.join(ticker_list)
