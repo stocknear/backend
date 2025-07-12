@@ -23,6 +23,9 @@ import boto3
 from botocore.exceptions import NoCredentialsError
 from bs4 import BeautifulSoup
 
+import discord
+from discord.ext import commands
+
 from dotenv import load_dotenv
 import os
 
@@ -41,6 +44,14 @@ admin_data = pb.collection('_superusers').auth_with_password(pb_admin_email, pb_
 now = datetime.today().date()
 #one_month_ago = now - timedelta(days=30)
 time_threshold = now - timedelta(days=7)
+
+TOKEN = os.getenv("DISCORD_BOT_TOKEN")
+intents = discord.Intents.default()
+intents.message_content = True
+intents.guilds = True
+intents.members = True
+
+bot = commands.Bot(command_prefix='!', intents=intents)
 
 
 def send_email(recipient):
@@ -89,6 +100,124 @@ def send_email(recipient):
         print("AWS credentials not available")
     except Exception as e:
         print(f"Error sending email: {e}")
+
+
+
+async def downgrade_discord_role_of_user():
+    """Process the user list and assign roles accordingly"""
+    data = pb.collection("users").get_full_list()
+    
+    USER_LIST = []
+    for item in data:
+        try:
+            if item.discord and len(item.discord) > 0:
+                USER_LIST.append({**item.discord, 'tier': item.tier, 'user_id': item.id})
+        except:
+            pass
+        
+    for guild in bot.guilds:
+        print(f"\nProcessing server: {guild.name}")
+        
+        # Get Pro role (Free is not a role, just means no Pro role)
+        pro_role = discord.utils.get(guild.roles, name="Pro")
+        
+        if not pro_role:
+            print(f"  Warning: 'Pro' role not found in {guild.name}")
+            continue  # Skip this server if Pro role doesn't exist
+        
+        # Process each user in the list
+        for user_data in USER_LIST:
+            user_id = user_data['id']
+            tier = user_data['tier']
+            db_user_id = user_data['user_id']
+            changes_made = []
+            
+            try:
+                # Get the member
+                member = guild.get_member(user_id)
+                if not member:
+                    try:
+                        member = await guild.fetch_member(user_id)
+                    except discord.NotFound:
+                        print(f"  User {user_id} not found in {guild.name}")
+                        continue
+                
+                # Handle role assignment based on tier
+                if tier == 'Pro':
+                    # User should have Pro role
+                    if pro_role not in member.roles:
+                        await member.add_roles(pro_role)
+                        changes_made.append(f"added {pro_role.name}")
+                    else:
+                        print(f"  - {member.display_name} ({user_id}): already has Pro role")
+                        continue
+                        
+                elif tier != 'Pro':
+                    # User should NOT have Pro role, remove it if they have it
+                    if pro_role in member.roles:
+                        await member.remove_roles(pro_role)
+                        changes_made.append(f"removed {pro_role.name}")
+                        
+                        # Update database to set access to false within discord object
+                        try:
+                            # Get current discord data and update the access field
+                            current_discord = item.discord if hasattr(item, 'discord') else user_data
+                            current_discord['access'] = False
+                            
+                            pb.collection("users").update(db_user_id, {
+                                "discord": current_discord,
+                            })
+                            changes_made.append("set discord.access to false in database")
+                        except Exception as db_e:
+                            print(f"  ✗ Failed to update database for user {db_user_id}: {db_e}")
+                    else:
+                        print(f"  - {member.display_name} ({user_id}): already Free (no Pro role)")
+                        continue
+                
+                # Report changes
+                if changes_made:
+                    print(f"  ✓ {member.display_name} ({user_id}): {', '.join(changes_made)}")
+                
+            except discord.Forbidden:
+                print(f"  ✗ No permission to assign roles to user {user_id} in {guild.name}")
+            except discord.HTTPException as e:
+                print(f"  ✗ Failed to assign role to user {user_id} in {guild.name}: {e}")
+            except Exception as e:
+                print(f"  ✗ Unexpected error for user {user_id} in {guild.name}: {e}")
+    
+    print(f"\nRole assignment complete!")
+
+
+
+@bot.event
+async def on_ready():
+    print(f'{bot.user} has connected to Discord!')
+    print(f'Bot is in {len(bot.guilds)} servers')
+    
+    try:
+        # Process all users and assign roles
+        await downgrade_discord_role_of_user()
+    except Exception as e:
+        print(f"Error during role assignment: {e}")
+    finally:
+        # Close the bot connection and exit
+        print("Closing bot connection...")
+        await bot.close()
+
+async def update_discord_roles():
+    """Run the Discord bot and handle role updates"""
+    try:
+        await bot.start(TOKEN)
+    except KeyboardInterrupt:
+        print("\nBot interrupted by user")
+    except Exception as e:
+        print(f"Bot error: {e}")
+    finally:
+        print("Bot has finished running.")
+        if not bot.is_closed():
+            await bot.close()
+
+
 
 
 async def update_free_trial():
@@ -217,6 +346,7 @@ async def refresh_bulk_credits():
 
 
 async def run_all_except_refresh():
+    await update_discord_roles()
     await update_free_trial()
     await downgrade_user()
     await delete_old_notifications()
