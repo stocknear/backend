@@ -320,7 +320,7 @@ async def process_symbol(symbol):
             expiration_list = get_contracts_from_directory(symbol)
 
         #check existing contracts and delete expired ones
-        #check_contract_expiry(symbol)
+        check_contract_expiry(symbol)
 
         print(f"Found {len(expiration_list)} expiration dates")
         contract_list = await get_data(symbol, expiration_list)
