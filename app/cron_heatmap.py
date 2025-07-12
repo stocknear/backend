@@ -56,7 +56,7 @@ def create_treemap(time_period):
         change_percent = 'change6M'
         range_color = (-50,50)
     elif (time_period == '1Y'):
-        change_percent = 'change6M'
+        change_percent = 'change1Y'
         range_color = (-100,100)
     elif (time_period == '3Y'):
         change_percent = 'change3Y'
