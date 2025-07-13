@@ -89,7 +89,7 @@ def get_all_expirations(symbol):
         try:
             # Convert expiration string to date for comparison
             exp_date = datetime.strptime(expiration, "%Y-%m-%d").date()
-            if current_date <= exp_date
+            if current_date <= exp_date:
                 valid_expirations.append(expiration)
                 
         except Exception as e:
