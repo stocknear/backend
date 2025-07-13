@@ -21,6 +21,7 @@ api_key = os.getenv('INTRINIO_API_KEY')
 directory_path = "json/all-options-contracts"
 current_date = datetime.now().date()
 
+
 with sqlite3.connect('index.db') as index_con:
     index_cursor = index_con.cursor()
     index_cursor.execute("PRAGMA journal_mode = wal")
@@ -31,6 +32,19 @@ with sqlite3.connect('index.db') as index_con:
 
 
 async def save_json(data, symbol, contract_id):
+    # Check expiration date before saving
+    try:
+        expiration_date = get_expiration_date(contract_id)
+        
+        # Don't save if expired or too far in the future
+        if expiration_date < current_date:
+            print(f"Skipping save for {contract_id}: expiration {expiration_date} is outside valid range")
+            return
+            
+    except Exception as e:
+        print(f"Error parsing expiration date for {contract_id}: {e}")
+        return
+    
     if symbol in index_symbols:
         symbol = "^"+symbol
         contract_id = "^"+contract_id
@@ -61,7 +75,7 @@ class ChainItem:
 intrinio.ApiClient().set_api_key(api_key)
 intrinio.ApiClient().allow_retries(True)
 
-after = (datetime.today()- timedelta(days=365)).strftime('%Y-%m-%d')
+after = (datetime.today()- timedelta(days=365*5)).strftime('%Y-%m-%d')
 before = '2100-12-31'
 include_related_symbols = False
 page_size = 5000
@@ -298,19 +312,23 @@ def check_contract_expiry(symbol):
                     contract_id = file.replace(".json", "")
                     expiration_date = get_expiration_date(contract_id)
                     
-                    # Check if the contract is expired
+                    # Check if the contract is expired OR too far in the future
                     if expiration_date < current_date:
-                        # Delete the expired contract JSON file
+                        # Delete the invalid contract JSON file
                         os.remove(os.path.join(directory, file))
-                        print(f"Deleted expired contract: {contract_id}")
-            except:
-                pass
+                        if expiration_date < current_date:
+                            print(f"Deleted expired contract: {contract_id} (expired on {expiration_date})")
+                        else:
+                            print(f"Deleted far-future contract: {contract_id} (expires on {expiration_date})")
+            except Exception as e:
+                print(f"Error processing contract {file}: {e}")
         
-        # Return the list of non-expired contracts
+        # Return the list of valid contracts
         return [file.replace(".json", "") for file in os.listdir(directory) if file.endswith(".json")]
     
-    except:
-        pass
+    except Exception as e:
+        print(f"Error checking contract expiry for {symbol}: {e}")
+        return []
 
 async def process_symbol(symbol):
     try:
@@ -347,7 +365,7 @@ def get_tickers_from_directory(directory: str):
         return []
 
 async def main():
-    total_symbols = get_total_symbols() #get_tickers_from_directory(directory_path)
+    total_symbols = ['GME'] #get_total_symbols() #get_tickers_from_directory(directory_path)
     
     for symbol in tqdm(total_symbols):
         await process_symbol(symbol)
