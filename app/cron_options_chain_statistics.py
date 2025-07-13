@@ -114,12 +114,7 @@ def get_sentiment_from_pc_ratio(pc_ratio):
         return "neutral"
 
 def calculate_historical_iv_stats(symbol, lookback_days=252):
-    """
-    For each date in the past year, average the implied volatilities
-    across all contracts, then return:
-      - historical_ivs:       [0.12, 0.13, ...]      (floats)
-      - historical_with_dates: [{'date':'2025-01-02','iv':0.12}, ...]
-    """
+  
     base_dir = os.path.join("json/all-options-contracts", symbol)
     contract_files = get_contracts_from_directory(base_dir)
     
@@ -139,8 +134,8 @@ def calculate_historical_iv_stats(symbol, lookback_days=252):
                 if d < cutoff:
                     continue
                 iv = entry.get("implied_volatility") or 0
-                if iv > 0:
-                    ivs_by_date[ds].append(iv)
+                
+                ivs_by_date[ds].append(iv)
         except Exception:
             continue
 
@@ -264,9 +259,8 @@ def compute_option_chain_statistics(symbol):
             total_oi += oi
             
             # Add IV to the combined list regardless of option type
-            if iv > 0:  # Only include non-zero IV values
-                by_exp[exp_str]["iv_all"].append(iv)
-                all_current_ivs.append(iv)
+            by_exp[exp_str]["iv_all"].append(iv)
+            all_current_ivs.append(iv)
             
             if opt_type == "call":
                 by_exp[exp_str]["volume_calls"] += volume
@@ -333,7 +327,7 @@ def compute_option_chain_statistics(symbol):
             oi_ratio = safe_div(puts_oi, calls_oi)
             
             # Calculate average IV for all contracts with this expiration
-            avg_iv = round(sum(stats["iv_all"]) / len(stats["iv_all"]) * 100, 2) if stats["iv_all"] else 0
+            avg_iv = round(statistics.median(stats["iv_all"]) * 100, 2) if stats["iv_all"] else 0
             
             # Get max pain for this expiration
             max_pain = max_pain_by_exp.get(exp, 0)
@@ -472,7 +466,7 @@ def process_symbols_concurrent(symbols, max_workers=None):
 
 if __name__ == "__main__":
     symbols = load_symbol_list()
-    #symbols = ['^SPX']  # override for testing
+    symbols = ['GME']  # override for testing
     
     print(f"Processing {len(symbols)} symbols...")
     
