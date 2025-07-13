@@ -466,7 +466,7 @@ def process_symbols_concurrent(symbols, max_workers=None):
 
 if __name__ == "__main__":
     symbols = load_symbol_list()
-    symbols = ['GME']  # override for testing
+    #symbols = ['TSLA']  # override for testing
     
     print(f"Processing {len(symbols)} symbols...")
     

@@ -393,7 +393,7 @@ def get_tickers_from_directory(directory: str):
         return []
 
 async def main():
-    total_symbols = ['GME'] #get_total_symbols() #get_tickers_from_directory(directory_path)
+    total_symbols = get_total_symbols() #get_tickers_from_directory(directory_path)
     
     for symbol in tqdm(total_symbols):
         await process_symbol(symbol)
