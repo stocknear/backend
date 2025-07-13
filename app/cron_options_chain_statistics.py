@@ -27,33 +27,31 @@ def get_contracts_from_directory(directory: str):
 def safe_div(a, b):
     return round(a / b, 2) if b else 0
 
-# Format dates as MM/DD/YY
+# Format dates 
 def format_date(date_str):
     if not date_str:
         return None
     try:
         date_obj = datetime.strptime(date_str, "%Y-%m-%d")
-        return date_obj.strftime("%m/%d/%y")
-    except:
+        return date_obj.strftime("%b %d, %Y")
+    except Exception:
         return date_str
 
 def calculate_iv_rank(current_iv, historical_ivs):
-    """Calculate IV rank - percentage of days in the past year where IV was lower than current IV"""
+    """Calculate IV rank - (current IV - min IV) / (max IV - min IV) * 100"""
     if not historical_ivs or current_iv == 0:
         return 0
-    
-    lower_count = sum(1 for iv in historical_ivs if iv < current_iv)
-    return round((lower_count / len(historical_ivs)) * 100, 2)
+    min_iv = min(historical_ivs)
+    max_iv = max(historical_ivs)
+    if max_iv == min_iv:
+        return 0
+    return round(((current_iv - min_iv) / (max_iv - min_iv)) * 100, 2)
 
 def calculate_iv_percentile(current_iv, historical_ivs):
-    """Calculate IV percentile - percentage of days with IV closing below current IV"""
+    """Calculate IV percentile - percentage of days with IV below current IV"""
     if not historical_ivs or current_iv == 0:
         return 0
-    
-    # Count days where IV was below current IV
     below_count = sum(1 for iv in historical_ivs if iv < current_iv)
-    
-    # Calculate percentile
     return round((below_count / len(historical_ivs)) * 100, 2)
 
 def find_iv_extremes(historical_ivs):
@@ -116,36 +114,49 @@ def get_sentiment_from_pc_ratio(pc_ratio):
         return "neutral"
 
 def calculate_historical_iv_stats(symbol, lookback_days=252):
-    """Calculate historical IV statistics with dates for IV rank calculation"""
+    """
+    For each date in the past year, average the implied volatilities
+    across all contracts, then return:
+      - historical_ivs:       [0.12, 0.13, ...]      (floats)
+      - historical_with_dates: [{'date':'2025-01-02','iv':0.12}, ...]
+    """
     base_dir = os.path.join("json/all-options-contracts", symbol)
     contract_files = get_contracts_from_directory(base_dir)
     
-    cutoff_date = today - timedelta(days=lookback_days)
-    historical_ivs = []
-    historical_ivs_with_dates = []
-    
-    for filepath in contract_files:
+    cutoff = today - timedelta(days=lookback_days)
+    # temp storage: date_str -> [iv1, iv2, ...]
+    ivs_by_date = defaultdict(list)
+
+    for path in contract_files:
         try:
-            with open(filepath, "rb") as f:
+            with open(path, "rb") as f:
                 data = orjson.loads(f.read())
-            
-            history = data.get("history", [])
-            for entry in history:
-                entry_date_str = entry.get("date")
-                if entry_date_str:
-                    entry_date = datetime.strptime(entry_date_str, "%Y-%m-%d").date()
-                    if entry_date >= cutoff_date:
-                        iv = entry.get("implied_volatility", 0) or 0
-                        if iv > 0:
-                            historical_ivs.append(iv)
-                            historical_ivs_with_dates.append({
-                                'iv': iv,
-                                'date': entry_date_str
-                            })
+            for entry in data.get("history", []):
+                ds = entry.get("date")
+                if not ds:
+                    continue
+                d = datetime.strptime(ds, "%Y-%m-%d").date()
+                if d < cutoff:
+                    continue
+                iv = entry.get("implied_volatility") or 0
+                if iv > 0:
+                    ivs_by_date[ds].append(iv)
         except Exception:
             continue
-    
-    return historical_ivs, historical_ivs_with_dates
+
+    # Now build sorted lists
+    historical_ivs       = []
+    historical_with_dates = []
+    for ds, ivs in sorted(ivs_by_date.items()):
+        avg_iv = sum(ivs) / len(ivs)
+        historical_ivs.append(avg_iv)
+        historical_with_dates.append({
+            "date": ds,
+            "iv":   avg_iv
+        })
+
+    return historical_ivs, historical_with_dates
+
 
 def calculate_average_daily_volume(symbol, lookback_days=30):
     """Calculate average daily volume over the past N days"""
@@ -280,12 +291,12 @@ def compute_option_chain_statistics(symbol):
     oi_sentiment = get_sentiment_from_pc_ratio(overall_oi_pc_ratio)
     
     # Calculate historical IV statistics
-    historical_ivs, historical_ivs_with_dates = calculate_historical_iv_stats(symbol)
-    iv_rank = calculate_iv_rank(current_iv / 100, historical_ivs) if current_iv > 0 else 0
-    iv_percentile = calculate_iv_percentile(current_iv / 100, historical_ivs) if current_iv > 0 else 0
+    historical_ivs, historical_with_dates = calculate_historical_iv_stats(symbol)
+
+    iv_rank       = calculate_iv_rank(current_iv/100, historical_ivs)
+    iv_percentile = calculate_iv_percentile(current_iv/100, historical_ivs)
+    iv_high, iv_high_date, iv_low, iv_low_date = find_iv_extremes(historical_with_dates)
     
-    # Calculate IV extremes
-    iv_high, iv_high_date, iv_low, iv_low_date = find_iv_extremes(historical_ivs_with_dates)
     
     # Calculate historical volatility
     historical_volatility = calculate_historical_volatility(symbol)
@@ -405,22 +416,7 @@ def process_single_symbol(symbol):
         return f"✓ {symbol}"
     except Exception as e:
         return f"✗ {symbol}: {str(e)}"
-    symbols = []
-    db_configs = [
-        ("stocks.db", "SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'") ,
-        ("etf.db",    "SELECT DISTINCT symbol FROM etfs"),
-        ("index.db",  "SELECT DISTINCT symbol FROM indices")
-    ]
 
-    for db_file, query in db_configs:
-        try:
-            con = sqlite3.connect(db_file)
-            cur = con.cursor()
-            cur.execute(query)
-            symbols.extend([r[0] for r in cur.fetchall()])
-            con.close()
-        except Exception:
-            continue
 
 def load_symbol_list():
     symbols = []
