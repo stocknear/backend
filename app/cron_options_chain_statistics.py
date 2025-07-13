@@ -43,6 +43,8 @@ def calculate_iv_rank(current_iv, historical_ivs):
         return 0
     min_iv = min(historical_ivs)
     max_iv = max(historical_ivs)
+    mean_iv = statistics.median(historical_ivs)
+    print(mean_iv)
     if max_iv == min_iv:
         return 0
     return round(((current_iv - min_iv) / (max_iv - min_iv)) * 100, 2)
@@ -138,7 +140,6 @@ def calculate_historical_iv_stats(symbol, lookback_days=252):
                 ivs_by_date[ds].append(iv)
         except Exception:
             continue
-
     # Now build sorted lists
     historical_ivs       = []
     historical_with_dates = []
@@ -258,9 +259,10 @@ def compute_option_chain_statistics(symbol):
             total_volume += volume
             total_oi += oi
             
-            # Add IV to the combined list regardless of option type
+           
             by_exp[exp_str]["iv_all"].append(iv)
             all_current_ivs.append(iv)
+
             
             if opt_type == "call":
                 by_exp[exp_str]["volume_calls"] += volume
@@ -278,7 +280,9 @@ def compute_option_chain_statistics(symbol):
             continue
 
     # Calculate overall statistics
-    current_iv = round(statistics.mean(all_current_ivs) * 100, 2) if all_current_ivs else 0
+
+
+
     overall_volume_pc_ratio = safe_div(total_put_volume, total_call_volume)
     overall_oi_pc_ratio = safe_div(total_put_oi, total_call_oi)
     volume_sentiment = get_sentiment_from_pc_ratio(overall_volume_pc_ratio)
@@ -286,10 +290,6 @@ def compute_option_chain_statistics(symbol):
     
     # Calculate historical IV statistics
     historical_ivs, historical_with_dates = calculate_historical_iv_stats(symbol)
-
-    iv_rank       = calculate_iv_rank(current_iv/100, historical_ivs)
-    iv_percentile = calculate_iv_percentile(current_iv/100, historical_ivs)
-    iv_high, iv_high_date, iv_low, iv_low_date = find_iv_extremes(historical_with_dates)
     
     
     # Calculate historical volatility
@@ -349,11 +349,31 @@ def compute_option_chain_statistics(symbol):
     # Sort by expiration
     expiration_data.sort(key=lambda x: x["expiration"])
     
+    #the idea to compute iv 30d is simple.
+    # look at the table data and compute the median based of on the expiration dates that will expire in 30 days
+    iv_within_30d = []
+
+    for entry in expiration_data:
+        try:
+            exp_date = datetime.strptime(entry['expiration'], "%Y-%m-%d").date()
+            delta = (exp_date - today).days
+            if 0 <= delta <= 30:
+                iv_within_30d.append(entry['avgIV'])
+        except:
+            pass
+
+    iv_30d = statistics.median(iv_within_30d)
+    print(f"Median avgIV (30d): {iv_30d}")
+
+    iv_rank       = calculate_iv_rank(iv_30d/100, historical_ivs)
+    iv_percentile = calculate_iv_percentile(iv_30d/100, historical_ivs)
+    iv_high, iv_high_date, iv_low, iv_low_date = find_iv_extremes(historical_with_dates)
+
     # Return comprehensive statistics matching the screenshot
     return {
         "overview": {
             "date": today.strftime("%B %d, %Y"),
-            "currentIV": current_iv,
+            "currentIV": iv_30d,
             "ivRank": iv_rank,
             "totalVolume": int(total_volume),
             "avgDailyVolume": int(avg_daily_volume),
@@ -371,7 +391,7 @@ def compute_option_chain_statistics(symbol):
             "oiPercentage": oi_percentage
         },
         "impliedVolatility": {
-            "current": current_iv,
+            "current": iv_30d,
             "ivRank": iv_rank,
             "ivPercentile": iv_percentile,
             "historicalVolatility": historical_volatility,
@@ -466,7 +486,7 @@ def process_symbols_concurrent(symbols, max_workers=None):
 
 if __name__ == "__main__":
     symbols = load_symbol_list()
-    #symbols = ['TSLA']  # override for testing
+    symbols = ['GME']  # override for testing
     
     print(f"Processing {len(symbols)} symbols...")
     
