@@ -73,7 +73,7 @@ def find_iv_extremes(historical_ivs):
         format_date(iv_low['date'])
     )
 
-def calculate_historical_volatility(symbol, lookback_days=252):
+def calculate_historical_volatility(symbol, lookback_days=30):
     path = os.path.join("json", "historical-price", "max", f"{symbol}.json")
     try:
         with open(path, "rb") as f:
@@ -116,7 +116,7 @@ def get_sentiment_from_pc_ratio(pc_ratio):
     else:
         return "neutral"
 
-def calculate_historical_iv_stats(symbol, lookback_days=252):
+def calculate_historical_iv_stats(symbol, lookback_days=365):
   
     base_dir = os.path.join("json/all-options-contracts", symbol)
     contract_files = get_contracts_from_directory(base_dir)
@@ -136,9 +136,9 @@ def calculate_historical_iv_stats(symbol, lookback_days=252):
                 d = datetime.strptime(ds, "%Y-%m-%d").date()
                 if d < cutoff:
                     continue
-                iv = entry.get("implied_volatility") or 0
-                
-                ivs_by_date[ds].append(iv)
+                iv = entry.get("implied_volatility", None)
+                if iv:
+                    ivs_by_date[ds].append(iv)
         except Exception:
             continue
     # Now build sorted lists
@@ -232,7 +232,6 @@ def compute_option_chain_statistics(symbol):
     total_oi = 0
     total_call_oi = 0
     total_put_oi = 0
-    all_current_ivs = []
     
     for filepath in contract_files:
         try:
@@ -260,9 +259,13 @@ def compute_option_chain_statistics(symbol):
             total_volume += volume
             total_oi += oi
             
-           
-            by_exp[exp_str]["iv_all"].append(iv)
-            all_current_ivs.append(iv)
+            for item in history:
+                try:
+                    iv = item.get("implied_volatility", None)
+                    if iv:
+                        by_exp[exp_str]["iv_all"].append(iv)
+                except:
+                    pass
 
             
             if opt_type == "call":

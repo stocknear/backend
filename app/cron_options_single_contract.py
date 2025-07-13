@@ -139,33 +139,49 @@ async def get_options_chain(symbol, expiration, semaphore):
 
 
 async def get_single_contract_eod_data(symbol, contract_id, semaphore):
-    url = f"https://api-v2.intrinio.com/options/prices/{contract_id}/eod?api_key={api_key}"
 
     async with semaphore:
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url) as response:
-                    if response.status != 200:
-                        print(f"Failed to fetch data for {contract_id}: {response.status}")
-                        return None
-
-                    response_data = await response.json()
-                   
-
-            # Extract and process the response data
-            key_data = {k: v for k, v in response_data.get("option", {}).items() if isinstance(v, (str, int, float, bool, list, dict, type(None)))}
-
-            history = []
-            if "prices" in response_data:
-                for price in response_data["prices"]:
-                    history.append({
-                        k: v for k, v in price.items() if isinstance(v, (str, int, float, bool, list, dict, type(None)))
-                    })
+            next_page = ''  # Reset for each source
+            all_prices = []  # Accumulate all prices across pages
+            key_data = {}  # Store option metadata
+            
+            while True:
+                url = f"https://api-v2.intrinio.com/options/prices/{contract_id}/eod?api_key={api_key}"
+                if next_page:
+                    url += f"&next_page={next_page}"
+                    
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url) as response:
+                        if response.status != 200:
+                            print(f"Failed to fetch data for {contract_id}: {response.status}")
+                            return None
+                            
+                        response_data = await response.json()
+                        
+                        # Store option metadata from first response
+                        if not key_data and "option" in response_data:
+                            key_data = {k: v for k, v in response_data.get("option", {}).items() 
+                                      if isinstance(v, (str, int, float, bool, list, dict, type(None)))}
+                        
+                        # Accumulate prices from this page
+                        if "prices" in response_data:
+                            for price in response_data["prices"]:
+                                all_prices.append({
+                                    k: v for k, v in price.items() 
+                                    if isinstance(v, (str, int, float, bool, list, dict, type(None)))
+                                })
+                        
+                        # Check for next page
+                        next_page = response_data.get("next_page",None)
+                        if not next_page:
+                            break
 
             # Clean the data
+
             history = [
                 {key.lstrip('_'): value for key, value in record.items() if key not in ('close_time', 'open_ask', 'ask_low', 'close_size', 'exercise_style', 'discriminator', 'open_bid', 'bid_low', 'bid_high', 'ask_high')}
-                for record in history
+                for record in all_prices
             ]
 
             # Ignore small volume and open interest contracts
