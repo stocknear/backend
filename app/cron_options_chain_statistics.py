@@ -43,8 +43,6 @@ def calculate_iv_rank(current_iv, historical_ivs):
         return 0
     min_iv = min(historical_ivs)
     max_iv = max(historical_ivs)
-    mean_iv = statistics.median(historical_ivs)
-    print(mean_iv)
     if max_iv == min_iv:
         return 0
     return round(((current_iv - min_iv) / (max_iv - min_iv)) * 100, 2)
