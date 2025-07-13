@@ -32,17 +32,9 @@ with sqlite3.connect('index.db') as index_con:
 
 
 async def save_json(data, symbol, contract_id):
-    # Check expiration date before saving
-    try:
-        expiration_date = get_expiration_date(contract_id)
-        
-        # Don't save if expired or too far in the future
-        if expiration_date < current_date:
-            print(f"Skipping save for {contract_id}: expiration {expiration_date} is outside valid range")
-            return
-            
-    except Exception as e:
-        print(f"Error parsing expiration date for {contract_id}: {e}")
+    # Additional safety check (should already be filtered, but just in case)
+    if not is_valid_expiration(contract_id):
+        print(f"Skipping save for {contract_id}: invalid expiration date")
         return
     
     if symbol in index_symbols:
@@ -89,13 +81,29 @@ def get_all_expirations(symbol):
         before=before, 
         include_related_symbols=include_related_symbols
     )
-    data = (response.__dict__).get('_expirations')
-    return data
+    all_expirations = (response.__dict__).get('_expirations', [])
+    
+    # Filter out expirations that are outside our valid range
+    valid_expirations = []
+    for expiration in all_expirations:
+        try:
+            # Convert expiration string to date for comparison
+            exp_date = datetime.strptime(expiration, "%Y-%m-%d").date()
+            if current_date <= exp_date
+                valid_expirations.append(expiration)
+                
+        except Exception as e:
+            print(f"Error parsing expiration date {expiration}: {e}")
+    
+    return valid_expirations
 
 def get_contracts_from_directory(symbol):
     directory = f"json/all-options-contracts/{symbol}/"
     try:
-        return [file.replace(".json", "") for file in os.listdir(directory) if file.endswith(".json")]
+        all_contracts = [file.replace(".json", "") for file in os.listdir(directory) if file.endswith(".json")]
+        # Filter out contracts with invalid expiration dates
+        valid_contracts = [contract for contract in all_contracts if is_valid_expiration(contract)]
+        return valid_contracts
     except:
         return []
 
@@ -116,7 +124,12 @@ async def get_options_chain(symbol, expiration, semaphore):
             contracts = set()
             for item in response.chain:
                 try:
-                    contracts.add(item.option.code)
+                    contract_id = item.option.code
+                    # Filter out contracts with invalid expiration dates before adding to set
+                    if is_valid_expiration(contract_id):
+                        contracts.add(contract_id)
+                    else:
+                        print(f"Skipping contract {contract_id}: invalid expiration date")
                 except Exception as e:
                     print(f"Error processing contract in {expiration}: {e}")
             return contracts
@@ -286,6 +299,14 @@ def get_total_symbols():
     return stocks_symbols + etf_symbols +index_symbols
 
 
+def is_valid_expiration(contract_id):
+    """Check if a contract has a valid expiration date (not expired and not too far in future)"""
+    try:
+        expiration_date = get_expiration_date(contract_id)
+        return current_date <= expiration_date
+    except Exception:
+        return False
+
 def get_expiration_date(option_symbol):
     # Define regex pattern to match the symbol structure
     match = re.match(r"([A-Z]+)(\d{6})([CP])(\d+)", option_symbol)
@@ -310,21 +331,29 @@ def check_contract_expiry(symbol):
             try:
                 if file.endswith(".json"):
                     contract_id = file.replace(".json", "")
-                    expiration_date = get_expiration_date(contract_id)
                     
-                    # Check if the contract is expired OR too far in the future
-                    if expiration_date < current_date:
+                    # Check if the contract has invalid expiration date
+                    if not is_valid_expiration(contract_id):
                         # Delete the invalid contract JSON file
                         os.remove(os.path.join(directory, file))
-                        if expiration_date < current_date:
-                            print(f"Deleted expired contract: {contract_id} (expired on {expiration_date})")
-                        else:
-                            print(f"Deleted far-future contract: {contract_id} (expires on {expiration_date})")
+                        try:
+                            expiration_date = get_expiration_date(contract_id)
+                            if expiration_date < current_date:
+                                print(f"Deleted expired contract: {contract_id} (expired on {expiration_date})")
+                        except:
+                            print(f"Deleted invalid contract: {contract_id} (could not parse expiration)")
             except Exception as e:
                 print(f"Error processing contract {file}: {e}")
         
         # Return the list of valid contracts
-        return [file.replace(".json", "") for file in os.listdir(directory) if file.endswith(".json")]
+        valid_contracts = []
+        for file in os.listdir(directory):
+            if file.endswith(".json"):
+                contract_id = file.replace(".json", "")
+                if is_valid_expiration(contract_id):
+                    valid_contracts.append(contract_id)
+        
+        return valid_contracts
     
     except Exception as e:
         print(f"Error checking contract expiry for {symbol}: {e}")
