@@ -45,7 +45,10 @@ def calculate_iv_rank(current_iv, historical_ivs):
     max_iv = max(historical_ivs)
     if max_iv == min_iv:
         return 0
-    return round(((current_iv - min_iv) / (max_iv - min_iv)) * 100, 2)
+    iv_rank = round(((current_iv - min_iv) / (max_iv - min_iv)) * 100, 2)
+    if iv_rank < 0:
+        iv_rank = None
+    return iv_rank
 
 def calculate_iv_percentile(current_iv, historical_ivs):
     """Calculate IV percentile - percentage of days with IV below current IV"""
