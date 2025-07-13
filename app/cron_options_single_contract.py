@@ -48,7 +48,7 @@ async def save_json(data, symbol, contract_id):
 
 def safe_round(value):
     try:
-        return round(float(value), 2)
+        return round(float(value), 4)
     except (ValueError, TypeError):
         return value
 
@@ -172,50 +172,49 @@ async def get_single_contract_eod_data(symbol, contract_id, semaphore):
             total_volume = sum(item.get('volume', 0) or 0 for item in history)
             total_open_interest = sum(item.get('open_interest', 0) or 0 for item in history)
             count = len(history)
-            avg_volume = int(total_volume / count) if count > 0 else 0
-            avg_open_interest = int(total_open_interest / count) if count > 0 else 0
+            #avg_volume = int(total_volume / count) if count > 0 else 0
+            #avg_open_interest = int(total_open_interest / count) if count > 0 else 0
 
             #filter out the trash
-            if avg_volume > 10 and avg_open_interest > 10:
-                res_list = []
+            res_list = []
 
-                for item in history:
-                    try:
-                        new_item = {
-                            key: safe_round(value)
-                            for key, value in item.items()
-                        }
-                        res_list.append(new_item)
-                    except:
-                        pass
+            for item in history:
+                try:
+                    new_item = {
+                        key: safe_round(value)
+                        for key, value in item.items()
+                    }
+                    res_list.append(new_item)
+                except:
+                    pass
 
-                res_list = sorted(res_list, key=lambda x: x['date'])
+            res_list = sorted(res_list, key=lambda x: x['date'])
 
-                for i in range(1, len(res_list)):
-                    try:
-                        current_open_interest = res_list[i]['open_interest']
-                        previous_open_interest = res_list[i-1]['open_interest'] or 0
-                        changes_percentage_oi = round((current_open_interest / previous_open_interest - 1) * 100, 2)
-                        res_list[i]['changeOI'] = current_open_interest - previous_open_interest
-                        res_list[i]['changesPercentageOI'] = changes_percentage_oi
-                    except:
-                        res_list[i]['changeOI'] = None
-                        res_list[i]['changesPercentageOI'] = None
+            for i in range(1, len(res_list)):
+                try:
+                    current_open_interest = res_list[i]['open_interest']
+                    previous_open_interest = res_list[i-1]['open_interest'] or 0
+                    changes_percentage_oi = round((current_open_interest / previous_open_interest - 1) * 100, 2)
+                    res_list[i]['changeOI'] = current_open_interest - previous_open_interest
+                    res_list[i]['changesPercentageOI'] = changes_percentage_oi
+                except:
+                    res_list[i]['changeOI'] = None
+                    res_list[i]['changesPercentageOI'] = None
 
-                for i in range(1, len(res_list)):
-                    try:
-                        volume = res_list[i]['volume']
-                        avg_fill = res_list[i]['mark']
-                        res_list[i]['gex'] = res_list[i]['gamma'] * res_list[i]['open_interest'] * 100
-                        res_list[i]['dex'] = res_list[i]['delta'] * res_list[i]['open_interest'] * 100
-                        res_list[i]['total_premium'] = int(avg_fill * volume * 100)
-                    except:
-                        res_list[i]['total_premium'] = 0
+            for i in range(1, len(res_list)):
+                try:
+                    volume = res_list[i]['volume']
+                    avg_fill = res_list[i]['mark']
+                    res_list[i]['gex'] = res_list[i]['gamma'] * res_list[i]['open_interest'] * 100
+                    res_list[i]['dex'] = res_list[i]['delta'] * res_list[i]['open_interest'] * 100
+                    res_list[i]['total_premium'] = int(avg_fill * volume * 100)
+                except:
+                    res_list[i]['total_premium'] = 0
 
-                data = {'expiration': key_data.get('expiration'), 'strike': key_data.get('strike'), 'optionType': key_data.get('type'), 'history': res_list}
+            data = {'expiration': key_data.get('expiration'), 'strike': key_data.get('strike'), 'optionType': key_data.get('type'), 'history': res_list}
 
-                if data:
-                    await save_json(data, symbol, contract_id)
+            if data:
+                await save_json(data, symbol, contract_id)
 
         except Exception as e:
             print(f"Error fetching data for {contract_id}: {e}")
@@ -394,7 +393,7 @@ def get_tickers_from_directory(directory: str):
         return []
 
 async def main():
-    total_symbols = get_total_symbols() #get_tickers_from_directory(directory_path)
+    total_symbols = ['GME'] #get_total_symbols() #get_tickers_from_directory(directory_path)
     
     for symbol in tqdm(total_symbols):
         await process_symbol(symbol)
