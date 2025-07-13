@@ -362,8 +362,7 @@ def compute_option_chain_statistics(symbol):
         except:
             pass
 
-    iv_30d = statistics.median(iv_within_30d)
-    print(f"Median avgIV (30d): {iv_30d}")
+    iv_30d = round(statistics.median(iv_within_30d),2)
 
     iv_rank       = calculate_iv_rank(iv_30d/100, historical_ivs)
     iv_percentile = calculate_iv_percentile(iv_30d/100, historical_ivs)
@@ -486,7 +485,7 @@ def process_symbols_concurrent(symbols, max_workers=None):
 
 if __name__ == "__main__":
     symbols = load_symbol_list()
-    symbols = ['GME']  # override for testing
+    #symbols = ['TSLA']  # override for testing
     
     print(f"Processing {len(symbols)} symbols...")
     
