@@ -7,6 +7,7 @@ import os
 import statistics
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
+import math
 
 today = date.today()
 
@@ -25,6 +26,16 @@ def get_contracts_from_directory(directory: str):
 
 def safe_div(a, b):
     return round(a / b, 2) if b else 0
+
+# Format dates as MM/DD/YY
+def format_date(date_str):
+    if not date_str:
+        return None
+    try:
+        date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+        return date_obj.strftime("%m/%d/%y")
+    except:
+        return date_str
 
 def calculate_iv_rank(current_iv, historical_ivs):
     """Calculate IV rank - percentage of days in the past year where IV was lower than current IV"""
@@ -53,18 +64,47 @@ def find_iv_extremes(historical_ivs):
     iv_high = max(historical_ivs, key=lambda x: x['iv'])
     iv_low = min(historical_ivs, key=lambda x: x['iv'])
     
+    
     return (
         round(iv_high['iv'] * 100, 2), 
-        iv_high['date'],
+        format_date(iv_high['date']),
         round(iv_low['iv'] * 100, 2), 
-        iv_low['date']
+        format_date(iv_low['date'])
     )
 
 def calculate_historical_volatility(symbol, lookback_days=252):
-    """Calculate historical volatility from underlying price data"""
-    # This would need price data - placeholder for now
-    # In practice, you'd calculate from daily price changes
-    return 70.09  # Placeholder - replace with actual calculation
+    path = os.path.join("json", "historical-price", "max", f"{symbol}.json")
+    try:
+        with open(path, "rb") as f:
+            prices = orjson.loads(f.read())
+    except FileNotFoundError:
+        print(f"No price file for {symbol} at {path}")
+        return 0.0
+
+    # Ensure we have enough data points
+    if len(prices) < 2:
+        return 0.0
+
+    # Take the last lookback_days + 1 records (so we get lookback_days returns)
+    slice_start = max(0, len(prices) - (lookback_days + 1))
+    window = prices[slice_start:]
+
+    # Compute log returns of 'close'
+    log_returns = []
+    for prev, curr in zip(window, window[1:]):
+        p0 = prev.get("close")
+        p1 = curr.get("close")
+        if p0 and p1 and p0 > 0:
+            log_returns.append(math.log(p1 / p0))
+    if len(log_returns) < 2:
+        return 0.0
+
+    # Daily volatility = stdev of log returns
+    daily_vol = statistics.stdev(log_returns)
+
+    # Annualize (√252 trading days) and convert to percentage
+    annual_vol_pct = daily_vol * math.sqrt(252) * 100
+    return round(annual_vol_pct, 2)
 
 def get_sentiment_from_pc_ratio(pc_ratio):
     """Determine market sentiment based on put/call ratio"""
@@ -197,6 +237,7 @@ def compute_option_chain_statistics(symbol):
             if exp_date < today:
                 continue
             
+
             history = data.get("history", [])
             if not history:
                 continue
@@ -306,8 +347,7 @@ def compute_option_chain_statistics(symbol):
     # Return comprehensive statistics matching the screenshot
     return {
         "overview": {
-            "symbol": symbol,
-            "date": today.strftime("%Y-%m-%d"),
+            "date": today.strftime("%B %d, %Y"),
             "currentIV": current_iv,
             "ivRank": iv_rank,
             "totalVolume": int(total_volume),
@@ -353,7 +393,7 @@ def compute_option_chain_statistics(symbol):
             "avgDaily": int(avg_daily_volume),
             "todayVsAvg": volume_percentage
         },
-        "expirations": expiration_data
+        "table": expiration_data
     }
 
 

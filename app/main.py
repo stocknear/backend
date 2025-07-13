@@ -2772,7 +2772,7 @@ async def get_options_chain(data:TickerData, api_key: str = Security(get_api_key
         with open(f"json/options-chain-statistics/{ticker}.json", 'rb') as file:
             res_list = orjson.loads(file.read())
     except:
-        res_list = []
+        res_list = {}
 
     data = orjson.dumps(res_list)
     compressed_data = gzip.compress(data)
