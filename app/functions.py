@@ -1545,27 +1545,30 @@ async def get_market_news() -> list[dict]:
 @function_tool
 async def get_market_flow() -> Dict[str, Any]:
     """
-    Retrieves the current market flow option sentiment of the S&P 500.
+    Retrieves the current options market flow sentiment data for the S&P 500.
+
+    Reads precomputed data from `json/market-flow/data.json` and filters it to include
+    only relevant entries from the market tide.
 
     Returns:
-        Dict[str, Any]: A dictionary containing:
-            - "marketFlow": a list of market tide entries (only those with a 'close' value).
-            - "topPosNetPremium": a list of top tickers by net premium.
+        Dict[str, Any]: A dictionary with:
+            - "marketTide": a list of time-series entries showing net call/put premium, 
+              call/put volume, and net volume at each timestamp.  
+              Only entries that contain a 'close' key are included.
+            - "overview": aggregated metrics including total put/call volume and open interest, 
+              put/call ratios, averages over the past 30 days, and the reference date.
+            
+        If an error occurs, returns a dictionary with an "error" key and message.
     """
-    market_flow_data = []
-    res_dict: Dict[str, Any] = {}
     try:
-        with open("json/market-flow/overview.json", "rb") as file:
+        with open("json/market-flow/data.json", "rb") as file:
             data = orjson.loads(file.read())
-            for item in data["marketTide"]:
-                try:
-                    if item.get("close"):
-                        market_flow_data.append(item)
-                except:
-                    pass
-            res_dict["marketFlow"] = market_flow_data
-            res_dict["topPosNetPremium"] = data.get("topPosNetPremium", [])
-            return res_dict
+            market_tide = []
+            for item in data['marketTide']:
+                if item.get('close'):
+                    market_tide.append(item)
+            data['marketTide'] = market_tide
+            return data
     except Exception as e:
         return {"error": f"Error processing market flow data: {str(e)}"}
 
@@ -2467,5 +2470,5 @@ async def get_ticker_earnings_call_transcripts(
 
 
 #Testing purposes
-#data = asyncio.run(get_ticker_options_overview_data(['GME']))
+#data = asyncio.run(get_market_flow())
 #print(data)
