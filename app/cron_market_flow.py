@@ -55,8 +55,6 @@ def add_close_to_data(price_list, data):
     return data
 
 
-
-
 async def get_stock_chart_data(ticker):
     start_date_1d, end_date_1d = GetStartEndDate().run()
     start_date = start_date_1d.strftime("%Y-%m-%d")
@@ -72,8 +70,6 @@ async def get_stock_chart_data(ticker):
                 return data
             else:
                 return []
-
-
 
 
 def get_sector_data(sector_ticker,interval_1m=True):
@@ -204,86 +200,83 @@ def get_sector_data(sector_ticker,interval_1m=True):
     return data
 
 
-def get_top_tickers(sector_ticker):
+def get_overview_data(sector_ticker):
+    """
+    Collect overview data for tickers in holdings with put/call size, open interest, and ratios
+    Returns summed results for all tickers
+    """
+    # Load the options flow data
+    with open("json/options-flow/feed/data.json", "r") as file:
+        all_data = orjson.loads(file.read())
+    
+    # Load ETF holdings data
     with open(f"json/etf/holding/{sector_ticker}.json", "r") as file:
         holdings_data = orjson.loads(file.read())
-        # Build a dictionary mapping ticker symbols to their weightPercentage.
-        data = [item['symbol'] for item in holdings_data['holdings']]
-
-    res_list = []
-    for symbol in data:
-        try:
-            with open(f"json/options-stats/companies/{symbol}.json","r") as file:
-                stats_data = orjson.loads(file.read())
-            
-            new_item = {key: safe_round(value) for key, value in stats_data.items()}
-            
-            with open(f"json/quote/{symbol}.json") as file:
-                quote_data = orjson.loads(file.read())
-                new_item['symbol'] = symbol
-                new_item['name'] = quote_data['name']
-                new_item['price'] = round(float(quote_data['price']), 2)
-                new_item['changesPercentage'] = round(float(quote_data['changesPercentage']), 2)
+        ticker_weights = {item['symbol']: item['weightPercentage'] for item in holdings_data['holdings']}
+    
+    # Initialize total aggregation variables
+    total_put_size = 0
+    total_call_size = 0
+    total_put_oi = 0
+    total_call_oi = 0
+    
+    # Process each ticker in holdings
+    for ticker in tqdm(ticker_weights.keys(), desc="Processing overview data"):
+        # Filter data for the current ticker
+        ticker_data = [item for item in all_data if item.get('ticker') == ticker]
+        
+        if not ticker_data:
+            continue
+        
+        # Aggregate data for the ticker
+        for item in ticker_data:
+            try:
+                volume = int(item.get("volume", 0))
+                open_interest = int(item.get("open_interest", 0))
+                put_call = item.get("put_call", "")
                 
-            if new_item['net_premium']:
-                res_list.append(new_item)
-        except:
-            pass
-
-    # Add rank to each item
-    res_list = [item for item in res_list if 'net_call_premium' in item and 'net_put_premium' in item]
-    res_list = sorted(res_list, key=lambda item: item['net_premium'], reverse=True)
-
-    for rank, item in enumerate(res_list, 1):
-        item['rank'] = rank
-
-    return res_list
-
+                if put_call == "Calls":
+                    total_call_size += volume
+                    total_call_oi += open_interest
+                elif put_call == "Puts":
+                    total_put_size += volume
+                    total_put_oi += open_interest
+                    
+            except Exception as e:
+                print(f"Error processing item for ticker {ticker}: {e}")
+                continue
+    
+    # Calculate put/call ratios for the totals
+    put_call_size_ratio = total_put_size / total_call_size if total_call_size > 0 else 0
+    put_call_oi_ratio = total_put_oi / total_call_oi if total_call_oi > 0 else 0
+    
+    # Return summed overview data
+    overview_data = {
+        'putVol': total_put_size,
+        'callVol': total_call_size,
+        'putOI': total_put_oi,
+        'callOI': total_call_oi,
+        'putCallVol': round(put_call_size_ratio, 4),
+        'putCallOI': round(put_call_oi_ratio, 4),
+    }
+    
+    return overview_data
 
 
 def get_market_flow():
     market_tide = get_sector_data(sector_ticker="SPY")
-    top_pos_tickers = get_top_tickers(sector_ticker="SPY")
-    #top_neg_tickers = sorted(get_top_tickers(sector_ticker="SPY"), key=lambda item: item['net_premium'])
-    #for rank, item in enumerate(top_neg_tickers, 1):
-    #    item['rank'] = rank
-
-    data = {'marketTide': market_tide, 'topPosNetPremium': top_pos_tickers[:20]}
-    if data:
-        save_json(data, 'overview')
-
-
-def get_sector_flow():
-    sector_dict = {}
-    top_pos_tickers_dict = {}
-
-    for sector_ticker in ["XLB", "XLC", "XLY", "XLP", "XLE", "XLF", "XLV", "XLI", "XLRE", "XLK", "XLU"]:
-        sector_data = get_sector_data(sector_ticker=sector_ticker)  
-        top_pos_tickers = get_top_tickers(sector_ticker=sector_ticker)
-        #top_neg_tickers = sorted(get_top_tickers(sector_ticker=sector_ticker), key=lambda item: item['net_premium'])
-
+    overview = get_overview_data(sector_ticker="SPY")
     
-        sector_dict[sector_ticker] = sector_data
-        top_pos_tickers_dict[sector_ticker] = top_pos_tickers[:20]
-        #top_neg_tickers_dict[sector_ticker] = top_neg_tickers[:5]
-
-
+    print(overview)
     data = {
-        'sectorFlow': sector_dict,
-        'topPosNetPremium': top_pos_tickers_dict,
+        'marketTide': market_tide, 
+        'overview': overview
     }
-
-    if data:
-        save_json(data, 'sector')
-
-
-def main():
-
-    get_market_flow()
-    get_sector_flow()
-        
     
+    if data:
+        save_json(data, 'data')
+
     
 
 if __name__ == '__main__':
-    main()
+    get_market_flow()
