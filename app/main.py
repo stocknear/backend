@@ -2622,37 +2622,56 @@ async def get_data(data:GreekExposureData, api_key: str = Security(get_api_key))
 
 
 @app.post("/options-oi")
-async def get_data(data:ParamsData, api_key: str = Security(get_api_key)):
+async def get_data(data: ParamsData, api_key: str = Security(get_api_key)):
     ticker = data.params.upper()
     category = data.category.lower()
-
     cache_key = f"options-oi-{ticker}-{category}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
         return StreamingResponse(
-        io.BytesIO(cached_result),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"})
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
     try:
         with open(f"json/oi/{category}/{ticker}.json", 'rb') as file:
             data = orjson.loads(file.read())
+            
             if category == 'strike':
-                val_sums = [item[f"call_oi"] + item[f"put_oi"] for item in data]
-                threshold = np.percentile(val_sums, 85)
-                data = [item for item in data if (item[f"call_oi"] + item[f"put_oi"]) >= threshold]     
+                # Collect all items across all expiration dates for threshold calculation
+                all_items = []
+                for expiration_date, items in data.items():
+                    all_items.extend(items)
+                
+                # Calculate threshold based on combined call + put OI
+                val_sums = [item["call_oi"] + item["put_oi"] for item in all_items]
+                threshold = np.percentile(val_sums, 0.05)
+                
+                # Filter each expiration date's data based on threshold
+                filtered_data = {}
+                for expiration_date, items in data.items():
+                    filtered_items = [
+                        item for item in items 
+                        if (item["call_oi"] + item["put_oi"]) >= threshold
+                    ]
+                    # Only include expiration dates that have items after filtering
+                    if filtered_items:
+                        filtered_data[expiration_date] = filtered_items
+                
+                data = filtered_data
+                
     except:
-        data = []
+        data = {}
+        
     data = orjson.dumps(data)
-
     compressed_data = gzip.compress(data)
     redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 3600*60)
+    redis_client.expire(cache_key, 60*15)
     return StreamingResponse(
         io.BytesIO(compressed_data),
         media_type="application/json",
         headers={"Content-Encoding": "gzip"}
     )
-
 
 
 @app.post("/raw-options-flow-ticker")

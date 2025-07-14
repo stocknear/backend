@@ -9,18 +9,8 @@ from collections import defaultdict
 from dotenv import load_dotenv
 from concurrent.futures import ThreadPoolExecutor
 
-
-load_dotenv()
-api_key = os.getenv('INTRINIO_API_KEY')
-
-# Configure Intrinio SDK
-intrinio.ApiClient().set_api_key(api_key)
-intrinio.ApiClient().allow_retries(True)
-
-# Configuration
 MAX_CONCURRENT_REQUESTS = 100
 BATCH_SIZE = 4000
-include_related_symbols = False
 
 def save_json(data, symbol, category="strike"):
     directory_path = f"json/oi/{category}/"
@@ -47,46 +37,44 @@ def get_contracts_from_directory(symbol):
     except:
         return []
 
-async def get_single_contract_data(symbol, expiration, semaphore):
-    async with semaphore:
-        try:
-            # Use ThreadPoolExecutor to run synchronous API calls
-            loop = asyncio.get_event_loop()
-            with ThreadPoolExecutor() as pool:
-                response = await loop.run_in_executor(
-                    pool,
-                    lambda: intrinio.OptionsApi().get_options_chain_eod(symbol, expiration, include_related_symbols=include_related_symbols)
-                )
-            
-            # Process the options chain data
-            contract_data = []
-            for item in response.chain:
-                try:
-                    option_price_data = item.prices
-                    dict_data = option_price_data.__dict__
-
-                    contract_data.append({
-                        'strike': item.option.strike,
-                        'expiration': item.option.expiration,
-                        'type': item.option.type,
-                        'open_interest': dict_data.get('_open_interest', 0),
-                        'contract_code': item.option.code
-                    })
-                except Exception as e:
-                    print(f"Error processing contract item: {e}")
-            
-            return {
-                'expiration': expiration,
-                'contracts': contract_data
-            }
-        except Exception as e:
-            print(f"Error processing expiration {expiration}: {e}")
+async def get_single_contract_data(symbol, contract_id):
+    try:
+        # Fixed: Use .json extension instead of .symbol
+        with open(f"json/all-options-contracts/{symbol}/{contract_id}.json", "rb") as file:
+            contract_data = orjson.loads(file.read())
+        
+        # Get the latest data point (most recent date)
+        if not contract_data.get('history'):
+            print(f"No history data found for contract {contract_id}")
             return None
+            
+        # Get the most recent entry
+        latest_data = contract_data['history'][-1]
+        
+        # Extract the open interest from the latest data point
+        open_interest = latest_data.get('open_interest', 0.0)
+        
+        # Create the contract info
+        contract_info = {
+            'strike': contract_data.get('strike'),
+            'expiration': contract_data.get('expiration'),
+            'type': contract_data.get('optionType'),  # Fixed: use 'optionType' from your data
+            'open_interest': open_interest,
+            'contract_code': contract_id
+        }
+        
+        return {
+            'expiration': contract_data.get('expiration'),
+            'contracts': [contract_info]  # Wrap in list for consistency
+        }
+    except Exception as e:
+        print(f"Error processing contract {contract_id}: {e}")
+        return None
 
-async def process_batch(symbol, batch, semaphore, pbar):
+async def process_batch(symbol, batch, pbar):
     symbol = symbol.replace("^","") #for index symbols
 
-    tasks = [get_single_contract_data(symbol, contract, semaphore) for contract in batch]
+    tasks = [get_single_contract_data(symbol, contract) for contract in batch]
     results = []
     
     for task in asyncio.as_completed(tasks):
@@ -108,61 +96,83 @@ async def process_contracts(symbol, contract_list):
             start_idx = batch_num * BATCH_SIZE
             batch = contract_list[start_idx:start_idx + BATCH_SIZE]
             
-            batch_results = await process_batch(symbol, batch, semaphore, pbar)
+            batch_results = await process_batch(symbol, batch, pbar)
             results.extend(batch_results)
                     
     return results
 
 def aggregate_open_interest(symbol, results):
-    strike_data = defaultdict(lambda: {'call_open_interest': 0, 'put_open_interest': 0})
-    expiration_data = defaultdict(lambda: {'call_open_interest': 0, 'put_open_interest': 0})
+    # Group by expiration date, similar to get_strike_data pattern
+    data_by_expiry = defaultdict(lambda: defaultdict(lambda: {
+        "strike": 0,
+        "call_oi": 0,
+        "put_oi": 0,
+    }))
+    
+    expiration_data = defaultdict(lambda: {'call_oi': 0, 'put_oi': 0})
     
     for result in results:
         if not result or 'contracts' not in result:
             continue
         
+        expiration = result['expiration']
+        
         for contract in result['contracts']:
             try:
-                strike = contract['strike']
+                strike = float(contract['strike'])
                 option_type = contract['type']
-                open_interest = contract['open_interest']
-                expiration = contract['expiration']
+                open_interest = contract['open_interest'] or 0
 
-                if option_type == 'call':
-                    strike_data[strike]['call_open_interest'] += open_interest
-                    expiration_data[expiration]['call_open_interest'] += open_interest
-                elif option_type == 'put':
-                    strike_data[strike]['put_open_interest'] += open_interest
-                    expiration_data[expiration]['put_open_interest'] += open_interest
-            except:
-                pass
+                # Aggregate by strike for each expiration
+                slot = data_by_expiry[expiration][strike]
+                slot["strike"] = strike
                 
-    # Convert to sortable list format
-    strike_data = sorted(strike_data.items(), key=lambda x: x[0], reverse=True)
-    strike_data = [
+                if option_type == 'call':
+                    slot["call_oi"] += open_interest
+                    expiration_data[expiration]['call_oi'] += open_interest
+                elif option_type == 'put':
+                    slot["put_oi"] += open_interest
+                    expiration_data[expiration]['put_oi'] += open_interest
+                    
+            except Exception as e:
+                print(f"Error processing contract: {e}")
+                continue
+    
+    # Convert strike data to the format similar to get_strike_data
+    strike_result = {}
+    for expiry, strikes in data_by_expiry.items():
+        strike_list = []
+        for strike, stats in sorted(strikes.items(), key=lambda x: x[0]):
+            # Only include strikes with non-zero open interest
+            if stats["call_oi"] + stats["put_oi"] != 0:
+                strike_list.append({
+                    "strike": stats["strike"],
+                    "call_oi": stats["call_oi"],
+                    "put_oi": stats["put_oi"]
+                })
+        
+        # Only include expiration dates that have data
+        if strike_list:
+            strike_result[expiry] = strike_list
+    
+    # Convert expiration data to list format
+    expiration_list = [
         {
-            "call_oi": data[1]['call_open_interest'],
-            "put_oi": data[1]['put_open_interest'],
-            "strike": data[0],
+            "call_oi": data['call_oi'],
+            "put_oi": data['put_oi'],
+            "expiry": expiry,
         }
-        for data in strike_data
-    ]
-
-    expiration_data = sorted(expiration_data.items(), key=lambda x: x[0])
-    expiration_data = [
-        {
-            "call_oi": data[1]['call_open_interest'],
-            "put_oi": data[1]['put_open_interest'],
-            "expiry": data[0],
-        }
-        for data in expiration_data
+        for expiry, data in sorted(expiration_data.items())
+        if data['call_oi'] + data['put_oi'] != 0  # Filter out empty entries
     ]
 
     # Save aggregated data
-    if strike_data:
-        save_json(strike_data, symbol, 'strike')
-    if expiration_data:
-        save_json(expiration_data, symbol, 'expiry')
+    if strike_result:
+        save_json(strike_result, symbol, 'strike')
+        print(f"Saved strike data for {symbol}: {len(strike_result)} expirations")
+    if expiration_list:
+        save_json(expiration_list, symbol, 'expiry')
+        print(f"Saved expiry data for {symbol}: {len(expiration_list)} expirations")
 
 
 async def main():
@@ -179,8 +189,11 @@ async def main():
                 print(f"No contracts found for {symbol}")
                 continue
 
+            print(f"Found {len(contract_list)} contracts for {symbol}")
+
             # Process contracts
             results = await process_contracts(symbol, contract_list)
+            
             # Aggregate and save open interest data
             aggregate_open_interest(symbol, results)
 
