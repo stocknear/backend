@@ -95,15 +95,16 @@ def run_options_jobs():
     week = now.weekday()
     if week <= 5:
         run_command(["python3", "cron_options_single_contract.py"])
+        run_command(["python3", "cron_options_max_pain.py"])
         run_command(["python3", "cron_options_chain_statistics.py"])
         run_command(["python3", "cron_options_historical_volume.py"])
         run_command(["python3", "cron_options_hottest_contracts.py"])
+        run_command(["python3", "cron_options_oi.py"])
         run_command(["python3", "cron_options_screener.py"])
 
         run_command(["python3", "cron_implied_volatility.py"])
         run_command(["python3", "cron_options_gex_dex.py"])
         run_command(["python3", "cron_options_contract_lookup.py"])
-        run_command(["python3", "cron_options_max_pain.py"])
 
 def run_historical_employees():
     now = datetime.now(ny_tz)
@@ -366,7 +367,6 @@ def run_weekly_and_daily_jobs():
     if weekday == 5:
         run_command(["python3", "cron_ai_score.py"])
         run_command(["python3", "cron_price_analysis.py"])
-        run_command(["python3", "cron_options_oi.py"])
         run_command(["python3","cron_etf_sector.py"])
     
     run_command(["python3", "cron_stockdeck.py"])

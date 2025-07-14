@@ -256,8 +256,8 @@ def get_overview_data(sector_ticker):
         'callVol': total_call_size,
         'putOI': total_put_oi,
         'callOI': total_call_oi,
-        'pcVol': round(put_call_size_ratio, 4),
-        'pcOI': round(put_call_oi_ratio, 4),
+        'pcVol': round(put_call_size_ratio, 2),
+        'pcOI': round(put_call_oi_ratio, 2),
         'date': datetime.today().strftime("%Y-%m-%d"),
     }
     
