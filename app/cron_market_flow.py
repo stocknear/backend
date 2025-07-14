@@ -256,23 +256,103 @@ def get_overview_data(sector_ticker):
         'callVol': total_call_size,
         'putOI': total_put_oi,
         'callOI': total_call_oi,
-        'putCallVol': round(put_call_size_ratio, 4),
-        'putCallOI': round(put_call_oi_ratio, 4),
+        'pcVol': round(put_call_size_ratio, 4),
+        'pcOI': round(put_call_oi_ratio, 4),
+        'date': datetime.today().strftime("%Y-%m-%d"),
     }
     
     return overview_data
 
 
+def get_30_day_average_data(sector_ticker):
+    """
+    Calculate 30-day average for total size (put+call) and open interest for holdings tickers
+    """
+    # Load ETF holdings data
+    with open(f"json/etf/holding/{sector_ticker}.json", "r") as file:
+        holdings_data = orjson.loads(file.read())
+        ticker_weights = {item['symbol']: item['weightPercentage'] for item in holdings_data['holdings']}
+    
+    # Generate list of dates for the last 30 days
+    end_date = datetime.now()
+    date_list = []
+    for i in range(30):
+        date = end_date - timedelta(days=i)
+        date_str = date.strftime("%Y-%m-%d")
+        date_list.append(date_str)
+    
+    daily_totals = []
+    
+    # Process each date
+    for date_str in tqdm(date_list, desc="Processing 30-day historical data"):
+        file_path = f"json/options-historical-data/flow-data/{date_str}.json"
+        
+        try:
+            with open(file_path, "r") as file:
+                daily_data = orjson.loads(file.read())
+        except FileNotFoundError:
+            print(f"File not found: {file_path}")
+            continue
+        except Exception as e:
+            print(f"Error reading file {file_path}: {e}")
+            continue
+        
+        # Initialize daily aggregation variables
+        daily_total_size = 0
+        daily_total_oi = 0
+        
+        # Process each ticker in holdings for this date
+        for ticker in ticker_weights.keys():
+            # Filter data for the current ticker
+            ticker_data = [item for item in daily_data if item.get('ticker') == ticker]
+            
+            # Aggregate data for the ticker
+            for item in ticker_data:
+                try:
+                    volume = int(item.get("volume", 0))
+                    open_interest = int(item.get("open_interest", 0))
+                    
+                    daily_total_size += volume
+                    daily_total_oi += open_interest
+                    
+                except Exception as e:
+                    print(f"Error processing item for ticker {ticker} on {date_str}: {e}")
+                    continue
+        
+        if daily_total_size > 0 or daily_total_oi > 0:
+            daily_totals.append({
+                'date': date_str,
+                'total_size': daily_total_size,
+                'total_oi': daily_total_oi
+            })
+    
+    # Calculate 30-day averages
+    if daily_totals:
+        avg_total_size = sum(day['total_size'] for day in daily_totals) / len(daily_totals)
+        avg_total_oi = sum(day['total_oi'] for day in daily_totals) / len(daily_totals)
+        
+        avg_data = {
+            'avg30Vol': round(avg_total_size, 0),
+            'avg30OI': round(avg_total_oi, 0),
+        }
+    else:
+        avg_data = {
+            'avg30Vol': 0,
+            'avg30OI': 0,
+        }
+    
+    return avg_data
+
+
 def get_market_flow():
     market_tide = get_sector_data(sector_ticker="SPY")
     overview = get_overview_data(sector_ticker="SPY")
-    
-    print(overview)
+    avg_30_day = get_30_day_average_data(sector_ticker="SPY")
     data = {
         'marketTide': market_tide, 
-        'overview': overview
+        'overview': {**overview,**avg_30_day},
     }
-    
+    print(data['overview'])
     if data:
         save_json(data, 'data')
 
