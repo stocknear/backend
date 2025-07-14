@@ -1764,32 +1764,29 @@ async def get_ticker_shareholders(tickers: List[str]) -> Dict[str, List[Dict[str
 
 
 @function_tool
-async def get_ticker_options_data(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
+async def get_ticker_options_overview_data(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
     """
-    Fetch comprehensive options statistics for the most recent trading day for the specified stock tickers. 
-    Includes volume, open interest, premiums, GEX/DEX, implied volatility metrics, and price changes.
+    Fetch comprehensive options statistics for the most recent trading day for the specified stock tickers.
+    Includes overview, implied volatility, open interest, volume, and expiration table.
 
     Args:
         tickers (List[str]): List of stock ticker symbols (e.g., ["AAPL", "GOOGL"]).
 
     Returns:
-        Dict[str, Dict[str, Any]]: A dictionary mapping each ticker to its latest options data entry,
-        filtered to exclude 'price' and 'changesPercentage' fields.
+        Dict[str, Dict[str, Any]]: A dictionary mapping each ticker to its options data.
     """
-    base_dir = BASE_DIR / "options-historical-data/companies"
+    base_dir = BASE_DIR / "options-chain-statistics"
     
     tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
     results = await asyncio.gather(*tasks)
-    
-    filtered_results: Dict[str, Dict[str, Any]] = {}
+
+    final_results: Dict[str, Dict[str, Any]] = {}
     for ticker, data in zip(tickers, results):
-        if data is not None and data:
-            # Filter out 'price' and 'changesPercentage' fields, then take the most recent entry
-            latest_entry = data[0]
-            filtered_entry = {k: v for k, v in latest_entry.items() if k not in ['price', 'changesPercentage']}
-            filtered_results[ticker] = filtered_entry
-                
-    return filtered_results
+        if data:
+            # Assuming data is already a dict in the expected format (like your example JSON)
+            final_results[ticker] = data
+
+    return final_results
 
 
 @function_tool
@@ -1841,7 +1838,7 @@ async def get_ticker_open_interest_by_strike_and_expiry(tickers: List[str]) -> D
         for ticker, result in zip(tickers, results):
             if not result:
                 continue
-
+            
             # Filter only valid expiry dates
             filtered_result = [
                 item for item in result 
@@ -2470,5 +2467,5 @@ async def get_ticker_earnings_call_transcripts(
 
 
 #Testing purposes
-#data = asyncio.run(get_ticker_earnings_call_transcripts(['AAPL'],2024,2))
+#data = asyncio.run(get_ticker_options_overview_data(['GME']))
 #print(data)
