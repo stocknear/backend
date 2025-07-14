@@ -129,26 +129,29 @@ def calculate_historical_iv_stats(symbol, lookback_days=365):
         try:
             with open(path, "rb") as f:
                 data = orjson.loads(f.read())
-            for entry in data.get("history", []):
-                ds = entry.get("date")
-                if not ds:
-                    continue
-                d = datetime.strptime(ds, "%Y-%m-%d").date()
-                if d < cutoff:
-                    continue
-                iv = entry.get("implied_volatility", None)
-                if iv:
-                    ivs_by_date[ds].append(iv)
+
+            history = data.get('history')
+            for entry in history:
+                try:
+                    date = entry.get("date")
+                    d = datetime.strptime(date, "%Y-%m-%d").date()
+                    #if d <= cutoff:
+                    #    continue
+                    iv = entry.get("implied_volatility", None) or None
+                    if iv and iv >= 0:
+                        ivs_by_date[date].append(iv)
+                except Exception as e:
+                    print(e)
         except Exception:
             continue
     # Now build sorted lists
     historical_ivs       = []
     historical_with_dates = []
-    for ds, ivs in sorted(ivs_by_date.items()):
-        avg_iv = sum(ivs) / len(ivs)
+    for date, ivs in sorted(ivs_by_date.items()):
+        avg_iv = statistics.mean(ivs)
         historical_ivs.append(avg_iv)
         historical_with_dates.append({
-            "date": ds,
+            "date": date,
             "iv":   avg_iv
         })
 
@@ -255,17 +258,13 @@ def compute_option_chain_statistics(symbol):
             oi = latest.get("open_interest", 0) or 0
             iv = latest.get("implied_volatility", 0) or 0
             
+            if iv >= 0:
+                by_exp[exp_str]["iv_all"].append(iv)
+
             # Track overall volume and OI
             total_volume += volume
             total_oi += oi
             
-            for item in history:
-                try:
-                    iv = item.get("implied_volatility", None)
-                    if iv:
-                        by_exp[exp_str]["iv_all"].append(iv)
-                except:
-                    pass
 
             
             if opt_type == "call":
