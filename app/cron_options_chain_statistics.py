@@ -135,8 +135,8 @@ def calculate_historical_iv_stats(symbol, lookback_days=365):
                 try:
                     date = entry.get("date")
                     d = datetime.strptime(date, "%Y-%m-%d").date()
-                    #if d <= cutoff:
-                    #    continue
+                    if d <= cutoff:
+                        continue
                     iv = entry.get("implied_volatility", None) or None
                     if iv and iv >= 0:
                         ivs_by_date[date].append(iv)
@@ -220,6 +220,14 @@ def compute_option_chain_statistics(symbol):
     base_dir = os.path.join("json/all-options-contracts", symbol)
     contract_files = get_contracts_from_directory(base_dir)
     
+    if len(contract_files) == 0:
+        try:
+            os.remove(f"json/options-chain-statistics/{symbol}.json")
+            print(f'Deleted file for {symbol}')
+        except:
+            pass
+        return {}
+
     by_exp = defaultdict(lambda: {
         "volume_calls": 0,
         "volume_puts": 0,
