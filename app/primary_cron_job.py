@@ -73,7 +73,6 @@ def run_market_flow():
     hour = now.hour
     if week <= 4 and 8 <= hour < 17:
         run_command(["python3", "cron_market_flow.py"])
-        run_command(["python3", "cron_unusual_activity.py"])
 
 
 def run_dark_pool_level():
@@ -300,6 +299,15 @@ def run_tracker():
 
         #update screener for moneyness
         run_command(["python3", "cron_options_screener.py","update"])
+
+
+    now = datetime.now(ny_tz)
+    week = now.weekday()
+    current_time = now.time()
+    hour = now.hour
+    if week <= 4 and 8 <= hour < 17:
+        run_command(["python3", "cron_unusual_activity.py"])
+
 
 
 def run_list():
