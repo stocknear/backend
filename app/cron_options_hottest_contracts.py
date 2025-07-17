@@ -156,11 +156,11 @@ def get_hottest_contracts(base_dir="json/all-options-contracts"):
 
         # Sort and select top 10 for volume
         top_by_volume.sort(key=lambda x: x[0], reverse=True)
-        top_volume_contracts = [contract_info for (pv, contract_info) in top_by_volume[:10]]
+        top_volume_contracts = [contract_info for (pv, contract_info) in top_by_volume[:20]]
 
         # Sort and select top 10 for open interest
         top_by_open_interest.sort(key=lambda x: x[0], reverse=True)
-        top_oi_contracts = [contract_info for (loi, contract_info) in top_by_open_interest[:10]]
+        top_oi_contracts = [contract_info for (loi, contract_info) in top_by_open_interest[:20]]
 
         prepare_data(top_volume_contracts, top_oi_contracts, symbol)
 
