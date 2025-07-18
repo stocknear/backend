@@ -157,7 +157,7 @@ with db_connection(STOCK_DB) as cursor:
     'name': row[1],
     'type': row[2].capitalize(),
     'marketCap': row[3],
-  } for row in raw_data if row[3] is not None]
+  } for row in raw_data if row[0] is not None and row[1] is not None and row[3] is not None]
 #------End Stocks DB------------#
 
 #------Start ETF DB------------#
@@ -1780,7 +1780,7 @@ async def get_stock(
     # Filter by name or symbol
     filtered = [
         item for item in searchbar_data
-        if pattern.search(item.get("name", "")) or pattern.search(item.get("symbol", ""))
+        if pattern.search(item.get("name") or "") or pattern.search(item.get("symbol") or "")
     ]
 
     # Score + sort: exact symbol hits first, then by descending marketCap
