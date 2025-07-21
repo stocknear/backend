@@ -121,6 +121,7 @@ def run_congress_trading():
     if week <= 4:
         run_command(["python3", "cron_congress_trading.py"])
         run_command(["python3", "restart_json.py"])
+        run_command(["python3", "cron_average_value.py"])
 
 def run_dividend_list():
     week = datetime.today().weekday()
