@@ -2675,7 +2675,7 @@ async def get_data(data: ParamsData, api_key: str = Security(get_api_key)):
 
 
 @app.post("/raw-options-flow-ticker")
-@limiter.limit("500/minute")
+@limiter.limit("2/minute")
 async def get_raw_options_flow_ticker(data:OptionsFlowData, request: Request, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     start_date = data.start_date
