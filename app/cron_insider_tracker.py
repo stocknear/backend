@@ -63,56 +63,12 @@ def format_name(name):
     return " ".join(formatted_parts)
 
 
-def aggregate_transactions(transactions, min_value=1E6):
-
-    # Sort transactions by the keys we want to group by
-    sorted_transactions = sorted(
-        transactions,
-        key=lambda x: (x['reportingName'], x['symbol'], x['transactionType'])
-    )
-    
-    # Group by reportingName, symbol, and transactionType
-    result = []
-    for key, group in groupby(
-        sorted_transactions,
-        key=lambda x: (x['reportingName'], x['symbol'], x['transactionType'])
-    ):
-        group_list = list(group)
-        
-        # Calculate average value
-        avg_value = sum(t['value'] for t in group_list) / len(group_list)
-        
-        # Calculate the total number of shares in the group
-        total_shares = sum(t['shares'] for t in group_list)
-        
-        # Only include transactions with average value >= min_value
-        if avg_value >= min_value:
-            # Find latest filing date
-            latest_date = max(
-                #datetime.strptime(t['filingDate'], '%Y-%m-%d %H:%M:%S')
-                datetime.strptime(t['filingDate'], '%Y-%m-%d')
-                for t in group_list
-            ).strftime('%Y-%m-%d')
-            
-            # Create aggregated transaction with formatted name and total shares
-            result.append({
-                'reportingName': format_name(key[0]),
-                'symbol': key[1],
-                'transactionType': key[2],
-                'filingDate': latest_date,
-                'avgValue': avg_value,
-                'totalShares': total_shares  # Added total shares here
-            })
-    
-    # Sort the final result by filingDate
-    return sorted(result, key=lambda x: x['filingDate'], reverse=True)
-
-
-
 async def get_data(session, symbols):
     res_list = []
-    for page in range(0, 100):  # Adjust the number of pages as needed
-        url = f"https://financialmodelingprep.com/stable/insider-trading/latest?page={page}&apikey={api_key}"
+    min_value = 1E6  # Minimum value filter
+    
+    for page in range(0, 10):  # Adjust the number of pages as needed
+        url = f"https://financialmodelingprep.com/stable/insider-trading/latest?page={page}&limit=1000&apikey={api_key}"
         async with session.get(url) as response:
             try:
                 if response.status == 200:
@@ -121,20 +77,19 @@ async def get_data(session, symbols):
                     # Filter and adjust transactionType based on acquisitionOrDisposition
                     filtered_data = [
                         {
-                            "reportingName": item.get("reportingName"),
+                            "reportingName": format_name(item.get("reportingName", "")),
                             "symbol": item.get("symbol"),
                             "filingDate": item.get("filingDate"),
                             "shares": item.get("securitiesTransacted"),
-                            "value": round(item.get("securitiesTransacted",0) * item.get("price",0),2),
+                            "value": round(item.get("securitiesTransacted",0) * round(item.get("price",0),2),0),
                             "price": item.get("price",0),
                             "transactionType": item.get("transactionType",None),
-                            
-                            #"transactionType": "Buy" if item.get("acquisitionOrDisposition") == "A" 
-                            #                    else "Sell" if item.get("acquisitionOrDisposition") == "D" 
-                            #                    else None,  # None if neither "A" nor "D"
                         }
                         for item in data
-                        if item.get("acquisitionOrDisposition") in ["A", "D"] and item.get('price') > 0 and item.get("securitiesTransacted") > 0  # Filter out if not "A" or "D"
+                        if (item.get("acquisitionOrDisposition") in ["A", "D"] and 
+                            item.get('price') > 0 and 
+                            item.get("securitiesTransacted") > 0 and
+                            round(item.get("securitiesTransacted",0) * round(item.get("price",0),2),0) >= min_value)  # Apply min_value filter here
                     ]
                     res_list += filtered_data
                 else:
@@ -144,11 +99,16 @@ async def get_data(session, symbols):
                 break
 
     df = pd.DataFrame(res_list)
-
-    filtered_df = df.groupby('symbol', group_keys=False).apply(remove_outliers)
-    res_list = filtered_df.to_dict('records')
-
-    res_list = aggregate_transactions(res_list)
+    
+    if not df.empty:
+        # Remove outliers but don't aggregate
+        filtered_df = df.groupby('symbol', group_keys=False).apply(remove_outliers)
+        res_list = filtered_df.to_dict('records')
+        
+        # Sort by filing date (most recent first)
+        res_list = sorted(res_list, key=lambda x: x['filingDate'], reverse=True)
+    else:
+        res_list = []
 
     new_data = []
     for item in res_list:
@@ -158,9 +118,10 @@ async def get_data(session, symbols):
                 stock_data = ujson.load(file)
                 item['name'] = stock_data['name']
                 item['marketCap'] = stock_data['marketCap']
-                item['price'] = round(stock_data['price'],2)
+                item['currentPrice'] = round(stock_data['price'],2)  # Renamed to avoid confusion with transaction price
                 item['changesPercentage'] = round(stock_data['changesPercentage'],2)
-                new_data.append({**item})
+                if item['marketCap'] > item['value']:
+                    new_data.append({**item})
         except:
             pass
 
