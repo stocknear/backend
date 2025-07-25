@@ -270,8 +270,6 @@ def get_current_username(credentials: HTTPBasicCredentials = Depends(security)):
 
 
 STOCKNEAR_API_KEY = os.getenv('STOCKNEAR_API_KEY')
-USER_API_KEY = os.getenv('USER_API_KEY')
-VALID_API_KEYS = [STOCKNEAR_API_KEY, USER_API_KEY]
 api_key_header = APIKeyHeader(name="X-API-KEY")
 
 
@@ -283,7 +281,7 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
     )
 
 async def get_api_key(api_key: str = Security(api_key_header)):
-    if api_key not in VALID_API_KEYS:
+    if api_key != STOCKNEAR_API_KEY:
         raise HTTPException(status_code=403, detail="Could not validate credentials")
 
 
@@ -2673,40 +2671,6 @@ async def get_data(data: ParamsData, api_key: str = Security(get_api_key)):
         headers={"Content-Encoding": "gzip"}
     )
 
-
-@app.post("/raw-options-flow-ticker")
-@limiter.limit("2/minute")
-async def get_raw_options_flow_ticker(data:OptionsFlowData, request: Request, api_key: str = Security(get_api_key)):
-    ticker = data.ticker.upper()
-    start_date = data.start_date
-    end_date = data.end_date
-    pagesize = data.pagesize
-    page = data.page
-    cache_key = f"raw-options-flow-{ticker}-{start_date}-{end_date}-{pagesize}-{page}"
-    #print(ticker, start_date, end_date, pagesize, page)
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return StreamingResponse(
-        io.BytesIO(cached_result),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"})
-    try:
-        data = fin.options_activity(company_tickers=ticker, date_from=start_date, date_to = end_date, page=page, pagesize=pagesize)
-        data = orjson.loads(fin.output(data))['option_activity']
-    except Exception as e:
-        print(e)
-        data = []
-
-    data = orjson.dumps(data)
-    compressed_data = gzip.compress(data)
-    redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 60)  # Set cache expiration time to 5 min
-
-    return StreamingResponse(
-        io.BytesIO(compressed_data),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"}
-    )
 
 
 @app.post("/options-flow-ticker")
