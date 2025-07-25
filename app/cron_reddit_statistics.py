@@ -123,16 +123,13 @@ def compute_daily_statistics(file_path):
 
 def compute_trending_tickers(daily_stats):
     today = datetime.now().date()
-    period_list = [2,7,30,90]
+    period_list = [2, 7, 30, 90]
     res_dict = {}
 
     for time_period in period_list:
-        res_list = []
-
         N_day_ago = today - timedelta(days=time_period)
-        
         trending = defaultdict(lambda: {'total': 0, 'PUT': 0, 'CALL': 0, 'sentiment': []})
-        
+
         for date, stats in daily_stats.items():
             if N_day_ago <= date <= today:
                 for ticker, counts in stats['ticker_mentions'].items():
@@ -140,45 +137,64 @@ def compute_trending_tickers(daily_stats):
                     trending[ticker]['PUT'] += counts['PUT']
                     trending[ticker]['CALL'] += counts['CALL']
                     trending[ticker]['sentiment'].extend(counts['sentiment'])
+
+        # Filter only symbols that exist in total_symbols
+        filtered_trending = {symbol: counts for symbol, counts in trending.items() if symbol in total_symbols}
         
-        res_list = [
-            {
-                'symbol': symbol,
-                'count': counts['total'],
-                'put': counts['PUT'],
-                'call': counts['CALL'],
-                'avgSentiment': round(sum(counts['sentiment']) / len(counts['sentiment']),2) if counts['sentiment'] else 0
-            }
-            for symbol, counts in trending.items() if symbol in total_symbols
-        ]
+        # Calculate total count for weightPercentage
+        total_count = sum(counts['total'] for counts in filtered_trending.values()) or 1  # prevent division by zero
+
+        res_list = []
+        for symbol, counts in filtered_trending.items():
+            try:
+                avg_sentiment = round(sum(counts['sentiment']) / len(counts['sentiment']), 2) if counts['sentiment'] else 0
+
+                if avg_sentiment > 0.4:
+                    sentiment = "Bullish"
+                elif avg_sentiment <= -0.1:
+                    sentiment = "Bearish"
+                else:
+                    sentiment = "Neutral"
+
+                item = {
+                    'symbol': symbol,
+                    'count': counts['total'],
+                    #'put': counts['PUT'],
+                    #'call': counts['CALL'],
+                    'sentiment': sentiment,
+                    'weightPercentage': round((counts['total'] / total_count) * 100, 2)
+                }
+
+                try:
+                    with open(f'json/quote/{symbol}.json') as f:
+                        data = json.load(f)
+                        item['name'] = data.get('name')
+                        item['price'] = round(data.get('price', 0), 2)
+                        item['changesPercentage'] = round(data.get('changesPercentage', 0), 2)
+                        item['marketCap'] = data.get('marketCap', 0)
+                except Exception as e:
+                    print(e)
+                    item['name'] = None
+                    item['price'] = None
+                    item['changesPercentage'] = None
+                    item['marketCap'] = None
+
+                if symbol in stock_symbols:
+                    item['assetType'] = 'stocks'
+                elif symbol in etf_symbols:
+                    item['assetType'] = 'etf'
+                else:
+                    item['assetType'] = ''
+
+                if item['marketCap'] > 0 and item['assetType'] != '':
+                    res_list.append(item)
+            except:
+                pass
+
         res_list.sort(key=lambda x: x['count'], reverse=True)
 
-        for item in res_list:
-            symbol = item['symbol']
-            try:
-                with open(f'json/quote/{symbol}.json') as f:
-                    data = json.load(f)
-                    name = data['name']
-                    price = round(data['price'],2)
-                    changes_percentage = round(data['changesPercentage'],2)
-            except Exception as e:
-                print(e)
-                name = None
-                price = None
-                changes_percentage = None
-
-            if symbol in stock_symbols:
-                item['assetType'] = 'stocks'
-                item['name'] = name
-                item['price'] = price
-                item['changesPercentage'] = changes_percentage
-            elif symbol in etf_symbols:
-                item['assetType'] = 'etf'
-                item['name'] = name
-                item['price'] = price
-                item['changesPercentage'] = changes_percentage
-            else:
-                item['assetType'] = ''
+        for idx, item in enumerate(res_list, start=1):
+            item['rank'] = idx
 
         if time_period == 2:
             res_dict['oneDay'] = res_list
@@ -188,6 +204,7 @@ def compute_trending_tickers(daily_stats):
             res_dict['oneMonth'] = res_list
         elif time_period == 90:
             res_dict['threeMonths'] = res_list
+
     return res_dict
 
 # Usage

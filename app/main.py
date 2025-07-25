@@ -3374,24 +3374,10 @@ async def get_reddit_tracker(api_key: str = Security(get_api_key)):
         )
 
     try:
-        with open(f"json/reddit-tracker/wallstreetbets/data.json", 'rb') as file:
-            latest_post = orjson.loads(file.read())[0:25]
-    except:
-        latest_post = []
-
-    try:
-        with open(f"json/reddit-tracker/wallstreetbets/stats.json", 'rb') as file:
-            stats = orjson.loads(file.read())
-    except:
-        stats = []
-
-    try:
         with open(f"json/reddit-tracker/wallstreetbets/trending.json", 'rb') as file:
-            trending = orjson.loads(file.read())
+            res = orjson.loads(file.read())
     except:
-        trending = {}
-
-    res = {'posts': latest_post, 'stats': stats, 'trending': trending}
+        res = {}
 
     data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
