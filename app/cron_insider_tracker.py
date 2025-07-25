@@ -80,6 +80,7 @@ async def get_data(session, symbols):
                             "reportingName": format_name(item.get("reportingName", "")),
                             "symbol": item.get("symbol"),
                             "filingDate": item.get("filingDate"),
+                            "transactionDate": item.get("transactionDate"),
                             "shares": item.get("securitiesTransacted"),
                             "value": round(item.get("securitiesTransacted",0) * round(item.get("price",0),2),0),
                             "price": item.get("price",0),
@@ -118,8 +119,8 @@ async def get_data(session, symbols):
                 stock_data = ujson.load(file)
                 item['name'] = stock_data['name']
                 item['marketCap'] = stock_data['marketCap']
-                item['currentPrice'] = round(stock_data['price'],2)  # Renamed to avoid confusion with transaction price
-                item['changesPercentage'] = round(stock_data['changesPercentage'],2)
+                #item['currentPrice'] = round(stock_data['price'],2)  # Renamed to avoid confusion with transaction price
+                #item['changesPercentage'] = round(stock_data['changesPercentage'],2)
                 if item['marketCap'] > item['value']:
                     new_data.append({**item})
         except:
