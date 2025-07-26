@@ -37,7 +37,7 @@ class ScorePredictor:
         return X #self.pca.fit_transform(X)
 
     def preprocess_test_data(self, df):
-        selected_features = [col for col in df.columns if col not in ['date','price','Target']]
+        selected_features = [col for col in df.columns if col not in ['date','price','Target','fiscalYear']]
 
         X = df[selected_features]
 
@@ -55,7 +55,6 @@ class ScorePredictor:
 
     def fine_tune_model(self, X_train, y_train):
         X_train = self.preprocess_train_data(X_train)
-        
         if self.model is None:
             self.model = load_model(self.warm_start_model_path, custom_objects={'SelfAttention': SelfAttention})
         
@@ -66,7 +65,6 @@ class ScorePredictor:
         print("Model fine-tuned (not saved).")
 
     def evaluate_model(self, df):
-
         X_test = self.preprocess_test_data(df)
         y_test = df['Target']
         

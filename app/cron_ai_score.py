@@ -285,7 +285,7 @@ async def warm_start_training(tickers, con, skip_downloading, save_data):
     print(len(df_train))
     
     predictor = ScorePredictor()
-    selected_features = [col for col in df_train if col not in ['price', 'date', 'Target']]
+    selected_features = [col for col in df_train if col not in ['price', 'date', 'Target','fiscalYear']]
     
     predictor.warm_start_training(df_train[selected_features], df_train['Target'])
     predictor.evaluate_model(df_test)
@@ -303,24 +303,22 @@ async def fine_tune_and_evaluate(ticker, con, start_date, end_date, skip_downloa
         split_size = int(len(df) * (1-test_size))
         train_data = df.iloc[:split_size]
         test_data = df.iloc[split_size:]
-        
         #selected_features = [col for col in df.columns if col not in ['date','price','Target']]
         # Fine-tune the model
         predictor = ScorePredictor()
         #predictor.fine_tune_model(train_data[selected_features], train_data['Target'])
         print(f"Evaluating fine-tuned model for {ticker}")
         data = predictor.evaluate_model(test_data)
+
         
-        if (data['precision'] >= 50 and data['accuracy'] >= 50 and
-        data['accuracy'] < 100 and data['precision'] < 100 and
-        data['f1_score'] >= 20 and data['recall_score'] >= 20 and
-        data['roc_auc_score'] >= 50) and len(data.get('backtest',[])) > 0:
+        if (data['accuracy'] < 100 and data['precision'] < 100 and
+        data['f1_score'] >= 20 and data['recall_score'] >= 20) and len(data.get('backtest',[])) > 0:
             await save_json(ticker, data)
             data['backtest'] = [
                 {'date': entry['date'], 'yTest': entry['y_test'], 'yPred': entry['y_pred'], 'score': entry['score']}
                 for entry in data['backtest']
             ]
-            #print(data)
+            print(data)
             print(f"Saved results for {ticker}")
         else:
             try:
@@ -346,13 +344,14 @@ async def run():
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
     
+
     if train_mode:
         # Warm start training
         stock_symbols = cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 300E6 AND symbol NOT LIKE '%.%'") #list(set(['CB','LOW','PFE','RTX','DIS','MS','BHP','BAC','PG','BABA','ACN','TMO','LLY','XOM','JPM','UNH','COST','HD','ASML','BRK-A','BRK-B','CAT','TT','SAP','APH','CVS','NOG','DVN','COP','OXY','MRO','MU','AVGO','INTC','LRCX','PLD','AMT','JNJ','ACN','TSM','V','ORCL','MA','BAC','BA','NFLX','ADBE','IBM','GME','NKE','ANGO','PNW','SHEL','XOM','WMT','BUD','AMZN','PEP','AMD','NVDA','AWR','TM','AAPL','GOOGL','META','MSFT','LMT','TSLA','DOV','PG','KO']))
         stock_symbols = [row[0] for row in cursor.fetchall()]
         
         #Test Mode
-        #stock_symbols = ['MCD']
+        #stock_symbols = ['TSLA','AMD','LLY']
         
         print('Training for', len(stock_symbols))
         predictor = await warm_start_training(stock_symbols, con, skip_downloading, save_data)
@@ -361,6 +360,7 @@ async def run():
         # Evaluation for all stocks
         #cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 500E6 AND symbol NOT LIKE '%.%'")
         #stock_symbols = [row[0] for row in cursor.fetchall()]
+        
         
         print(f"Total tickers for fine-tuning: {len(stock_symbols)}")
         start_date = datetime(1995, 1, 1).strftime("%Y-%m-%d")
