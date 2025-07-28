@@ -507,7 +507,7 @@ class StockDirectionPredictor:
         
         return metrics
     
-    def make_predictions(self, n_predictions: int = 60) -> Dict[str, Any]:
+    def make_predictions(self, n_predictions) -> Dict[str, Any]:
         """Make predictions for the last N available data points"""
         if self.trainer.model is None:
             raise ValueError("Model not trained yet!")
@@ -524,7 +524,7 @@ class StockDirectionPredictor:
         results = []
         
         # Sample every 30 days for backtest results
-        for i in range(0, n_predictions, 30):
+        for i in range(0, min(n_predictions, len(recent_data)), 20):
             date_used = recent_data.index[i]
             current_price = self.data.loc[date_used, 'adjClose']
             prob_up = probabilities[i][1]
