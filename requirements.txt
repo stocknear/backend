@@ -43,3 +43,7 @@ kaleido==0.2.1
 atproto
 rapidfuzz
 discord
+orjson
+aiofiles
+openai-agents
+async-openai
