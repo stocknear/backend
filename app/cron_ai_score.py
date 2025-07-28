@@ -562,7 +562,7 @@ def save_results(data: Dict, symbol: str, base_path: str = "json/ai-score/compan
 def main():
     """Main execution function"""
 
-    total_symbols = ['AAME'] #load_symbol_list()
+    total_symbols = load_symbol_list()
 
     for symbol in tqdm(total_symbols):
         time_period = 60
