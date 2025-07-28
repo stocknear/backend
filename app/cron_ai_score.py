@@ -603,6 +603,20 @@ def main():
                 **prediction_results
             }
             
+            #needed to make it compatible with orjson
+            results = {
+                'accuracy': float(round(metrics.accuracy * 100, 2)),
+                'auc_score': float(round(metrics.auc_score, 4)),
+                'precision': float(round(metrics.precision, 4)),
+                'recall': float(round(metrics.recall, 4)),
+                'backtest': [  # each date/score is already native types
+                    {'date': r['date'], 'score': int(r['score'])}
+                    for r in prediction_results['backtest']
+                ],
+                'score': int(prediction_results['score'])
+            }
+
+
             # Save results
             save_results(results, symbol)
             
