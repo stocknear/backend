@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
+from xgboost import XGBClassifier
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, roc_auc_score
 from sklearn.preprocessing import StandardScaler, RobustScaler
 from sklearn.model_selection import TimeSeriesSplit, GridSearchCV
@@ -294,7 +295,7 @@ class ModelTrainer:
         """Optimize hyperparameters using GridSearchCV"""
         logger.info("Starting hyperparameter optimization...")
         
-        rf = RandomForestClassifier(random_state=42, n_jobs=-1)
+        rf = XGBClassifier(random_state=42, n_jobs=-1)
         param_grid = self.get_default_params()
         
         # Use TimeSeriesSplit for cross-validation
@@ -326,8 +327,8 @@ class ModelTrainer:
         # Use default parameters
         default_params = {
             'n_estimators': 500,
-            'max_depth': 15,
-            'min_samples_split': 10,
+            'max_depth': 20,
+            'min_samples_split': 20,
             'min_samples_leaf': 5,
             'random_state': 42,
             'n_jobs': -1,
@@ -564,7 +565,7 @@ def main():
     total_symbols = load_symbol_list()
 
     for symbol in tqdm(total_symbols):
-        time_period = 30
+        time_period = 60
         
         logger.info(f"Starting stock direction prediction for {symbol}")
         logger.info(f"Prediction horizon: {time_period} days")
