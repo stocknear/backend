@@ -41,7 +41,7 @@ def get_last_N_weekdays():
 
 
 def analyze_dark_pool_levels(trades: List[Dict], 
-                             size_threshold: float = 0.8, 
+                             size_threshold: float = 0, 
                              price_grouping: float = 1.0) -> Dict:
     if not trades or not isinstance(trades, list):
         return {}
@@ -145,7 +145,7 @@ def run():
         raw_data = orjson.loads(file.read())
 
     market_status = check_market_hours()
-    if market_status:
+    if market_status == False:
         for symbol in tqdm(total_symbols):
             try:
                 res_list = [item for item in raw_data if isinstance(item, dict) and item['ticker'] == symbol]
@@ -154,22 +154,22 @@ def run():
                 
                 dark_pool_levels = analyze_dark_pool_levels(
                     trades=res_list,
-                    size_threshold=0.8,
+                    size_threshold=0,
                     price_grouping=1.0
                 )
                 
                 if dark_pool_levels.get('price_level'):  # Ensure there are valid levels
-                    top_5_elements = [
+                    top_N_elements = [
                         {k: v for k, v in item.items() if k not in ['ticker', 'sector', 'assetType']}
-                        for item in sorted(res_list, key=lambda x: float(x.get('premium', 0)), reverse=True)[:5]
+                        for item in sorted(res_list, key=lambda x: float(x.get('premium', 0)), reverse=True)[:20]
                     ]
 
                     # Add rank to each item
-                    for rank, item in enumerate(top_5_elements, 1):
+                    for rank, item in enumerate(top_N_elements, 1):
                         item['rank'] = rank
 
                     data_to_save = {
-                        'hottestTrades': top_5_elements,
+                        'hottestTrades': top_N_elements,
                         'priceLevel': dark_pool_levels['price_level'],
                         'trend': trend_list,
                         'metrics': dark_pool_levels['metrics']
