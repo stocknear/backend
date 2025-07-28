@@ -1,378 +1,616 @@
-import orjson
-import asyncio
-import aiohttp
-import aiofiles
-import sqlite3
-from datetime import datetime
-from ml_models.score_model import ScorePredictor
-import yfinance as yf
-from collections import defaultdict
+import numpy as np
 import pandas as pd
-from tqdm import tqdm
-import concurrent.futures
-import re
-from itertools import combinations
-from dotenv import load_dotenv
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, roc_auc_score
+from sklearn.preprocessing import StandardScaler, RobustScaler
+from sklearn.model_selection import TimeSeriesSplit, GridSearchCV
+from sklearn.base import BaseEstimator, TransformerMixin
+import warnings
+import matplotlib.pyplot as plt
+import seaborn as sns
+import ta
+import orjson
 import os
-from utils.feature_engineering import *
+from typing import Dict, List, Tuple, Optional, Any
+from dataclasses import dataclass
+from abc import ABC, abstractmethod
+import logging
+from pathlib import Path
+import sqlite3
+from tqdm import tqdm
 
-import gc
-#Enable automatic garbage collection
-gc.enable()
+warnings.filterwarnings('ignore')
 
-load_dotenv()
-api_key = os.getenv('FMP_API_KEY')
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 
-async def save_json(symbol, data):
-    with open(f"json/ai-score/companies/{symbol}.json", 'wb') as file:
-        file.write(orjson.dumps(data))
+def load_symbol_list():
+    symbols = []
+    db_configs = [
+        ("stocks.db", "SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'") ,
+        ("etf.db",    "SELECT DISTINCT symbol FROM etfs"),
+        ("index.db",  "SELECT DISTINCT symbol FROM indices")
+    ]
 
-# Function to delete all files in a directory
-def delete_files_in_directory(directory):
-    for filename in os.listdir(directory):
-        file_path = os.path.join(directory, filename)
+    for db_file, query in db_configs:
         try:
-            if os.path.isfile(file_path):
-                os.remove(file_path)
-        except Exception as e:
-            print(f"Failed to delete {file_path}. Reason: {e}")
+            con = sqlite3.connect(db_file)
+            cur = con.cursor()
+            cur.execute(query)
+            symbols.extend([r[0] for r in cur.fetchall()])
+            con.close()
+        except Exception:
+            continue
 
-async def fetch_historical_price(ticker):
-    url = f"https://financialmodelingprep.com/api/v3/historical-price-full/{ticker}?from=1995-10-10&apikey={api_key}"
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            # Check if the request was successful
-            if response.status == 200:
-                data = await response.json()
-                # Extract historical price data
-                historical_data = data.get('historical', [])
-                # Convert to DataFrame
-                df = pd.DataFrame(historical_data).reset_index(drop=True)
-                # Reverse the DataFrame so that the past dates are first
-                df = df.sort_values(by='date', ascending=True).reset_index(drop=True)
-                return df
-            else:
-                raise Exception(f"Error fetching data: {response.status} {response.reason}")
+    return symbols
 
+@dataclass
+class PredictionResult:
+    """Data class for prediction results"""
+    date: str
+    score: int
+    probability_up: float
+    probability_down: float
+    confidence: str
+    price: float
 
-async def download_data(ticker, con, start_date, end_date, skip_downloading, save_data):
+@dataclass
+class ModelMetrics:
+    """Data class for model evaluation metrics"""
+    accuracy: float
+    precision: float
+    recall: float
+    f1_score: float
+    auc_score: float
+    confusion_matrix: np.ndarray
 
-    file_path = f"ml_models/training_data/ai-score/{ticker}.json"
+class DataLoader(ABC):
+    """Abstract base class for data loading"""
+    
+    @abstractmethod
+    def load_data(self, symbol: str) -> pd.DataFrame:
+        pass
 
-    if os.path.exists(file_path):
+class JSONDataLoader(DataLoader):
+    """Concrete implementation for JSON data loading"""
+    
+    def __init__(self, base_path: str = "json/historical-price/adj"):
+        self.base_path = Path(base_path)
+    
+    def load_data(self, symbol: str) -> pd.DataFrame:
+        """Load stock data from JSON file"""
+        file_path = self.base_path / f"{symbol}.json"
+        
+        if not file_path.exists():
+            raise FileNotFoundError(f"Data file not found: {file_path}")
+        
         try:
-            with open(file_path, 'rb') as file:
-                return pd.DataFrame(orjson.loads(file.read()))
-        except:
-            return pd.DataFrame()
-    elif skip_downloading == False:
-
-        try:
-            # Define paths to the statement files
-            statements = [
-                f"json/financial-statements/ratios/quarter/{ticker}.json",
-                f"json/financial-statements/key-metrics/quarter/{ticker}.json",
-                #f"json/financial-statements/cash-flow-statement/quarter/{ticker}.json",
-                #f"json/financial-statements/income-statement/quarter/{ticker}.json",
-                #f"json/financial-statements/balance-sheet-statement/quarter/{ticker}.json",
-                f"json/financial-statements/income-statement-growth/quarter/{ticker}.json",
-                f"json/financial-statements/balance-sheet-statement-growth/quarter/{ticker}.json",
-                f"json/financial-statements/cash-flow-statement-growth/quarter/{ticker}.json",
-                #f"json/financial-statements/owner-earnings/quarter/{ticker}.json",
-            ]
-
-            # Async loading and filtering
-            ignore_keys = ["symbol", "reportedCurrency", "calendarYear", "fillingDate", "acceptedDate", "period", "cik", "link", "finalLink","pbRatio","ptbRatio","grahamNumber"]
-            async def load_and_filter_json(path):
-                async with aiofiles.open(path, 'r') as f:
-                    data = orjson.loads(await f.read())
-                return [{k: v for k, v in item.items() if k not in ignore_keys and int(item["date"][:4]) >= 2000} for item in data]
-
-            # Load all files concurrently
-            data = await asyncio.gather(*(load_and_filter_json(s) for s in statements))
-            ratios, key_metrics, income_growth, balance_growth, cashflow_growth = data
-
-            #Threshold of enough datapoints needed!
-            if len(ratios) < 50:
-                print(f'Not enough data points for {ticker}')
-                return
-
-
-            # Combine all the data
-            combined_data = defaultdict(dict)
-
-            # Merge the data based on 'date'
-            for entries in zip(ratios,key_metrics, income_growth, balance_growth, cashflow_growth):
-                for entry in entries:
-                    try:
-                        date = entry['date']
-                        for key, value in entry.items():
-                            if key not in combined_data[date]:
-                                combined_data[date][key] = value
-                    except:
-                        pass
-
-            combined_data = list(combined_data.values())
-
-            # Download historical stock data using yfinance
-            df = await fetch_historical_price(ticker)
-            # Get the list of columns in df
-            df_columns = df.columns
-            df_stats = generate_statistical_features(df)
-            df_ta = generate_ta_features(df)
-
-            # Filter columns in df_stats and df_ta that are not in df
-            # Drop unnecessary columns from df_stats and df_ta
-            df_stats_filtered = df_stats.drop(columns=df_columns.intersection(df_stats.columns), errors='ignore')
-            df_ta_filtered = df_ta.drop(columns=df_columns.intersection(df_ta.columns), errors='ignore')
-
-            # Extract the column names for indicators
-            ta_columns = df_ta_filtered.columns.tolist()
-            stats_columns = df_stats_filtered.columns.tolist()
-
-            # Concatenate df with the filtered df_stats and df_ta
-            df = pd.concat([df, df_ta_filtered, df_stats_filtered], axis=1)
-            # Set up a dictionary for faster lookup of close prices and columns by date
-            df_dict = df.set_index('date').to_dict(orient='index')
-
-            # Helper function to find closest date within max_attempts
-            def find_closest_date(target_date, max_attempts=10):
-                counter = 0
-                while target_date not in df_dict and counter < max_attempts:
-                    target_date = (pd.to_datetime(target_date) - pd.Timedelta(days=1)).strftime('%Y-%m-%d')
-                    counter += 1
-                return target_date if target_date in df_dict else None
-
-            # Match combined data entries with stock data
-            for item in combined_data:
-                target_date = item['date']
-                closest_date = find_closest_date(target_date)
-
-                # Skip if no matching date is found
-                if not closest_date:
-                    continue
-
-                # Fetch data from the dictionary for the closest matching date
-                data = df_dict[closest_date]
-
-                # Add close price to the item
-                item['price'] = round(data['close'], 2)
-
-                # Dynamically add indicator values from ta_columns and stats_columns
-                for column in ta_columns+stats_columns:
-                    item[column] = data.get(column, None)
-
-            # Sort the combined data by date
-            combined_data = sorted(combined_data, key=lambda x: x['date'])
-            # Convert combined data to a DataFrame and drop rows with NaN values
-            df_combined = pd.DataFrame(combined_data)
-            
-
-            #nan_columns = df_combined.isna().sum()
-            #print(nan_columns[nan_columns > 0])  # Show only columns with NaNs
-
-            fundamental_columns = [
-                'revenue', 'costOfRevenue', 'grossProfit', 'netIncome', 'operatingIncome', 'operatingExpenses',
-                'researchAndDevelopmentExpenses', 'ebitda', 'freeCashFlow', 'incomeBeforeTax', 'incomeTaxExpense',
-                'operatingCashFlow','cashAndCashEquivalents', 'totalEquity','otherCurrentLiabilities', 'totalCurrentLiabilities', 'totalDebt',
-                'totalLiabilitiesAndStockholdersEquity', 'totalStockholdersEquity', 'totalInvestments','totalAssets',
-            ]
-            
-
-            # Function to compute combinations within a group
-            def compute_column_ratios(columns, df, new_columns):
-                column_combinations = list(combinations(columns, 2))
+            with open(file_path, "rb") as file:
+                data = orjson.loads(file.read())
+                data = sorted(data, key=lambda x: x['date'])
+                df = pd.DataFrame(data)
                 
-                for num, denom in column_combinations:
-                    with np.errstate(divide='ignore', invalid='ignore'):
-                        # Compute ratio and reverse ratio safely
-                        ratio = df[num] / df[denom]
-                        reverse_ratio = df[denom] / df[num]
-
-                    # Define column names for both ratios
-                    column_name = f'{num}_to_{denom}'
-                    reverse_column_name = f'{denom}_to_{num}'
-
-                    # Assign values to new columns, handling invalid values
-                    new_columns[column_name] = np.nan_to_num(ratio, nan=0, posinf=0, neginf=0)
-                    new_columns[reverse_column_name] = np.nan_to_num(reverse_ratio, nan=0, posinf=0, neginf=0)
-
-            # Create an empty dictionary for the new columns
-            new_columns = {}
-
-            # Compute combinations for each group of columns
-            #compute_column_ratios(fundamental_columns, df_combined, new_columns)
-            #compute_column_ratios(stats_columns, df_combined, new_columns)
-            #compute_column_ratios(ta_columns, df_combined, new_columns)
-
-            # Concatenate the new ratio columns with the original DataFrame
-            df_combined = pd.concat([df_combined, pd.DataFrame(new_columns, index=df_combined.index)], axis=1)
-
-            # Clean up and replace invalid values
-            df_combined = df_combined.replace([np.inf, -np.inf], 0).dropna()
-
-            # Create 'Target' column to indicate if the next price is higher than the current one
-            df_combined['Target'] = ((df_combined['price'].shift(-1) - df_combined['price']) / df_combined['price'] > 0).astype(int)
-
-            # Copy DataFrame and round float values
-            df_copy = df_combined.copy().map(lambda x: round(x, 2) if isinstance(x, float) else x)
-
-            # Save to a file if there are rows in the DataFrame
-            if not df_copy.empty and save_data == True:
-                with open(file_path, 'wb') as file:
-                    file.write(orjson.dumps(df_copy.to_dict(orient='records')))
-
-            return df_copy
-
+            if 'date' in df.columns:
+                df['date'] = pd.to_datetime(df['date'], errors='coerce')
+                df.set_index('date', inplace=True)
+                
+            logger.info(f"Successfully loaded {len(df)} days of data for {symbol}")
+            logger.info(f"Date range: {df.index[0]} to {df.index[-1]}")
+            
+            return df
+            
         except Exception as e:
-            print(e)
-            pass
+            logger.error(f"Error loading data for {symbol}: {e}")
+            raise
 
-
-async def chunked_gather(tickers, con, start_date, end_date, skip_downloading, save_data, chunk_size=10):
-    # Helper function to divide the tickers into chunks
-    def chunks(lst, size):
-        for i in range(0, len(lst), size):
-            yield lst[i:i+size]
+class TechnicalIndicatorCalculator:
+    """Handles calculation of technical indicators"""
     
-    results = []
+    @staticmethod
+    def calculate_basic_ratios(df: pd.DataFrame) -> pd.DataFrame:
+        """Calculate basic price ratios"""
+        df = df.copy()
+        df['returns'] = df['adjClose'].pct_change()
+        df['high_low_ratio'] = df['adjHigh'] / df['adjLow']
+        df['close_open_ratio'] = df['adjClose'] / df['adjOpen']
+        return df
     
-    for chunk in chunks(tickers, chunk_size):
-        # Create tasks for each chunk
-        tasks = [download_data(ticker, con, start_date, end_date, skip_downloading, save_data) for ticker in chunk]
-        # Await the results for the current chunk
-        chunk_results = await asyncio.gather(*tasks)
-        # Accumulate the results
-        results.extend(chunk_results)
+    @staticmethod
+    def calculate_moving_averages(df: pd.DataFrame, windows: List[int] = [5, 10, 20, 50, 200]) -> pd.DataFrame:
+        """Calculate moving averages and their ratios"""
+        for window in windows:
+            df[f'ma_{window}'] = df['adjClose'].rolling(window=window).mean()
+            df[f'ma_ratio_{window}'] = df['adjClose'] / df[f'ma_{window}']
+            df[f'ma_slope_{window}'] = df[f'ma_{window}'].pct_change(5)  # 5-day slope
+        return df
     
-    return results
-
-
-
-async def warm_start_training(tickers, con, skip_downloading, save_data):
-    start_date = datetime(1995, 1, 1).strftime("%Y-%m-%d")
-    end_date = datetime.today().strftime("%Y-%m-%d")
-    test_size = 0.2
-
-    dfs = await chunked_gather(tickers, con, start_date, end_date, skip_downloading, save_data, chunk_size=100)
-    
-    train_list = []
-    test_list = []
-
-    for df in dfs:
-        try:
-            # Split the data into training and testing sets
-            split_size = int(len(df) * (1 - test_size))
-            train_data = df.iloc[:split_size]
-            test_data = df.iloc[split_size:]
-
-            # Append train data for combined training
-            train_list.append(train_data)
-            test_list.append(test_data)
-        except:
-            pass
-
-    # Concatenate all train data together
-    df_train = pd.concat(train_list, ignore_index=True)
-    df_test = pd.concat(test_list, ignore_index=True)
-
-    # Shuffle the combined training data
-    df_train = df_train.sample(frac=1, random_state=42).reset_index(drop=True)
-    df_test = df_test.sample(frac=1, random_state=42).reset_index(drop=True)
-
-    print('======Warm Start Train Set Datapoints======')
-    print(len(df_train))
-    
-    predictor = ScorePredictor()
-    selected_features = [col for col in df_train if col not in ['price', 'date', 'Target','fiscalYear']]
-    
-    predictor.warm_start_training(df_train[selected_features], df_train['Target'])
-    predictor.evaluate_model(df_test)
-    
-    return predictor
-
-async def fine_tune_and_evaluate(ticker, con, start_date, end_date, skip_downloading, save_data):
-    try:
-        df = await download_data(ticker, con, start_date, end_date, skip_downloading, save_data)
-        if df is None or len(df) == 0:
-            print(f"No data available for {ticker}")
-            return
+    @staticmethod
+    def calculate_momentum_indicators(df: pd.DataFrame) -> pd.DataFrame:
+        """Calculate momentum-based indicators"""
+        # RSI
+        for window in [7,14,20,30,50]:
+            df[f'rsi_{window}'] = ta.momentum.RSIIndicator(df['adjClose'], window=window).rsi()
+            df[f'rsi_oversold_{window}'] = (df[f'rsi_{window}'] < 30).astype(int)
+            df[f'rsi_overbought_{window}'] = (df[f'rsi_{window}'] > 70).astype(int)
         
-        test_size = 0.2
-        split_size = int(len(df) * (1-test_size))
-        train_data = df.iloc[:split_size]
-        test_data = df.iloc[split_size:]
-        #selected_features = [col for col in df.columns if col not in ['date','price','Target']]
-        # Fine-tune the model
-        predictor = ScorePredictor()
-        #predictor.fine_tune_model(train_data[selected_features], train_data['Target'])
-        print(f"Evaluating fine-tuned model for {ticker}")
-        data = predictor.evaluate_model(test_data)
-
+        # MACD
+        macd = ta.trend.MACD(df['adjClose'])
+        df['macd'] = macd.macd()
+        df['macd_signal'] = macd.macd_signal()
+        df['macd_histogram'] = macd.macd_diff()
+        df['macd_bullish'] = (df['macd'] > df['macd_signal']).astype(int)
         
-        if (data['accuracy'] < 100 and data['precision'] < 100 and
-        data['f1_score'] >= 20 and data['recall_score'] >= 20) and len(data.get('backtest',[])) > 0:
-            await save_json(ticker, data)
-            data['backtest'] = [
-                {'date': entry['date'], 'yTest': entry['y_test'], 'yPred': entry['y_pred'], 'score': entry['score']}
-                for entry in data['backtest']
-            ]
-            print(data)
-            print(f"Saved results for {ticker}")
+        # Stochastic
+        stoch = ta.momentum.StochasticOscillator(df['adjHigh'], df['adjLow'], df['adjClose'])
+        df['stoch_k'] = stoch.stoch()
+        df['stoch_d'] = stoch.stoch_signal()
+        
+        # Williams %R
+        df['williams_r'] = ta.momentum.WilliamsRIndicator(df['adjHigh'], df['adjLow'], df['adjClose']).williams_r()
+        
+        return df
+    
+    @staticmethod
+    def calculate_volatility_indicators(df: pd.DataFrame) -> pd.DataFrame:
+        """Calculate volatility-based indicators"""
+        # Bollinger Bands
+        bollinger = ta.volatility.BollingerBands(df['adjClose'])
+        df['bb_upper'] = bollinger.bollinger_hband()
+        df['bb_lower'] = bollinger.bollinger_lband()
+        df['bb_width'] = df['bb_upper'] - df['bb_lower']
+        df['bb_position'] = (df['adjClose'] - df['bb_lower']) / df['bb_width']
+        
+        # Average True Range
+        df['atr'] = ta.volatility.AverageTrueRange(df['adjHigh'], df['adjLow'], df['adjClose']).average_true_range()
+        
+        # Historical volatility
+        df['volatility_20'] = df['returns'].rolling(window=20).std()
+        df['volatility_50'] = df['returns'].rolling(window=50).std()
+        
+        return df
+    
+    @staticmethod
+    def calculate_volume_indicators(df: pd.DataFrame) -> pd.DataFrame:
+        """Calculate volume-based indicators"""
+        df['volume_ma_20'] = df['volume'].rolling(window=20).mean()
+        df['volume_ratio'] = df['volume'] / df['volume_ma_20']
+        
+        # On Balance Volume
+        df['obv'] = ta.volume.OnBalanceVolumeIndicator(df['adjClose'], df['volume']).on_balance_volume()
+        df['obv_ma'] = df['obv'].rolling(window=20).mean()
+        df['obv_ratio'] = df['obv'] / df['obv_ma']
+        
+        return df
+    
+    @classmethod
+    def calculate_all_indicators(cls, df: pd.DataFrame) -> pd.DataFrame:
+        """Calculate all technical indicators"""
+        df = cls.calculate_basic_ratios(df)
+        df = cls.calculate_moving_averages(df)
+        df = cls.calculate_momentum_indicators(df)
+        df = cls.calculate_volatility_indicators(df)
+        df = cls.calculate_volume_indicators(df)
+        return df
+
+class FeatureEngineer:
+    """Handles feature engineering and selection"""
+    
+    def __init__(self):
+        self.feature_columns = [
+            'returns', 'high_low_ratio', 'close_open_ratio',
+            'ma_ratio_5', 'ma_ratio_10', 'ma_ratio_20', 'ma_ratio_50',
+            'ma_slope_5', 'ma_slope_10', 'ma_slope_20',
+            'rsi_7','rsi_14','rsi_20','rsi_30','rsi_50', 'rsi_oversold_7', 'rsi_overbought_7',
+            'rsi_oversold_14', 'rsi_overbought_14','rsi_oversold_20','rsi_overbought_20',
+            'rsi_oversold_30','rsi_overbought_30', 'rsi_oversold_50', 'rsi_overbought_50',
+            'macd', 'macd_signal', 'macd_histogram', 'macd_bullish',
+            'bb_width', 'bb_position', 'stoch_k', 'stoch_d',
+            'williams_r', 'atr', 'volatility_20',
+            'volume_ratio', 'obv_ratio'
+        ]
+    
+    def create_lagged_features(self, df: pd.DataFrame, lags: List[int] = [1, 2, 3, 5]) -> pd.DataFrame:
+        """Create lagged features"""
+        base_features = ['returns', 'volume_ratio', 'rsi_7','rsi_14','rsi_20','rsi_30','rsi_50', 'bb_position']
+        
+        for feature in base_features:
+            if feature in df.columns:
+                for lag in lags:
+                    df[f'{feature}_lag_{lag}'] = df[feature].shift(lag)
+                    self.feature_columns.append(f'{feature}_lag_{lag}')
+        
+        return df
+    
+    def create_rolling_features(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Create rolling statistical features"""
+        windows = [5, 10, 20]
+        
+        for window in windows:
+            df[f'returns_rolling_mean_{window}'] = df['returns'].rolling(window).mean()
+            df[f'returns_rolling_std_{window}'] = df['returns'].rolling(window).std()
+            self.feature_columns.extend([
+                f'returns_rolling_mean_{window}',
+                f'returns_rolling_std_{window}'
+            ])
+        
+        return df
+    
+    def engineer_features(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Apply all feature engineering techniques"""
+        df = self.create_lagged_features(df)
+        df = self.create_rolling_features(df)
+        return df
+
+class ScoreCalculator:
+    """Handles score calculation with configurable thresholds"""
+    
+    def __init__(self, thresholds: List[float] = None, scores: List[int] = None):
+        self.thresholds = thresholds or [0.8, 0.75, 0.7, 0.6, 0.5, 0.45, 0.4, 0.35, 0.3, 0]
+        self.scores = scores or [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
+    
+    def get_score(self, prob_up: float) -> int:
+        """Calculate score based on probability"""
+        for threshold, score in zip(self.thresholds, self.scores):
+            if prob_up >= threshold:
+                return score
+        return 1
+    
+    def get_confidence_level(self, prob_up: float) -> str:
+        """Get confidence level description"""
+        if prob_up >= 0.8:
+            return "Very High"
+        elif prob_up >= 0.7:
+            return "High"
+        elif prob_up >= 0.6:
+            return "Medium"
+        elif prob_up >= 0.5:
+            return "Low"
         else:
-            try:
-                os.remove(f"json/ai-score/companies/{ticker}.json")
-            except:
-                pass
-        
-    except Exception as e:
-        print(f"Error processing {ticker}: {e}")
+            return "Very Low"
 
-    finally:
-        gc.collect()  # Force the garbage collector to release unreferenced memory
-
-async def run():
-    train_mode = True  # Set this to False for fine-tuning and evaluation
-    skip_downloading = False
-    save_data = True
-    delete_data = True
-    if delete_data:
-        delete_files_in_directory("ml_models/training_data/ai-score")
-
-    con = sqlite3.connect('stocks.db')
-    cursor = con.cursor()
-    cursor.execute("PRAGMA journal_mode = wal")
+class ModelTrainer:
+    """Handles model training and hyperparameter optimization"""
     
+    def __init__(self, use_robust_scaler: bool = True):
+        self.scaler = RobustScaler() if use_robust_scaler else StandardScaler()
+        self.model = None
+        self.best_params = None
+    
+    def get_default_params(self) -> Dict:
+        """Get default RandomForest parameters"""
+        return {
+            'n_estimators': [300, 500, 700],
+            'max_depth': [10, 15, 20, None],
+            'min_samples_split': [5, 10, 15],
+            'min_samples_leaf': [2, 5, 10],
+            'max_features': ['sqrt', 'log2', None],
+            'bootstrap': [True, False]
+        }
+    
+    def optimize_hyperparameters(self, X_train: pd.DataFrame, y_train: pd.Series, 
+                                cv_folds: int = 3) -> RandomForestClassifier:
+        """Optimize hyperparameters using GridSearchCV"""
+        logger.info("Starting hyperparameter optimization...")
+        
+        rf = RandomForestClassifier(random_state=42, n_jobs=-1)
+        param_grid = self.get_default_params()
+        
+        # Use TimeSeriesSplit for cross-validation
+        tscv = TimeSeriesSplit(n_splits=cv_folds)
+        
+        grid_search = GridSearchCV(
+            rf, param_grid, cv=tscv, scoring='roc_auc',
+            n_jobs=-1, verbose=1
+        )
+        
+        X_train_scaled = self.scaler.fit_transform(X_train)
+        grid_search.fit(X_train_scaled, y_train)
+        
+        self.best_params = grid_search.best_params_
+        self.model = grid_search.best_estimator_
+        
+        logger.info(f"Best parameters: {self.best_params}")
+        logger.info(f"Best CV score: {grid_search.best_score_:.4f}")
+        
+        return self.model
+    
+    def train_model(self, X_train: pd.DataFrame, y_train: pd.Series, 
+                   optimize: bool = False, **rf_params) -> RandomForestClassifier:
+        """Train the model with optional hyperparameter optimization"""
+        
+        if optimize:
+            return self.optimize_hyperparameters(X_train, y_train)
+        
+        # Use default parameters
+        default_params = {
+            'n_estimators': 500,
+            'max_depth': 15,
+            'min_samples_split': 10,
+            'min_samples_leaf': 5,
+            'random_state': 42,
+            'n_jobs': -1,
+        }
+        default_params.update(rf_params)
+        
+        self.model = RandomForestClassifier(**default_params)
+        X_train_scaled = self.scaler.fit_transform(X_train)
+        self.model.fit(X_train_scaled, y_train)
+        
+        logger.info("Model training complete")
+        self._log_feature_importance(X_train.columns)
+        
+        return self.model
+    
+    def _log_feature_importance(self, feature_names: List[str], top_n: int = 10):
+        """Log feature importance"""
+        feature_importance = pd.DataFrame({
+            'feature': feature_names,
+            'importance': self.model.feature_importances_
+        }).sort_values('importance', ascending=False)
+        
+        logger.info(f"Top {top_n} most important features:")
+        for _, row in feature_importance.head(top_n).iterrows():
+            logger.info(f"  {row['feature']}: {row['importance']:.4f}")
 
-    if train_mode:
-        # Warm start training
-        stock_symbols = cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 300E6 AND symbol NOT LIKE '%.%'") #list(set(['CB','LOW','PFE','RTX','DIS','MS','BHP','BAC','PG','BABA','ACN','TMO','LLY','XOM','JPM','UNH','COST','HD','ASML','BRK-A','BRK-B','CAT','TT','SAP','APH','CVS','NOG','DVN','COP','OXY','MRO','MU','AVGO','INTC','LRCX','PLD','AMT','JNJ','ACN','TSM','V','ORCL','MA','BAC','BA','NFLX','ADBE','IBM','GME','NKE','ANGO','PNW','SHEL','XOM','WMT','BUD','AMZN','PEP','AMD','NVDA','AWR','TM','AAPL','GOOGL','META','MSFT','LMT','TSLA','DOV','PG','KO']))
-        stock_symbols = [row[0] for row in cursor.fetchall()]
-        
-        #Test Mode
-        #stock_symbols = ['TSLA','AMD','LLY']
-        
-        print('Training for', len(stock_symbols))
-        predictor = await warm_start_training(stock_symbols, con, skip_downloading, save_data)
+class ModelEvaluator:
+    """Handles model evaluation and metrics calculation"""
     
-    #else:
-        # Evaluation for all stocks
-        #cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap >= 500E6 AND symbol NOT LIKE '%.%'")
-        #stock_symbols = [row[0] for row in cursor.fetchall()]
+    def evaluate_model(self, model: RandomForestClassifier, scaler: Any,
+                      X_test: pd.DataFrame, y_test: pd.Series) -> ModelMetrics:
+        """Comprehensive model evaluation"""
+        X_test_scaled = scaler.transform(X_test)
+        y_pred = model.predict(X_test_scaled)
+        y_pred_proba = model.predict_proba(X_test_scaled)[:, 1]
         
+        # Calculate metrics
+        accuracy = accuracy_score(y_test, y_pred)
+        report = classification_report(y_test, y_pred, output_dict=True)
         
-        print(f"Total tickers for fine-tuning: {len(stock_symbols)}")
-        start_date = datetime(1995, 1, 1).strftime("%Y-%m-%d")
-        end_date = datetime.today().strftime("%Y-%m-%d")
-        for ticker in tqdm(stock_symbols):
-            await fine_tune_and_evaluate(ticker, con, start_date, end_date, skip_downloading, save_data)
+        precision = report.get('1', {}).get('precision', 0.0)
+        recall = report.get('1', {}).get('recall', 0.0)
+        f1 = report.get('1', {}).get('f1-score', 0.0)
         
+        try:
+            auc_score = roc_auc_score(y_test, y_pred_proba)
+        except ValueError:
+            auc_score = 0.0
+        
+        cm = confusion_matrix(y_test, y_pred)
+        
+        metrics = ModelMetrics(
+            accuracy=accuracy,
+            precision=precision,
+            recall=recall,
+            f1_score=f1,
+            auc_score=auc_score,
+            confusion_matrix=cm
+        )
+        
+        self._log_evaluation_results(metrics)
+        return metrics
     
-    con.close()
+    def _log_evaluation_results(self, metrics: ModelMetrics):
+        """Log evaluation results"""
+        logger.info(f"Model Evaluation Results:")
+        logger.info(f"  Accuracy: {metrics.accuracy*100:.2f}%")
+        logger.info(f"  Precision: {metrics.precision:.4f}")
+        logger.info(f"  Recall: {metrics.recall:.4f}")
+        logger.info(f"  F1-Score: {metrics.f1_score:.4f}")
+        logger.info(f"  AUC Score: {metrics.auc_score:.4f}")
+        
+        cm = metrics.confusion_matrix
+        if cm.shape == (2, 2):
+            logger.info(f"  Confusion Matrix:")
+            logger.info(f"    Predicted DOWN | Predicted UP")
+            logger.info(f"  Actual DOWN  {cm[0,0]:3d}      |     {cm[0,1]:3d}")
+            logger.info(f"  Actual UP    {cm[1,0]:3d}      |     {cm[1,1]:3d}")
+
+class StockDirectionPredictor:
+    """Main class for stock direction prediction"""
+    
+    def __init__(self, symbol: str = 'AAPL', data_loader: DataLoader = None):
+        self.symbol = symbol
+        self.data_loader = data_loader or JSONDataLoader()
+        self.feature_engineer = FeatureEngineer()
+        self.trainer = ModelTrainer()
+        self.evaluator = ModelEvaluator()
+        self.score_calculator = ScoreCalculator()
+        
+        self.data = None
+        self.features = None
+        self.target = None
+        self.prediction_horizon = 1
+        
+    def load_and_prepare_data(self) -> bool:
+        """Load and prepare data with all indicators"""
+        try:
+            self.data = self.data_loader.load_data(self.symbol)
+            self.data = TechnicalIndicatorCalculator.calculate_all_indicators(self.data)
+            self.data = self.feature_engineer.engineer_features(self.data)
+            return True
+        except Exception as e:
+            logger.error(f"Error preparing data: {e}")
+            return False
+    
+    def create_target_variable(self, time_period: int = 1) -> pd.Series:
+        """Create target variable with validation"""
+        self.prediction_horizon = time_period
+        
+        if len(self.data) < time_period + 50:  # Need minimum data
+            raise ValueError(f"Insufficient data for {time_period}-day horizon")
+        
+        future_close = self.data['adjClose'].shift(-time_period)
+        current_close = self.data['adjClose']
+        self.data['target'] = (future_close > current_close).astype(int)
+        
+        valid_targets = self.data['target'].dropna()
+        
+        logger.info(f"Target variable created for {time_period}-day horizon")
+        logger.info(f"Valid targets: {len(valid_targets)}")
+        logger.info(f"Target distribution: {valid_targets.value_counts().to_dict()}")
+        
+        return self.data['target']
+    
+    def prepare_features(self) -> Tuple[pd.DataFrame, pd.Series]:
+        """Prepare features with proper validation"""
+        # Get available feature columns
+        available_features = [col for col in self.feature_engineer.feature_columns 
+                            if col in self.data.columns]
+        
+        if not available_features:
+            raise ValueError("No valid features found")
+        
+        # Create working dataframe
+        work_df = self.data[available_features + ['target']].copy()
+        work_df = work_df.dropna()
+        
+        # Remove last N rows (no future data available)
+        if len(work_df) > self.prediction_horizon:
+            work_df = work_df.iloc[:-self.prediction_horizon]
+        
+        self.features = work_df[available_features].copy()
+        self.target = work_df['target'].copy()
+        
+        logger.info(f"Feature matrix prepared: {self.features.shape}")
+        logger.info(f"Using features: {available_features[:10]}...")  # Show first 10
+        
+        return self.features, self.target
+    
+    def time_series_split(self, test_size: float = 0.2) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
+        """Time series split maintaining temporal order"""
+        n_samples = len(self.features)
+        split_idx = int(n_samples * (1 - test_size))
+        
+        X_train = self.features.iloc[:split_idx].copy()
+        X_test = self.features.iloc[split_idx:].copy()
+        y_train = self.target.iloc[:split_idx].copy()
+        y_test = self.target.iloc[split_idx:].copy()
+        
+        logger.info(f"Data split - Train: {len(X_train)}, Test: {len(X_test)}")
+        
+        return X_train, X_test, y_train, y_test
+    
+    def train_and_evaluate(self, optimize_hyperparameters: bool = False) -> ModelMetrics:
+        """Train model and evaluate performance"""
+        X_train, X_test, y_train, y_test = self.time_series_split()
+        
+        # Train model
+        self.trainer.train_model(X_train, y_train, optimize=optimize_hyperparameters)
+        
+        # Evaluate model
+        metrics = self.evaluator.evaluate_model(
+            self.trainer.model, self.trainer.scaler, X_test, y_test
+        )
+        
+        return metrics
+    
+    def make_predictions(self, n_predictions: int = 60) -> Dict[str, Any]:
+        """Make predictions for the last N available data points"""
+        if self.trainer.model is None:
+            raise ValueError("Model not trained yet!")
+        
+        available_features = [col for col in self.feature_engineer.feature_columns 
+                            if col in self.data.columns]
+        
+        recent_data = self.data[available_features].dropna().iloc[-n_predictions:]
+        recent_features_scaled = self.trainer.scaler.transform(recent_data)
+        
+        predictions = self.trainer.model.predict(recent_features_scaled)
+        probabilities = self.trainer.model.predict_proba(recent_features_scaled)
+        
+        results = []
+        
+        # Sample every 30 days for backtest results
+        for i in range(0, n_predictions, 30):
+            date_used = recent_data.index[i]
+            current_price = self.data.loc[date_used, 'adjClose']
+            prob_up = probabilities[i][1]
+            prob_down = probabilities[i][0]
+            
+            result = PredictionResult(
+                date=date_used.date().strftime("%Y-%m-%d"),
+                score=self.score_calculator.get_score(prob_up),
+                probability_up=prob_up,
+                probability_down=prob_down,
+                confidence=self.score_calculator.get_confidence_level(prob_up),
+                price=current_price
+            )
+            
+            results.append({
+                'date': result.date,
+                'score': result.score
+            })
+            
+            logger.info(f"Prediction for {result.date}: Score {result.score}, "
+                       f"Confidence: {result.confidence} ({prob_up:.1%})")
+        
+        return {'backtest': results, 'score': results[-1]['score']} #latest forecast
+
+def save_results(data: Dict, symbol: str, base_path: str = "json/ai-score/companies"):
+    """Save results to JSON file"""
+    path = Path(base_path) / f"{symbol}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    
+    with open(path, "wb") as file:
+        file.write(orjson.dumps(data))
+    
+    logger.info(f"Results saved to {path}")
+
+def main():
+    """Main execution function"""
+
+    total_symbols = load_symbol_list()
+
+    for symbol in tqdm(total_symbols):
+        time_period = 30
+        
+        logger.info(f"Starting stock direction prediction for {symbol}")
+        logger.info(f"Prediction horizon: {time_period} days")
+        
+        try:
+            # Initialize predictor
+            predictor = StockDirectionPredictor(symbol=symbol)
+            
+            # Load and prepare data
+            if not predictor.load_and_prepare_data():
+                logger.error("Failed to load data")
+                continue
+            
+            # Create target and prepare features
+            predictor.create_target_variable(time_period=time_period)
+            predictor.prepare_features()
+            
+            # Check minimum data requirements
+            if len(predictor.features) < 200:
+                logger.error(f"Insufficient data: {len(predictor.features)} samples")
+                continue
+            
+            # Train and evaluate model
+            metrics = predictor.train_and_evaluate(optimize_hyperparameters=False)
+            
+            # Make predictions
+            prediction_results = predictor.make_predictions(n_predictions=252*2)
+            
+            # Prepare final results
+            results = {
+                'accuracy': round(metrics.accuracy * 100, 2),
+                'auc_score': round(metrics.auc_score, 4),
+                'precision': round(metrics.precision, 4),
+                'recall': round(metrics.recall, 4),
+                **prediction_results
+            }
+            
+            # Save results
+            save_results(results, symbol)
+            
+            logger.info("Prediction completed successfully")
+            logger.info(f"Final results: {results}")
+            
+        except Exception as e:
+            logger.error(f"Error in main execution: {e}")
+            pass
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(run())
-    except Exception as e:
-        print(f"Main execution error: {e}")
+    main()
