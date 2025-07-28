@@ -145,7 +145,7 @@ def run():
         raw_data = orjson.loads(file.read())
 
     market_status = check_market_hours()
-    if market_status == False:
+    if market_status:
         for symbol in tqdm(total_symbols):
             try:
                 res_list = [item for item in raw_data if isinstance(item, dict) and item['ticker'] == symbol]
