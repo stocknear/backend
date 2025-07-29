@@ -295,7 +295,7 @@ class ModelTrainer:
         """Optimize hyperparameters using GridSearchCV"""
         logger.info("Starting hyperparameter optimization...")
         
-        rf = XGBClassifier(random_state=42, n_jobs=-1)
+        rf = XGBClassifier(random_state=42, n_jobs=4)
         param_grid = self.get_default_params()
         
         # Use TimeSeriesSplit for cross-validation
