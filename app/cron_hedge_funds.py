@@ -81,10 +81,8 @@ def all_hedge_funds(con):
     
     # Connect to the SQLite database
     cursor = con.cursor()
-
     cursor.execute("SELECT cik, name, numberOfStocks, marketValue, winRate, turnover, performancePercentage3year FROM institutes")
     all_ciks = cursor.fetchall()
-
     res_list = [{
         'cik': row[0],
         'name': format_company_name(row[1]).title(),
@@ -92,10 +90,18 @@ def all_hedge_funds(con):
         'marketValue': row[3],
         'winRate': row[4],
         'turnover': row[5],
-        'performancePercentage3Year': row[6]
-    } for row in all_ciks if row[2] >= 3 and row[4] >= 10 and row[6] >= 10 and abs(row[6]) < 500]
-
+        'performancePercentage3Year': row[6],
+        #'performance3yearRelativeToSP500Percentage': row[7]
+    } for row in all_ciks if (
+        row[2] is not None and row[2] > 5 and
+        row[6] is not None and abs(row[6]) < 500
+    )]
     sorted_res_list = sorted(res_list, key=lambda x: x['marketValue'], reverse=True)
+
+    #print(sorted_res_list[:10])
+    
+    for i, item in enumerate(sorted_res_list, 1):
+        item['rank'] = i
 
     with open(f"json/hedge-funds/all-hedge-funds.json", 'w') as file:
         file.write(orjson.dumps(sorted_res_list).decode("utf-8"))
@@ -197,7 +203,7 @@ if __name__ == '__main__':
     cursor.execute("SELECT DISTINCT cik FROM institutes")
     cik_symbols = [row[0] for row in cursor.fetchall()]
     #Test mode
-    #cik_symbols = ['0001067983']
+    #cik_symbols = ['0000102909']
     try:
         stock_cursor = stock_con.cursor()
         stock_cursor.execute("SELECT DISTINCT symbol, sector FROM stocks")

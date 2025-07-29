@@ -198,7 +198,8 @@ class InstituteDatabase:
                     'performancePercentage': summary_parsed_data[0].get('performancePercentage', 0),
                     'performancePercentage3year': summary_parsed_data[0].get('performancePercentage3year', 0),
                     'performancePercentage5year': summary_parsed_data[0].get('performancePercentage5year', 0),
-                    'performanceSinceInceptionPercentage': summary_parsed_data[0].get('performanceSinceInceptionPercentage', 0)
+                    'performanceSinceInceptionPercentage': summary_parsed_data[0].get('performanceSinceInceptionPercentage', 0),
+                    'performance3yearRelativeToSP500Percentage': summary_parsed_data[0].get('performance3yearRelativeToSP500Percentage', 0)
                 }
                 portfolio_data.update(data_dict)
 
