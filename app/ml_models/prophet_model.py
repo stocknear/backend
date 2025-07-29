@@ -16,7 +16,7 @@ def get_monthly_historical_data(df):
     # Get the last available date in your data
     last_date = df['ds'].max()
     # Calculate the date one year ago
-    one_year_ago = last_date - pd.DateOffset(years=1)
+    one_year_ago = last_date - pd.DateOffset(years=2)
     
     # Filter data for the last year
     last_year_df = df[df['ds'] > one_year_ago]
@@ -113,7 +113,7 @@ class PricePredictor:
             'avgPriceTarget': mean_list[-1],
             'highPriceTarget': upper_list[-1],
             'lowPriceTarget': lower_list[-1],
-            'medianPriceTarget': median_price,
+            'medianPriceTarget': float(median_price),
         }
 
 

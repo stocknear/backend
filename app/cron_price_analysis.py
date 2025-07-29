@@ -29,26 +29,20 @@ async def save_json(symbol, data):
     with open(f"{path}/{symbol}.json", 'w') as file:
         ujson.dump(data, file)
         
-async def download_data(ticker: str, start_date: str, end_date: str):
+async def download_data(ticker: str):
     try:
-        with open(f"json/historical-price/max/{ticker}.json", "r") as file:
+        with open(f"json/historical-price/adj/{ticker}.json", "r") as file:
             data = orjson.loads(file.read())
 
         df = pd.DataFrame(data)
-
         # Rename columns to ensure consistency
-        df = df.rename(columns={"Date": "ds", "Adj Close": "y", "time": "ds", "close": "y"})
+        df = df.rename(columns={"date": "ds", "adjClose": "y",})
 
         # Ensure correct data types
         df["ds"] = pd.to_datetime(df["ds"])
         df["y"] = df["y"].astype(float)
 
         # Convert start_date and end_date from string to datetime
-        start_date = pd.to_datetime(start_date, format="%Y-%m-%d")
-        end_date = pd.to_datetime(end_date, format="%Y-%m-%d")
-
-        # Filter data based on start_date and end_date
-        df = df[(df["ds"] >= start_date) & (df["ds"] <= end_date)]
 
         # Apply filtering logic if enough data exists
         if len(df) > 252 * 2:  # At least 2 years of history is necessary
@@ -64,10 +58,10 @@ async def download_data(ticker: str, start_date: str, end_date: str):
         print(f"Error processing {ticker}: {e}")
         return None
 
-async def process_symbol(ticker, start_date, end_date):
+async def process_symbol(ticker):
     file_path = f"json/price-analysis/{ticker}.json"  # Declare early to avoid UnboundLocalError
     try:
-        df = await download_data(ticker, start_date, end_date)
+        df = await download_data(ticker)
         data = PricePredictor().run(df)
 
         if data and data['lowPriceTarget'] > 0:
@@ -90,7 +84,7 @@ async def run():
     
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
-    cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE marketCap > 1E9")
+    cursor.execute("SELECT DISTINCT symbol FROM stocks")
     stock_symbols = [row[0] for row in cursor.fetchall()]
     con.close()
 
@@ -99,19 +93,24 @@ async def run():
     start_date = datetime(2015, 1, 1).strftime("%Y-%m-%d")
     end_date = datetime.today().strftime("%Y-%m-%d")
 
-    df_sp500 = await download_data('SPY', start_date, end_date)
-    df_sp500 = df_sp500.rename(columns={"y": "sp500"})
+    #df_sp500 = await download_data('SPY')
+    #df_sp500 = df_sp500.rename(columns={"y": "sp500"})
     #print(df_sp500)
 
     chunk_size = len(total_symbols) // 70  # Divide the list into N chunks
     chunks = [total_symbols[i:i + chunk_size] for i in range(0, len(total_symbols), chunk_size)]
-    #chunks = [['GME']]
+    #chunks = [['AAPL']]
     for chunk in chunks:
-        tasks = []
-        for ticker in tqdm(chunk):
-            tasks.append(process_symbol(ticker, start_date, end_date))
-
-        await asyncio.gather(*tasks)
+        try:
+            tasks = []
+            for ticker in tqdm(chunk):
+                try:
+                    tasks.append(process_symbol(ticker))
+                except:
+                    pass
+            await asyncio.gather(*tasks)
+        except:
+            pass
 
 try:
     asyncio.run(run())
