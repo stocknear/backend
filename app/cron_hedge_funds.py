@@ -15,7 +15,7 @@ stock_screener_data_dict = {item['symbol']: item for item in stock_screener_data
 keys_to_keep = [
     "type", "securityName", "symbol", "weight", 
     "changeInSharesNumberPercentage", "sharesNumber", 
-    "marketValue", "avgPricePaid", "putCallShare"
+    "marketValue", "avgPricePaid", "putCallShare","filingDate"
 ]
 
 quote_cache = {}
@@ -130,19 +130,16 @@ def get_data(cik, stock_sectors):
         for holding in res['holdings']
     ]
 
-    
     filtered_holdings = [
         {
-            **{k: v for k, v in item.items() if k not in ['putCallShare', 'securityName']}, 
+            **{k: v for k, v in item.items() if k not in ['securityName']}, 
             'name': item['securityName'].title()
         }
         for item in filtered_holdings 
         if (
-            item['putCallShare'] == 'Share' and 
             item['avgPricePaid'] > 0 and 
             item['marketValue'] > 0 and 
-            item['sharesNumber'] > 0 and
-            item['weight'] > 0
+            item['sharesNumber'] > 0
         )
     ]
 
@@ -151,6 +148,7 @@ def get_data(cik, stock_sectors):
     for item in filtered_holdings:
         try:
             symbol = item['symbol']
+            item['putCallShare'] = item['putCallShare'].title()
             quote_data = get_quote_data(symbol)
             if quote_data:
                 item['price'] = quote_data.get('price',None)
@@ -190,6 +188,7 @@ def get_data(cik, stock_sectors):
     res['mainSectors'] = main_sectors
     res['mainIndustries'] = main_industries
 
+
     if res:
         with open(f"json/hedge-funds/companies/{cik}.json", 'w') as file:
             file.write(orjson.dumps(res).decode("utf-8"))
@@ -203,7 +202,7 @@ if __name__ == '__main__':
     cursor.execute("SELECT DISTINCT cik FROM institutes")
     cik_symbols = [row[0] for row in cursor.fetchall()]
     #Test mode
-    #cik_symbols = ['0000102909']
+    #cik_symbols = ['0001649339']
     try:
         stock_cursor = stock_con.cursor()
         stock_cursor.execute("SELECT DISTINCT symbol, sector FROM stocks")
