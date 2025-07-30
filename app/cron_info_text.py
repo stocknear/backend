@@ -831,6 +831,18 @@ data = {
     },
     "splitRatio": {
         "text": "The split ratio, also called the split factor, is the ratio in which the amount of shares changes because of the stock split.",
+    },
+    "cagrNext3YearEPS": {
+        "text": "The forecasted growth in annual earnings per share (EPS) over the next 3 years according to stock analysts, calculated as the compound annual growth rate (CAGR).",
+    },
+    "cagrNext5YearEPS": {
+        "text": "The forecasted growth in annual earnings per share (EPS) over the next 5 years according to stock analysts, calculated as the compound annual growth rate (CAGR).",
+    },
+    "cagrNext3YearRevenue": {
+        "text": "The forecasted growth in annual revenue over the next 3 years according to stock analysts, calculated as the compound annual growth rate (CAGR)."
+    },
+    "cagrNext5YearRevenue": {
+        "text": "The forecasted growth in annual revenue over the next 5 years according to stock analysts, calculated as the compound annual growth rate (CAGR)."
     }
 
 

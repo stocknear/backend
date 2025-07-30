@@ -66,6 +66,7 @@ time_frames = {
 one_year_ago = datetime.now() - timedelta(days=365)
 today = date.today()
 today_str = datetime.today().strftime('%Y-%m-%d')
+current_year = datetime.now().year
 
 # YTD start (January 1st of the current year)
 ytd_start = date(today.year, 1, 1)
@@ -787,9 +788,14 @@ def get_country_name(country_code):
 
 def calculate_cagr(start_value, end_value, periods):
     try:
-        return round(((end_value / start_value) ** (1 / periods) - 1) * 100, 2)
+        res = round(((end_value / start_value) ** (1 / periods) - 1) * 100, 2)
+        if res and res != 0:
+            return res
+        else:
+            None
     except:
         return None
+
 
 def clean_for_json(data):
     if isinstance(data, dict):
@@ -1254,19 +1260,57 @@ async def get_stock_screener(con):
         
         try:
             with open(f"json/analyst-estimate/{symbol}.json", 'r') as file:
-                res = orjson.loads(file.read())[-1]
+                res = orjson.loads(file.read())
+                
+                # Initialize values
                 item['forwardPS'] = None
-                #item['peg'] = None
-                #for analyst_item in res:
-                if item['marketCap'] > 0 and res['estimatedRevenueAvg'] > 0: #res['date'] == next_year and 
-                    # Calculate forwardPS: marketCap / estimatedRevenueAvg
-                    item['forwardPS'] = round(item['marketCap'] / res['estimatedRevenueAvg'], 1)
-                    if item['eps'] > 0:
-                        cagr = ((res['estimatedEpsAvg']/item['eps'] ) -1)*100
-                        #item['peg'] = round(item['priceEarningsRatio'] / cagr,2) if cagr > 0 else None
+                item['cagrNext3YearEPS'] = None
+                item['cagrNext5YearEPS'] = None
+
+                item['cagrNext3YearRevenue'] = None
+                item['cagrNext5YearRevenue'] = None
+                
+                # Create lookup dict by year for easier access
+                estimates_by_year = {est['date']: est for est in res}
+                
+                # Get next year estimate for forward P/S
+                next_year = current_year + 1
+                if next_year in estimates_by_year:
+                    next_year_data = estimates_by_year[next_year]
+                    if item['marketCap'] > 0 and next_year_data['estimatedRevenueAvg'] > 0:
+                        item['forwardPS'] = round(item['marketCap'] / next_year_data['estimatedRevenueAvg'], 1)
+                
+                # Calculate Next N-year EPS & RevenueCAGR
+                year_3 = current_year + 3
+                year_5 = current_year + 5
+
+                if year_3 in estimates_by_year and item['eps']:
+                    eps_year_3 = estimates_by_year[year_3]['estimatedEpsAvg']
+                    if eps_year_3:
+                        item['cagrNext3YearEPS'] = calculate_cagr(item['eps'], eps_year_3, 3)
+
+                if year_5 in estimates_by_year and item['eps']:
+                    eps_year_5 = estimates_by_year[year_5]['estimatedEpsAvg']
+                    if eps_year_5:
+                        item['cagrNext5YearEPS'] = calculate_cagr(item['eps'], eps_year_5, 5)
+
+                if year_3 in estimates_by_year and item['revenue']:
+                    revenue_year_3 = estimates_by_year[year_3]['estimatedRevenueAvg']
+                    if revenue_year_3:
+                        item['cagrNext3YearRevenue'] = calculate_cagr(item['revenue'], revenue_year_3, 3)
+
+                if year_5 in estimates_by_year and item['revenue']:
+                    revenue_year_5 = estimates_by_year[year_5]['estimatedRevenueAvg']
+                    if revenue_year_5:
+                        item['cagrNext5YearRevenue'] = calculate_cagr(item['revenue'], revenue_year_5, 5)
+
+                        
         except:
             item['forwardPS'] = None
-            #item['peg'] = None
+            item['cagrNext3YearEPS'] = None
+            item['cagrNext5YearEPS'] = None
+            item['cagrNext3YearRevenue'] = None
+            item['cagrNext5YearRevenue'] = None
 
         '''
         try:
