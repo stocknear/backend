@@ -843,9 +843,10 @@ data = {
     },
     "cagrNext5YearRevenue": {
         "text": "The forecasted growth in annual revenue over the next 5 years according to stock analysts, calculated as the compound annual growth rate (CAGR)."
-    }
-
-
+    },
+    "changesPercentage": {
+        "text": "The percentage change in the stock price on the current or latest trading day."
+    },
 
 }
 
