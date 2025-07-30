@@ -471,7 +471,7 @@ schedule.every(15).minutes.do(run_threaded, run_dark_pool_level).tag('dark_pool_
 schedule.every(10).minutes.do(run_threaded, run_dark_pool_flow).tag('dark_pool_flow_job')
 
 schedule.every(2).minutes.do(run_threaded, run_dashboard).tag('dashboard_job')
-schedule.every(15).seconds.do(run_threaded, run_quote).tag('quote_job')
+schedule.every(2).minutes.do(run_threaded, run_quote).tag('quote_job')
 
 
 schedule.every(15).seconds.do(run_threaded, run_if_not_running(run_cron_options_flow, 'options_flow_job')).tag('options_flow_job')
