@@ -587,7 +587,7 @@ data = {
         "text": "Sentiment is determined by the aggressor index. A value of 0.6 or higher indicates a bullish sentiment, below 0.5 indicates a bearish sentiment and 0.5 is considered neutral."
     },
     "volume": {
-        "text": "Volume represents the number of option contracts traded during a specific period. Higher volume typically indicates increased market activity and interest in the option."
+        "text": "The number of shares traded during the current or latest trading day."
     },
     "open_interest": {
         "text": "Open interest refers to the total number of outstanding option contracts that have not been settled. A rising open interest suggests growing market interest, while a decline may indicate reduced interest or closing positions."
