@@ -1,11 +1,11 @@
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
-from xgboost import XGBClassifier
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, roc_auc_score
 from sklearn.preprocessing import StandardScaler, RobustScaler
 from sklearn.model_selection import TimeSeriesSplit, GridSearchCV
 from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.model_selection import train_test_split
 import warnings
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -295,7 +295,7 @@ class ModelTrainer:
         """Optimize hyperparameters using GridSearchCV"""
         logger.info("Starting hyperparameter optimization...")
         
-        rf = XGBClassifier(random_state=42, n_jobs=4)
+        rf = RandomForestClassifier(random_state=42, n_jobs=4)
         param_grid = self.get_default_params()
         
         # Use TimeSeriesSplit for cross-validation
@@ -303,7 +303,7 @@ class ModelTrainer:
         
         grid_search = GridSearchCV(
             rf, param_grid, cv=tscv, scoring='roc_auc',
-            n_jobs=-1, verbose=1
+            n_jobs=4, verbose=1
         )
         
         X_train_scaled = self.scaler.fit_transform(X_train)
@@ -331,7 +331,7 @@ class ModelTrainer:
             'min_samples_split': 20,
             'min_samples_leaf': 5,
             'random_state': 42,
-            'n_jobs': -1,
+            'n_jobs': 4,
         }
         default_params.update(rf_params)
         
@@ -479,23 +479,59 @@ class StockDirectionPredictor:
         
         return self.features, self.target
     
-    def time_series_split(self, test_size: float = 0.2) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
-        """Time series split maintaining temporal order"""
+    def time_series_split(self, test_size: float = 0.2, shuffle_data: bool = False, 
+                         random_state: int = 42) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
         n_samples = len(self.features)
-        split_idx = int(n_samples * (1 - test_size))
         
-        X_train = self.features.iloc[:split_idx].copy()
-        X_test = self.features.iloc[split_idx:].copy()
-        y_train = self.target.iloc[:split_idx].copy()
-        y_test = self.target.iloc[split_idx:].copy()
+        if shuffle_data:
+            # Random split with shuffling - breaks temporal order
+            logger.info("Using shuffled data split (temporal order not preserved)")
+            
+            X_train, X_test, y_train, y_test = train_test_split(
+                self.features, 
+                self.target,
+                test_size=test_size,
+                random_state=random_state,
+                stratify=None  # Can add stratification if needed
+            )
+            
+            # Sort by index to maintain some semblance of order in logs
+            X_train = X_train.sort_index()
+            X_test = X_test.sort_index()
+            y_train = y_train.sort_index()
+            y_test = y_test.sort_index()
+            
+            logger.info(f"Shuffled split - Train: {len(X_train)}, Test: {len(X_test)}")
+            logger.info(f"Train date range: {X_train.index[0]} to {X_train.index[-1]}")
+            logger.info(f"Test date range: {X_test.index[0]} to {X_test.index[-1]}")
+            
+        else:
+            # Traditional time series split - maintains temporal order
+            logger.info("Using temporal data split (chronological order preserved)")
+            
+            split_idx = int(n_samples * (1 - test_size))
+            
+            X_train = self.features.iloc[:split_idx].copy()
+            X_test = self.features.iloc[split_idx:].copy()
+            y_train = self.target.iloc[:split_idx].copy()
+            y_test = self.target.iloc[split_idx:].copy()
+            
+            logger.info(f"Temporal split - Train: {len(X_train)}, Test: {len(X_test)}")
+            logger.info(f"Train period: {X_train.index[0]} to {X_train.index[-1]}")
+            logger.info(f"Test period: {X_test.index[0]} to {X_test.index[-1]}")
         
-        logger.info(f"Data split - Train: {len(X_train)}, Test: {len(X_test)}")
+        # Log class distribution for both splits
+        train_dist = y_train.value_counts(normalize=True)
+        test_dist = y_test.value_counts(normalize=True)
+        
+        logger.info(f"Train target distribution: {train_dist.to_dict()}")
+        logger.info(f"Test target distribution: {test_dist.to_dict()}")
         
         return X_train, X_test, y_train, y_test
-    
+        
     def train_and_evaluate(self, optimize_hyperparameters: bool = False) -> ModelMetrics:
         """Train model and evaluate performance"""
-        X_train, X_test, y_train, y_test = self.time_series_split()
+        X_train, X_test, y_train, y_test = self.time_series_split(shuffle_data=False)
         
         # Train model
         self.trainer.train_model(X_train, y_train, optimize=optimize_hyperparameters)
@@ -562,7 +598,9 @@ def save_results(data: Dict, symbol: str, base_path: str = "json/ai-score/compan
 def main():
     """Main execution function"""
 
-    total_symbols = load_symbol_list()
+    #total_symbols = load_symbol_list()
+    #testing mode
+    #total_symbols = ['AMD']
 
     for symbol in tqdm(total_symbols):
         time_period = 60
