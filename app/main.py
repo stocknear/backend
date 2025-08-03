@@ -446,22 +446,22 @@ async def load_json_async(file_path):
     cached_data = redis_client.get(file_path)
     if cached_data:
         return orjson.loads(cached_data)
+    
     try:
-        # Use aiofiles for truly async file I/O
-        import aiofiles
         async with aiofiles.open(file_path, 'rb') as f:
             content = await f.read()
             data = orjson.loads(content)
-            # Cache the data in Redis for 10 minutes (non-blocking)
-            asyncio.create_task(
-                asyncio.get_event_loop().run_in_executor(
-                    None, 
-                    lambda: redis_client.set(file_path, orjson.dumps(data), ex=600)
-                )
+
+            # Store in Redis without wrapping in create_task
+            asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: redis_client.set(file_path, orjson.dumps(data), ex=600)
             )
+
             return data
-    except Exception:
+    except:
         return None
+
 
 
 @app.get("/")
@@ -4415,8 +4415,6 @@ async def get_data(data: BulkDownload, api_key: str = Security(get_api_key)):
 
 
 
-
-
 CATEGORY_CONFIG = {
     "price": {
         "path": "json/historical-price/max/{ticker}.json",
@@ -4429,8 +4427,11 @@ CATEGORY_CONFIG = {
     "marketCap": {
         "path": "json/market-cap/companies/{ticker}.json",
         "processor": lambda raw, value_key="marketCap": sorted(
-            [{"date": point["date"], "value": round(point.get(value_key, 0), 2)}
-             for point in raw if point["date"] >= "2000-01-01"],
+            [
+                {"date": point["date"], "value": round(point.get(value_key, 0), 2)}
+                for point in raw
+                if isinstance(point, dict) and point.get("date", "") >= "2000-01-01"
+            ],
             key=lambda x: x["date"]
         )
     },
@@ -4517,8 +4518,8 @@ INDICATOR_RULES = [
     "revenue",
     "grossProfit"
 ]
-
 INDICATOR_DATA_URL = "http://localhost:8000/indicator-data"
+
 
 async def load_ticker_data(ticker, category):
     """
@@ -4537,10 +4538,12 @@ async def load_ticker_data(ticker, category):
     
     try:
         raw_data = await load_json_async(config["path"].format(ticker=ticker))
-        value_key = category.get("value")
+        value_key = category.get("value",None)
+        print(value_key)
         processed_data = config["processor"](raw_data, value_key=value_key)
         return processed_data
-    except:
+    except Exception as e:
+        print(e)
         return []
 
 def create_merged_structure(tickers: list, histories: list, stock_data: dict) -> dict:
@@ -4564,9 +4567,18 @@ def create_merged_structure(tickers: list, histories: list, stock_data: dict) ->
 async def compare_data_endpoint(data: CompareData, api_key: str = Security(get_api_key)):
     tickers = data.tickerList
     category = data.category
+    print(tickers, category)
+    # Validate input
+    if not tickers:
+        raise HTTPException(status_code=400, detail="No tickers provided")
     
+    # Clean and validate tickers
+    tickers = [ticker.strip().upper() for ticker in tickers if ticker and ticker.strip()]
+    if not tickers:
+        raise HTTPException(status_code=400, detail="No valid tickers provided")
+        
     # Use category value for the cache key since that identifies the specific data
-    cache_key = f"compare-data-{','.join(tickers)}-{category['value']}"
+    cache_key = f"compare-data-{','.join(tickers)}-{category.get('value', 'default')}"
     
     # Try to return cached response
     if cached := redis_client.get(cache_key):
@@ -4578,10 +4590,19 @@ async def compare_data_endpoint(data: CompareData, api_key: str = Security(get_a
     
     # Load data for all tickers in parallel
     loaders = [load_ticker_data(ticker, category) for ticker in tickers]
-    histories = await asyncio.gather(*loaders, return_exceptions=False)
+    histories = await asyncio.gather(*loaders, return_exceptions=True)
+    
+    # Handle any exceptions from the parallel loading
+    processed_histories = []
+    for i, result in enumerate(histories):
+        if isinstance(result, Exception):
+            print(f"Error loading data for ticker {tickers[i]}: {result}")
+            processed_histories.append([])  # Empty list for failed loads
+        else:
+            processed_histories.append(result)
     
     # Create base response structure
-    merged = create_merged_structure(tickers, histories, stock_screener_data_dict)
+    merged = create_merged_structure(tickers, processed_histories, stock_screener_data_dict)
     
     # Fetch additional indicator data
     try:
@@ -4595,7 +4616,7 @@ async def compare_data_endpoint(data: CompareData, api_key: str = Security(get_a
             response.raise_for_status()
             overview = response.json()
     except Exception as e:
-        # Log error here if needed
+        print(f"Error fetching indicator data: {e}")
         overview = []
     
     # Prepare final output
@@ -4610,6 +4631,10 @@ async def compare_data_endpoint(data: CompareData, api_key: str = Security(get_a
         media_type="application/json",
         headers={"Content-Encoding": "gzip"}
     )
+
+
+
+
 
 # Define fundamental tools once (DRY principle)
 FUNDAMENTAL_TOOLS = [
