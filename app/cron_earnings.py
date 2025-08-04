@@ -94,7 +94,14 @@ async def save_json(data, symbol, dir_path):
         await file.write(ujson.dumps(data))
 
 async def get_data(session, ticker, con):
-    querystring = {"token": api_key, "parameters[tickers]": ticker}
+    if ticker == "BRK-A":
+        api_ticker = "BRK/A"
+    elif ticker == "BRK-B":
+        api_ticker = "BRK/B"
+    else:
+        api_ticker = ticker
+
+    querystring = {"token": api_key, "parameters[tickers]": api_ticker}
     try:
         async with session.get(url, params=querystring, headers=headers) as response:
             data = ujson.loads(await response.text())['earnings']
@@ -102,14 +109,16 @@ async def get_data(session, ticker, con):
             raw_data = [{k: v for k, v in item.items() if k not in ['currency','exchange','eps_type','revenue_type', 'name', 'notes','updated', 'ticker', 'importance', 'id','date_confirmed']} for item in data]
             raw_data = filter_keep_nearest_future_only(raw_data)
             #save all rawdata for llm
+
             await save_json(raw_data, ticker, 'json/earnings/raw')
 
             # Filter for future earnings
-            future_dates = [item for item in data if ny_tz.localize(datetime.strptime(item["date"], "%Y-%m-%d")) >= today]
+            future_dates = [item for item in raw_data if ny_tz.localize(datetime.strptime(item["date"], "%Y-%m-%d")).date() >= today.date()]
+
             if future_dates:
                 nearest_future = min(future_dates, key=lambda x: datetime.strptime(x["date"], "%Y-%m-%d"))
                 try:
-                    symbol = nearest_future['ticker']
+                    symbol = ticker
                     time = nearest_future['time']
                     date = nearest_future['date']
                     eps_prior = float(nearest_future['eps_prior']) if nearest_future['eps_prior'] else None
@@ -132,7 +141,7 @@ async def get_data(session, ticker, con):
                 else:
                     check_existing_file(ticker, "next")
 
-                # Filter for past earnings within the last 20 days
+                # Filter for past earnings within the last N days
                 recent_dates = [item for item in data if N_days_ago <= ny_tz.localize(datetime.strptime(item["date"], "%Y-%m-%d")) <= today]
                 if recent_dates:
                     nearest_recent = min(recent_dates, key=lambda x: datetime.strptime(x["date"], "%Y-%m-%d"))
@@ -143,10 +152,19 @@ async def get_data(session, ticker, con):
 
                         eps_prior = float(nearest_recent['eps_prior']) if nearest_recent['eps_prior'] != '' else None
                         eps = float(nearest_recent['eps']) if nearest_recent['eps'] != '' else None
-                        eps_surprise = round(eps - eps_est,2) if eps is not None and eps_est not in (None, 0) else None
+                        if nearest_recent.get('eps_surprise') not in ('', None):
+                            eps_surprise = float(nearest_recent['eps_surprise'])
+                        else:
+                            eps_surprise = round(eps - eps_est, 2) if eps is not None and eps_est not in (None, 0) else None
+
+
                         revenue_prior = float(nearest_recent['revenue_prior']) if nearest_recent['revenue_prior'] != '' else None
                         revenue = float(nearest_recent['revenue']) if nearest_recent['revenue'] != '' else None
-                        revenue_surprise = round(revenue - revenue_est,0) if revenue is not None and revenue_est not in (None, 0) else None
+                        if nearest_recent.get('revenue_surprise') not in ('', None):
+                            revenue_surprise = float(nearest_recent['revenue_surprise'])
+                        else:
+                            revenue_surprise = round(revenue - revenue_est, 0) if revenue is not None and revenue_est not in (None, 0) else None
+
                         if revenue and revenue_prior and eps_prior and eps and revenue_surprise and eps_surprise:
                             res_list = {
                                 'epsPrior':eps_prior,
@@ -180,7 +198,7 @@ try:
     cursor.execute("PRAGMA journal_mode = wal")
     cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%' AND symbol NOT LIKE '%-%'")
     stock_symbols = [row[0] for row in cursor.fetchall()]
-    #stock_symbols = ['DAL']
+    #stock_symbols = ['BRK-A']
 
     asyncio.run(run(stock_symbols, con))
     
