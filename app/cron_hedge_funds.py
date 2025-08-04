@@ -157,7 +157,15 @@ def get_data(cik, stock_sectors):
         except:
             pass
 
+    res['filingDate'] = filtered_holdings[0]['filingDate']
+    filtered_holdings = [
+        {k: v for k, v in item.items() if k != 'filingDate'}
+        for item in filtered_holdings
+        if item.get('filingDate')
+    ]
     res['holdings'] = filtered_holdings
+
+
     for rank, item in enumerate(res['holdings'], 1):
         item['rank'] = rank
 
