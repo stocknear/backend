@@ -6,7 +6,6 @@ import csv
 import re
 import os
 import secrets
-from benzinga import financial_data
 from typing import List, Dict, Set
 # Third-party library imports
 import numpy as np
@@ -233,7 +232,6 @@ pb = PocketBase('http://127.0.0.1:8090')
 
 FMP_API_KEY = os.getenv('FMP_API_KEY')
 Benzinga_API_KEY = os.getenv('BENZINGA_API_KEY')
-fin = financial_data.Benzinga(Benzinga_API_KEY)
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url = None)
 limiter = Limiter(key_func=get_remote_address)
@@ -2709,43 +2707,6 @@ async def get_data(data: ParamsData, api_key: str = Security(get_api_key)):
 
 
 
-@app.post("/options-flow-ticker")
-async def get_options_flow_ticker(data:TickerData, api_key: str = Security(get_api_key)):
-    ticker = data.ticker.upper()
-    cache_key = f"options-flow-{ticker}"
-
-    cached_result = redis_client.get(cache_key)
-    if cached_result:
-        return StreamingResponse(
-        io.BytesIO(cached_result),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"})
-    try:
-        data = fin.options_activity(company_tickers=ticker, pagesize=500)
-        data = orjson.loads(fin.output(data))['option_activity']
-        res_list = []
-        keys_to_keep = {'time', 'sentiment','option_activity_type', 'price', 'underlying_price', 'cost_basis', 'strike_price', 'date', 'date_expiration', 'open_interest', 'put_call', 'volume'}
-        for item in data:
-            filtered_item = {key: value for key, value in item.items() if key in keys_to_keep}
-            filtered_item['type'] = filtered_item['option_activity_type'].capitalize()
-            filtered_item['sentiment'] = filtered_item['sentiment'].capitalize()
-            filtered_item['underlying_price'] = round(float(filtered_item['underlying_price']),2)
-            #filtered_item['time'] = (datetime.strptime(filtered_item['time'], '%H:%M:%S')-timedelta(hours=0)).strftime('%H:%M:%S')
-            filtered_item['put_call'] = 'Calls' if filtered_item['put_call'] == 'CALL' else 'Puts'
-            res_list.append(filtered_item)
-    except:
-        res_list = []
-
-    data = orjson.dumps(res_list)
-    compressed_data = gzip.compress(data)
-    redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 60*5)  # Set cache expiration time to 5 min
-
-    return StreamingResponse(
-        io.BytesIO(compressed_data),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"}
-    )
 
 
 @app.post("/options-gex-ticker")
