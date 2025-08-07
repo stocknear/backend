@@ -74,11 +74,48 @@ class BacktestingEngine:
         self.shares = 0
         self.ti = TechnicalIndicators()
     
+    def _find_closest_date(self, df: pd.DataFrame, target_date: pd.Timestamp, direction: str = 'forward') -> Optional[pd.Timestamp]:
+        """
+        Find the closest available date in the dataframe to the target date.
+        
+        Args:
+            df: DataFrame with datetime index
+            target_date: Target date to find
+            direction: 'forward' to find next available date, 'backward' for previous
+        
+        Returns:
+            Closest available date or None if no suitable date found
+        """
+        if df.empty:
+            return None
+            
+        if target_date in df.index:
+            return target_date
+        
+        if direction == 'forward':
+            # Find the first date greater than or equal to target
+            future_dates = df.index[df.index >= target_date]
+            if len(future_dates) > 0:
+                return future_dates[0]
+            else:
+                # If no future dates, return the last available date
+                print(f"Warning: No dates available after {target_date.strftime('%Y-%m-%d')}. Using last available date.")
+                return df.index[-1]
+        else:  # backward
+            # Find the last date less than or equal to target
+            past_dates = df.index[df.index <= target_date]
+            if len(past_dates) > 0:
+                return past_dates[-1]
+            else:
+                # If no past dates, return the first available date
+                print(f"Warning: No dates available before {target_date.strftime('%Y-%m-%d')}. Using first available date.")
+                return df.index[0]
+    
     async def load_historical_data(self, ticker: str, start_date: str = None, end_date: str = None) -> pd.DataFrame:
-        """Load historical price data for backtesting"""
+        """Load historical price data for backtesting with robust date handling"""
         # Try different possible file paths
         file_paths = [
-            f"json/historical-price/adj/{ticker}.json",
+            f"../json/historical-price/adj/{ticker}.json",
         ]
         
         for file_path in file_paths:
@@ -130,19 +167,40 @@ class BacktestingEngine:
                 if df.empty:
                     continue
                 
-                # Filter by date range if provided
+                # Enhanced date range filtering with closest date selection
+                actual_start = None
+                actual_end = None
+                
                 if start_date:
-                    start_date = pd.to_datetime(start_date)
-                    df = df[df.index >= start_date]
+                    start_date_pd = pd.to_datetime(start_date)
+                    actual_start = self._find_closest_date(df, start_date_pd, 'forward')
+                    if actual_start:
+                        df = df[df.index >= actual_start]
+                        if actual_start != start_date_pd:
+                            print(f"Start date adjusted from {start_date} to {actual_start.strftime('%Y-%m-%d')}")
+                
                 if end_date:
-                    end_date = pd.to_datetime(end_date)
-                    df = df[df.index <= end_date]
+                    end_date_pd = pd.to_datetime(end_date)
+                    actual_end = self._find_closest_date(df, end_date_pd, 'backward')
+                    if actual_end:
+                        df = df[df.index <= actual_end]
+                        if actual_end != end_date_pd:
+                            print(f"End date adjusted from {end_date} to {actual_end.strftime('%Y-%m-%d')}")
                 
                 if df.empty:
-                    print(f"Warning: No data in specified date range for {ticker}")
+                    print(f"Warning: No data available in the adjusted date range for {ticker}")
                     return pd.DataFrame()
+                
+                # Add metadata about date adjustments
+                df.attrs['requested_start'] = start_date
+                df.attrs['requested_end'] = end_date
+                df.attrs['actual_start'] = actual_start.strftime('%Y-%m-%d') if actual_start else None
+                df.attrs['actual_end'] = actual_end.strftime('%Y-%m-%d') if actual_end else None
                     
                 print(f"Successfully loaded {len(df)} data points for {ticker}")
+                if actual_start or actual_end:
+                    print(f"Date range: {df.index[0].strftime('%Y-%m-%d')} to {df.index[-1].strftime('%Y-%m-%d')}")
+                
                 return df
                 
             except FileNotFoundError:
@@ -514,7 +572,19 @@ class BacktestingEngine:
         # Buy and hold comparison
         buy_hold_return = (df['close'].iloc[-1] - df['close'].iloc[0]) / df['close'].iloc[0] if len(df) > 0 else 0
         
-        return {
+        # Include date adjustment info if available
+        date_info = {}
+        if hasattr(df, 'attrs'):
+            if df.attrs.get('requested_start') != df.attrs.get('actual_start'):
+                date_info['start_date_adjusted'] = True
+                date_info['requested_start'] = df.attrs.get('requested_start')
+                date_info['actual_start'] = df.attrs.get('actual_start')
+            if df.attrs.get('requested_end') != df.attrs.get('actual_end'):
+                date_info['end_date_adjusted'] = True
+                date_info['requested_end'] = df.attrs.get('requested_end')
+                date_info['actual_end'] = df.attrs.get('actual_end')
+        
+        result = {
             'strategy_name': strategy_name,
             'period': f"{df.index[0].strftime('%Y-%m-%d')} to {df.index[-1].strftime('%Y-%m-%d')}",
             'total_return': round(total_return * 100, 2),
@@ -533,6 +603,11 @@ class BacktestingEngine:
             'total_signals': len(signals),
             'summary': self._generate_summary(strategy_name, total_return, buy_hold_return, win_rate, total_trades)
         }
+        
+        if date_info:
+            result['date_adjustments'] = date_info
+        
+        return result
     
     def _calculate_max_drawdown(self, portfolio_values: np.array) -> float:
         """Calculate maximum drawdown"""
@@ -578,7 +653,17 @@ async def run_comprehensive_backtest(ticker: str, start_date: str = None, end_da
     # Sort by total return
     results.sort(key=lambda x: x.get('total_return', 0), reverse=True)
     
-    return {
+    # Add date adjustment info to main result
+    date_adjustments = {}
+    if hasattr(df, 'attrs'):
+        if df.attrs.get('requested_start'):
+            date_adjustments['requested_start'] = df.attrs.get('requested_start')
+            date_adjustments['actual_start'] = df.attrs.get('actual_start')
+        if df.attrs.get('requested_end'):
+            date_adjustments['requested_end'] = df.attrs.get('requested_end')
+            date_adjustments['actual_end'] = df.attrs.get('actual_end')
+    
+    response = {
         'ticker': ticker.upper(),
         'period': f"{df.index[0].strftime('%Y-%m-%d')} to {df.index[-1].strftime('%Y-%m-%d')}",
         'data_points': len(df),
@@ -587,6 +672,11 @@ async def run_comprehensive_backtest(ticker: str, start_date: str = None, end_da
         'best_strategy': results[0] if results else None,
         'summary': f"Backtested {len(results)} strategies for {ticker.upper()} over {len(df)} trading days."
     }
+    
+    if date_adjustments:
+        response['date_adjustments'] = date_adjustments
+    
+    return response
 
 
 async def run_single_strategy_backtest(ticker: str, strategy_name: str = "buy_and_hold", 
@@ -641,6 +731,19 @@ async def run_single_strategy_backtest(ticker: str, strategy_name: str = "buy_an
             'start_date': df.index[0].strftime('%Y-%m-%d'),
             'end_date': df.index[-1].strftime('%Y-%m-%d')
         })
+        
+        # Add date adjustment info if available
+        if hasattr(df, 'attrs'):
+            date_adjustments = {}
+            if df.attrs.get('requested_start'):
+                date_adjustments['requested_start'] = df.attrs.get('requested_start')
+                date_adjustments['actual_start'] = df.attrs.get('actual_start')
+            if df.attrs.get('requested_end'):
+                date_adjustments['requested_end'] = df.attrs.get('requested_end')
+                date_adjustments['actual_end'] = df.attrs.get('actual_end')
+            if date_adjustments:
+                result['date_adjustments'] = date_adjustments
+        
         return result
     except Exception as e:
         return {
@@ -649,3 +752,5 @@ async def run_single_strategy_backtest(ticker: str, strategy_name: str = "buy_an
             'error': f'Backtesting failed: {str(e)}',
             'success': False
         }
+
+

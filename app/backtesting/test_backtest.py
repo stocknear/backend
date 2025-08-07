@@ -76,13 +76,13 @@ async def main():
     """Main test function"""
     if len(sys.argv) < 2:
         print("Usage:")
-        print("  python test_backtest.py single [TICKER] [STRATEGY] [START_DATE]")
-        print("  python test_backtest.py all [TICKER] [START_DATE]")
+        print("  python3 test_backtest.py single [TICKER] [STRATEGY] [START_DATE]")
+        print("  python3 test_backtest.py all [TICKER] [START_DATE]")
         print()
         print("Examples:")
-        print("  python test_backtest.py single AAPL buy_and_hold 2024-01-01")
-        print("  python test_backtest.py single TSLA rsi 2023-01-01")
-        print("  python test_backtest.py all AAPL 2024-01-01")
+        print("  python3 test_backtest.py single AAPL buy_and_hold 2024-01-01")
+        print("  python3 test_backtest.py single TSLA rsi 2023-01-01")
+        print("  python3 test_backtest.py all AAPL 2024-01-01")
         print()
         print("Available strategies: buy_and_hold, rsi, ma_crossover, bollinger, macd")
         return
