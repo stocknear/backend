@@ -9,7 +9,7 @@ from pathlib import Path
 # Add the current directory to path so we can import modules
 sys.path.append('.')
 
-from ai_agent.backtesting_tools import run_single_strategy_backtest, run_comprehensive_backtest
+from backtesting_tools import run_single_strategy_backtest, run_comprehensive_backtest
 
 
 async def test_single_strategy(ticker="AAPL", strategy="buy_and_hold", start_date="2024-01-01"):
