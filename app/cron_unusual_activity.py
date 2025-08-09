@@ -11,6 +11,7 @@ import re
 import os
 
 
+today = datetime.now().date()
 
 # Database connection and symbol retrieval
 def get_total_symbols():
@@ -70,12 +71,13 @@ async def get_dataset():
 
 
 async def get_data(symbol, data):
-
     res_list = []
-    if len(data) > 0:
+
+    if data:
         for item in data:
             try:
-                if item['ticker'] == symbol:
+                expiry_date = datetime.strptime(item['date_expiration'], "%Y-%m-%d").date()
+                if item['ticker'] == symbol and expiry_date >= today:
                     res_list.append({
                         'date': item['date'],
                         'premium': item['cost_basis'],
@@ -89,9 +91,9 @@ async def get_data(symbol, data):
                         'strike': item['strike_price'],
                         'expiry': item['date_expiration'],
                         'optionType': item['put_call'],
-                        })
+                    })
             except Exception as e:
-                    print(e)
+                print(e)
 
     res_list = sorted(res_list, key=lambda x: x['date'], reverse=True)
 
