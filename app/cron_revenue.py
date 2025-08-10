@@ -53,23 +53,23 @@ async def get_data(symbol):
     with open(f"json/financial-statements/income-statement/quarter/{symbol}.json", "r") as file:
         quarter_data = orjson.loads(file.read())
 
-    
     # Filter the data for the last 5 years
     annual_data = [
-        {"date": item["date"], "revenue": item["revenue"]}
+        {"date": item["date"], "fiscalYear": item['fiscalYear'], "revenue": item["revenue"]}
         for item in annual_data
         if int(item["date"][:4]) >= cutoff_year  # Extract year from date and filter
     ]
 
     # Filter the data for the last 5 years
     quarter_data = [
-        {"date": item["date"], "revenue": item["revenue"]}
+        {"date": item["date"], "fiscalYear": item['fiscalYear'], "period": item['period'], "revenue": item["revenue"]}
         for item in quarter_data
         if int(item["date"][:4]) >= cutoff_year  # Extract year from date and filter
     ]
 
     stats = await get_statistics(symbol)
     res_dict = {**stats, 'annual': annual_data, 'quarter': quarter_data}
+
 
     if annual_data and quarter_data:
         await save_json(symbol, res_dict)
