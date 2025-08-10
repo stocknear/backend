@@ -6,7 +6,7 @@ from pathlib import Path
 import time
 import ujson
 import sqlite3
-
+import orjson
 
 
 def save_json(symbol, data):
@@ -100,6 +100,8 @@ if __name__ == '__main__':
     
     # List CSV files sorted by modification time
     files_available = sorted(Path(directory_path).iterdir(), key=os.path.getmtime)
+    #files_available = ['json/fail-to-deliver/csv/cnsfails202507a.csv']
+
     combined_df = get_total_data(files_available, limit=1000)
 
     
@@ -107,7 +109,25 @@ if __name__ == '__main__':
     
     # Example usage: print or access dataframes for each ticker
     for ticker, df in ticker_dataframes.items():
-        if ticker in total_symbols:
-            data= [{k: v for k, v in d.items() if k not in ['Ticker', 'T+35 Date']} for d in df.to_dict('records')]
-            save_json(ticker, data)
+        try:
+            if ticker in total_symbols:
+                data= [{k: v for k, v in d.items() if k not in ['Ticker', 'T+35 Date']} for d in df.to_dict('records')]
+
+                with open(f"json/historical-price/adj/{ticker}.json", "rb") as file:
+                    historical_price = orjson.loads(file.read())
+
+                # Create a lookup dictionary from historical_price
+                close_lookup = {item['date']: item['adjClose'] for item in historical_price}
+
+                # Replace 'price' in data if the date exists in the lookup
+                for entry in data:
+                    try:
+                        if entry['date'] in close_lookup:
+                            entry['price'] = close_lookup[entry['date']]
+                    except:
+                        pass
+
+                save_json(ticker, data)
+        except:
+            pass
     
