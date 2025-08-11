@@ -2390,6 +2390,15 @@ async def get_insider_trading(data:TickerData, api_key: str = Security(get_api_k
     try:
         with open(f"json/insider-trading/history/{ticker}.json", 'rb') as file:
             res = orjson.loads(file.read())
+            res = [
+                {
+                    **{k: v for k, v in item.items() if k not in ("securityName", "formType", "url", "directOrIndirect", "acquisitionOrDisposition", "companyCik")},
+                    "value": item["securitiesTransacted"] * item["price"]
+                }
+                for item in res
+            ]
+
+
     except:
         res = []
 
