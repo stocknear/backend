@@ -440,7 +440,7 @@ schedule.every().saturday.at("05:00").do(run_threaded, run_ownership_stats).tag(
 
 schedule.every(30).minutes.do(run_threaded, run_dividend_list).tag('dividend_list_job')
 schedule.every(3).hours.do(run_threaded, run_congress_trading).tag('congress_job')
-schedule.every(30).minutes.do(run_threaded, run_cron_market_news).tag('market_news_job')
+schedule.every(20).minutes.do(run_threaded, run_cron_market_news).tag('market_news_job')
 
 schedule.every(30).minutes.do(run_threaded, run_cron_industry).tag('industry_job')
 
