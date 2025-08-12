@@ -14,7 +14,7 @@ from functools import lru_cache
 class DataManager:
     """Manages market data loading with caching and optimization"""
     
-    def __init__(self, market_data_path: str = "../json/historical-price/adj"):
+    def __init__(self, market_data_path: str = "json/historical-price/adj"):
         self.market_data_path = market_data_path
         self._cache = {}
     
@@ -40,8 +40,7 @@ class DataManager:
         
         # Try different file locations
         possible_paths = [
-            Path(f"{self.market_data_path}/{ticker}.json"),
-            Path(f"../json/historical-price/adj/{ticker}.json"), 
+            Path(f"json/historical-price/adj/{ticker}.json"), 
         ]
         
         for file_path in possible_paths:

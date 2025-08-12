@@ -4621,10 +4621,8 @@ async def get_data(data: Backtesting, api_key: str = Security(get_api_key)):
     sell_conditions = strategy_data.get('sell_condition', [])
     initial_capital = strategy_data['initial_capital']
 
-    # Make key unique for params
     cache_key = f"backtesting-{','.join(tickers)}-{start_date}-{end_date}-{hash(orjson.dumps([buy_conditions, sell_conditions]))}"
 
-    print(tickers)
     # Check cache
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -4644,19 +4642,17 @@ async def get_data(data: Backtesting, api_key: str = Security(get_api_key)):
             start_date=start_date,
             end_date=end_date
         )
-    except Exception:
+        res = {k: v for k, v in res.items() if k not in ("trade_history", "signals")}
+        print(res['plot_data'])
+    except:
         res = {}
 
-    
-    print(res)
-    
+
     compressed_data = await asyncio.to_thread(
-        lambda: gzip.compress(orjson.dumps(res))
+        lambda: gzip.compress(orjson.dumps(res, option=orjson.OPT_SERIALIZE_NUMPY))
     )
 
-    # Store with expiry in one command (faster)
     redis_client.setex(cache_key, 60 * 15, compressed_data)
-
     return StreamingResponse(
         io.BytesIO(compressed_data),
         media_type="application/json",

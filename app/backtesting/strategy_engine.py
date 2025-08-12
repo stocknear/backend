@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Tuple, Optional, Any
 import pandas as pd
 from enum import Enum
-
+from .advanced_rule_engine import CustomRuleEngine
 
 class SignalType(Enum):
     """Enumeration for trading signal types"""
@@ -98,8 +98,7 @@ class CustomStrategy(BaseStrategy):
         if not self.sell_conditions:
             raise ValueError("sell_conditions are required for CustomStrategy")
         
-        # Initialize rule engine
-        from advanced_rule_engine import CustomRuleEngine
+        
         self.rule_engine = CustomRuleEngine()
     
     def prepare_data(self, data: pd.DataFrame) -> pd.DataFrame:
