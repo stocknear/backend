@@ -4647,7 +4647,9 @@ async def get_data(data: Backtesting, api_key: str = Security(get_api_key)):
     except Exception:
         res = {}
 
-    # Serialize & compress off the main loop
+    
+    print(res)
+    
     compressed_data = await asyncio.to_thread(
         lambda: gzip.compress(orjson.dumps(res))
     )
