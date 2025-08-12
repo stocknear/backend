@@ -78,14 +78,15 @@ class BacktestingEngine:
         self.cash = initial_capital
         self.shares = 0
     
-    async def run(self, ticker: str, strategy_name: str = "buy_and_hold", 
+    async def run(self, ticker=None, tickers: List[str] = None, strategy_name: str = "buy_and_hold", 
                   start_date: str = None, end_date: str = None, 
                   comprehensive: bool = False, **strategy_params) -> Dict:
         """
         Unified method to run backtesting with clean interface
         
         Args:
-            ticker: Stock ticker symbol
+            ticker: Stock ticker symbol (single ticker - legacy support)
+            tickers: List of ticker symbols for multi-ticker backtesting
             strategy_name: Strategy to run or 'all' for comprehensive test
             start_date: Start date for backtesting (YYYY-MM-DD)
             end_date: End date for backtesting (YYYY-MM-DD)
@@ -95,10 +96,18 @@ class BacktestingEngine:
         Returns:
             Dictionary with backtesting results
         """
-        if comprehensive or strategy_name == "all":
-            return await self._run_comprehensive(ticker, start_date, end_date)
+        # Handle both single ticker (legacy) and multi-ticker
+        if tickers:
+            ticker_list = tickers
+        elif ticker:
+            ticker_list = [ticker]
         else:
-            return await self._run_single_strategy(ticker, strategy_name, start_date, end_date, **strategy_params)
+            raise ValueError("Must provide either 'ticker' or 'tickers' parameter")
+        
+        if comprehensive or strategy_name == "all":
+            return await self._run_comprehensive(ticker_list, start_date, end_date)
+        else:
+            return await self._run_single_strategy(ticker_list, strategy_name, start_date, end_date, **strategy_params)
     
     async def _run_comprehensive(self, ticker: str, start_date: str = None, end_date: str = None) -> Dict:
         """Run comprehensive backtest with all strategies"""
@@ -196,80 +205,175 @@ class BacktestingEngine:
         
         return response
     
-    async def _run_single_strategy(self, ticker: str, strategy_name: str, 
+    async def _run_single_strategy(self, ticker_list: List[str], strategy_name: str, 
                                    start_date: str = None, end_date: str = None, 
                                    **strategy_params) -> Dict:
-        """Run single strategy backtest"""
-        df = await self.load_historical_data(ticker, start_date, end_date)
+        """Run single strategy backtest - supports both single and multi-ticker"""
         
-        if df.empty:
-            return {
-                'ticker': ticker.upper(),
-                'strategy': strategy_name,
-                'error': f'No historical data available for {ticker}',
-                'success': False
-            }
-        
-        strategy_functions = {
-            'buy_and_hold': lambda df_copy: self.buy_and_hold_strategy(df_copy, start_date, end_date, ticker),
-            'rsi': lambda df_copy: self.rsi_strategy(df_copy, 
-                                                      strategy_params.get('rsi_buy', 30),
-                                                      strategy_params.get('rsi_sell', 70),
-                                                      strategy_params.get('rsi_window', 14),
-                                                      start_date, end_date, ticker),
-            'ma_crossover': lambda df_copy: self.moving_average_crossover_strategy(df_copy,
-                                                                                    strategy_params.get('short_window', 20),
-                                                                                    strategy_params.get('long_window', 50),
-                                                                                    start_date, end_date, ticker),
-            'bollinger': lambda df_copy: self.bollinger_bands_strategy(df_copy,
-                                                                        strategy_params.get('window', 20),
-                                                                        strategy_params.get('num_std', 2),
-                                                                        start_date, end_date, ticker),
-            'macd': lambda df_copy: self.macd_strategy(df_copy,
-                                                        strategy_params.get('fast', 12),
-                                                        strategy_params.get('slow', 26),
-                                                        strategy_params.get('signal', 9),
-                                                        start_date, end_date, ticker)
-        }
-        
-        if strategy_name not in strategy_functions:
-            return {
-                'ticker': ticker.upper(),
-                'strategy': strategy_name,
-                'error': f'Unknown strategy: {strategy_name}. Available: {list(strategy_functions.keys())}',
-                'success': False
-            }
-        
-        try:
-            result = await strategy_functions[strategy_name](df.copy())
-            result.update({
-                'ticker': ticker.upper(),
-                'strategy': strategy_name,
-                'success': True,
-                'data_points': len(df),
-                'start_date': df.index[0].strftime('%Y-%m-%d'),
-                'end_date': df.index[-1].strftime('%Y-%m-%d')
-            })
+        if len(ticker_list) == 1:
+            # Single ticker mode (legacy)
+            ticker = ticker_list[0]
+            df = await self.load_historical_data(ticker, start_date, end_date)
             
-            if hasattr(df, 'attrs'):
-                date_adjustments = {}
-                if df.attrs.get('requested_start'):
-                    date_adjustments['requested_start'] = df.attrs.get('requested_start')
-                    date_adjustments['actual_start'] = df.attrs.get('actual_start')
-                if df.attrs.get('requested_end'):
-                    date_adjustments['requested_end'] = df.attrs.get('requested_end')
-                    date_adjustments['actual_end'] = df.attrs.get('actual_end')
-                if date_adjustments:
-                    result['date_adjustments'] = date_adjustments
+            if df.empty:
+                return {
+                    'ticker': ticker.upper(),
+                    'strategy': strategy_name,
+                    'error': f'No historical data available for {ticker}',
+                    'success': False
+                }
+        else:
+            # Multi-ticker mode
+            data_dict = await self.load_historical_data_multi_ticker(ticker_list, start_date, end_date)
             
-            return result
-        except Exception as e:
-            return {
-                'ticker': ticker.upper(),
-                'strategy': strategy_name,
-                'error': f'Backtesting failed: {str(e)}',
-                'success': False
+            if not data_dict:
+                return {
+                    'tickers': [t.upper() for t in ticker_list],
+                    'strategy': strategy_name,
+                    'error': f'No historical data available for any of the tickers: {ticker_list}',
+                    'success': False
+                }
+        
+        if len(ticker_list) == 1:
+            # Single ticker execution (legacy path)
+            ticker = ticker_list[0]
+            
+            strategy_functions = {
+                'buy_and_hold': lambda df_copy: self.buy_and_hold_strategy(df_copy, start_date, end_date, ticker),
+                'rsi': lambda df_copy: self.rsi_strategy(df_copy, 
+                                                          strategy_params.get('rsi_buy', 30),
+                                                          strategy_params.get('rsi_sell', 70),
+                                                          strategy_params.get('rsi_window', 14),
+                                                          start_date, end_date, ticker),
+                'ma_crossover': lambda df_copy: self.moving_average_crossover_strategy(df_copy,
+                                                                                        strategy_params.get('short_window', 20),
+                                                                                        strategy_params.get('long_window', 50),
+                                                                                        start_date, end_date, ticker),
+                'bollinger': lambda df_copy: self.bollinger_bands_strategy(df_copy,
+                                                                            strategy_params.get('window', 20),
+                                                                            strategy_params.get('num_std', 2),
+                                                                            start_date, end_date, ticker),
+                'macd': lambda df_copy: self.macd_strategy(df_copy,
+                                                            strategy_params.get('fast', 12),
+                                                            strategy_params.get('slow', 26),
+                                                            strategy_params.get('signal', 9),
+                                                            start_date, end_date, ticker)
             }
+            
+            if strategy_name not in strategy_functions:
+                return {
+                    'ticker': ticker.upper(),
+                    'strategy': strategy_name,
+                    'error': f'Unknown strategy: {strategy_name}. Available: {list(strategy_functions.keys())}',
+                    'success': False
+                }
+            
+            try:
+                result = await strategy_functions[strategy_name](df.copy())
+                result.update({
+                    'ticker': ticker.upper(),
+                    'strategy': strategy_name,
+                    'success': True,
+                    'data_points': len(df),
+                    'start_date': df.index[0].strftime('%Y-%m-%d'),
+                    'end_date': df.index[-1].strftime('%Y-%m-%d')
+                })
+                
+                if hasattr(df, 'attrs'):
+                    date_adjustments = {}
+                    if df.attrs.get('requested_start'):
+                        date_adjustments['requested_start'] = df.attrs.get('requested_start')
+                        date_adjustments['actual_start'] = df.attrs.get('actual_start')
+                    if df.attrs.get('requested_end'):
+                        date_adjustments['requested_end'] = df.attrs.get('requested_end')
+                        date_adjustments['actual_end'] = df.attrs.get('actual_end')
+                    if date_adjustments:
+                        result['date_adjustments'] = date_adjustments
+                
+                return result
+            except Exception as e:
+                return {
+                    'ticker': ticker.upper(),
+                    'strategy': strategy_name,
+                    'error': f'Backtesting failed: {str(e)}',
+                    'success': False
+                }
+        
+        else:
+            # Multi-ticker execution 
+            try:
+                # Import strategy classes dynamically based on strategy name
+                strategy_map = {
+                    'buy_and_hold': 'BuyAndHoldStrategy',
+                    'rsi': 'RSIStrategy',
+                    'ma_crossover': 'MovingAverageCrossoverStrategy',
+                    'bollinger': 'BollingerBandsStrategy',
+                    'macd': 'MACDStrategy'
+                }
+                
+                if strategy_name not in strategy_map:
+                    return {
+                        'tickers': [t.upper() for t in ticker_list],
+                        'strategy': strategy_name,
+                        'error': f'Unknown strategy: {strategy_name}. Available: {list(strategy_map.keys())}',
+                        'success': False
+                    }
+                
+                # Import and create strategy instance
+                from strategy_engine import BuyAndHoldStrategy, RSIStrategy, MovingAverageCrossoverStrategy, BollingerBandsStrategy, MACDStrategy
+                
+                strategy_class = {
+                    'buy_and_hold': BuyAndHoldStrategy,
+                    'rsi': RSIStrategy,
+                    'ma_crossover': MovingAverageCrossoverStrategy,
+                    'bollinger': BollingerBandsStrategy,
+                    'macd': MACDStrategy
+                }[strategy_name]
+                
+                # Create parameters based on strategy
+                parameters = {}
+                if strategy_name == 'rsi':
+                    parameters = {
+                        'rsi_buy_threshold': strategy_params.get('rsi_buy', 30),
+                        'rsi_sell_threshold': strategy_params.get('rsi_sell', 70),
+                        'rsi_window': strategy_params.get('rsi_window', 14)
+                    }
+                elif strategy_name == 'ma_crossover':
+                    parameters = {
+                        'short_window': strategy_params.get('short_window', 20),
+                        'long_window': strategy_params.get('long_window', 50)
+                    }
+                elif strategy_name == 'bollinger':
+                    parameters = {
+                        'window': strategy_params.get('window', 20),
+                        'num_std': strategy_params.get('num_std', 2)
+                    }
+                elif strategy_name == 'macd':
+                    parameters = {
+                        'fast': strategy_params.get('fast', 12),
+                        'slow': strategy_params.get('slow', 26),
+                        'signal': strategy_params.get('signal', 9)
+                    }
+                
+                strategy = strategy_class(parameters) if parameters else strategy_class()
+                
+                # Run multi-ticker backtest
+                result = await self.run_strategy_backtest_multi_ticker(data_dict, strategy, start_date, end_date)
+                result.update({
+                    'strategy': strategy_name,
+                    'success': True,
+                    'data_points': sum(len(df) for df in data_dict.values())
+                })
+                
+                return result
+                
+            except Exception as e:
+                return {
+                    'tickers': [t.upper() for t in ticker_list],
+                    'strategy': strategy_name,
+                    'error': f'Multi-ticker backtesting failed: {str(e)}',
+                    'success': False
+                }
     
     def _find_closest_date(self, df: pd.DataFrame, target_date: pd.Timestamp, direction: str = 'forward') -> Optional[pd.Timestamp]:
         """
@@ -409,6 +513,159 @@ class BacktestingEngine:
         print(f"Error: No historical data file found for {ticker}")
         return pd.DataFrame()
     
+    async def load_historical_data_multi_ticker(self, tickers: List[str], start_date: str = None, end_date: str = None) -> Dict[str, pd.DataFrame]:
+        """Load historical data for multiple tickers"""
+        data_dict = {}
+        
+        for ticker in tickers:
+            try:
+                df = await self.load_historical_data(ticker, start_date, end_date)
+                if not df.empty:
+                    data_dict[ticker] = df
+                else:
+                    print(f"Warning: No data available for {ticker}")
+            except Exception as e:
+                print(f"Error loading data for {ticker}: {str(e)}")
+        
+        return data_dict
+    
+    async def run_strategy_backtest_multi_ticker(self, data_dict: Dict[str, pd.DataFrame], strategy: BaseStrategy, 
+                                                start_date: str = None, end_date: str = None) -> Dict[str, Any]:
+        """Run backtest using a strategy instance with multiple tickers"""
+        if not data_dict:
+            return self._empty_backtest_result()
+        
+        tickers = list(data_dict.keys())
+        
+        # Reset strategy state
+        strategy.reset()
+        
+        # Initialize portfolio manager for multi-ticker
+        portfolio = PortfolioManager(
+            initial_capital=self.initial_capital,
+            commission_rate=self.commission,
+            tickers=tickers
+        )
+        
+        # Prepare data with indicators for all tickers
+        prepared_data_dict = {}
+        for ticker, data in data_dict.items():
+            prepared_data_dict[ticker] = strategy.prepare_data(data)
+        
+        # Find common date range across all tickers
+        common_dates = None
+        for ticker, df in prepared_data_dict.items():
+            if common_dates is None:
+                common_dates = set(df.index)
+            else:
+                common_dates = common_dates.intersection(set(df.index))
+        
+        if not common_dates:
+            return self._empty_backtest_result()
+        
+        common_dates = sorted(list(common_dates))
+        
+        # Generate signals for all tickers
+        signals_dict = {}
+        for ticker, df in prepared_data_dict.items():
+            signals = strategy.generate_signals(df)
+            signal_dict = {signal.date: signal for signal in signals}
+            signals_dict[ticker] = signal_dict
+        
+        # Execute trades and track portfolio value throughout the period
+        executed_trades = []
+        for date in common_dates:
+            date_str = date.strftime('%Y-%m-%d')
+            current_prices = {}
+            
+            # Get current prices for all tickers on this date
+            for ticker in tickers:
+                if date in prepared_data_dict[ticker].index:
+                    current_prices[ticker] = prepared_data_dict[ticker].loc[date, 'close']
+            
+            # Check for signals and execute trades
+            for ticker in tickers:
+                if date_str in signals_dict.get(ticker, {}):
+                    signal = signals_dict[ticker][date_str]
+                    trade = portfolio.execute_signal(signal, current_prices.get(ticker), ticker)
+                    if trade:
+                        executed_trades.append(trade)
+            
+            # Update portfolio history for every trading day
+            portfolio.update_portfolio_history(date_str, current_prices)
+        
+        # Calculate performance metrics
+        performance = portfolio.calculate_performance_metrics()
+        
+        # Calculate multi-ticker buy-and-hold benchmark
+        multi_buy_hold_return = await self._calculate_multi_ticker_buy_hold(data_dict, start_date, end_date)
+        
+        # Calculate SPY benchmark for the same period
+        spy_start = start_date or min(df.index[0] for df in prepared_data_dict.values()).strftime('%Y-%m-%d')
+        spy_end = end_date or max(df.index[-1] for df in prepared_data_dict.values()).strftime('%Y-%m-%d')
+        spy_benchmark = await self._calculate_spy_benchmark_with_history(spy_start, spy_end)
+        
+        # Create trade history with ticker information
+        trade_history = []
+        for trade in executed_trades:
+            trade_entry = {
+                'date': trade.date,
+                'ticker': trade.metadata.get('ticker', 'N/A'),
+                'action': trade.action,
+                'shares': trade.shares,
+                'price': round(trade.price, 2),
+                'commission': round(trade.commission, 2),
+                'gross_amount': round(trade.gross_amount, 2),
+                'net_amount': round(trade.net_amount, 2),
+                'portfolio_value': round(trade.metadata.get('portfolio_value', 0), 2) if trade.metadata else 0
+            }
+            # Add any additional metadata from the trade
+            if trade.metadata:
+                for key, value in trade.metadata.items():
+                    if key not in trade_entry:
+                        trade_entry[key] = value
+            trade_history.append(trade_entry)
+        
+        # Prepare plotting data for multi-ticker
+        plot_data = self._prepare_multi_ticker_plot_data(portfolio.portfolio_history, data_dict, spy_benchmark)
+        
+        result = {
+            'strategy_name': strategy.name,
+            'tickers': tickers,
+            'period': f"{min(df.index[0] for df in prepared_data_dict.values()).strftime('%Y-%m-%d')} to {max(df.index[-1] for df in prepared_data_dict.values()).strftime('%Y-%m-%d')}",
+            'total_return': round(performance.get('total_return', 0) * 100, 2),
+            'annual_return': round(performance.get('annual_return', 0) * 100, 2),
+            'multi_ticker_buy_hold_return': round(multi_buy_hold_return * 100, 2),
+            'excess_return': round((performance.get('total_return', 0) - multi_buy_hold_return) * 100, 2),
+            'max_drawdown': round(performance.get('max_drawdown', 0) * 100, 2),
+            'volatility': round(performance.get('volatility', 0) * 100, 2),
+            'sharpe_ratio': round(performance.get('sharpe_ratio', 0), 2),
+            'total_trades': performance.get('total_trades_completed', 0),
+            'win_rate': round(performance.get('win_rate', 0) * 100, 2),
+            'profit_factor': round(performance.get('profit_factor', 0), 2),
+            'initial_capital': self.initial_capital,
+            'final_portfolio_value': round(performance.get('final_portfolio_value', self.initial_capital), 2),
+            'trade_history': trade_history,
+            'summary': self._generate_multi_ticker_summary(strategy.name, performance.get('total_return', 0), multi_buy_hold_return, 
+                                                          performance.get('win_rate', 0), performance.get('total_trades_completed', 0), tickers),
+            # SPY Benchmark
+            'spy_benchmark': {
+                'spy_return': round(spy_benchmark.get('spy_return', 0) * 100, 2),
+                'spy_annual_return': round(spy_benchmark.get('spy_annual_return', 0) * 100, 2),
+                'spy_period': spy_benchmark.get('spy_period', 'N/A'),
+                'spy_data_points': spy_benchmark.get('spy_data_points', 0),
+                'vs_spy': round((performance.get('total_return', 0) - spy_benchmark.get('spy_return', 0)) * 100, 2)
+            },
+            # Plotting data for visualization
+            'plot_data': plot_data
+        }
+        
+        # Add error information if SPY benchmark failed
+        if 'error' in spy_benchmark:
+            result['spy_benchmark']['error'] = spy_benchmark['error']
+        
+        return result
+    
     async def run_strategy_backtest(self, data: pd.DataFrame, strategy: BaseStrategy, start_date: str = None, end_date: str = None, ticker: str = None) -> Dict[str, Any]:
         """Run backtest using a strategy instance"""
         if data.empty:
@@ -420,7 +677,7 @@ class BacktestingEngine:
         # Prepare data with indicators
         prepared_data = strategy.prepare_data(data)
         
-        # Initialize portfolio manager
+        # Initialize portfolio manager (single ticker mode)
         portfolio = PortfolioManager(
             initial_capital=self.initial_capital,
             commission_rate=self.commission
@@ -445,8 +702,8 @@ class BacktestingEngine:
                 if trade:
                     executed_trades.append(trade)
             
-            # Update portfolio history for every trading day
-            portfolio.update_portfolio_history(date_str, row['close'])
+            # Update portfolio history for every trading day (single ticker mode)
+            portfolio.update_portfolio_history(date_str, price=row['close'])
         
         # Calculate performance metrics
         performance = portfolio.calculate_performance_metrics()
@@ -813,5 +1070,105 @@ class BacktestingEngine:
             'spy_benchmark': spy_values,
             'initial_capital': self.initial_capital
         }
+    
+    async def _calculate_multi_ticker_buy_hold(self, data_dict: Dict[str, pd.DataFrame], start_date: str = None, end_date: str = None) -> float:
+        """Calculate multi-ticker buy-and-hold benchmark with equal position sizing"""
+        if not data_dict:
+            return 0.0
+        
+        try:
+            total_return = 0.0
+            num_tickers = len(data_dict)
+            capital_per_ticker = self.initial_capital / num_tickers
+            
+            for ticker, df in data_dict.items():
+                if len(df) > 0:
+                    # Calculate return for this ticker with equal capital allocation
+                    ticker_return = (df['close'].iloc[-1] - df['close'].iloc[0]) / df['close'].iloc[0]
+                    # Weight by equal capital allocation
+                    total_return += ticker_return / num_tickers
+            
+            return total_return
+            
+        except Exception as e:
+            print(f"Error calculating multi-ticker buy-and-hold: {str(e)}")
+            return 0.0
+    
+    def _prepare_multi_ticker_plot_data(self, portfolio_history: List[Dict], data_dict: Dict[str, pd.DataFrame], spy_benchmark: Dict) -> Dict[str, Any]:
+        """Prepare plot data for multi-ticker backtesting"""
+        
+        # Strategy portfolio values over time
+        strategy_values = [
+            {
+                'date': item['date'],
+                'value': item['portfolio_value'],
+                'return_pct': ((item['portfolio_value'] - self.initial_capital) / self.initial_capital) * 100
+            }
+            for item in portfolio_history
+        ]
+        
+        # Multi-ticker buy-and-hold benchmark (equally weighted)
+        multi_ticker_buy_hold = []
+        if data_dict:
+            # Find common dates across all tickers
+            common_dates = None
+            for ticker, df in data_dict.items():
+                if common_dates is None:
+                    common_dates = set(df.index)
+                else:
+                    common_dates = common_dates.intersection(set(df.index))
+            
+            if common_dates:
+                common_dates = sorted(list(common_dates))
+                capital_per_ticker = self.initial_capital / len(data_dict)
+                
+                for date in common_dates:
+                    date_str = date.strftime('%Y-%m-%d')
+                    total_value = 0
+                    
+                    # Calculate portfolio value for this date across all tickers
+                    for ticker, df in data_dict.items():
+                        if date in df.index:
+                            # Equal weight allocation
+                            initial_price = df['close'].iloc[0]
+                            current_price = df.loc[date, 'close']
+                            ticker_value = capital_per_ticker * (current_price / initial_price)
+                            total_value += ticker_value
+                    
+                    multi_ticker_buy_hold.append({
+                        'date': date_str,
+                        'value': float(total_value),
+                        'return_pct': ((total_value - self.initial_capital) / self.initial_capital) * 100
+                    })
+        
+        # SPY benchmark data
+        spy_values = []
+        if 'spy_history' in spy_benchmark and spy_benchmark['spy_history']:
+            spy_values = [
+                {
+                    'date': item['date'],
+                    'value': item['value'],
+                    'return_pct': ((item['value'] - self.initial_capital) / self.initial_capital) * 100
+                }
+                for item in spy_benchmark['spy_history']
+            ]
+        
+        return {
+            'strategy': strategy_values,
+            'multi_ticker_buy_hold': multi_ticker_buy_hold,
+            'spy_benchmark': spy_values,
+            'initial_capital': self.initial_capital,
+            'tickers': list(data_dict.keys()) if data_dict else []
+        }
+    
+    def _generate_multi_ticker_summary(self, strategy_name: str, total_return: float, buy_hold_return: float, 
+                                      win_rate: float, total_trades: int, tickers: List[str]) -> str:
+        """Generate human-readable summary for multi-ticker backtest"""
+        performance = "outperformed" if total_return > buy_hold_return else "underperformed"
+        ticker_str = ", ".join(tickers[:3]) + (f" and {len(tickers)-3} others" if len(tickers) > 3 else "")
+        
+        return (f"{strategy_name} on {ticker_str} generated a {total_return*100:.2f}% total return with {total_trades} trades "
+                f"and a {win_rate*100:.1f}% win rate. The strategy {performance} equal-weight buy-and-hold by "
+                f"{abs((total_return - buy_hold_return)*100):.2f} percentage points.")
 
 

@@ -75,30 +75,53 @@ class Trade:
 
 
 class PortfolioManager:
-    """Manages portfolio state, positions, and trade execution"""
+    """Manages portfolio state, positions, and trade execution - supports multiple tickers"""
     
     def __init__(self, initial_capital: float = 100000, commission_rate: float = 0.001, 
-                 position_size_pct: float = 0.95):
+                 position_size_pct: float = 0.95, tickers: List[str] = None):
         self.initial_capital = initial_capital
         self.commission_rate = commission_rate
         self.position_size_pct = position_size_pct  # Max percentage of capital to use per trade
+        self.tickers = tickers or []
+        self.num_tickers = len(self.tickers) if self.tickers else 1
         
         # Portfolio state
         self.cash = initial_capital
-        self.position = Position()
+        # Support both single position (legacy) and multi-ticker positions
+        if self.tickers:
+            self.positions = {ticker: Position() for ticker in self.tickers}
+            self.position = None  # Legacy single position disabled for multi-ticker
+        else:
+            self.position = Position()  # Legacy single position
+            self.positions = {}
+        
         self.trades = []
         self.portfolio_history = []
         
     def reset(self):
         """Reset portfolio to initial state"""
         self.cash = self.initial_capital
-        self.position = Position()
+        if self.tickers:
+            self.positions = {ticker: Position() for ticker in self.tickers}
+        else:
+            self.position = Position()
         self.trades = []
         self.portfolio_history = []
     
-    def get_portfolio_value(self, current_price: float) -> float:
-        """Calculate total portfolio value"""
-        return self.cash + self.position.market_value(current_price)
+    def get_portfolio_value(self, current_prices: Dict[str, float] = None, current_price: float = None) -> float:
+        """Calculate total portfolio value - supports both single ticker and multi-ticker"""
+        if self.tickers and current_prices:
+            # Multi-ticker mode
+            total_position_value = sum(
+                self.positions[ticker].market_value(current_prices.get(ticker, 0))
+                for ticker in self.tickers
+            )
+            return self.cash + total_position_value
+        elif self.position and current_price is not None:
+            # Single ticker mode (legacy)
+            return self.cash + self.position.market_value(current_price)
+        else:
+            return self.cash  # Only cash, no positions
     
     def can_buy(self, price: float, shares: int) -> bool:
         """Check if we have enough cash to buy shares"""
@@ -109,19 +132,26 @@ class PortfolioManager:
         """Check if we have enough shares to sell"""
         return self.position.shares >= shares
     
-    def calculate_position_size(self, price: float) -> int:
-        """Calculate optimal position size based on available cash"""
-        available_cash = self.cash * self.position_size_pct
+    def calculate_position_size(self, price: float, ticker: str = None) -> int:
+        """Calculate optimal position size based on available cash and number of tickers"""
+        if self.tickers:
+            # Multi-ticker mode: divide available cash equally among tickers
+            available_cash = (self.cash * self.position_size_pct) / self.num_tickers
+        else:
+            # Single ticker mode
+            available_cash = self.cash * self.position_size_pct
+        
         max_shares = int(available_cash / (price * (1 + self.commission_rate)))
         return max(0, max_shares)
     
-    def execute_signal(self, signal: TradingSignal, current_price: float = None) -> Optional[Trade]:
+    def execute_signal(self, signal: TradingSignal, current_price: float = None, ticker: str = None) -> Optional[Trade]:
         """
         Execute a trading signal
         
         Args:
             signal: TradingSignal object
             current_price: Current market price (uses signal price if None)
+            ticker: Ticker symbol for multi-ticker support
             
         Returns:
             Trade object if executed, None if not executed
@@ -129,19 +159,30 @@ class PortfolioManager:
         price = current_price or signal.price
         
         if signal.signal_type == SignalType.BUY:
-            return self._execute_buy(signal, price)
+            return self._execute_buy(signal, price, ticker)
         elif signal.signal_type == SignalType.SELL:
-            return self._execute_sell(signal, price)
+            return self._execute_sell(signal, price, ticker)
         
         return None
     
-    def _execute_buy(self, signal: TradingSignal, price: float) -> Optional[Trade]:
-        """Execute a buy order"""
-        if self.position.shares > 0:  # Already have position
-            return None
+    def _execute_buy(self, signal: TradingSignal, price: float, ticker: str = None) -> Optional[Trade]:
+        """Execute a buy order - supports both single and multi-ticker"""
         
-        # Calculate shares to buy
-        shares = self.calculate_position_size(price)
+        if self.tickers and ticker:
+            # Multi-ticker mode
+            position = self.positions[ticker]
+            if position.shares > 0:  # Already have position in this ticker
+                return None
+                
+            # Calculate shares to buy (divided equally among tickers)
+            shares = self.calculate_position_size(price, ticker)
+        else:
+            # Single ticker mode (legacy)
+            if self.position.shares > 0:  # Already have position
+                return None
+            shares = self.calculate_position_size(price)
+            position = self.position
+        
         if shares <= 0:
             return None
         
@@ -154,7 +195,7 @@ class PortfolioManager:
         total_cost = shares * price + commission
         
         self.cash -= total_cost
-        self.position.update(shares, price)
+        position.update(shares, price)
         
         # Create trade record
         trade = Trade(
@@ -163,21 +204,38 @@ class PortfolioManager:
             shares=shares,
             price=price,
             commission=commission,
-            metadata=signal.metadata
+            metadata=signal.metadata or {}
         )
         
+        # Add ticker to trade metadata
+        if ticker:
+            trade.metadata['ticker'] = ticker
+        
         # Update metadata with portfolio value
-        trade.metadata['portfolio_value'] = self.get_portfolio_value(price)
+        if self.tickers:
+            # For multi-ticker, we'll need current prices - store what we can
+            trade.metadata['portfolio_value'] = self.cash + sum(pos.total_cost for pos in self.positions.values())
+        else:
+            trade.metadata['portfolio_value'] = self.get_portfolio_value(price)
         
         self.trades.append(trade)
         return trade
     
-    def _execute_sell(self, signal: TradingSignal, price: float) -> Optional[Trade]:
-        """Execute a sell order"""
-        if self.position.shares <= 0:  # No position to sell
-            return None
+    def _execute_sell(self, signal: TradingSignal, price: float, ticker: str = None) -> Optional[Trade]:
+        """Execute a sell order - supports both single and multi-ticker"""
         
-        shares = self.position.shares  # Sell entire position
+        if self.tickers and ticker:
+            # Multi-ticker mode
+            position = self.positions[ticker]
+            if position.shares <= 0:  # No position to sell
+                return None
+            shares = position.shares  # Sell entire position
+        else:
+            # Single ticker mode (legacy)
+            if self.position.shares <= 0:  # No position to sell
+                return None
+            shares = self.position.shares  # Sell entire position
+            position = self.position
         
         # Execute trade
         commission = shares * price * self.commission_rate
@@ -185,7 +243,7 @@ class PortfolioManager:
         net_proceeds = gross_proceeds - commission
         
         self.cash += net_proceeds
-        self.position.update(-shares, price)  # Reduce position
+        position.update(-shares, price)  # Reduce position
         
         # Create trade record
         trade = Trade(
@@ -194,26 +252,68 @@ class PortfolioManager:
             shares=shares,
             price=price,
             commission=commission,
-            metadata=signal.metadata
+            metadata=signal.metadata or {}
         )
         
+        # Add ticker to trade metadata
+        if ticker:
+            trade.metadata['ticker'] = ticker
+        
         # Update metadata with portfolio value
-        trade.metadata['portfolio_value'] = self.get_portfolio_value(price)
+        if self.tickers:
+            # For multi-ticker, store approximated portfolio value
+            trade.metadata['portfolio_value'] = self.cash + sum(pos.total_cost for pos in self.positions.values())
+        else:
+            trade.metadata['portfolio_value'] = self.get_portfolio_value(price)
         
         self.trades.append(trade)
         return trade
     
-    def update_portfolio_history(self, date: str, price: float):
-        """Update portfolio value history"""
-        portfolio_value = self.get_portfolio_value(price)
-        self.portfolio_history.append({
-            'date': date,
-            'portfolio_value': portfolio_value,
-            'cash': self.cash,
-            'position_value': self.position.market_value(price),
-            'shares': self.position.shares,
-            'unrealized_pnl': self.position.unrealized_pnl(price)
-        })
+    def update_portfolio_history(self, date: str, current_prices: Dict[str, float] = None, price: float = None):
+        """Update portfolio value history - supports both single ticker and multi-ticker"""
+        
+        if self.tickers and current_prices:
+            # Multi-ticker mode
+            portfolio_value = self.get_portfolio_value(current_prices)
+            total_position_value = sum(
+                self.positions[ticker].market_value(current_prices.get(ticker, 0))
+                for ticker in self.tickers
+            )
+            total_shares = sum(self.positions[ticker].shares for ticker in self.tickers)
+            total_unrealized_pnl = sum(
+                self.positions[ticker].unrealized_pnl(current_prices.get(ticker, 0))
+                for ticker in self.tickers
+            )
+            
+            history_entry = {
+                'date': date,
+                'portfolio_value': portfolio_value,
+                'cash': self.cash,
+                'position_value': total_position_value,
+                'total_shares': total_shares,
+                'unrealized_pnl': total_unrealized_pnl,
+                'positions': {
+                    ticker: {
+                        'shares': self.positions[ticker].shares,
+                        'market_value': self.positions[ticker].market_value(current_prices.get(ticker, 0)),
+                        'unrealized_pnl': self.positions[ticker].unrealized_pnl(current_prices.get(ticker, 0))
+                    }
+                    for ticker in self.tickers
+                }
+            }
+        else:
+            # Single ticker mode (legacy)
+            portfolio_value = self.get_portfolio_value(current_price=price)
+            history_entry = {
+                'date': date,
+                'portfolio_value': portfolio_value,
+                'cash': self.cash,
+                'position_value': self.position.market_value(price) if self.position else 0,
+                'shares': self.position.shares if self.position else 0,
+                'unrealized_pnl': self.position.unrealized_pnl(price) if self.position else 0
+            }
+        
+        self.portfolio_history.append(history_entry)
     
     def get_trade_summary(self) -> Dict[str, Any]:
         """Get summary of all trades"""
