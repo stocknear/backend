@@ -4633,7 +4633,7 @@ async def get_data(data: Backtesting, api_key: str = Security(get_api_key)):
         )
 
     engine = BacktestingEngine(initial_capital=initial_capital)
-
+    print(strategy_data)
     try:
         res = await engine.run(
             tickers=tickers,

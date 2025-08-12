@@ -49,9 +49,9 @@ class CustomRuleEngine:
             indicators['rsi'] = self.ti.rsi(data['close'])
         
         # Moving Averages - only calculate needed windows
-        ma_windows = [int(ind.split('_')[1]) for ind in required_indicators if ind.startswith('ma_')]
+        ma_windows = [int(ind.split('_')[1]) for ind in required_indicators if ind.startswith('sma_')]
         for window in ma_windows:
-            indicators[f'ma_{window}'] = self.ti.sma(data['close'], window)
+            indicators[f'sma_{window}'] = self.ti.sma(data['close'], window)
         
         # Exponential Moving Averages - only calculate needed windows  
         ema_windows = [int(ind.split('_')[1]) for ind in required_indicators if ind.startswith('ema_')]
