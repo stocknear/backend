@@ -222,9 +222,9 @@ def create_performance_plot(plot_data, tickers, strategy_name):
 async def main():
 
     data = {
-      "tickers": ["AAPL"],  # Test with single ticker in list
+      "tickers": ["AAPL","AMD"],  # Test with single ticker in list
       "start_date": '2020-01-01',
-      "end_date": '2025-08-30',  # Full range to test the original issue
+      "end_date": '2025-08-30',  # Full range
       "buy_condition": [
         { "name": "rsi", "value": 30, "operator": "below" }
       ],

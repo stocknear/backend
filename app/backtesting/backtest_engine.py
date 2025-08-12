@@ -1,60 +1,8 @@
-import numpy as np
 import pandas as pd
-import asyncio
-import aiofiles
-from typing import Dict, List, Tuple, Optional, Any
-from datetime import datetime, timedelta
-from pathlib import Path
-import orjson
-from strategy_engine import StrategyRegistry, BaseStrategy, AdvancedStrategy
+from typing import Dict, List, Optional, Any
+from strategy_engine import BaseStrategy, AdvancedStrategy
 from portfolio_manager import PortfolioManager
-
-
-class TechnicalIndicators:
-    """Calculate various technical indicators for backtesting"""
-    
-    @staticmethod
-    def rsi(prices: pd.Series, window: int = 14) -> pd.Series:
-        """Calculate RSI (Relative Strength Index)"""
-        delta = prices.diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=window).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=window).mean()
-        rs = gain / loss
-        rsi = 100 - (100 / (1 + rs))
-        return rsi
-    
-    @staticmethod
-    def sma(prices: pd.Series, window: int) -> pd.Series:
-        """Simple Moving Average"""
-        return prices.rolling(window=window).mean()
-    
-    @staticmethod
-    def ema(prices: pd.Series, window: int) -> pd.Series:
-        """Exponential Moving Average"""
-        return prices.ewm(span=window).mean()
-    
-    @staticmethod
-    def bollinger_bands(prices: pd.Series, window: int = 20, num_std: float = 2) -> Dict[str, pd.Series]:
-        """Calculate Bollinger Bands"""
-        sma = prices.rolling(window=window).mean()
-        std = prices.rolling(window=window).std()
-        upper = sma + (std * num_std)
-        lower = sma - (std * num_std)
-        return {'upper': upper, 'middle': sma, 'lower': lower}
-    
-    @staticmethod
-    def macd(prices: pd.Series, fast: int = 12, slow: int = 26, signal: int = 9) -> Dict[str, pd.Series]:
-        """Calculate MACD"""
-        ema_fast = prices.ewm(span=fast).mean()
-        ema_slow = prices.ewm(span=slow).mean()
-        macd_line = ema_fast - ema_slow
-        signal_line = macd_line.ewm(span=signal).mean()
-        histogram = macd_line - signal_line
-        return {
-            'macd': macd_line,
-            'signal': signal_line,
-            'histogram': histogram
-        }
+from data_manager import DataManager
 
 
 class BacktestingEngine:
@@ -63,15 +11,7 @@ class BacktestingEngine:
     def __init__(self, initial_capital: float = 100000, commission: float = 0.001):
         self.initial_capital = initial_capital
         self.commission = commission
-        self.ti = TechnicalIndicators()
-        self.strategy_registry = StrategyRegistry()
-        
-        # Legacy support - to be removed
-        self.positions = []
-        self.trades = []
-        self.portfolio_value = []
-        self.cash = initial_capital
-        self.shares = 0
+        self.data_manager = DataManager()
     
     async def run(self, tickers: List[str], buy_conditions: List[Dict[str, Any]], 
                   sell_conditions: List[Dict[str, Any]], start_date: str = None, 
@@ -118,7 +58,7 @@ class BacktestingEngine:
             if len(tickers) == 1:
                 # Single ticker mode
                 ticker = tickers[0]
-                data = await self.load_historical_data(ticker, start_date, end_date)
+                data = await self.data_manager.load_historical_data(ticker, start_date, end_date)
                 
                 if data.empty:
                     return {
@@ -141,7 +81,7 @@ class BacktestingEngine:
                 
             else:
                 # Multi-ticker mode
-                data_dict = await self.load_historical_data_multi_ticker(tickers, start_date, end_date)
+                data_dict = await self.data_manager.load_multiple_tickers(tickers, start_date, end_date)
                 
                 if not data_dict:
                     return {
@@ -169,131 +109,6 @@ class BacktestingEngine:
                 'success': False
             }
     
-    def _find_closest_date(self, df: pd.DataFrame, target_date: pd.Timestamp, direction: str = 'forward') -> Optional[pd.Timestamp]:
-        """
-        Find the closest available date in the dataframe to the target date.
-        
-        Args:
-            df: DataFrame with datetime index
-            target_date: Target date to find
-            direction: 'forward' to find next available date, 'backward' for previous
-        
-        Returns:
-            Closest available date or None if no suitable date found
-        """
-        if df.empty:
-            return None
-            
-        if target_date in df.index:
-            return target_date
-            
-        if direction == 'forward':
-            future_dates = df.index[df.index > target_date]
-            return future_dates[0] if len(future_dates) > 0 else None
-        else:  # backward
-            past_dates = df.index[df.index < target_date]
-            return past_dates[-1] if len(past_dates) > 0 else None
-
-    async def load_historical_data(self, ticker: str, start_date: str = None, end_date: str = None, 
-                                   market_data_path: str = "../json/historical-price/adj") -> pd.DataFrame:
-        """Load historical data for a single ticker from file"""
-        
-        # Try different file locations
-        possible_paths = [
-            Path(f"{market_data_path}/{ticker}.json"),
-            Path(f"../json/historical-price/adj/{ticker}.json"), 
-            Path(f"../market-data/{ticker}.json"), 
-            Path(f"market-data/{ticker}.json"),
-            Path(f"data/{ticker}.json"),
-            Path(f"../data/{ticker}.json"),
-            Path(f"../../market-data/{ticker}.json")
-        ]
-        
-        for file_path in possible_paths:
-            if file_path.exists():
-                try:
-                    async with aiofiles.open(file_path, 'rb') as f:
-                        content = await f.read()
-                        data = orjson.loads(content)
-                    
-                    df = pd.DataFrame(data)
-                    
-                    if df.empty:
-                        continue
-                        
-                    # Convert date column to datetime and set as index
-                    df['date'] = pd.to_datetime(df['date'])
-                    df.set_index('date', inplace=True)
-                    
-                    # Standardize column names for compatibility
-                    if 'adjClose' in df.columns and 'close' not in df.columns:
-                        df['close'] = df['adjClose']
-                    if 'adjOpen' in df.columns and 'open' not in df.columns:
-                        df['open'] = df['adjOpen']
-                    if 'adjHigh' in df.columns and 'high' not in df.columns:
-                        df['high'] = df['adjHigh']
-                    if 'adjLow' in df.columns and 'low' not in df.columns:
-                        df['low'] = df['adjLow']
-                    
-                    # Sort by date
-                    df.sort_index(inplace=True)
-                    
-                    # Filter by date range if specified
-                    original_start = start_date
-                    original_end = end_date
-                    
-                    if start_date:
-                        start_dt = pd.to_datetime(start_date)
-                        # Find closest available date
-                        closest_start = self._find_closest_date(df, start_dt, 'forward')
-                        if closest_start is not None:
-                            df = df[df.index >= closest_start]
-                            actual_start = closest_start.strftime('%Y-%m-%d')
-                            if actual_start != start_date:
-                                print(f"Start date adjusted from {start_date} to {actual_start}")
-                                df.attrs['requested_start'] = start_date
-                                df.attrs['actual_start'] = actual_start
-                        else:
-                            df = df[df.index >= start_dt]  # This might result in empty df
-                    
-                    if end_date:
-                        end_dt = pd.to_datetime(end_date)
-                        # Find closest available date
-                        closest_end = self._find_closest_date(df, end_dt, 'backward')
-                        if closest_end is not None:
-                            df = df[df.index <= closest_end]
-                            actual_end = closest_end.strftime('%Y-%m-%d')
-                            if actual_end != end_date:
-                                df.attrs['requested_end'] = end_date
-                                df.attrs['actual_end'] = actual_end
-                        else:
-                            df = df[df.index <= end_dt]  # This might result in empty df
-                    
-                    if not df.empty:
-                        print(f"Successfully loaded {len(df)} data points for {ticker}")
-                        print(f"Date range: {df.index[0].strftime('%Y-%m-%d')} to {df.index[-1].strftime('%Y-%m-%d')}")
-                        return df
-                    
-                except Exception as e:
-                    print(f"Error loading data from {file_path}: {str(e)}")
-                    continue
-        
-        print(f"Error: No historical data file found for {ticker}")
-        return pd.DataFrame()
-
-    async def load_historical_data_multi_ticker(self, tickers: List[str], start_date: str = None, end_date: str = None) -> Dict[str, pd.DataFrame]:
-        """Load historical data for multiple tickers"""
-        data_dict = {}
-        
-        for ticker in tickers:
-            try:
-                df = await self.load_historical_data(ticker, start_date, end_date)
-                if not df.empty:
-                    data_dict[ticker] = df
-            except Exception as e:
-                print(f"Error loading data for {ticker}: {str(e)}")
-        
-        return data_dict
 
     async def run_strategy_backtest_multi_ticker(self, data_dict: Dict[str, pd.DataFrame], strategy: BaseStrategy, 
                                                 start_date: str = None, end_date: str = None) -> Dict[str, Any]:
@@ -575,7 +390,7 @@ class BacktestingEngine:
     async def _calculate_spy_benchmark(self, start_date: str = None, end_date: str = None) -> Dict[str, Any]:
         """Calculate SPY buy-and-hold benchmark return"""
         try:
-            spy_data = await self.load_historical_data("SPY", start_date, end_date)
+            spy_data = await self.data_manager.load_historical_data("SPY", start_date, end_date)
             if spy_data.empty:
                 return {
                     'spy_return': 0.0,
@@ -606,7 +421,7 @@ class BacktestingEngine:
     async def _calculate_spy_benchmark_with_history(self, start_date: str = None, end_date: str = None) -> Dict[str, Any]:
         """Calculate SPY buy-and-hold benchmark with full price history for plotting"""
         try:
-            spy_data = await self.load_historical_data("SPY", start_date, end_date)
+            spy_data = await self.data_manager.load_historical_data("SPY", start_date, end_date)
             if spy_data.empty:
                 return {
                     'spy_return': 0.0,

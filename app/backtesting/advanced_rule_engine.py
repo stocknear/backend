@@ -3,6 +3,7 @@ import numpy as np
 from typing import Dict, List, Any, Union
 from dataclasses import dataclass
 from enum import Enum
+from technical_indicators import TechnicalIndicators
 
 
 class OperatorType(Enum):
@@ -34,6 +35,7 @@ class AdvancedRuleEngine:
     
     def __init__(self):
         self.indicators = {}
+        self.ti = TechnicalIndicators()
         
     def calculate_indicators(self, data: pd.DataFrame) -> Dict[str, pd.Series]:
         """Calculate all technical indicators for the given data"""
@@ -42,34 +44,25 @@ class AdvancedRuleEngine:
         # Price
         indicators['price'] = data['close']
         
-        # RSI - only if we have enough data
-        if len(data) >= 15:  # Need at least 15 points for RSI with window=14
-            indicators['rsi'] = self._calculate_rsi(data['close'])
-        else:
-            indicators['rsi'] = pd.Series([50.0] * len(data), index=data.index)  # Default RSI
+        # RSI
+        indicators['rsi'] = self.ti.rsi(data['close'])
         
         # Moving Averages
-        indicators['ma_5'] = data['close'].rolling(window=5).mean()
-        indicators['ma_10'] = data['close'].rolling(window=10).mean()
-        indicators['ma_20'] = data['close'].rolling(window=20).mean()
-        indicators['ma_50'] = data['close'].rolling(window=50).mean()
-        indicators['ma_100'] = data['close'].rolling(window=100).mean()
-        indicators['ma_200'] = data['close'].rolling(window=200).mean()
+        for window in [5, 10, 20, 50, 100, 200]:
+            indicators[f'ma_{window}'] = self.ti.sma(data['close'], window)
         
         # Exponential Moving Averages
-        indicators['ema_5'] = data['close'].ewm(span=5).mean()
-        indicators['ema_10'] = data['close'].ewm(span=10).mean()
-        indicators['ema_20'] = data['close'].ewm(span=20).mean()
-        indicators['ema_50'] = data['close'].ewm(span=50).mean()
+        for window in [5, 10, 20, 50]:
+            indicators[f'ema_{window}'] = self.ti.ema(data['close'], window)
         
         # MACD
-        macd_data = self._calculate_macd(data['close'])
+        macd_data = self.ti.macd(data['close'])
         indicators['macd'] = macd_data['macd']
         indicators['macd_signal'] = macd_data['signal']
         indicators['macd_histogram'] = macd_data['histogram']
         
         # Bollinger Bands
-        bb_data = self._calculate_bollinger_bands(data['close'])
+        bb_data = self.ti.bollinger_bands(data['close'])
         indicators['bb_upper'] = bb_data['upper']
         indicators['bb_middle'] = bb_data['middle']
         indicators['bb_lower'] = bb_data['lower']
@@ -80,50 +73,6 @@ class AdvancedRuleEngine:
         
         self.indicators = indicators
         return indicators
-    
-    def _calculate_rsi(self, prices: pd.Series, window: int = 14) -> pd.Series:
-        """Calculate RSI with safety checks"""
-        if len(prices) < window + 1:
-            # Not enough data for RSI calculation
-            return pd.Series([np.nan] * len(prices), index=prices.index)
-            
-        delta = prices.diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=window).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=window).mean()
-        
-        # Avoid division by zero
-        with np.errstate(divide='ignore', invalid='ignore'):
-            rs = gain / loss
-            rsi = 100 - (100 / (1 + rs))
-            # Replace inf and -inf with NaN
-            rsi = rsi.replace([np.inf, -np.inf], np.nan)
-        
-        return rsi
-    
-    def _calculate_macd(self, prices: pd.Series, fast: int = 12, slow: int = 26, signal: int = 9) -> Dict[str, pd.Series]:
-        """Calculate MACD"""
-        ema_fast = prices.ewm(span=fast).mean()
-        ema_slow = prices.ewm(span=slow).mean()
-        macd_line = ema_fast - ema_slow
-        signal_line = macd_line.ewm(span=signal).mean()
-        histogram = macd_line - signal_line
-        return {
-            'macd': macd_line,
-            'signal': signal_line,
-            'histogram': histogram
-        }
-    
-    def _calculate_bollinger_bands(self, prices: pd.Series, window: int = 20, num_std: float = 2) -> Dict[str, pd.Series]:
-        """Calculate Bollinger Bands"""
-        sma = prices.rolling(window=window).mean()
-        std = prices.rolling(window=window).std()
-        upper = sma + (std * num_std)
-        lower = sma - (std * num_std)
-        return {
-            'upper': upper,
-            'middle': sma,
-            'lower': lower
-        }
     
     def parse_conditions(self, conditions: List[Dict[str, Any]]) -> List[RuleCondition]:
         """Parse condition dictionaries into RuleCondition objects"""
@@ -223,62 +172,68 @@ class AdvancedRuleEngine:
         parsed_buy_conditions = self.parse_conditions(buy_conditions)
         parsed_sell_conditions = self.parse_conditions(sell_conditions)
         
-        # Generate signals
+        # Generate signals using vectorized operations where possible
         signals = pd.DataFrame(index=data.index)
         signals['buy'] = False
         signals['sell'] = False
         signals['price'] = data['close']
         
-        for i in range(len(data)):
-            try:
-                # Evaluate buy conditions
-                if self.evaluate_rules(parsed_buy_conditions, i):
-                    signals.iloc[i, signals.columns.get_loc('buy')] = True
-                
-                # Evaluate sell conditions
-                if self.evaluate_rules(parsed_sell_conditions, i):
-                    signals.iloc[i, signals.columns.get_loc('sell')] = True
-                    
-            except (IndexError, KeyError):
-                # Handle edge cases where indicators may not be available
-                continue
+        # Optimize: Use vectorized evaluation for simple conditions when possible
+        # For complex conditions with logical connectors, fall back to row-by-row
+        try:
+            if self._can_vectorize_conditions(parsed_buy_conditions):
+                buy_mask = self._evaluate_conditions_vectorized(parsed_buy_conditions)
+                signals['buy'] = buy_mask
+            else:
+                for i in range(len(data)):
+                    if self.evaluate_rules(parsed_buy_conditions, i):
+                        signals.iloc[i, signals.columns.get_loc('buy')] = True
+            
+            if self._can_vectorize_conditions(parsed_sell_conditions):
+                sell_mask = self._evaluate_conditions_vectorized(parsed_sell_conditions)
+                signals['sell'] = sell_mask
+            else:
+                for i in range(len(data)):
+                    if self.evaluate_rules(parsed_sell_conditions, i):
+                        signals.iloc[i, signals.columns.get_loc('sell')] = True
+        except Exception as e:
+            # Fallback to safe row-by-row processing
+            for i in range(len(data)):
+                try:
+                    if self.evaluate_rules(parsed_buy_conditions, i):
+                        signals.iloc[i, signals.columns.get_loc('buy')] = True
+                    if self.evaluate_rules(parsed_sell_conditions, i):
+                        signals.iloc[i, signals.columns.get_loc('sell')] = True
+                except (IndexError, KeyError):
+                    continue
         
         return signals
-
-
-class AdvancedRuleStrategy:
-    """Custom strategy that uses the advanced rule engine"""
     
-    def __init__(self, name: str, buy_conditions: List[Dict[str, Any]], 
-                 sell_conditions: List[Dict[str, Any]]):
-        self.name = name
-        self.buy_conditions = buy_conditions
-        self.sell_conditions = sell_conditions
-        self.rule_engine = AdvancedRuleEngine()
+    def _can_vectorize_conditions(self, conditions: List[RuleCondition]) -> bool:
+        """Check if conditions can be evaluated using vectorized operations"""
+        # Simple heuristic: if only one condition and no complex value references
+        if len(conditions) == 1:
+            condition = conditions[0]
+            return isinstance(condition.value, (int, float)) and condition.name in self.indicators
+        return False
     
-    def generate_signals(self, data: pd.DataFrame) -> List[Dict[str, Any]]:
-        """Generate trading signals using advanced rules"""
+    def _evaluate_conditions_vectorized(self, conditions: List[RuleCondition]) -> pd.Series:
+        """Evaluate simple conditions using vectorized pandas operations"""
+        if len(conditions) != 1:
+            raise ValueError("Vectorized evaluation only supports single conditions")
         
-        # Generate signals using rule engine
-        signals_df = self.rule_engine.generate_signals(data, self.buy_conditions, self.sell_conditions)
+        condition = conditions[0]
+        indicator_values = self.indicators[condition.name]
         
-        # Convert to signal format compatible with existing backtesting engine
-        signals = []
-        
-        for date, row in signals_df.iterrows():
-            if row['buy']:
-                signals.append({
-                    'date': date.strftime('%Y-%m-%d'),
-                    'signal': 'BUY',
-                    'price': row['price'],
-                    'reason': 'Advanced rule conditions met'
-                })
-            elif row['sell']:
-                signals.append({
-                    'date': date.strftime('%Y-%m-%d'),
-                    'signal': 'SELL',
-                    'price': row['price'],
-                    'reason': 'Advanced rule conditions met'
-                })
-        
-        return signals
+        if condition.operator == OperatorType.GREATER_THAN or condition.operator == OperatorType.ABOVE:
+            return indicator_values > condition.value
+        elif condition.operator == OperatorType.LESS_THAN or condition.operator == OperatorType.BELOW:
+            return indicator_values < condition.value
+        elif condition.operator == OperatorType.EQUALS:
+            return np.abs(indicator_values - condition.value) < 1e-10
+        elif condition.operator == OperatorType.GREATER_EQUAL:
+            return indicator_values >= condition.value
+        elif condition.operator == OperatorType.LESS_EQUAL:
+            return indicator_values <= condition.value
+        else:
+            raise ValueError(f"Unsupported operator for vectorized evaluation: {condition.operator}")
