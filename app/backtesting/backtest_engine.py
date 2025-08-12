@@ -1,8 +1,8 @@
 import pandas as pd
 from typing import Dict, List, Optional, Any
-from strategy_engine import BaseStrategy, CustomStrategy
-from portfolio_manager import PortfolioManager
-from data_manager import DataManager
+from backtesting.strategy_engine import BaseStrategy, CustomStrategy
+from backtesting.portfolio_manager import PortfolioManager
+from backtesting.data_manager import DataManager
 
 
 class BacktestingEngine:

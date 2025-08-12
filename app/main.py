@@ -54,6 +54,9 @@ from hashlib import md5
 from bs4 import BeautifulSoup
 from collections import Counter
 
+from backtesting.backtest_engine import BacktestingEngine
+
+
 
 # DB constants & context manager
 API_URL = "http://localhost:8000"
@@ -315,6 +318,9 @@ class GreekExposureData(BaseModel):
 class CompareData(BaseModel):
     tickerList: list
     category: dict
+
+class Backtesting(BaseModel):
+    strategyData: dict
 
 class MarketNews(BaseModel):
     newsType: str
@@ -4537,7 +4543,6 @@ def create_merged_structure(tickers: list, histories: list, stock_data: dict) ->
 async def compare_data_endpoint(data: CompareData, api_key: str = Security(get_api_key)):
     tickers = data.tickerList
     category = data.category
-    print(tickers, category)
     # Validate input
     if not tickers:
         raise HTTPException(status_code=400, detail="No tickers provided")
@@ -4602,6 +4607,59 @@ async def compare_data_endpoint(data: CompareData, api_key: str = Security(get_a
         headers={"Content-Encoding": "gzip"}
     )
 
+
+
+
+@app.post("/backtesting")
+async def get_data(data: Backtesting, api_key: str = Security(get_api_key)):
+    strategy_data = data.strategyData
+
+    tickers = strategy_data['tickers']
+    start_date = strategy_data['start_date']
+    end_date = strategy_data['end_date']
+    buy_conditions = strategy_data.get('buy_condition', [])
+    sell_conditions = strategy_data.get('sell_condition', [])
+    initial_capital = strategy_data['initial_capital']
+
+    # Make key unique for params
+    cache_key = f"backtesting-{','.join(tickers)}-{start_date}-{end_date}-{hash(orjson.dumps([buy_conditions, sell_conditions]))}"
+
+    print(tickers)
+    # Check cache
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
+
+    engine = BacktestingEngine(initial_capital=initial_capital)
+
+    try:
+        res = await engine.run(
+            tickers=tickers,
+            buy_conditions=buy_conditions,
+            sell_conditions=sell_conditions,
+            start_date=start_date,
+            end_date=end_date
+        )
+    except Exception:
+        res = {}
+
+    # Serialize & compress off the main loop
+    compressed_data = await asyncio.to_thread(
+        lambda: gzip.compress(orjson.dumps(res))
+    )
+
+    # Store with expiry in one command (faster)
+    redis_client.setex(cache_key, 60 * 15, compressed_data)
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
 
 
 

@@ -173,34 +173,24 @@ def create_performance_plot(plot_data, tickers, strategy_name):
 async def main():
 
     data = {
-      "tickers": ["AAPL"],  # Sophisticated multi-indicator strategy
-      "start_date": '2022-01-01',
-      "end_date": '2025-08-30',  # Full range
+      "tickers": [
+        "AAPL"
+      ],
+      "start_date": "2020-01-01",
+      "end_date": "2025-08-12",
       "buy_condition": [
-        # Trend Following: Price momentum above 50-day MA
-        { "name": "price", "value": "ma_50", "operator": "above", "connector": "AND" },
-        
-        # Short-term Momentum: Price breaking above 20-day MA  
-        { "name": "price", "value": "ma_20", "operator": "above", "connector": "AND" },
-        
-        # RSI Confirmation: Not extremely overbought, allows momentum to continue
-        { "name": "rsi", "value": 75, "operator": "below", "connector": "AND" },
-        
-        # MACD Bullish: Momentum acceleration
-        { "name": "macd", "value": 0, "operator": "above" }
+        {
+          "name": "rsi",
+          "value": 70,
+          "operator": "above"
+        }
       ],
       "sell_condition": [
-        # Quick Exit: Price drops below 20-day MA (trend break)
-        { "name": "price", "value": "ma_20", "operator": "below", "connector": "OR" },
-        
-        # Medium-term Exit: Price drops below 50-day MA 
-        { "name": "price", "value": "ma_50", "operator": "below", "connector": "OR" },
-        
-        # Overbought Exit: RSI extremely high
-        { "name": "rsi", "value": 85, "operator": "above", "connector": "OR" },
-        
-        # MACD Bearish: Momentum turning negative
-        { "name": "macd", "value": 0, "operator": "below" }
+        {
+          "name": "rsi",
+          "value": 30,
+          "operator": "below"
+        }
       ]
     }
 

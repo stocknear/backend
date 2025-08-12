@@ -1,7 +1,7 @@
 from typing import Dict, List, Tuple, Optional, Any
 import pandas as pd
 import numpy as np
-from strategy_engine import TradingSignal, SignalType
+from backtesting.strategy_engine import TradingSignal, SignalType
 
 
 class Position:

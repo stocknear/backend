@@ -3,7 +3,7 @@ import numpy as np
 from typing import Dict, List, Any, Union
 from dataclasses import dataclass
 from enum import Enum
-from technical_indicators import TechnicalIndicators
+from backtesting.technical_indicators import TechnicalIndicators
 
 
 class OperatorType(Enum):
