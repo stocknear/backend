@@ -111,6 +111,25 @@ class BacktestingEngine:
                 'strategies': []
             }
         
+        # Calculate SPY benchmark once for all strategies
+        spy_start = start_date or df.index[0].strftime('%Y-%m-%d')
+        spy_end = end_date or df.index[-1].strftime('%Y-%m-%d')
+        spy_benchmark = await self._calculate_spy_benchmark_with_history(spy_start, spy_end)
+        
+        # Calculate stock buy-and-hold benchmark
+        stock_buy_hold_return = (df['close'].iloc[-1] - df['close'].iloc[0]) / df['close'].iloc[0] if len(df) > 0 else 0
+        
+        # Prepare stock buy-and-hold plot data
+        stock_normalized = (df['close'] / df['close'].iloc[0]) * self.initial_capital
+        stock_buy_hold_plot = [
+            {
+                'date': date.strftime('%Y-%m-%d'),
+                'value': float(value),
+                'return_pct': ((value - self.initial_capital) / self.initial_capital) * 100
+            }
+            for date, value in stock_normalized.items()
+        ]
+        
         # Run all strategies async 
         strategy_tasks = [
             ('Buy and Hold', self.buy_and_hold_strategy(df.copy(), start_date, end_date)),
@@ -138,6 +157,18 @@ class BacktestingEngine:
                 date_adjustments['requested_end'] = df.attrs.get('requested_end')
                 date_adjustments['actual_end'] = df.attrs.get('actual_end')
         
+        # Prepare SPY plot data
+        spy_plot = []
+        if 'spy_history' in spy_benchmark and spy_benchmark['spy_history']:
+            spy_plot = [
+                {
+                    'date': item['date'],
+                    'value': item['value'],
+                    'return_pct': ((item['value'] - self.initial_capital) / self.initial_capital) * 100
+                }
+                for item in spy_benchmark['spy_history']
+            ]
+        
         response = {
             'ticker': ticker.upper(),
             'period': f"{df.index[0].strftime('%Y-%m-%d')} to {df.index[-1].strftime('%Y-%m-%d')}",
@@ -145,7 +176,19 @@ class BacktestingEngine:
             'initial_capital': self.initial_capital,
             'strategies': results,
             'best_strategy': results[0] if results else None,
-            'summary': f"Backtested {len(results)} strategies for {ticker.upper()} over {len(df)} trading days."
+            'summary': f"Backtested {len(results)} strategies for {ticker.upper()} over {len(df)} trading days.",
+            # Benchmark data for comparison
+            'benchmarks': {
+                'stock_buy_hold': {
+                    'return': round(stock_buy_hold_return * 100, 2),
+                    'plot_data': stock_buy_hold_plot
+                },
+                'spy': {
+                    'return': round(spy_benchmark.get('spy_return', 0) * 100, 2),
+                    'annual_return': round(spy_benchmark.get('spy_annual_return', 0) * 100, 2),
+                    'plot_data': spy_plot
+                }
+            }
         }
         
         if date_adjustments:
@@ -386,16 +429,24 @@ class BacktestingEngine:
         # Generate signals
         signals = strategy.generate_signals(prepared_data)
         
-        # Execute trades
-        executed_trades = []
+        # Create a dict to map dates to signals for efficient lookup
+        signal_dict = {}
         for signal in signals:
-            trade = portfolio.execute_signal(signal)
-            if trade:
-                executed_trades.append(trade)
+            signal_dict[signal.date] = signal
         
-        # Track portfolio value throughout the period
+        # Execute trades and track portfolio value throughout the period
+        executed_trades = []
         for date, row in prepared_data.iterrows():
-            portfolio.update_portfolio_history(date.strftime('%Y-%m-%d'), row['close'])
+            date_str = date.strftime('%Y-%m-%d')
+            
+            # Check if there's a signal for this date
+            if date_str in signal_dict:
+                trade = portfolio.execute_signal(signal_dict[date_str], row['close'])
+                if trade:
+                    executed_trades.append(trade)
+            
+            # Update portfolio history for every trading day
+            portfolio.update_portfolio_history(date_str, row['close'])
         
         # Calculate performance metrics
         performance = portfolio.calculate_performance_metrics()
@@ -406,10 +457,13 @@ class BacktestingEngine:
         # Calculate SPY benchmark for the same period
         spy_start = start_date or prepared_data.index[0].strftime('%Y-%m-%d')
         spy_end = end_date or prepared_data.index[-1].strftime('%Y-%m-%d')
-        spy_benchmark = await self._calculate_spy_benchmark(spy_start, spy_end)
+        spy_benchmark = await self._calculate_spy_benchmark_with_history(spy_start, spy_end)
         
         # Convert trades to legacy format for compatibility
         legacy_signals = [trade.to_dict() for trade in executed_trades]
+        
+        # Prepare plotting data
+        plot_data = self._prepare_plot_data(portfolio.portfolio_history, prepared_data, spy_benchmark)
         
         result = {
             'strategy_name': strategy.name,
@@ -436,7 +490,9 @@ class BacktestingEngine:
                 'spy_period': spy_benchmark.get('spy_period', 'N/A'),
                 'spy_data_points': spy_benchmark.get('spy_data_points', 0),
                 'vs_spy': round((performance.get('total_return', 0) - spy_benchmark.get('spy_return', 0)) * 100, 2)
-            }
+            },
+            # Plotting data for visualization
+            'plot_data': plot_data
         }
         
         # Add error information if SPY benchmark failed
@@ -645,5 +701,95 @@ class BacktestingEngine:
                 'spy_annual_return': 0.0,
                 'error': f'Failed to load SPY benchmark: {str(e)}'
             }
+    
+    async def _calculate_spy_benchmark_with_history(self, start_date: str = None, end_date: str = None) -> Dict[str, Any]:
+        """Calculate SPY buy-and-hold benchmark with full price history for plotting"""
+        try:
+            spy_data = await self.load_historical_data("SPY", start_date, end_date)
+
+            if spy_data.empty:
+                return {
+                    'spy_return': 0.0,
+                    'spy_annual_return': 0.0,
+                    'spy_history': [],
+                    'error': 'SPY data not available'
+                }
+            
+            # Calculate SPY buy-and-hold return
+            spy_return = (spy_data['close'].iloc[-1] - spy_data['close'].iloc[0]) / spy_data['close'].iloc[0]
+            
+            # Calculate annualized return
+            days = len(spy_data)
+            spy_annual_return = (spy_data['close'].iloc[-1] / spy_data['close'].iloc[0]) ** (252 / days) - 1 if days > 0 else 0
+            
+            # Calculate normalized SPY prices (starting from initial capital)
+            spy_normalized = (spy_data['close'] / spy_data['close'].iloc[0]) * self.initial_capital
+            
+            # Prepare SPY history for plotting
+            spy_history = [
+                {
+                    'date': date.strftime('%Y-%m-%d'),
+                    'value': float(value)
+                }
+                for date, value in spy_normalized.items()
+            ]
+            
+            return {
+                'spy_return': spy_return,
+                'spy_annual_return': spy_annual_return,
+                'spy_period': f"{spy_data.index[0].strftime('%Y-%m-%d')} to {spy_data.index[-1].strftime('%Y-%m-%d')}",
+                'spy_data_points': len(spy_data),
+                'spy_history': spy_history
+            }
+        except Exception as e:
+            return {
+                'spy_return': 0.0,
+                'spy_annual_return': 0.0,
+                'spy_history': [],
+                'error': f'Failed to load SPY benchmark: {str(e)}'
+            }
+    
+    def _prepare_plot_data(self, portfolio_history: List[Dict], stock_data: pd.DataFrame, spy_benchmark: Dict) -> Dict[str, Any]:
+        """Prepare data for plotting portfolio performance vs benchmarks"""
+        
+        # Strategy portfolio values over time
+        strategy_values = [
+            {
+                'date': item['date'],
+                'value': item['portfolio_value'],
+                'return_pct': ((item['portfolio_value'] - self.initial_capital) / self.initial_capital) * 100
+            }
+            for item in portfolio_history
+        ]
+        
+        # Stock buy-and-hold benchmark (normalized to initial capital)
+        stock_normalized = (stock_data['close'] / stock_data['close'].iloc[0]) * self.initial_capital
+        stock_buy_hold = [
+            {
+                'date': date.strftime('%Y-%m-%d'),
+                'value': float(value),
+                'return_pct': ((value - self.initial_capital) / self.initial_capital) * 100
+            }
+            for date, value in stock_normalized.items()
+        ]
+        
+        # SPY benchmark data
+        spy_values = []
+        if 'spy_history' in spy_benchmark and spy_benchmark['spy_history']:
+            spy_values = [
+                {
+                    'date': item['date'],
+                    'value': item['value'],
+                    'return_pct': ((item['value'] - self.initial_capital) / self.initial_capital) * 100
+                }
+                for item in spy_benchmark['spy_history']
+            ]
+        
+        return {
+            'strategy': strategy_values,
+            'stock_buy_hold': stock_buy_hold,
+            'spy_benchmark': spy_values,
+            'initial_capital': self.initial_capital
+        }
 
 
