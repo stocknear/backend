@@ -37,23 +37,17 @@ async def testing_strategy(tickers, start_date="2020-01-01", end_date=None, buy_
             # Multi-ticker results
             print(f"Tickers: {', '.join(result['tickers'])}")
             print(f"Total Return: {result['total_return']}%")
-            print(f"Multi-Ticker B&H Return: {result.get('multi_ticker_buy_hold_return', 'N/A')}%")
-            if 'multi_ticker_buy_hold_return' in result:
-                excess = result['total_return'] - result['multi_ticker_buy_hold_return']
-                print(f"Excess Return vs Equal-Weight B&H: {excess:+.2f}%")
+            print(f"Multi-Ticker Buy & Hold Return: {result.get('multi_ticker_buy_hold_return', 'N/A')}%")
         else:
             # Single ticker results
             print(f"Ticker: {result.get('ticker', 'N/A')}")
             print(f"Total Return: {result['total_return']}%")
             print(f"Buy & Hold Return: {result.get('buy_hold_return', 'N/A')}%")
-            if 'buy_hold_return' in result:
-                excess = result['total_return'] - result['buy_hold_return']
-                print(f"Excess Return vs B&H: {excess:+.2f}%")
         
         print(f"Sharpe Ratio: {result['sharpe_ratio']:.3f}")
         print(f"Sortino Ratio: {result.get('sortino_ratio', 'N/A'):.3f}" if isinstance(result.get('sortino_ratio'), (int, float)) else f"Sortino Ratio: {result.get('sortino_ratio', 'N/A')}")
-        print(f"Beta (vs SPY): {result.get('beta', 'N/A'):.3f}" if isinstance(result.get('beta'), (int, float)) else f"Beta (vs SPY): {result.get('beta', 'N/A')}")
-        print(f"Alpha (vs SPY): {result.get('alpha', 'N/A'):.3f}" if isinstance(result.get('alpha'), (int, float)) else f"Alpha (vs SPY): {result.get('alpha', 'N/A')}")
+        print(f"Beta: {result.get('beta', 'N/A'):.3f}" if isinstance(result.get('beta'), (int, float)) else f"Beta: {result.get('beta', 'N/A')}")
+        print(f"Alpha: {result.get('alpha', 'N/A'):.3f}" if isinstance(result.get('alpha'), (int, float)) else f"Alpha: {result.get('alpha', 'N/A')}")
         print(f"Final Value: ${result['final_portfolio_value']:,.2f}")
         print(f"Win Rate: {result['win_rate']}%")
         print(f"Total Trades: {result['total_trades']}")
@@ -77,26 +71,10 @@ async def testing_strategy(tickers, start_date="2020-01-01", end_date=None, buy_
         print(f"SPY Benchmark Data:")
         print(f"SPY Return: {spy_data['spy_return']}%")
         print(f"SPY Annual Return: {spy_data['spy_annual_return']}%")
-        print(f"SPY Period: {spy_data['spy_period']}")
-        print(f"SPY Data Points: {spy_data['spy_data_points']}")
-        print(f"Strategy vs SPY: {spy_data['vs_spy']}%")
 
 
     if result.get("plot_data"):
         plot_data = result['plot_data']
-        print("\nPlot data available:")
-        print(f"- Strategy data points: {len(plot_data.get('strategy', []))}")
-        
-        
-        # Check if it's multi-ticker or single ticker
-        if 'multi_ticker_buy_hold' in plot_data:
-            print(f"- Multi-ticker buy-hold data points: {len(plot_data.get('multi_ticker_buy_hold', []))}")
-            print(f"- Tickers: {', '.join(plot_data.get('tickers', []))}")
-        elif 'stock_buy_hold' in plot_data:
-            print(f"- Stock buy-hold data points: {len(plot_data.get('stock_buy_hold', []))}")
-        
-        print(f"- SPY benchmark data points: {len(plot_data.get('spy_benchmark', []))}")
-        
         # Create visualization
         create_performance_plot(plot_data, tickers, result.get('strategy_name', 'Strategy'))
 
@@ -128,19 +106,19 @@ def create_performance_plot(plot_data, tickers, strategy_name):
             dates = [datetime.strptime(item['date'], '%Y-%m-%d') for item in plot_data['multi_ticker_buy_hold']]
             returns = [item['return_pct'] for item in plot_data['multi_ticker_buy_hold']]
             tickers_list = plot_data.get('tickers', tickers)
-            ticker_label = f"Equal-Weight B&H ({', '.join(tickers_list)})" if len(tickers_list) <= 3 else f"Equal-Weight B&H ({len(tickers_list)} stocks)"
-            plt.plot(dates, returns, label=ticker_label, linewidth=2.5, color='forestgreen', linestyle='--')
+            ticker_label = f"Equal-Weight Buy & Hold ({', '.join(tickers_list)})" if len(tickers_list) <= 3 else f"Equal-Weight Buy & Hold ({len(tickers_list)} stocks)"
+            plt.plot(dates, returns, label=ticker_label, linewidth=2.5, color='forestgreen')
         elif 'stock_buy_hold' in plot_data and plot_data['stock_buy_hold']:
             # Single ticker buy-and-hold
             dates = [datetime.strptime(item['date'], '%Y-%m-%d') for item in plot_data['stock_buy_hold']]
             returns = [item['return_pct'] for item in plot_data['stock_buy_hold']]
-            plt.plot(dates, returns, label=f'{ticker_str} Buy & Hold', linewidth=2.5, color='forestgreen', linestyle='--')
+            plt.plot(dates, returns, label=f'{ticker_str} Buy & Hold', linewidth=2.5, color='forestgreen')
 
         # Plot SPY benchmark
         if 'spy_benchmark' in plot_data and plot_data['spy_benchmark']:
             dates = [datetime.strptime(item['date'], '%Y-%m-%d') for item in plot_data['spy_benchmark']]
             returns = [item['return_pct'] for item in plot_data['spy_benchmark']]
-            plt.plot(dates, returns, label='SPY Buy & Hold', linewidth=2.5, color='firebrick', linestyle=':')
+            plt.plot(dates, returns, label='SPY Buy & Hold', linewidth=2.5, color='firebrick')
 
         # Add horizontal line at 0% return
         plt.axhline(y=0, color='black', linestyle='-', alpha=0.3, linewidth=0.8)
@@ -149,17 +127,9 @@ def create_performance_plot(plot_data, tickers, strategy_name):
         plt.xlabel('Date', fontsize=12, weight='bold')
         plt.ylabel('Return (%)', fontsize=12, weight='bold')
         
-        # Dynamic title based on ticker type
-        if is_multi_ticker:
-            title = f'Multi-Ticker Backtesting Results — {strategy_name}'
-            subtitle = f'Tickers: {ticker_str}' if len(ticker_str) < 50 else f'{len(plot_data.get("tickers", []))} Tickers'
-        else:
-            title = f'{ticker_str} Backtesting Results — {strategy_name}'
-            subtitle = 'Single Ticker Analysis'
+        title = f'Backtesting Results — {strategy_name}'
         
         plt.title(title, fontsize=14, weight='bold', pad=20)
-        plt.text(0.5, 0.98, subtitle, transform=plt.gca().transAxes, 
-                ha='center', va='top', fontsize=10, style='italic', alpha=0.7)
         
         # Enhanced legend with better positioning
         plt.legend(frameon=True, loc='upper left', fontsize=11, 
@@ -195,26 +165,7 @@ def create_performance_plot(plot_data, tickers, strategy_name):
         filename="plot.png"
         
         plt.savefig(filename, dpi=300, bbox_inches='tight')
-        
-        # Also display performance summary
-        print(f"Performance Summary:")
-        if 'strategy' in plot_data and plot_data['strategy']:
-            strategy_final = plot_data['strategy'][-1]['return_pct']
-            print(f"   Strategy Final Return: {strategy_final:.2f}%")
-        
-        if is_multi_ticker and 'multi_ticker_buy_hold' in plot_data and plot_data['multi_ticker_buy_hold']:
-            bh_final = plot_data['multi_ticker_buy_hold'][-1]['return_pct']
-            print(f"   Multi-Ticker B&H Return: {bh_final:.2f}%")
-            if 'strategy' in plot_data:
-                excess = strategy_final - bh_final
-                print(f"   Excess Return: {excess:+.2f}%")
-        elif 'stock_buy_hold' in plot_data and plot_data['stock_buy_hold']:
-            bh_final = plot_data['stock_buy_hold'][-1]['return_pct']
-            print(f"   Stock Buy & Hold Return: {bh_final:.2f}%")
-
-        if 'spy_benchmark' in plot_data and plot_data['spy_benchmark']:
-            spy_final = plot_data['spy_benchmark'][-1]['return_pct']
-            print(f"   SPY Benchmark Return: {spy_final:.2f}%")
+    
     except Exception as e:
         print(e)
 
@@ -222,8 +173,8 @@ def create_performance_plot(plot_data, tickers, strategy_name):
 async def main():
 
     data = {
-      "tickers": ["AAPL","AMD"],  # Sophisticated multi-indicator strategy
-      "start_date": '2020-01-01',
+      "tickers": ["AAPL"],  # Sophisticated multi-indicator strategy
+      "start_date": '2022-01-01',
       "end_date": '2025-08-30',  # Full range
       "buy_condition": [
         # Trend Following: Price momentum above 50-day MA
