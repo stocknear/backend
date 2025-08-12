@@ -45,7 +45,10 @@ async def testing_strategy(tickers, strategy="rsi", start_date="2020-01-01"):
                 excess = result['total_return'] - result['buy_hold_return']
                 print(f"Excess Return vs B&H: {excess:+.2f}%")
         
-        print(f"Sharpe Ratio: {result['sharpe_ratio']}")
+        print(f"Sharpe Ratio: {result['sharpe_ratio']:.3f}")
+        print(f"Sortino Ratio: {result.get('sortino_ratio', 'N/A'):.3f}" if isinstance(result.get('sortino_ratio'), (int, float)) else f"Sortino Ratio: {result.get('sortino_ratio', 'N/A')}")
+        print(f"Beta (vs SPY): {result.get('beta', 'N/A'):.3f}" if isinstance(result.get('beta'), (int, float)) else f"Beta (vs SPY): {result.get('beta', 'N/A')}")
+        print(f"Alpha (vs SPY): {result.get('alpha', 'N/A'):.3f}" if isinstance(result.get('alpha'), (int, float)) else f"Alpha (vs SPY): {result.get('alpha', 'N/A')}")
         print(f"Final Value: ${result['final_portfolio_value']:,.2f}")
         print(f"Win Rate: {result['win_rate']}%")
         print(f"Total Trades: {result['total_trades']}")
@@ -183,11 +186,7 @@ def create_performance_plot(plot_data, tickers, strategy_name):
                     verticalalignment='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
 
         # Save plot with descriptive filename
-        if is_multi_ticker:
-            filename = f'multi_ticker_backtest_{len(plot_data.get("tickers", []))}stocks_{strategy_name.replace(" ", "_")}.png'
-        else:
-            clean_ticker = ticker_str.replace(' ', '').replace(',', '_')
-            filename = f'backtest_plot_{clean_ticker}_{strategy_name.replace(" ", "_")}.png'
+        filename="plot.png"
         
         plt.savefig(filename, dpi=300, bbox_inches='tight')
         
@@ -205,25 +204,18 @@ def create_performance_plot(plot_data, tickers, strategy_name):
                 print(f"   Excess Return: {excess:+.2f}%")
         elif 'stock_buy_hold' in plot_data and plot_data['stock_buy_hold']:
             bh_final = plot_data['stock_buy_hold'][-1]['return_pct']
-            print(f"   Stock B&H Return: {bh_final:.2f}%")
-            if 'strategy' in plot_data:
-                excess = strategy_final - bh_final
-                print(f"   Excess Return: {excess:+.2f}%")
-        
+            print(f"   Stock Buy & Hold Return: {bh_final:.2f}%")
+
         if 'spy_benchmark' in plot_data and plot_data['spy_benchmark']:
             spy_final = plot_data['spy_benchmark'][-1]['return_pct']
             print(f"   SPY Benchmark Return: {spy_final:.2f}%")
-            if 'strategy' in plot_data:
-                vs_spy = strategy_final - spy_final
-                print(f"   Strategy vs SPY: {vs_spy:+.2f}%")
-        
     except Exception as e:
         print(e)
 
 
 async def main():
 
-    multi_tickers = ['AAPL']
+    multi_tickers = ['INTC']
     start_date = '2020-01-01'
     
     await testing_strategy(multi_tickers, strategy="rsi", start_date=start_date)

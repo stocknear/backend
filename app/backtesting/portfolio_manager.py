@@ -340,7 +340,7 @@ class PortfolioManager:
         }
     
     def calculate_performance_metrics(self, benchmark_returns: pd.Series = None) -> Dict[str, Any]:
-        """Calculate portfolio performance metrics"""
+        """Calculate portfolio performance metrics including Sortino ratio, beta, and alpha"""
         if not self.portfolio_history:
             return {}
         
@@ -360,6 +360,30 @@ class PortfolioManager:
         max_drawdown = self._calculate_max_drawdown(portfolio_values)
         volatility = np.std(returns) * np.sqrt(252) if len(returns) > 1 else 0
         sharpe_ratio = (annual_return - 0.02) / volatility if volatility > 0 else 0  # 2% risk-free rate
+        
+        # Sortino ratio (downside deviation)
+        downside_returns = returns[returns < 0]
+        downside_deviation = np.std(downside_returns) * np.sqrt(252) if len(downside_returns) > 1 else 0
+        sortino_ratio = (annual_return - 0.02) / downside_deviation if downside_deviation > 0 else 0
+        
+        # Beta and Alpha (relative to benchmark)
+        beta = 0.0
+        alpha = 0.0
+        if benchmark_returns is not None and len(benchmark_returns) > 1 and len(returns) > 1:
+            # Ensure benchmark and portfolio returns are aligned
+            min_length = min(len(returns), len(benchmark_returns))
+            portfolio_returns_aligned = returns[:min_length]
+            benchmark_returns_aligned = benchmark_returns.values[:min_length] if hasattr(benchmark_returns, 'values') else benchmark_returns[:min_length]
+            
+            # Calculate beta using covariance and variance
+            covariance = np.cov(portfolio_returns_aligned, benchmark_returns_aligned)[0, 1]
+            benchmark_variance = np.var(benchmark_returns_aligned)
+            beta = covariance / benchmark_variance if benchmark_variance > 0 else 0
+            
+            # Calculate alpha (Jensen's Alpha)
+            benchmark_annual_return = (1 + np.mean(benchmark_returns_aligned)) ** 252 - 1
+            expected_return = 0.02 + beta * (benchmark_annual_return - 0.02)  # CAPM expected return
+            alpha = annual_return - expected_return
         
         # Trade analysis
         trade_summary = self.get_trade_summary()
@@ -390,6 +414,9 @@ class PortfolioManager:
             'max_drawdown': max_drawdown,
             'volatility': volatility,
             'sharpe_ratio': sharpe_ratio,
+            'sortino_ratio': sortino_ratio,
+            'beta': beta,
+            'alpha': alpha,
             'win_rate': win_rate,
             'profit_factor': profit_factor,
             'final_portfolio_value': portfolio_values[-1],
