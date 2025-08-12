@@ -37,39 +37,54 @@ class AdvancedRuleEngine:
         self.indicators = {}
         self.ti = TechnicalIndicators()
         
-    def calculate_indicators(self, data: pd.DataFrame) -> Dict[str, pd.Series]:
-        """Calculate all technical indicators for the given data"""
+    def calculate_indicators(self, data: pd.DataFrame, required_indicators: set) -> Dict[str, pd.Series]:
+        """Calculate only the technical indicators that are required by the conditions"""
         indicators = {}
         
-        # Price
+        # Always include price as it's fundamental
         indicators['price'] = data['close']
         
-        # RSI
-        indicators['rsi'] = self.ti.rsi(data['close'])
+        # Calculate only required indicators
+        if 'rsi' in required_indicators:
+            indicators['rsi'] = self.ti.rsi(data['close'])
         
-        # Moving Averages
-        for window in [5, 10, 20, 50, 100, 200]:
+        # Moving Averages - only calculate needed windows
+        ma_windows = [int(ind.split('_')[1]) for ind in required_indicators if ind.startswith('ma_')]
+        for window in ma_windows:
             indicators[f'ma_{window}'] = self.ti.sma(data['close'], window)
         
-        # Exponential Moving Averages
-        for window in [5, 10, 20, 50]:
+        # Exponential Moving Averages - only calculate needed windows  
+        ema_windows = [int(ind.split('_')[1]) for ind in required_indicators if ind.startswith('ema_')]
+        for window in ema_windows:
             indicators[f'ema_{window}'] = self.ti.ema(data['close'], window)
         
-        # MACD
-        macd_data = self.ti.macd(data['close'])
-        indicators['macd'] = macd_data['macd']
-        indicators['macd_signal'] = macd_data['signal']
-        indicators['macd_histogram'] = macd_data['histogram']
+        # MACD components - only if any MACD indicator is needed
+        macd_indicators = {'macd', 'macd_signal', 'macd_histogram'}
+        if macd_indicators.intersection(required_indicators):
+            macd_data = self.ti.macd(data['close'])
+            if 'macd' in required_indicators:
+                indicators['macd'] = macd_data['macd']
+            if 'macd_signal' in required_indicators:
+                indicators['macd_signal'] = macd_data['signal']
+            if 'macd_histogram' in required_indicators:
+                indicators['macd_histogram'] = macd_data['histogram']
         
-        # Bollinger Bands
-        bb_data = self.ti.bollinger_bands(data['close'])
-        indicators['bb_upper'] = bb_data['upper']
-        indicators['bb_middle'] = bb_data['middle']
-        indicators['bb_lower'] = bb_data['lower']
+        # Bollinger Bands - only if any BB indicator is needed
+        bb_indicators = {'bb_upper', 'bb_middle', 'bb_lower'}
+        if bb_indicators.intersection(required_indicators):
+            bb_data = self.ti.bollinger_bands(data['close'])
+            if 'bb_upper' in required_indicators:
+                indicators['bb_upper'] = bb_data['upper']
+            if 'bb_middle' in required_indicators:
+                indicators['bb_middle'] = bb_data['middle']
+            if 'bb_lower' in required_indicators:
+                indicators['bb_lower'] = bb_data['lower']
         
-        # Volume indicators
-        indicators['volume'] = data['volume']
-        indicators['volume_ma'] = data['volume'].rolling(window=20).mean()
+        # Volume indicators - only if needed
+        if 'volume' in required_indicators:
+            indicators['volume'] = data['volume']
+        if 'volume_ma' in required_indicators:
+            indicators['volume_ma'] = data['volume'].rolling(window=20).mean()
         
         self.indicators = indicators
         return indicators
@@ -119,20 +134,12 @@ class AdvancedRuleEngine:
             return False
         
         # Apply operator
-        if condition.operator == OperatorType.GREATER_THAN:
-            return indicator_value > compare_value
-        elif condition.operator == OperatorType.LESS_THAN:
-            return indicator_value < compare_value
-        elif condition.operator == OperatorType.ABOVE:
+        if condition.operator == OperatorType.ABOVE:
             return indicator_value > compare_value
         elif condition.operator == OperatorType.BELOW:
             return indicator_value < compare_value
         elif condition.operator == OperatorType.EQUALS:
             return abs(indicator_value - compare_value) < 1e-10
-        elif condition.operator == OperatorType.GREATER_EQUAL:
-            return indicator_value >= compare_value
-        elif condition.operator == OperatorType.LESS_EQUAL:
-            return indicator_value <= compare_value
         else:
             raise ValueError(f"Unknown operator: {condition.operator}")
     
@@ -161,12 +168,37 @@ class AdvancedRuleEngine:
         
         return result
     
+    def _extract_required_indicators(self, conditions: List[Dict[str, Any]]) -> set:
+        """Extract all indicator names that are needed based on the conditions"""
+        required_indicators = set()
+        
+        for condition in conditions:
+            # Add the main indicator
+            indicator_name = condition.get('name', '')
+            required_indicators.add(indicator_name)
+            
+            # Check if the value references another indicator
+            value = condition.get('value', '')
+            if isinstance(value, str) and value != 'price':
+                # This might be a reference to another indicator
+                required_indicators.add(value)
+        
+        # Always include price as it's fundamental
+        required_indicators.add('price')
+        
+        return required_indicators
+    
     def generate_signals(self, data: pd.DataFrame, buy_conditions: List[Dict[str, Any]], 
                         sell_conditions: List[Dict[str, Any]]) -> pd.DataFrame:
         """Generate buy/sell signals based on advanced rules"""
         
-        # Calculate all indicators
-        self.calculate_indicators(data)
+        # Extract required indicators from both buy and sell conditions
+        buy_required = self._extract_required_indicators(buy_conditions)
+        sell_required = self._extract_required_indicators(sell_conditions)
+        all_required = buy_required.union(sell_required)
+        
+        # Calculate only the required indicators
+        self.calculate_indicators(data, all_required)
         
         # Parse conditions
         parsed_buy_conditions = self.parse_conditions(buy_conditions)

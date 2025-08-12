@@ -226,10 +226,10 @@ async def main():
       "start_date": '2020-01-01',
       "end_date": '2025-08-30',  # Full range
       "buy_condition": [
-        { "name": "rsi", "value": 30, "operator": "below" }
+        { "name": "ma_100", "value": "price", "operator": "above" },
       ],
       "sell_condition": [
-        { "name": "rsi", "value": 70, "operator": "above" }
+        { "name": "ma_10", "value": "price", "operator": "below" }
       ]
     }
 
