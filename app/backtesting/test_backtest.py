@@ -11,17 +11,22 @@ sys.path.append('.')
 from backtest_engine import BacktestingEngine
 
 
-async def testing_strategy(tickers, strategy="rsi", start_date="2020-01-01"):    
+async def testing_strategy(tickers, start_date="2020-01-01", end_date=None, buy_conditions=None, sell_conditions=None):    
     # Create engine instance
     engine = BacktestingEngine(initial_capital=100000)
     
-    # Run backtest with clean interface
+    # Validate that both conditions are provided
+    if not buy_conditions or not sell_conditions:
+        print("Error: Both buy_conditions and sell_conditions are required")
+        return
+    
+    # Run advanced rules engine
     result = await engine.run(
         tickers=tickers,
-        strategy_name=strategy,
+        buy_conditions=buy_conditions,
+        sell_conditions=sell_conditions,
         start_date=start_date,
-        rsi_buy=30,  # Custom RSI parameters
-        rsi_sell=70
+        end_date=end_date
     )
     
     if result.get('success'):
@@ -81,6 +86,7 @@ async def testing_strategy(tickers, strategy="rsi", start_date="2020-01-01"):
         plot_data = result['plot_data']
         print("\nPlot data available:")
         print(f"- Strategy data points: {len(plot_data.get('strategy', []))}")
+        
         
         # Check if it's multi-ticker or single ticker
         if 'multi_ticker_buy_hold' in plot_data:
@@ -215,10 +221,25 @@ def create_performance_plot(plot_data, tickers, strategy_name):
 
 async def main():
 
-    multi_tickers = ['INTC']
-    start_date = '2020-01-01'
+    data = {
+      "tickers": ["AAPL"],  # Test with single ticker in list
+      "start_date": '2020-01-01',
+      "end_date": '2025-08-30',  # Full range to test the original issue
+      "buy_condition": [
+        { "name": "rsi", "value": 30, "operator": "below" }
+      ],
+      "sell_condition": [
+        { "name": "rsi", "value": 70, "operator": "above" }
+      ]
+    }
+
+    tickers = data['tickers']
+    start_date = data['start_date']
+    end_date = data['end_date']
+    buy_conditions = data.get('buy_condition', [])
+    sell_conditions = data.get('sell_condition', [])
     
-    await testing_strategy(multi_tickers, strategy="rsi", start_date=start_date)
+    await testing_strategy(tickers, start_date=start_date, end_date=end_date, buy_conditions=buy_conditions, sell_conditions=sell_conditions)
 
 
 if __name__ == "__main__":

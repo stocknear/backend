@@ -128,9 +128,16 @@ class PortfolioManager:
         total_cost = shares * price * (1 + self.commission_rate)
         return total_cost <= self.cash
     
-    def can_sell(self, shares: int) -> bool:
-        """Check if we have enough shares to sell"""
-        return self.position.shares >= shares
+    def can_sell(self, shares: int, ticker: str = None) -> bool:
+        """Check if we have enough shares to sell - supports both single and multi-ticker"""
+        if self.tickers and ticker:
+            # Multi-ticker mode
+            return self.positions[ticker].shares >= shares
+        elif self.position:
+            # Single ticker mode (legacy)
+            return self.position.shares >= shares
+        else:
+            return False
     
     def calculate_position_size(self, price: float, ticker: str = None) -> int:
         """Calculate optimal position size based on available cash and number of tickers"""
