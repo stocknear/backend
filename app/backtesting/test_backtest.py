@@ -51,11 +51,7 @@ async def testing_strategy(ticker="AAPL", strategy="rsi", start_date="2020-01-01
         # Create visualization
         create_performance_plot(plot_data, ticker, result.get('strategy_name', 'Strategy'))
 
-    
 
-    else:
-        print(f"Error: {result.get('error', 'Unknown error')}")
-    
     return result
 
 

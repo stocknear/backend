@@ -132,12 +132,12 @@ class BacktestingEngine:
         
         # Run all strategies async 
         strategy_tasks = [
-            ('Buy and Hold', self.buy_and_hold_strategy(df.copy(), start_date, end_date)),
-            ('RSI (30/70)', self.rsi_strategy(df.copy(), 30, 70, 14, start_date, end_date)),
-            ('MA Crossover (20/50)', self.moving_average_crossover_strategy(df.copy(), 20, 50, start_date, end_date)),
-            ('MA Crossover (50/200)', self.moving_average_crossover_strategy(df.copy(), 50, 200, start_date, end_date)),
-            ('Bollinger Bands', self.bollinger_bands_strategy(df.copy(), 20, 2, start_date, end_date)),
-            ('MACD', self.macd_strategy(df.copy(), 12, 26, 9, start_date, end_date)),
+            ('Buy and Hold', self.buy_and_hold_strategy(df.copy(), start_date, end_date, ticker)),
+            ('RSI (30/70)', self.rsi_strategy(df.copy(), 30, 70, 14, start_date, end_date, ticker)),
+            ('MA Crossover (20/50)', self.moving_average_crossover_strategy(df.copy(), 20, 50, start_date, end_date, ticker)),
+            ('MA Crossover (50/200)', self.moving_average_crossover_strategy(df.copy(), 50, 200, start_date, end_date, ticker)),
+            ('Bollinger Bands', self.bollinger_bands_strategy(df.copy(), 20, 2, start_date, end_date, ticker)),
+            ('MACD', self.macd_strategy(df.copy(), 12, 26, 9, start_date, end_date, ticker)),
         ]
         
         results = []
@@ -211,25 +211,25 @@ class BacktestingEngine:
             }
         
         strategy_functions = {
-            'buy_and_hold': lambda df_copy: self.buy_and_hold_strategy(df_copy, start_date, end_date),
+            'buy_and_hold': lambda df_copy: self.buy_and_hold_strategy(df_copy, start_date, end_date, ticker),
             'rsi': lambda df_copy: self.rsi_strategy(df_copy, 
                                                       strategy_params.get('rsi_buy', 30),
                                                       strategy_params.get('rsi_sell', 70),
                                                       strategy_params.get('rsi_window', 14),
-                                                      start_date, end_date),
+                                                      start_date, end_date, ticker),
             'ma_crossover': lambda df_copy: self.moving_average_crossover_strategy(df_copy,
                                                                                     strategy_params.get('short_window', 20),
                                                                                     strategy_params.get('long_window', 50),
-                                                                                    start_date, end_date),
+                                                                                    start_date, end_date, ticker),
             'bollinger': lambda df_copy: self.bollinger_bands_strategy(df_copy,
                                                                         strategy_params.get('window', 20),
                                                                         strategy_params.get('num_std', 2),
-                                                                        start_date, end_date),
+                                                                        start_date, end_date, ticker),
             'macd': lambda df_copy: self.macd_strategy(df_copy,
                                                         strategy_params.get('fast', 12),
                                                         strategy_params.get('slow', 26),
                                                         strategy_params.get('signal', 9),
-                                                        start_date, end_date)
+                                                        start_date, end_date, ticker)
         }
         
         if strategy_name not in strategy_functions:
@@ -409,7 +409,7 @@ class BacktestingEngine:
         print(f"Error: No historical data file found for {ticker}")
         return pd.DataFrame()
     
-    async def run_strategy_backtest(self, data: pd.DataFrame, strategy: BaseStrategy, start_date: str = None, end_date: str = None) -> Dict[str, Any]:
+    async def run_strategy_backtest(self, data: pd.DataFrame, strategy: BaseStrategy, start_date: str = None, end_date: str = None, ticker: str = None) -> Dict[str, Any]:
         """Run backtest using a strategy instance"""
         if data.empty:
             return self._empty_backtest_result()
@@ -462,6 +462,27 @@ class BacktestingEngine:
         # Convert trades to legacy format for compatibility
         legacy_signals = [trade.to_dict() for trade in executed_trades]
         
+        # Create trade history with ticker information
+        trade_history = []
+        for trade in executed_trades:
+            trade_entry = {
+                'date': trade.date,
+                'ticker': ticker if ticker else 'N/A',
+                'action': trade.action,
+                'shares': trade.shares,
+                'price': round(trade.price, 2),
+                'commission': round(trade.commission, 2),
+                'gross_amount': round(trade.gross_amount, 2),
+                'net_amount': round(trade.net_amount, 2),
+                'portfolio_value': round(trade.metadata.get('portfolio_value', 0), 2) if trade.metadata else 0
+            }
+            # Add any additional metadata from the trade
+            if trade.metadata:
+                for key, value in trade.metadata.items():
+                    if key not in trade_entry:
+                        trade_entry[key] = value
+            trade_history.append(trade_entry)
+        
         # Prepare plotting data
         plot_data = self._prepare_plot_data(portfolio.portfolio_history, prepared_data, spy_benchmark)
         
@@ -482,6 +503,7 @@ class BacktestingEngine:
             'final_portfolio_value': round(performance.get('final_portfolio_value', self.initial_capital), 2),
             'signals': legacy_signals[:50],
             'total_signals': len(legacy_signals),
+            'trade_history': trade_history,  # New field with complete trade history
             'summary': self._generate_summary(strategy.name, performance.get('total_return', 0), buy_hold_return, performance.get('win_rate', 0), performance.get('total_trades_completed', 0)),
             # SPY Benchmark
             'spy_benchmark': {
@@ -502,7 +524,7 @@ class BacktestingEngine:
         return result
     
     # Legacy strategy methods for backward compatibility
-    async def rsi_strategy(self, df: pd.DataFrame, rsi_buy: float = 30, rsi_sell: float = 70, rsi_window: int = 14, start_date: str = None, end_date: str = None) -> Dict:
+    async def rsi_strategy(self, df: pd.DataFrame, rsi_buy: float = 30, rsi_sell: float = 70, rsi_window: int = 14, start_date: str = None, end_date: str = None, ticker: str = None) -> Dict:
         """RSI-based trading strategy (legacy method)"""
         from strategy_engine import RSIStrategy
         
@@ -513,9 +535,9 @@ class BacktestingEngine:
         }
         
         strategy = RSIStrategy(parameters)
-        return await self.run_strategy_backtest(df, strategy, start_date, end_date)
+        return await self.run_strategy_backtest(df, strategy, start_date, end_date, ticker)
     
-    async def moving_average_crossover_strategy(self, df: pd.DataFrame, short_window: int = 20, long_window: int = 50, start_date: str = None, end_date: str = None) -> Dict:
+    async def moving_average_crossover_strategy(self, df: pd.DataFrame, short_window: int = 20, long_window: int = 50, start_date: str = None, end_date: str = None, ticker: str = None) -> Dict:
         """Moving Average Crossover Strategy (legacy method)"""
         from strategy_engine import MovingAverageCrossoverStrategy
         
@@ -525,9 +547,9 @@ class BacktestingEngine:
         }
         
         strategy = MovingAverageCrossoverStrategy(parameters)
-        return await self.run_strategy_backtest(df, strategy, start_date, end_date)
+        return await self.run_strategy_backtest(df, strategy, start_date, end_date, ticker)
     
-    async def bollinger_bands_strategy(self, df: pd.DataFrame, window: int = 20, num_std: float = 2, start_date: str = None, end_date: str = None) -> Dict:
+    async def bollinger_bands_strategy(self, df: pd.DataFrame, window: int = 20, num_std: float = 2, start_date: str = None, end_date: str = None, ticker: str = None) -> Dict:
         """Bollinger Bands mean reversion strategy (legacy method)"""
         from strategy_engine import BollingerBandsStrategy
         
@@ -537,9 +559,9 @@ class BacktestingEngine:
         }
         
         strategy = BollingerBandsStrategy(parameters)
-        return await self.run_strategy_backtest(df, strategy, start_date, end_date)
+        return await self.run_strategy_backtest(df, strategy, start_date, end_date, ticker)
     
-    async def macd_strategy(self, df: pd.DataFrame, fast: int = 12, slow: int = 26, signal: int = 9, start_date: str = None, end_date: str = None) -> Dict:
+    async def macd_strategy(self, df: pd.DataFrame, fast: int = 12, slow: int = 26, signal: int = 9, start_date: str = None, end_date: str = None, ticker: str = None) -> Dict:
         """MACD crossover strategy (legacy method)"""
         from strategy_engine import MACDStrategy
         
@@ -550,14 +572,14 @@ class BacktestingEngine:
         }
         
         strategy = MACDStrategy(parameters)
-        return await self.run_strategy_backtest(df, strategy, start_date, end_date)
+        return await self.run_strategy_backtest(df, strategy, start_date, end_date, ticker)
     
-    async def buy_and_hold_strategy(self, df: pd.DataFrame, start_date: str = None, end_date: str = None) -> Dict:
+    async def buy_and_hold_strategy(self, df: pd.DataFrame, start_date: str = None, end_date: str = None, ticker: str = None) -> Dict:
         """Simple buy and hold strategy (legacy method)"""
         from strategy_engine import BuyAndHoldStrategy
         
         strategy = BuyAndHoldStrategy()
-        return await self.run_strategy_backtest(df, strategy, start_date, end_date)
+        return await self.run_strategy_backtest(df, strategy, start_date, end_date, ticker)
     
     def _reset_portfolio(self):
         """Reset portfolio to initial state (legacy method)"""
