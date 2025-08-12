@@ -82,11 +82,11 @@ class BaseStrategy(ABC):
         self.current_position = 0
 
 
-class AdvancedStrategy(BaseStrategy):
-    """Advanced strategy that uses flexible rule-based conditions with logical connectors"""
+class CustomStrategy(BaseStrategy):
+    """Custom strategy that uses flexible rule-based conditions with logical connectors"""
     
     def __init__(self, parameters: Dict[str, Any] = None):
-        super().__init__("Advanced Rules", parameters)
+        super().__init__("Custom Rules", parameters)
         
         # Extract buy and sell conditions from parameters
         self.buy_conditions = parameters.get('buy_conditions', []) if parameters else []
@@ -94,13 +94,13 @@ class AdvancedStrategy(BaseStrategy):
         
         # Validate that both conditions are provided
         if not self.buy_conditions:
-            raise ValueError("buy_conditions are required for AdvancedStrategy")
+            raise ValueError("buy_conditions are required for CustomStrategy")
         if not self.sell_conditions:
-            raise ValueError("sell_conditions are required for AdvancedStrategy")
+            raise ValueError("sell_conditions are required for CustomStrategy")
         
         # Initialize rule engine
-        from advanced_rule_engine import AdvancedRuleEngine
-        self.rule_engine = AdvancedRuleEngine()
+        from advanced_rule_engine import CustomRuleEngine
+        self.rule_engine = CustomRuleEngine()
     
     def prepare_data(self, data: pd.DataFrame) -> pd.DataFrame:
         """Prepare data by calculating all required indicators"""
@@ -108,7 +108,7 @@ class AdvancedStrategy(BaseStrategy):
         return data.copy()
     
     def generate_signals(self, data: pd.DataFrame) -> List[TradingSignal]:
-        """Generate trading signals using advanced rules"""
+        """Generate trading signals using custom rules"""
         signals = []
         
         if data.empty:
@@ -128,9 +128,9 @@ class AdvancedStrategy(BaseStrategy):
                     shares=0,  # Portfolio manager will calculate shares
                     date=date_str,
                     metadata={
-                        'reason': 'Advanced rule conditions met',
+                        'reason': 'Custom rule conditions met',
                         'conditions': 'buy_conditions',
-                        'rule_type': 'advanced'
+                        'rule_type': 'custom'
                     }
                 ))
             elif row['sell']:
@@ -140,9 +140,9 @@ class AdvancedStrategy(BaseStrategy):
                     shares=0,  # Portfolio manager will calculate shares
                     date=date_str,
                     metadata={
-                        'reason': 'Advanced rule conditions met',
+                        'reason': 'Custom rule conditions met',
                         'conditions': 'sell_conditions',
-                        'rule_type': 'advanced'
+                        'rule_type': 'custom'
                     }
                 ))
         
@@ -152,9 +152,9 @@ class AdvancedStrategy(BaseStrategy):
         """Return strategy metadata including conditions"""
         info = super().get_strategy_info()
         info.update({
-            'description': 'Advanced rule-based strategy with flexible conditions and logical connectors',
+            'description': 'Custom rule-based strategy with flexible conditions and logical connectors',
             'buy_conditions': self.buy_conditions,
             'sell_conditions': self.sell_conditions,
-            'rule_engine': 'AdvancedRuleEngine'
+            'rule_engine': 'CustomRuleEngine'
         })
         return info

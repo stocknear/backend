@@ -20,7 +20,7 @@ async def testing_strategy(tickers, start_date="2020-01-01", end_date=None, buy_
         print("Error: Both buy_conditions and sell_conditions are required")
         return
     
-    # Run advanced rules engine
+    # Run custom rules engine
     result = await engine.run(
         tickers=tickers,
         buy_conditions=buy_conditions,
@@ -222,14 +222,34 @@ def create_performance_plot(plot_data, tickers, strategy_name):
 async def main():
 
     data = {
-      "tickers": ["AAPL","AMD"],  # Test with single ticker in list
+      "tickers": ["AAPL","AMD"],  # Sophisticated multi-indicator strategy
       "start_date": '2020-01-01',
       "end_date": '2025-08-30',  # Full range
       "buy_condition": [
-        { "name": "ma_100", "value": "price", "operator": "above" },
+        # Trend Following: Price momentum above 50-day MA
+        { "name": "price", "value": "ma_50", "operator": "above", "connector": "AND" },
+        
+        # Short-term Momentum: Price breaking above 20-day MA  
+        { "name": "price", "value": "ma_20", "operator": "above", "connector": "AND" },
+        
+        # RSI Confirmation: Not extremely overbought, allows momentum to continue
+        { "name": "rsi", "value": 75, "operator": "below", "connector": "AND" },
+        
+        # MACD Bullish: Momentum acceleration
+        { "name": "macd", "value": 0, "operator": "above" }
       ],
       "sell_condition": [
-        { "name": "ma_10", "value": "price", "operator": "below" }
+        # Quick Exit: Price drops below 20-day MA (trend break)
+        { "name": "price", "value": "ma_20", "operator": "below", "connector": "OR" },
+        
+        # Medium-term Exit: Price drops below 50-day MA 
+        { "name": "price", "value": "ma_50", "operator": "below", "connector": "OR" },
+        
+        # Overbought Exit: RSI extremely high
+        { "name": "rsi", "value": 85, "operator": "above", "connector": "OR" },
+        
+        # MACD Bearish: Momentum turning negative
+        { "name": "macd", "value": 0, "operator": "below" }
       ]
     }
 

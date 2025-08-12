@@ -30,7 +30,7 @@ class RuleCondition:
     connector: ConnectorType = None  # Logical connector to next condition
 
 
-class AdvancedRuleEngine:
+class CustomRuleEngine:
     """Engine for evaluating complex trading rules with multiple conditions and logical connectors"""
     
     def __init__(self):
@@ -190,7 +190,7 @@ class AdvancedRuleEngine:
     
     def generate_signals(self, data: pd.DataFrame, buy_conditions: List[Dict[str, Any]], 
                         sell_conditions: List[Dict[str, Any]]) -> pd.DataFrame:
-        """Generate buy/sell signals based on advanced rules"""
+        """Generate buy/sell signals based on custom rules"""
         
         # Extract required indicators from both buy and sell conditions
         buy_required = self._extract_required_indicators(buy_conditions)

@@ -1,12 +1,12 @@
 import pandas as pd
 from typing import Dict, List, Optional, Any
-from strategy_engine import BaseStrategy, AdvancedStrategy
+from strategy_engine import BaseStrategy, CustomStrategy
 from portfolio_manager import PortfolioManager
 from data_manager import DataManager
 
 
 class BacktestingEngine:
-    """Advanced backtesting engine with rule-based strategy support"""
+    """Custom backtesting engine with rule-based strategy support"""
     
     def __init__(self, initial_capital: float = 100000, commission: float = 0.001):
         self.initial_capital = initial_capital
@@ -17,7 +17,7 @@ class BacktestingEngine:
                   sell_conditions: List[Dict[str, Any]], start_date: str = None, 
                   end_date: str = None) -> Dict:
         """
-        Unified method to run advanced rule-based backtesting
+        Unified method to run custom rule-based backtesting
         
         Args:
             tickers: List of ticker symbols to backtest
@@ -33,7 +33,7 @@ class BacktestingEngine:
         if not buy_conditions:
             return {
                 'tickers': [t.upper() for t in tickers] if len(tickers) > 1 else tickers[0].upper(),
-                'strategy': 'advanced',
+                'strategy': 'custom',
                 'error': 'buy_conditions are required and cannot be empty',
                 'success': False
             }
@@ -41,7 +41,7 @@ class BacktestingEngine:
         if not sell_conditions:
             return {
                 'tickers': [t.upper() for t in tickers] if len(tickers) > 1 else tickers[0].upper(),
-                'strategy': 'advanced',
+                'strategy': 'custom',
                 'error': 'sell_conditions are required and cannot be empty',
                 'success': False
             }
@@ -52,7 +52,7 @@ class BacktestingEngine:
                 'buy_conditions': buy_conditions,
                 'sell_conditions': sell_conditions
             }
-            strategy = AdvancedStrategy(parameters)
+            strategy = CustomStrategy(parameters)
             
             # Load data
             if len(tickers) == 1:
@@ -63,7 +63,7 @@ class BacktestingEngine:
                 if data.empty:
                     return {
                         'ticker': ticker.upper(),
-                        'strategy': 'advanced',
+                        'strategy': 'custom',
                         'error': f'No historical data available for {ticker}',
                         'success': False
                     }
@@ -72,7 +72,7 @@ class BacktestingEngine:
                 result = await self.run_strategy_backtest(data, strategy, start_date, end_date, ticker)
                 result.update({
                     'ticker': ticker.upper(),
-                    'strategy': 'advanced',
+                    'strategy': 'custom',
                     'success': True,
                     'data_points': len(data)
                 })
@@ -86,7 +86,7 @@ class BacktestingEngine:
                 if not data_dict:
                     return {
                         'tickers': [t.upper() for t in tickers],
-                        'strategy': 'advanced',
+                        'strategy': 'custom',
                         'error': f'No historical data available for any of the tickers: {tickers}',
                         'success': False
                     }
@@ -94,7 +94,7 @@ class BacktestingEngine:
                 # Run multi-ticker backtest
                 result = await self.run_strategy_backtest_multi_ticker(data_dict, strategy, start_date, end_date)
                 result.update({
-                    'strategy': 'advanced',
+                    'strategy': 'custom',
                     'success': True,
                     'data_points': sum(len(df) for df in data_dict.values())
                 })
@@ -104,8 +104,8 @@ class BacktestingEngine:
         except Exception as e:
             return {
                 'tickers': [t.upper() for t in tickers] if len(tickers) > 1 else tickers[0].upper(),
-                'strategy': 'advanced',
-                'error': f'Advanced backtesting failed: {str(e)}',
+                'strategy': 'custom',
+                'error': f'Custom backtesting failed: {str(e)}',
                 'success': False
             }
     
