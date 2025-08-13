@@ -265,14 +265,16 @@ async def downgrade_user():
                 for watchlist in options_watchlist_data:
                     pb.collection('optionsWatchlist').delete(watchlist.id)
 
+                backtesting_data = pb.collection("backtesting").get_full_list(query_params = {"filter": f"user = '{item.id}'"})
+                for strategy in backtesting_data:
+                    pb.collection('backtesting').delete(strategy.id)
+
 
                 payment_data = pb.collection("payments").get_full_list(query_params = {"filter": f"user = '{item.id}'"})
-                for item in payment_data:
-                    pb.collection('payments').delete(item.id)
+                for payment_item in payment_data:
+                    pb.collection('payments').delete(payment_item.id)
                 
 
-
-                watchlist_data = pb.collection("watchlist").get_full_list(query_params={"filter": f"user = '{item.id}'"})
 
                 watchlist_data = pb.collection("watchlist").get_full_list(query_params={"filter": f"user = '{item.id}'"})
 
