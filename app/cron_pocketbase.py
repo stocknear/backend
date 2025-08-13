@@ -258,7 +258,7 @@ async def downgrade_user():
                     pb.collection('stocksScreener').delete(screener.id)
 
                 option_screener_data = pb.collection("optionsScreener").get_full_list(query_params = {"filter": f"user = '{item.id}'"})
-                for screener in stock_screener_data:
+                for screener in option_screener_data:
                     pb.collection('optionsScreener').delete(screener.id)
 
                 options_watchlist_data = pb.collection("optionsWatchlist").get_full_list(query_params = {"filter": f"user = '{item.id}'"})
@@ -274,7 +274,6 @@ async def downgrade_user():
                 for payment_item in payment_data:
                     pb.collection('payments').delete(payment_item.id)
                 
-
 
                 watchlist_data = pb.collection("watchlist").get_full_list(query_params={"filter": f"user = '{item.id}'"})
 
