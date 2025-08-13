@@ -202,9 +202,10 @@ class BacktestingEngine:
             portfolio.update_portfolio_history(date_str, current_prices)
         
         # Calculate SPY benchmark for the same period (needed for beta/alpha calculations)
-        spy_start = start_date or min(df.index[0] for df in prepared_data_dict.values()).strftime('%Y-%m-%d')
-        spy_end = end_date or max(df.index[-1] for df in prepared_data_dict.values()).strftime('%Y-%m-%d')
-        spy_benchmark = await self._calculate_spy_benchmark_with_history(spy_start, spy_end)
+        # Ensure SPY benchmark aligns with actual ticker data range, not user-provided dates
+        actual_start = min(df.index[0] for df in prepared_data_dict.values()).strftime('%Y-%m-%d')
+        actual_end = max(df.index[-1] for df in prepared_data_dict.values()).strftime('%Y-%m-%d')
+        spy_benchmark = await self._calculate_spy_benchmark_with_history(actual_start, actual_end)
         
         # Extract SPY returns for beta/alpha calculation
         spy_returns = None
@@ -336,9 +337,10 @@ class BacktestingEngine:
         
         
         # Calculate SPY benchmark for the same period (needed for beta/alpha calculations)
-        spy_start = start_date or prepared_data.index[0].strftime('%Y-%m-%d')
-        spy_end = end_date or prepared_data.index[-1].strftime('%Y-%m-%d')
-        spy_benchmark = await self._calculate_spy_benchmark_with_history(spy_start, spy_end)
+        # Ensure SPY benchmark aligns with actual ticker data range, not user-provided dates
+        actual_start = prepared_data.index[0].strftime('%Y-%m-%d')
+        actual_end = prepared_data.index[-1].strftime('%Y-%m-%d')
+        spy_benchmark = await self._calculate_spy_benchmark_with_history(actual_start, actual_end)
         
         # Extract SPY returns for beta/alpha calculation
         spy_returns = None
@@ -443,12 +445,28 @@ class BacktestingEngine:
     async def _calculate_spy_benchmark(self, start_date: str = None, end_date: str = None) -> Dict[str, Any]:
         """Calculate SPY buy-and-hold benchmark return"""
         try:
+            # Load SPY data with the specified date range to ensure alignment
             spy_data = await self.data_manager.load_historical_data("SPY", start_date, end_date)
             if spy_data.empty:
                 return {
                     'spy_return': 0.0,
                     'spy_annual_return': 0.0,
                     'error': 'SPY data not available'
+                }
+            
+            # Additional filtering to ensure exact date range alignment if data manager didn't trim properly
+            if start_date:
+                start_dt = pd.to_datetime(start_date)
+                spy_data = spy_data[spy_data.index >= start_dt]
+            if end_date:
+                end_dt = pd.to_datetime(end_date)
+                spy_data = spy_data[spy_data.index <= end_dt]
+            
+            if spy_data.empty:
+                return {
+                    'spy_return': 0.0,
+                    'spy_annual_return': 0.0,
+                    'error': 'No SPY data available for the specified date range'
                 }
             
             # Calculate SPY buy-and-hold return
@@ -474,6 +492,7 @@ class BacktestingEngine:
     async def _calculate_spy_benchmark_with_history(self, start_date: str = None, end_date: str = None) -> Dict[str, Any]:
         """Calculate SPY buy-and-hold benchmark with full price history for plotting"""
         try:
+            # Load SPY data with the specified date range to ensure alignment
             spy_data = await self.data_manager.load_historical_data("SPY", start_date, end_date)
             if spy_data.empty:
                 return {
@@ -482,6 +501,26 @@ class BacktestingEngine:
                     'spy_history': [],
                     'error': 'SPY data not available'
                 }
+            
+            # Additional filtering to ensure exact date range alignment if data manager didn't trim properly
+            if start_date:
+                start_dt = pd.to_datetime(start_date)
+                spy_data = spy_data[spy_data.index >= start_dt]
+            if end_date:
+                end_dt = pd.to_datetime(end_date)
+                spy_data = spy_data[spy_data.index <= end_dt]
+            
+            if spy_data.empty:
+                return {
+                    'spy_return': 0.0,
+                    'spy_annual_return': 0.0,
+                    'spy_history': [],
+                    'error': 'No SPY data available for the specified date range'
+                }
+            
+            # Log the actual SPY date range for verification
+            print(f"SPY benchmark date range: {spy_data.index[0].strftime('%Y-%m-%d')} to {spy_data.index[-1].strftime('%Y-%m-%d')}")
+            print(f"SPY data points: {len(spy_data)}")
             
             # Calculate SPY buy-and-hold return
             spy_return = (spy_data['close'].iloc[-1] - spy_data['close'].iloc[0]) / spy_data['close'].iloc[0]

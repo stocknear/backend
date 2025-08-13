@@ -4622,7 +4622,6 @@ async def get_data(data: Backtesting, api_key: str = Security(get_api_key)):
     initial_capital = strategy_data['initial_capital']
     commission = strategy_data['commission']/100 #convert percent into decimal
 
-    print(commission)
     cache_key = f"backtesting-{','.join(tickers)}-{commission}-{initial_capital}-{start_date}-{end_date}-{hash(orjson.dumps([buy_conditions, sell_conditions]))}"
 
     # Check cache
