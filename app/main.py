@@ -4642,8 +4642,8 @@ async def get_data(data: Backtesting, api_key: str = Security(get_api_key)):
             start_date=start_date,
             end_date=end_date
         )
-        res = {k: v for k, v in res.items() if k not in ("trade_history", "signals")}
-
+        #res = {k: v for k, v in res.items() if k not in ("signals")}
+        print(res['trade_history'])
     except:
         res = {}
 

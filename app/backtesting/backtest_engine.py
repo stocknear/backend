@@ -3,7 +3,32 @@ from typing import Dict, List, Optional, Any
 from backtesting.strategy_engine import BaseStrategy, CustomStrategy
 from backtesting.portfolio_manager import PortfolioManager
 from backtesting.data_manager import DataManager
+import sqlite3
 
+def load_symbol_list():
+    stock_symbols = []
+    etf_symbols = []
+    index_symbols = []
+
+    db_configs = [
+        ("stocks.db", "SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'", stock_symbols),
+        ("etf.db",    "SELECT DISTINCT symbol FROM etfs", etf_symbols),
+        ("index.db",  "SELECT DISTINCT symbol FROM indices", index_symbols),
+    ]
+
+    for db_file, query, target_list in db_configs:
+        try:
+            con = sqlite3.connect(db_file)
+            cur = con.cursor()
+            cur.execute(query)
+            target_list.extend([r[0] for r in cur.fetchall()])
+            con.close()
+        except Exception:
+            continue
+
+    return stock_symbols, etf_symbols, index_symbols
+
+stock_symbols, etf_symbols, index_symbols = load_symbol_list()
 
 class BacktestingEngine:
     """Custom backtesting engine with rule-based strategy support"""
@@ -194,7 +219,10 @@ class BacktestingEngine:
         
         # Create trade history with ticker information
         trade_history = []
+        portfolio_history_map = {h['date']: h for h in portfolio.portfolio_history}
+
         for trade in executed_trades:
+            ticker = trade.metadata.get("ticker")
             trade_entry = {
                 'date': trade.date,
                 'action': trade.action,
@@ -203,9 +231,28 @@ class BacktestingEngine:
                 'commission': trade.commission,
                 'gross_amount': trade.gross_amount,
                 'net_amount': trade.net_amount,
-                'ticker': trade.metadata.get('ticker', 'Unknown')
+                'symbol': ticker
             }
+
+            # Asset type
+            if ticker:
+                if ticker in stock_symbols:
+                    trade_entry['assetType'] = 'stocks'
+                elif ticker in etf_symbols:
+                    trade_entry['assetType'] = 'etf'
+                elif ticker in index_symbols:
+                    trade_entry['assetType'] = 'index'
+                else:
+                    trade_entry['assetType'] = ""
+
+            # Add portfolio value & return_pct at trade time
+            if trade.date in portfolio_history_map:
+                hist = portfolio_history_map[trade.date]
+                trade_entry['portfolio_value'] = hist['portfolio_value']
+                trade_entry['return_pct'] = round(((hist['portfolio_value'] - self.initial_capital) / self.initial_capital) * 100, 2)
+
             trade_history.append(trade_entry)
+
         
         # Prepare plotting data for multi-ticker
         plot_data = self._prepare_multi_ticker_plot_data(portfolio.portfolio_history, data_dict, spy_benchmark)
@@ -213,11 +260,9 @@ class BacktestingEngine:
         result = {
             'strategy_name': strategy.name,
             'tickers': tickers,
-            'period': f"{min(df.index[0] for df in prepared_data_dict.values()).strftime('%Y-%m-%d')} to {max(df.index[-1] for df in prepared_data_dict.values()).strftime('%Y-%m-%d')}",
+            'period': f"{min(df.index[0] for df in prepared_data_dict.values()).strftime('%b %d, %Y')} to {max(df.index[-1] for df in prepared_data_dict.values()).strftime('%b %d, %Y')}",
             'total_return': round(performance.get('total_return', 0) * 100, 2),
             'annual_return': round(performance.get('annual_return', 0) * 100, 2),
-            'multi_ticker_buy_hold_return': round(multi_buy_hold_return * 100, 2),
-            'excess_return': round((performance.get('total_return', 0) - multi_buy_hold_return) * 100, 2),
             'max_drawdown': round(performance.get('max_drawdown', 0) * 100, 2),
             'volatility': round(performance.get('volatility', 0) * 100, 2),
             'sharpe_ratio': round(performance.get('sharpe_ratio', 0), 2),
@@ -230,15 +275,10 @@ class BacktestingEngine:
             'initial_capital': self.initial_capital,
             'final_portfolio_value': round(performance.get('final_portfolio_value', self.initial_capital), 2),
             'trade_history': trade_history,
-            'summary': self._generate_multi_ticker_summary(strategy.name, performance.get('total_return', 0), multi_buy_hold_return, 
-                                                          performance.get('win_rate', 0), performance.get('total_trades_completed', 0), tickers),
             # SPY Benchmark
             'spy_benchmark': {
                 'spy_return': round(spy_benchmark.get('spy_return', 0) * 100, 2),
                 'spy_annual_return': round(spy_benchmark.get('spy_annual_return', 0) * 100, 2),
-                'spy_period': spy_benchmark.get('spy_period', 'N/A'),
-                'spy_data_points': spy_benchmark.get('spy_data_points', 0),
-                'vs_spy': round((performance.get('total_return', 0) - spy_benchmark.get('spy_return', 0)) * 100, 2)
             },
             # Plotting data for visualization
             'plot_data': plot_data
@@ -310,11 +350,11 @@ class BacktestingEngine:
         # Calculate buy-and-hold benchmark for the tested stock
         buy_hold_return = (prepared_data['close'].iloc[-1] - prepared_data['close'].iloc[0]) / prepared_data['close'].iloc[0] if len(prepared_data) > 0 else 0
 
-        # Convert trades to legacy format for compatibility
-        legacy_signals = [trade.to_dict() for trade in executed_trades]
         
         # Create trade history with ticker information
         trade_history = []
+        portfolio_history_map = {h['date']: h for h in portfolio.portfolio_history}
+
         for trade in executed_trades:
             trade_entry = {
                 'date': trade.date,
@@ -325,20 +365,36 @@ class BacktestingEngine:
                 'gross_amount': trade.gross_amount,
                 'net_amount': trade.net_amount
             }
+
+            # Asset type
             if ticker:
-                trade_entry['ticker'] = ticker
+                trade_entry['symbol'] = ticker
+                if ticker in stock_symbols:
+                    trade_entry['assetType'] = 'stocks'
+                elif ticker in etf_symbols:
+                    trade_entry['assetType'] = 'etf'
+                elif ticker in index_symbols:
+                    trade_entry['assetType'] = 'index'
+                else:
+                    trade_entry['assetType'] = ""
+
+            # Add portfolio value & return_pct at trade time
+            if trade.date in portfolio_history_map:
+                hist = portfolio_history_map[trade.date]
+                trade_entry['portfolio_value'] = hist['portfolio_value']
+                trade_entry['return_pct'] = round(((hist['portfolio_value'] - self.initial_capital) / self.initial_capital) * 100, 2)
+
             trade_history.append(trade_entry)
+
 
         # Prepare plot data
         plot_data = self._prepare_plot_data(portfolio.portfolio_history, prepared_data, spy_benchmark)
         
         result = {
             'strategy_name': strategy.name,
-            'period': f"{prepared_data.index[0].strftime('%Y-%m-%d')} to {prepared_data.index[-1].strftime('%Y-%m-%d')}",
+            'period': f"{prepared_data.index[0].strftime('%b %d, %Y')} to {prepared_data.index[-1].strftime('%b %d, %Y')}",
             'total_return': round(performance.get('total_return', 0) * 100, 2),
             'annual_return': round(performance.get('annual_return', 0) * 100, 2),
-            'buy_hold_return': round(buy_hold_return * 100, 2),
-            'excess_return': round((performance.get('total_return', 0) - buy_hold_return) * 100, 2),
             'max_drawdown': round(performance.get('max_drawdown', 0) * 100, 2),
             'volatility': round(performance.get('volatility', 0) * 100, 2),
             'sharpe_ratio': round(performance.get('sharpe_ratio', 0), 2),
@@ -350,17 +406,11 @@ class BacktestingEngine:
             'profit_factor': round(performance.get('profit_factor', 0), 2),
             'initial_capital': self.initial_capital,
             'final_portfolio_value': round(performance.get('final_portfolio_value', self.initial_capital), 2),
-            'signals': legacy_signals[:50],
-            'total_signals': len(legacy_signals),
             'trade_history': trade_history,
-            'summary': self._generate_summary(strategy.name, performance.get('total_return', 0), buy_hold_return, performance.get('win_rate', 0), performance.get('total_trades_completed', 0)),
             # SPY Benchmark
             'spy_benchmark': {
                 'spy_return': round(spy_benchmark.get('spy_return', 0) * 100, 2),
                 'spy_annual_return': round(spy_benchmark.get('spy_annual_return', 0) * 100, 2),
-                'spy_period': spy_benchmark.get('spy_period', 'N/A'),
-                'spy_data_points': spy_benchmark.get('spy_data_points', 0),
-                'vs_spy': round((performance.get('total_return', 0) - spy_benchmark.get('spy_return', 0)) * 100, 2)
             },
             # Plotting data for visualization
             'plot_data': plot_data
