@@ -8,7 +8,7 @@ import matplotlib.dates as mdates
 
 sys.path.append('.')
 
-from backtest_engine import BacktestingEngine
+from backtesting.backtest_engine import BacktestingEngine
 
 
 async def testing_strategy(tickers, start_date="2020-01-01", end_date=None, buy_conditions=None, sell_conditions=None):    
@@ -171,36 +171,25 @@ def create_performance_plot(plot_data, tickers, strategy_name):
 
 
 async def main():
-
     data = {
-      "tickers": [
-        "AAPL"
-      ],
-      "start_date": "2020-01-01",
-      "end_date": "2025-08-12",
-      "buy_condition": [
-        {
-          "name": "rsi",
-          "value": 70,
-          "operator": "above"
-        }
-      ],
-      "sell_condition": [
-        {
-          "name": "rsi",
-          "value": 30,
-          "operator": "below"
-        }
-      ]
+        "tickers": ["AAPL"],
+        "start_date": "2020-01-01",
+        "end_date": "2025-08-12",
+        "buy_condition": [
+            {"name": "atr", "value": 5, "operator": "above"}  # ATR-based buy
+        ],
+        "sell_condition": [
+            {"name": "atr", "value": 3, "operator": "below"}  # ATR-based sell
+        ]
     }
 
-    tickers = data['tickers']
-    start_date = data['start_date']
-    end_date = data['end_date']
-    buy_conditions = data.get('buy_condition', [])
-    sell_conditions = data.get('sell_condition', [])
-    
-    await testing_strategy(tickers, start_date=start_date, end_date=end_date, buy_conditions=buy_conditions, sell_conditions=sell_conditions)
+    await testing_strategy(
+        data["tickers"],
+        start_date=data["start_date"],
+        end_date=data["end_date"],
+        buy_conditions=data.get("buy_condition", []),
+        sell_conditions=data.get("sell_condition", [])
+    )
 
 
 if __name__ == "__main__":

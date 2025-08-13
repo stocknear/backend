@@ -44,21 +44,21 @@ class CustomRuleEngine:
         # Always include price as it's fundamental
         indicators['price'] = data['close']
         
-        # Calculate only required indicators
+        # RSI
         if 'rsi' in required_indicators:
             indicators['rsi'] = self.ti.rsi(data['close'])
         
-        # Moving Averages - only calculate needed windows
+        # SMA - multiple windows
         ma_windows = [int(ind.split('_')[1]) for ind in required_indicators if ind.startswith('sma_')]
         for window in ma_windows:
             indicators[f'sma_{window}'] = self.ti.sma(data['close'], window)
         
-        # Exponential Moving Averages - only calculate needed windows  
+        # EMA - multiple windows
         ema_windows = [int(ind.split('_')[1]) for ind in required_indicators if ind.startswith('ema_')]
         for window in ema_windows:
             indicators[f'ema_{window}'] = self.ti.ema(data['close'], window)
         
-        # MACD components - only if any MACD indicator is needed
+        # MACD
         macd_indicators = {'macd', 'macd_signal', 'macd_histogram'}
         if macd_indicators.intersection(required_indicators):
             macd_data = self.ti.macd(data['close'])
@@ -69,7 +69,7 @@ class CustomRuleEngine:
             if 'macd_histogram' in required_indicators:
                 indicators['macd_histogram'] = macd_data['histogram']
         
-        # Bollinger Bands - only if any BB indicator is needed
+        # Bollinger Bands
         bb_indicators = {'bb_upper', 'bb_middle', 'bb_lower'}
         if bb_indicators.intersection(required_indicators):
             bb_data = self.ti.bollinger_bands(data['close'])
@@ -80,7 +80,36 @@ class CustomRuleEngine:
             if 'bb_lower' in required_indicators:
                 indicators['bb_lower'] = bb_data['lower']
         
-        # Volume indicators - only if needed
+        # ATR
+        if 'atr' in required_indicators:
+            indicators['atr'] = self.ti.atr(data['high'], data['low'], data['close'])
+        
+        # ADX
+        if 'adx' in required_indicators:
+            indicators['adx'] = self.ti.adx(data['high'], data['low'], data['close'])
+        
+        # Stochastic Oscillator
+        stochastic_indicators = {'stoch_k', 'stoch_d'}
+        if stochastic_indicators.intersection(required_indicators):
+            stoch_data = self.ti.stochastic_oscillator(data['high'], data['low'], data['close'])
+            if 'stoch_k' in required_indicators:
+                indicators['stoch_k'] = stoch_data['k_percent']
+            if 'stoch_d' in required_indicators:
+                indicators['stoch_d'] = stoch_data['d_percent']
+        
+        # CCI
+        if 'cci' in required_indicators:
+            indicators['cci'] = self.ti.cci(data['high'], data['low'], data['close'])
+        
+        # OBV
+        if 'obv' in required_indicators:
+            indicators['obv'] = self.ti.obv(data['close'], data['volume'])
+        
+        # VWAP
+        if 'vwap' in required_indicators:
+            indicators['vwap'] = self.ti.vwap(data['high'], data['low'], data['close'], data['volume'])
+        
+        # Volume indicators
         if 'volume' in required_indicators:
             indicators['volume'] = data['volume']
         if 'volume_ma' in required_indicators:
@@ -88,6 +117,7 @@ class CustomRuleEngine:
         
         self.indicators = indicators
         return indicators
+
     
     def parse_conditions(self, conditions: List[Dict[str, Any]]) -> List[RuleCondition]:
         """Parse condition dictionaries into RuleCondition objects"""
