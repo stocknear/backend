@@ -3,6 +3,7 @@ from typing import Dict, List, Optional, Any
 from backtesting.strategy_engine import BaseStrategy, CustomStrategy
 from backtesting.portfolio_manager import PortfolioManager
 from backtesting.data_manager import DataManager
+from datetime import datetime
 import sqlite3
 
 def load_symbol_list():
@@ -253,6 +254,7 @@ class BacktestingEngine:
 
             trade_history.append(trade_entry)
 
+        trade_history = sorted(trade_history,key=lambda x: datetime.strptime(x["date"], "%Y-%m-%d"), reverse=True)
         
         # Prepare plotting data for multi-ticker
         plot_data = self._prepare_multi_ticker_plot_data(portfolio.portfolio_history, data_dict, spy_benchmark)
@@ -386,6 +388,7 @@ class BacktestingEngine:
 
             trade_history.append(trade_entry)
 
+        trade_history = sorted(trade_history,key=lambda x: datetime.strptime(x["date"], "%Y-%m-%d"), reverse=True)
 
         # Prepare plot data
         plot_data = self._prepare_plot_data(portfolio.portfolio_history, prepared_data, spy_benchmark)
