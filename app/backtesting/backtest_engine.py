@@ -234,10 +234,13 @@ class BacktestingEngine:
         # Calculate multi-ticker buy-and-hold benchmark
         multi_buy_hold_return = await self._calculate_multi_ticker_buy_hold(data_dict, start_date, end_date)
         
-        # Create trade history with ticker information
+        # Create trade history with individual trade performance tracking
         trade_history = []
         portfolio_history_map = {h['date']: h for h in portfolio.portfolio_history}
-
+        
+        # Track buy prices for calculating trade returns (per ticker)
+        buy_trades = {}  # ticker -> {date -> buy_price}
+        
         for trade in executed_trades:
             ticker = trade.metadata.get("ticker")
             trade_entry = {
@@ -246,8 +249,6 @@ class BacktestingEngine:
                 'shares': trade.shares,
                 'price': trade.price,
                 'commission': trade.commission,
-                'gross_amount': trade.gross_amount,
-                'net_amount': trade.net_amount,
                 'symbol': ticker
             }
 
@@ -262,11 +263,48 @@ class BacktestingEngine:
                 else:
                     trade_entry['assetType'] = ""
 
-            # Add portfolio value & return_pct at trade time
+            # Add portfolio value at trade time
             if trade.date in portfolio_history_map:
                 hist = portfolio_history_map[trade.date]
                 trade_entry['portfolio_value'] = hist['portfolio_value']
-                trade_entry['return_pct'] = round(((hist['portfolio_value'] - self.initial_capital) / self.initial_capital) * 100, 2)
+
+            # Calculate trade-specific returns and amounts
+            if trade.action == 'BUY':
+                # For BUY trades: return_pct is null, amounts represent total trade value
+                trade_entry['return_pct'] = None
+                trade_entry['gross_amount'] = trade.shares * trade.price
+                trade_entry['net_amount'] = trade_entry['gross_amount'] + trade.commission
+                
+                # Track buy price for this ticker
+                if ticker not in buy_trades:
+                    buy_trades[ticker] = {}
+                buy_trades[ticker][trade.date] = trade.price
+                
+            elif trade.action == 'SELL':
+                # For SELL trades: calculate profit/loss and return percentage
+                # Find the corresponding buy price for this ticker (most recent buy)
+                buy_price = None
+                if ticker in buy_trades:
+                    for buy_date in sorted(buy_trades[ticker].keys(), reverse=True):
+                        if buy_date < trade.date:
+                            buy_price = buy_trades[ticker][buy_date]
+                            break
+                
+                if buy_price is not None:
+                    # Calculate trade return percentage
+                    trade_return_pct = round(((trade.price - buy_price) / buy_price) * 100, 2)
+                    trade_entry['return_pct'] = trade_return_pct
+                    
+                    # Calculate profit/loss amounts
+                    gross_profit = (trade.price - buy_price) * trade.shares
+                    net_profit = gross_profit - trade.commission
+                    trade_entry['gross_amount'] = gross_profit
+                    trade_entry['net_amount'] = net_profit
+                else:
+                    # Fallback if no buy price found
+                    trade_entry['return_pct'] = None
+                    trade_entry['gross_amount'] = trade.shares * trade.price
+                    trade_entry['net_amount'] = trade_entry['gross_amount'] - trade.commission
 
             trade_history.append(trade_entry)
 
@@ -370,19 +408,20 @@ class BacktestingEngine:
         buy_hold_return = (prepared_data['close'].iloc[-1] - prepared_data['close'].iloc[0]) / prepared_data['close'].iloc[0] if len(prepared_data) > 0 else 0
 
         
-        # Create trade history with ticker information
+        # Create trade history with individual trade performance tracking
         trade_history = []
         portfolio_history_map = {h['date']: h for h in portfolio.portfolio_history}
-
+        
+        # Track buy prices for calculating trade returns
+        buy_trades = {}  # date -> buy_price
+        
         for trade in executed_trades:
             trade_entry = {
                 'date': trade.date,
                 'action': trade.action,
                 'shares': trade.shares,
                 'price': trade.price,
-                'commission': trade.commission,
-                'gross_amount': trade.gross_amount,
-                'net_amount': trade.net_amount
+                'commission': trade.commission
             }
 
             # Asset type
@@ -397,11 +436,43 @@ class BacktestingEngine:
                 else:
                     trade_entry['assetType'] = ""
 
-            # Add portfolio value & return_pct at trade time
+            # Add portfolio value at trade time
             if trade.date in portfolio_history_map:
                 hist = portfolio_history_map[trade.date]
                 trade_entry['portfolio_value'] = hist['portfolio_value']
-                trade_entry['return_pct'] = round(((hist['portfolio_value'] - self.initial_capital) / self.initial_capital) * 100, 2)
+
+            # Calculate trade-specific returns and amounts
+            if trade.action == 'BUY':
+                # For BUY trades: return_pct is null, amounts represent total trade value
+                trade_entry['return_pct'] = None
+                trade_entry['gross_amount'] = trade.shares * trade.price
+                trade_entry['net_amount'] = trade_entry['gross_amount'] + trade.commission
+                buy_trades[trade.date] = trade.price
+                
+            elif trade.action == 'SELL':
+                # For SELL trades: calculate profit/loss and return percentage
+                # Find the corresponding buy price (look for most recent buy)
+                buy_price = None
+                for buy_date in sorted(buy_trades.keys(), reverse=True):
+                    if buy_date < trade.date:
+                        buy_price = buy_trades[buy_date]
+                        break
+                
+                if buy_price is not None:
+                    # Calculate trade return percentage
+                    trade_return_pct = round(((trade.price - buy_price) / buy_price) * 100, 2)
+                    trade_entry['return_pct'] = trade_return_pct
+                    
+                    # Calculate profit/loss amounts
+                    gross_profit = (trade.price - buy_price) * trade.shares
+                    net_profit = gross_profit - trade.commission
+                    trade_entry['gross_amount'] = gross_profit
+                    trade_entry['net_amount'] = net_profit
+                else:
+                    # Fallback if no buy price found
+                    trade_entry['return_pct'] = None
+                    trade_entry['gross_amount'] = trade.shares * trade.price
+                    trade_entry['net_amount'] = trade_entry['gross_amount'] - trade.commission
 
             trade_history.append(trade_entry)
 
