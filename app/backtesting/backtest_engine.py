@@ -149,19 +149,31 @@ class BacktestingEngine:
         for ticker, data in data_dict.items():
             prepared_data_dict[ticker] = strategy.prepare_data(data)
         
-        # Find common date range across all tickers
-        common_dates = None
-        for ticker, df in prepared_data_dict.items():
-            if common_dates is None:
-                common_dates = set(df.index)
-            else:
-                common_dates = common_dates.intersection(set(df.index))
+        # Find union of all dates across tickers (not intersection)
+        # This allows tickers to be skipped when they don't have data
+        all_dates = set()
+        earliest_date = None
+        latest_date = None
         
-        if not common_dates:
+        for ticker, df in prepared_data_dict.items():
+            if not df.empty:
+                ticker_dates = set(df.index)
+                all_dates = all_dates.union(ticker_dates)
+                
+                # Track the earliest and latest dates across all tickers
+                if earliest_date is None or df.index[0] < earliest_date:
+                    earliest_date = df.index[0]
+                if latest_date is None or df.index[-1] > latest_date:
+                    latest_date = df.index[-1]
+        
+        if not all_dates:
             return self._empty_backtest_result()
         
         # Sort dates
-        common_dates = sorted(list(common_dates))
+        all_dates = sorted(list(all_dates))
+        
+        print(f"Multi-ticker backtest date range: {earliest_date.strftime('%Y-%m-%d')} to {latest_date.strftime('%Y-%m-%d')}")
+        print(f"Total trading days: {len(all_dates)}, Tickers: {tickers}")
         
         # Initialize portfolio manager for multi-ticker trading
         portfolio = PortfolioManager(
@@ -180,31 +192,34 @@ class BacktestingEngine:
         
         executed_trades = []
         
-        # Execute trades for each common trading day
-        for date in common_dates:
+        # Execute trades for each trading day (using union of all dates)
+        for date in all_dates:
             date_str = date.strftime('%Y-%m-%d')
             
-            # Get current prices for all tickers on this date
+            # Get current prices for tickers that have data on this date
             current_prices = {}
             for ticker in tickers:
                 if date in prepared_data_dict[ticker].index:
                     current_prices[ticker] = prepared_data_dict[ticker].loc[date, 'close']
             
-            # Check for signals and execute trades
+            # Check for signals and execute trades (only for tickers with data on this date)
             for ticker in tickers:
-                if ticker in signals_dict and date_str in signals_dict[ticker]:
+                # Only process ticker if it has data on this date and has a signal
+                if (ticker in current_prices and 
+                    ticker in signals_dict and 
+                    date_str in signals_dict[ticker]):
                     signal = signals_dict[ticker][date_str]
-                    trade = portfolio.execute_signal(signal, current_prices.get(ticker), ticker)
+                    trade = portfolio.execute_signal(signal, current_prices[ticker], ticker)
                     if trade:
                         executed_trades.append(trade)
             
-            # Update portfolio history for every trading day
+            # Update portfolio history (only with tickers that have data on this date)
             portfolio.update_portfolio_history(date_str, current_prices)
         
-        # Calculate SPY benchmark for the same period (needed for beta/alpha calculations)
-        # Ensure SPY benchmark aligns with actual ticker data range, not user-provided dates
-        actual_start = min(df.index[0] for df in prepared_data_dict.values()).strftime('%Y-%m-%d')
-        actual_end = max(df.index[-1] for df in prepared_data_dict.values()).strftime('%Y-%m-%d')
+        # Calculate SPY benchmark for the full period (using earliest and latest dates)
+        # This ensures SPY benchmark covers the maximum available range across all tickers
+        actual_start = earliest_date.strftime('%Y-%m-%d')
+        actual_end = latest_date.strftime('%Y-%m-%d')
         spy_benchmark = await self._calculate_spy_benchmark_with_history(actual_start, actual_end)
         
         # Extract SPY returns for beta/alpha calculation
@@ -263,7 +278,7 @@ class BacktestingEngine:
         result = {
             'strategy_name': strategy.name,
             'tickers': tickers,
-            'period': f"{min(df.index[0] for df in prepared_data_dict.values()).strftime('%b %d, %Y')} to {max(df.index[-1] for df in prepared_data_dict.values()).strftime('%b %d, %Y')}",
+            'period': f"{earliest_date.strftime('%b %d, %Y')} to {latest_date.strftime('%b %d, %Y')}",
             'total_return': round(performance.get('total_return', 0) * 100, 2),
             'annual_return': round(performance.get('annual_return', 0) * 100, 2),
             'max_drawdown': round(performance.get('max_drawdown', 0) * 100, 2),
@@ -634,37 +649,46 @@ class BacktestingEngine:
             for item in portfolio_history
         ]
         
-        # Multi-ticker equal-weight buy-and-hold simulation
-        # Find common date range
-        common_dates = None
-        for ticker, df in data_dict.items():
-            ticker_dates = set(df.index.strftime('%Y-%m-%d'))
-            if common_dates is None:
-                common_dates = ticker_dates
-            else:
-                common_dates = common_dates.intersection(ticker_dates)
+        # Multi-ticker equal-weight buy-and-hold simulation using union of dates
+        # Find all dates across all tickers and track when each ticker starts
+        all_dates = set()
+        ticker_start_dates = {}
         
-        if common_dates:
-            common_dates = sorted(list(common_dates))
-            capital_per_ticker = self.initial_capital / len(data_dict)
+        for ticker, df in data_dict.items():
+            if not df.empty:
+                ticker_dates = set(df.index.strftime('%Y-%m-%d'))
+                all_dates = all_dates.union(ticker_dates)
+                ticker_start_dates[ticker] = df.index[0].strftime('%Y-%m-%d')
+        
+        if all_dates:
+            all_dates = sorted(list(all_dates))
             
             multi_buy_hold = []
-            for date_str in common_dates:
+            for date_str in all_dates:
                 date_dt = pd.to_datetime(date_str)
                 total_value = 0.0
+                active_tickers = 0
                 
+                # Count how many tickers are active (have data) on this date
                 for ticker, df in data_dict.items():
                     if date_dt in df.index:
-                        # Calculate value for each ticker (equal weight)
-                        initial_price = df['close'].iloc[0]
-                        current_price = df.loc[date_dt, 'close']
-                        ticker_value = (current_price / initial_price) * capital_per_ticker
-                        total_value += ticker_value
+                        active_tickers += 1
+                
+                if active_tickers > 0:
+                    capital_per_active_ticker = self.initial_capital / active_tickers
+                    
+                    for ticker, df in data_dict.items():
+                        if date_dt in df.index:
+                            # Calculate value for each active ticker (equal weight among active tickers)
+                            initial_price = df['close'].iloc[0]
+                            current_price = df.loc[date_dt, 'close']
+                            ticker_value = (current_price / initial_price) * capital_per_active_ticker
+                            total_value += ticker_value
                 
                 multi_buy_hold.append({
                     'date': date_str,
-                    'value': total_value,
-                    'return_pct': round(((total_value - self.initial_capital) / self.initial_capital) * 100, 2)
+                    'value': total_value if total_value > 0 else self.initial_capital,
+                    'return_pct': round(((total_value - self.initial_capital) / self.initial_capital) * 100, 2) if total_value > 0 else 0.0
                 })
         else:
             multi_buy_hold = []
