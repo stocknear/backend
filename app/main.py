@@ -4886,6 +4886,14 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
         }
         history_messages = [system_msg] + history_messages
     history_messages += [{'role': 'user', "content": user_query}]
+    
+    # Add today's date as context
+    today_date = datetime.now().strftime("%B %d, %Y")
+    date_context = {
+        "role": "system",
+        "content": f"Today's date is {today_date}. Use this for any date-related queries or when referring to current market conditions."
+    }
+    history_messages = [date_context] + history_messages
   
     # Agent setup
     agent = Agent(
