@@ -4837,10 +4837,100 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
     async def event_generator():
             full_content = ""
             found_end_of_dicts = False
+            sources_collected = []  # Track sources from function calls
             try:
                 result = Runner.run_streamed(agent, input=history_messages)
                 async for event in result.stream_events():
                     try:
+                        # Track function calls for source citations
+                        if event.type == "run_item_stream_event" and hasattr(event, 'item'):
+                            item = event.item
+                            # Check if this is a tool call
+                            if hasattr(item, 'type') and item.type == 'tool_call_item':
+                                # Extract tool name from raw_item
+                                tool_name = None
+                                tool_args = {}
+                                
+                                if hasattr(item, 'raw_item'):
+                                    raw_item = item.raw_item
+                                    if hasattr(raw_item, 'name'):
+                                        tool_name = raw_item.name
+                                    
+                                    if hasattr(raw_item, 'arguments'):
+                                        try:
+                                            # Arguments are JSON string
+                                            import json
+                                            tool_args = json.loads(raw_item.arguments)
+                                        except:
+                                            pass
+                                
+                                if tool_name:
+                                    # Map function names to user-friendly source names
+                                    source_mapping = {
+                                    "get_ticker_balance_sheet_statement": "Balance Sheet Data",
+                                    "get_ticker_income_statement": "Income Statement",
+                                    "get_ticker_cash_flow_statement": "Cash Flow Statement",
+                                    "get_ticker_ratios_statement": "Financial Ratios",
+                                    "get_ticker_analyst_rating": "Analyst Ratings",
+                                    "get_ticker_analyst_estimate": "Analyst Estimates",
+                                    "get_ticker_quote": "Real-Time Market Data",
+                                    "get_ticker_news": "Company News",
+                                    "get_ticker_insider_trading": "Insider Trading",
+                                    "get_ticker_options_overview_data": "Options Market",
+                                    "get_ticker_dark_pool": "Dark Pool Activity",
+                                    "get_ticker_shareholders": "Shareholder Information",
+                                    "get_ticker_earnings": "Earnings Reports",
+                                    "get_ticker_dividend": "Dividend Information",
+                                    "get_ticker_financial_score": "Financial Score",
+                                    "get_ticker_statistics": "Company Statistics",
+                                    "get_ticker_key_metrics": "Key Metrics",
+                                    "get_ticker_business_metrics": "Business Metrics",
+                                    "get_market_news": "Market News",
+                                    "get_economic_calendar": "Economic Calendar",
+                                    "get_earnings_calendar": "Earnings Calendar",
+                                    "get_dividend_calendar": "Dividend Calendar",
+                                    "get_congress_activity": "Congressional Trading",
+                                    "get_insider_tracker": "Insider Tracker",
+                                    "get_analyst_tracker": "Analyst Tracker",
+                                    "get_market_flow": "Market Flow Data",
+                                    "get_top_gainers": "Top Gainers",
+                                    "get_top_losers": "Top Losers",
+                                    "get_latest_options_flow_feed": "Options Flow",
+                                    "get_latest_dark_pool_feed": "Dark Pool Flow"
+                                    }
+                                    
+                                    friendly_name = source_mapping.get(tool_name, tool_name.replace("_", " ").title())
+                                    
+                                    # Extract ticker from tool arguments  
+                                    ticker = None
+                                    ticker_type = "Stock"  # Default to Stock
+                                    
+                                    if tool_args:
+                                        # Try different parameter names for ticker
+                                        ticker = tool_args.get("ticker") or tool_args.get("symbol") or tool_args.get("stock")
+                                        
+                                        # Handle plural 'tickers' parameter (array)
+                                        if not ticker and "tickers" in tool_args:
+                                            tickers_list = tool_args.get("tickers")
+                                            if isinstance(tickers_list, list) and len(tickers_list) > 0:
+                                                ticker = tickers_list[0]  # Take first ticker
+                                        
+                                        # Check if it's an ETF
+                                        if ticker and ticker in etf_symbols:
+                                            ticker_type = "ETF"
+                                
+                                    source_info = {
+                                        "name": friendly_name,
+                                        "function": tool_name,
+                                        "ticker": ticker,
+                                        "type": ticker_type,
+                                        "timestamp": datetime.utcnow().isoformat()
+                                    }
+                                    
+                                    # Avoid duplicate sources
+                                    if not any(s["function"] == tool_name and s.get("ticker") == ticker for s in sources_collected):
+                                        sources_collected.append(source_info)
+                        
                         # Process only raw_response_event events
                         if event.type == "raw_response_event":
                             delta = getattr(event.data, "delta", "")
@@ -4936,6 +5026,14 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
                             "event": "error",
                             "message": f"Event processing error: {str(e)}"
                         }) + b"\n"
+                
+                # Send sources after content is complete
+                if sources_collected:
+                    yield orjson.dumps({
+                        "event": "sources",
+                        "sources": sources_collected
+                    }) + b"\n"
+                    
             except Exception as e:
                 print(f"Streaming error: {e}")
                 yield orjson.dumps({
