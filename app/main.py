@@ -4822,7 +4822,6 @@ Return ONLY a JSON array of 5 question strings, no other text."""
         # Parse the response to get the questions
         content = response.choices[0].message.content.strip()
         # Try to extract JSON array from the response
-        import json
         try:
             # If the response is valid JSON
             questions = json.loads(content)
@@ -4994,7 +4993,6 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
                                     if hasattr(raw_item, 'arguments'):
                                         try:
                                             # Arguments are JSON string
-                                            import json
                                             tool_args = json.loads(raw_item.arguments)
                                         except:
                                             pass
@@ -5181,6 +5179,7 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
                 # Generate and send related questions
                 try:
                     related_questions = await generate_related_questions(user_query, full_content)
+                    print(related_questions)
                     if related_questions:
                         yield orjson.dumps({
                             "event": "related_questions",
