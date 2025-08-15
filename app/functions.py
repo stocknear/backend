@@ -1254,7 +1254,7 @@ async def get_ticker_analyst_estimate(tickers: List[str]) -> Dict[str, List[Dict
 @function_tool
 async def get_earnings_calendar() -> List[Dict[str, Any]]:
     """
-    Retrieve upcoming and current company earnings releases/announcements with key financial metrics.
+    Retrieve today/upcoming company earnings releases/announcements with key financial metrics.
 
     Use this function when the user asks about:
       - Which companies have earnings today, tomorrow, or on a specific date
