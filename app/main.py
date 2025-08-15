@@ -4961,17 +4961,41 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
                                         # Try different parameter names for ticker
                                         ticker = tool_args.get("ticker") or tool_args.get("symbol") or tool_args.get("stock")
                                         
-                                        # Handle plural 'tickers' parameter (array)
+                                        # Handle plural 'tickers' parameter (array) - create sources for ALL tickers
                                         if not ticker and "tickers" in tool_args:
                                             tickers_list = tool_args.get("tickers")
                                             if isinstance(tickers_list, list) and len(tickers_list) > 0:
-                                                ticker = tickers_list[0]  # Take first ticker
+                                                # For multiple tickers, create a source for each one
+                                                for ticker_symbol in tickers_list:
+                                                    if ticker_symbol:
+                                                        individual_ticker_type = "ETF" if ticker_symbol in etf_symbols else "Stock"
+                                                        individual_source_url = ""
+                                                        if url_pattern and ticker_symbol:
+                                                            asset_type = "etf" if individual_ticker_type == "ETF" else "stocks"
+                                                            individual_source_url = url_pattern.format(asset_type=asset_type, ticker=ticker_symbol)
+                                                        elif url_pattern and not ticker_symbol:
+                                                            individual_source_url = url_pattern
+                                                        
+                                                        individual_source_info = {
+                                                            "name": friendly_name,
+                                                            "description": description,
+                                                            "function": tool_name,
+                                                            "ticker": ticker_symbol,
+                                                            "type": individual_ticker_type,
+                                                            "url": individual_source_url,
+                                                            "timestamp": datetime.utcnow().isoformat()
+                                                        }
+                                                        
+                                                        # Avoid duplicate sources
+                                                        if not any(s["function"] == tool_name and s.get("ticker") == ticker_symbol for s in sources_collected):
+                                                            sources_collected.append(individual_source_info)
+                                                continue  # Skip the single ticker logic below
                                         
                                         # Check if it's an ETF
                                         if ticker and ticker in etf_symbols:
                                             ticker_type = "ETF"
                                     
-                                    # Generate the URL based on pattern
+                                    # Generate the URL based on pattern (for single ticker or non-ticker functions)
                                     source_url = ""
                                     if url_pattern and ticker:
                                         asset_type = "etf" if ticker_type == "ETF" else "stocks"
@@ -4990,9 +5014,10 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
                                         "timestamp": datetime.utcnow().isoformat()
                                     }
                                     
-                                    # Avoid duplicate sources
-                                    if not any(s["function"] == tool_name and s.get("ticker") == ticker for s in sources_collected):
-                                        sources_collected.append(source_info)
+                                    # Avoid duplicate sources (only add if we have a ticker or it's a non-ticker function)
+                                    if ticker or (not ticker and url_pattern):
+                                        if not any(s["function"] == tool_name and s.get("ticker") == ticker for s in sources_collected):
+                                            sources_collected.append(source_info)
                         
                         # Process only raw_response_event events
                         if event.type == "raw_response_event":
