@@ -4902,6 +4902,7 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
         instructions=INSTRUCTIONS,
         model=selected_model,
         tools=selected_tools,
+        model_settings=model_settings
     )
 
     async def event_generator():
