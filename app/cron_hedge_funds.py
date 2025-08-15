@@ -93,7 +93,7 @@ def all_hedge_funds(con):
         'performancePercentage3Year': row[6],
         #'performance3yearRelativeToSP500Percentage': row[7]
     } for row in all_ciks if (
-        row[2] is not None and row[2] > 5 and
+        row[2] is not None and row[2] > 5 and row[4] > 0 and
         row[6] is not None and abs(row[6]) < 500
     )]
     sorted_res_list = sorted(res_list, key=lambda x: x['marketValue'], reverse=True)
@@ -105,7 +105,6 @@ def all_hedge_funds(con):
 
     with open(f"json/hedge-funds/all-hedge-funds.json", 'w') as file:
         file.write(orjson.dumps(sorted_res_list).decode("utf-8"))
-
 
 
 def get_data(cik, stock_sectors):
