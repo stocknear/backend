@@ -1254,18 +1254,40 @@ async def get_ticker_analyst_estimate(tickers: List[str]) -> Dict[str, List[Dict
 @function_tool
 async def get_earnings_calendar() -> List[Dict[str, Any]]:
     """
-    Retrieve a list of upcoming earnings announcements including company name, ticker symbol, scheduled date,
-    market capitalization, prior and estimated EPS, prior and estimated revenue, and time of release.
+    Retrieve upcoming and current company earnings releases/announcements with key financial metrics.
+
+    Use this function when the user asks about:
+      - Which companies have earnings today, tomorrow, or on a specific date
+      - Companies reporting earnings "BMO" (Before Market Opens) or "AMC" (After Market Close)
+      - EPS estimates or revenue forecasts for upcoming earnings
+      - Market cap or historical EPS/revenue comparisons for earnings events
 
     Returns:
-        List[Dict[str, Any]]: Filtered earnings events starting from today (max 20 items).
+        List[Dict[str, Any]]: A list of upcoming earnings events starting from today.
+        Each dictionary contains:
+          - symbol (str): Company ticker symbol
+          - name (str): Company name
+          - date (str): Scheduled earnings date in YYYY-MM-DD format
+          - marketCap (float): Market capitalization in USD
+          - epsPrior (float): EPS from the previous comparable period
+          - epsEst (float): Analyst estimated EPS for the upcoming report
+          - revenuePrior (float): Revenue from the previous comparable period in USD
+          - revenueEst (float): Analyst estimated revenue for the upcoming report in USD
+          - release (str): "BMO" for Before Market Opens, "AMC" for After Market Close
     """
     file_path = BASE_DIR / "earnings-calendar/data.json"
     today = datetime.today().date()
     try:
         async with aiofiles.open(file_path, mode="rb") as f:
             data = orjson.loads(await f.read())
-        return [item for item in data if today <= datetime.strptime(item['date'], "%Y-%m-%d").date()][:20]
+        
+        # Filter for events from today onwards
+        filtered_data = []
+        
+        # Sort by date to ensure today's earnings appear first
+        filtered_data.sort(key=lambda x: datetime.strptime(x['date'], "%Y-%m-%d").date())
+        
+        return filtered_data[:20]
     except FileNotFoundError:
         return []
     except (orjson.JSONDecodeError, KeyError, ValueError) as e:
@@ -2803,5 +2825,5 @@ async def get_ticker_earnings_call_transcripts(
 
 
 #Testing purposes
-#data = asyncio.run(get_market_flow())
+#data = asyncio.run(get_earnings_calendar())
 #print(data)
