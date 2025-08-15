@@ -4901,6 +4901,9 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
             sources_collected = []  # Track sources from function calls
             tools_called = set()  # Backup tracking of all tools called
             
+            # Start generating related questions in parallel - will be populated later
+            related_questions_task = None
+            
             def add_source_from_tool(tool_name, tool_args=None):
                 """Helper function to add a source from tool information"""
                 if tool_name in tools_called:
@@ -5089,6 +5092,12 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
                             if not found_end_of_dicts:
                                 full_content += delta
                                 
+                                # Start related questions generation after we have some content (around 100 chars)
+                                if not related_questions_task and len(full_content.strip()) > 100:
+                                    related_questions_task = asyncio.create_task(
+                                        generate_related_questions(user_query, full_content)
+                                    )
+                                
                                 # First check if content starts with JSON objects
                                 temp_content = full_content.strip()
                                 if not temp_content:
@@ -5159,6 +5168,13 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
                             else:
                                 # We've already found the end of dictionaries, just append new deltas
                                 full_content += delta
+                                
+                                # Start related questions generation if not already started
+                                if not related_questions_task and len(full_content.strip()) > 100:
+                                    related_questions_task = asyncio.create_task(
+                                        generate_related_questions(user_query, full_content)
+                                    )
+                                
                                 yield orjson.dumps({
                                     "event": "response",
                                     "content": full_content
@@ -5178,10 +5194,15 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
                         "sources": sources_collected
                     }) + b"\n"
                 
-                # Generate and send related questions
+                # Get related questions from parallel task or generate if not started
                 try:
-                    related_questions = await generate_related_questions(user_query, full_content)
-                    print(related_questions)
+                    if related_questions_task:
+                        # Await the parallel task that was started during streaming
+                        related_questions = await related_questions_task
+                    else:
+                        # Fallback: generate now if task wasn't started (shouldn't happen)
+                        related_questions = await generate_related_questions(user_query, full_content)
+                    
                     if related_questions:
                         yield orjson.dumps({
                             "event": "related_questions",
