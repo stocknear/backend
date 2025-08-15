@@ -18,6 +18,186 @@ load_dotenv()
 
 api_key = os.getenv('FMP_API_KEY')
 
+# Source metadata mapping for each function
+# This defines user-friendly names, descriptions, and URL patterns for each function
+FUNCTION_SOURCE_METADATA = {
+    # Quote and Price Data
+    "get_ticker_quote": {
+        "name": "Real-Time Market Data",
+        "description": "Live stock price, volume, and market metrics",
+        "url_pattern": "/{asset_type}/{ticker}"
+    },
+    "get_ticker_pre_post_quote": {
+        "name": "Pre/Post Market Data", 
+        "description": "Extended hours trading data",
+        "url_pattern": "/{asset_type}/{ticker}"
+    },
+    
+    # Financial Statements
+    "get_ticker_balance_sheet_statement": {
+        "name": "Balance Sheet",
+        "description": "Assets, liabilities, and equity data",
+        "url_pattern": "/{asset_type}/{ticker}/financials"
+    },
+    "get_ticker_income_statement": {
+        "name": "Income Statement", 
+        "description": "Revenue, expenses, and profit data",
+        "url_pattern": "/{asset_type}/{ticker}/financials"
+    },
+    "get_ticker_cash_flow_statement": {
+        "name": "Cash Flow Statement",
+        "description": "Operating, investing, and financing cash flows",
+        "url_pattern": "/{asset_type}/{ticker}/financials/cash-flow"
+    },
+    "get_ticker_ratios_statement": {
+        "name": "Financial Ratios",
+        "description": "Profitability, liquidity, and efficiency ratios",
+        "url_pattern": "/{asset_type}/{ticker}/financials"
+    },
+    
+    # Analyst Data
+    "get_ticker_analyst_rating": {
+        "name": "Analyst Ratings",
+        "description": "Buy/sell recommendations from analysts",
+        "url_pattern": "/{asset_type}/{ticker}/forecast"
+    },
+    "get_ticker_analyst_estimate": {
+        "name": "Analyst Estimates",
+        "description": "Earnings and revenue forecasts",
+        "url_pattern": "/{asset_type}/{ticker}/forecast"
+    },
+    
+    # Company Information
+    "get_ticker_news": {
+        "name": "Company News",
+        "description": "Latest news and press releases",
+        "url_pattern": "/{asset_type}/{ticker}/news"
+    },
+    "get_ticker_insider_trading": {
+        "name": "Insider Trading",
+        "description": "Insider buying and selling activity",
+        "url_pattern": "/{asset_type}/{ticker}/insider"
+    },
+    "get_ticker_shareholders": {
+        "name": "Shareholder Information",
+        "description": "Institutional and insider ownership",
+        "url_pattern": "/{asset_type}/{ticker}/insider"
+    },
+    "get_ticker_earnings": {
+        "name": "Earnings Reports",
+        "description": "Quarterly earnings and guidance",
+        "url_pattern": "/{asset_type}/{ticker}/forecast"
+    },
+    "get_ticker_dividend": {
+        "name": "Dividend Information", 
+        "description": "Dividend payments and yield history",
+        "url_pattern": "/{asset_type}/{ticker}/dividends"
+    },
+    "get_ticker_statistics": {
+        "name": "Company Statistics",
+        "description": "Key financial and trading metrics",
+        "url_pattern": "/{asset_type}/{ticker}/statistics"
+    },
+    "get_ticker_key_metrics": {
+        "name": "Key Metrics",
+        "description": "Financial performance indicators",
+        "url_pattern": "/{asset_type}/{ticker}/metrics"
+    },
+    
+    # Options Data  
+    "get_ticker_options_overview_data": {
+        "name": "Options Overview",
+        "description": "Options chain and volatility data", 
+        "url_pattern": "/{asset_type}/{ticker}/options"
+    },
+    "get_ticker_dark_pool": {
+        "name": "Dark Pool Activity",
+        "description": "Off-exchange trading volumes",
+        "url_pattern": "/{asset_type}/{ticker}/dark-pool"
+    },
+    "get_ticker_unusual_activity": {
+        "name": "Unusual Options Activity",
+        "description": "Notable options volume and flow",
+        "url_pattern": "/{asset_type}/{ticker}/options/unusual-activity"
+    },
+    "get_ticker_max_pain": {
+        "name": "Options Max Pain",
+        "description": "Price level causing maximum loss",
+        "url_pattern": "/{asset_type}/{ticker}/options/max-pain"
+    },
+    "get_ticker_open_interest_by_strike_and_expiry": {
+        "name": "Options Open Interest",
+        "description": "Contract positions by strike and expiry",
+        "url_pattern": "/{asset_type}/{ticker}/options/oi"
+    },
+    
+    # Market Data
+    "get_market_news": {
+        "name": "Market News",
+        "description": "General market news and updates",
+        "url_pattern": "/market-news/general"
+    },
+    "get_economic_calendar": {
+        "name": "Economic Calendar", 
+        "description": "Upcoming economic events and indicators",
+        "url_pattern": "/economic-calendar"
+    },
+    "get_earnings_calendar": {
+        "name": "Earnings Calendar",
+        "description": "Upcoming earnings announcements", 
+        "url_pattern": "/earnings-calendar"
+    },
+    "get_dividend_calendar": {
+        "name": "Dividend Calendar",
+        "description": "Upcoming dividend payments",
+        "url_pattern": "/dividends-calendar"
+    },
+    
+    # Trading Activity
+    "get_congress_activity": {
+        "name": "Congressional Trading",
+        "description": "Stock trades by members of Congress",
+        "url_pattern": "/politicians/flow-data"
+    },
+    "get_insider_tracker": {
+        "name": "Insider Tracker", 
+        "description": "Insider trading across all companies",
+        "url_pattern": "/insider-tracker"
+    },
+    "get_analyst_tracker": {
+        "name": "Analyst Tracker",
+        "description": "Analyst recommendations and changes", 
+        "url_pattern": "/analysts/top-stocks"
+    },
+    "get_market_flow": {
+        "name": "Market Flow",
+        "description": "Real-time market sentiment and flows",
+        "url_pattern": "/market-flow"
+    },
+    
+    # Market Movers
+    "get_top_gainers": {
+        "name": "Top Gainers",
+        "description": "Best performing stocks today",
+        "url_pattern": "/market-mover/gainers"
+    },
+    "get_top_losers": {
+        "name": "Top Losers", 
+        "description": "Worst performing stocks today",
+        "url_pattern": "/market-mover/losers"
+    },
+    "get_latest_options_flow_feed": {
+        "name": "Options Flow",
+        "description": "Real-time options trading activity",
+        "url_pattern": "/options-flow"
+    },
+    "get_latest_dark_pool_feed": {
+        "name": "Dark Pool Flow", 
+        "description": "Off-exchange trading activity",
+        "url_pattern": "/dark-pool-flow"
+    }
+}
+
 
 con = sqlite3.connect('stocks.db')
 

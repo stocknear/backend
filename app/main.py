@@ -44,6 +44,7 @@ from functools import partial
 from datetime import datetime
 
 from functions import *
+from functions import FUNCTION_SOURCE_METADATA
 from openai import AsyncOpenAI
 from openai.types.responses import ResponseTextDeltaEvent
 from agents.stream_events import RunItemStreamEvent
@@ -4797,11 +4798,15 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
     history_messages = data.messages[-10:]
     cleaned_messages = []
     for item in history_messages:
-        if 'callComponent' in item:
-            del item['callComponent']
-        if item['role'] == 'system' and '<' in item['content']:
-            item['content'] = strip_html(item['content'])
-        cleaned_messages.append(item)
+        # Create a copy to avoid modifying the original
+        cleaned_item = dict(item)
+        if 'callComponent' in cleaned_item:
+            del cleaned_item['callComponent']
+        if 'sources' in cleaned_item:
+            del cleaned_item['sources']  # Remove sources before sending to OpenAI API
+        if cleaned_item['role'] == 'system' and '<' in cleaned_item['content']:
+            cleaned_item['content'] = strip_html(cleaned_item['content'])
+        cleaned_messages.append(cleaned_item)
 
     history_messages = cleaned_messages
 
@@ -4865,41 +4870,13 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
                                             pass
                                 
                                 if tool_name:
-                                    # Map function names to user-friendly source names
-                                    source_mapping = {
-                                    "get_ticker_balance_sheet_statement": "Balance Sheet Data",
-                                    "get_ticker_income_statement": "Income Statement",
-                                    "get_ticker_cash_flow_statement": "Cash Flow Statement",
-                                    "get_ticker_ratios_statement": "Financial Ratios",
-                                    "get_ticker_analyst_rating": "Analyst Ratings",
-                                    "get_ticker_analyst_estimate": "Analyst Estimates",
-                                    "get_ticker_quote": "Real-Time Market Data",
-                                    "get_ticker_news": "Company News",
-                                    "get_ticker_insider_trading": "Insider Trading",
-                                    "get_ticker_options_overview_data": "Options Market",
-                                    "get_ticker_dark_pool": "Dark Pool Activity",
-                                    "get_ticker_shareholders": "Shareholder Information",
-                                    "get_ticker_earnings": "Earnings Reports",
-                                    "get_ticker_dividend": "Dividend Information",
-                                    "get_ticker_financial_score": "Financial Score",
-                                    "get_ticker_statistics": "Company Statistics",
-                                    "get_ticker_key_metrics": "Key Metrics",
-                                    "get_ticker_business_metrics": "Business Metrics",
-                                    "get_market_news": "Market News",
-                                    "get_economic_calendar": "Economic Calendar",
-                                    "get_earnings_calendar": "Earnings Calendar",
-                                    "get_dividend_calendar": "Dividend Calendar",
-                                    "get_congress_activity": "Congressional Trading",
-                                    "get_insider_tracker": "Insider Tracker",
-                                    "get_analyst_tracker": "Analyst Tracker",
-                                    "get_market_flow": "Market Flow Data",
-                                    "get_top_gainers": "Top Gainers",
-                                    "get_top_losers": "Top Losers",
-                                    "get_latest_options_flow_feed": "Options Flow",
-                                    "get_latest_dark_pool_feed": "Dark Pool Flow"
-                                    }
+                                    # Get metadata from FUNCTION_SOURCE_METADATA
+                                    metadata = FUNCTION_SOURCE_METADATA.get(tool_name, {})
                                     
-                                    friendly_name = source_mapping.get(tool_name, tool_name.replace("_", " ").title())
+                                    # Use metadata or fallback to generated name
+                                    friendly_name = metadata.get("name", tool_name.replace("_", " ").title())
+                                    description = metadata.get("description", f"Data from {friendly_name}")
+                                    url_pattern = metadata.get("url_pattern", "")
                                     
                                     # Extract ticker from tool arguments  
                                     ticker = None
@@ -4918,12 +4895,23 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
                                         # Check if it's an ETF
                                         if ticker and ticker in etf_symbols:
                                             ticker_type = "ETF"
+                                    
+                                    # Generate the URL based on pattern
+                                    source_url = ""
+                                    if url_pattern and ticker:
+                                        asset_type = "etf" if ticker_type == "ETF" else "stocks"
+                                        source_url = url_pattern.format(asset_type=asset_type, ticker=ticker)
+                                    elif url_pattern and not ticker:
+                                        # For non-ticker specific URLs (like market news)
+                                        source_url = url_pattern
                                 
                                     source_info = {
                                         "name": friendly_name,
+                                        "description": description,
                                         "function": tool_name,
                                         "ticker": ticker,
                                         "type": ticker_type,
+                                        "url": source_url,
                                         "timestamp": datetime.utcnow().isoformat()
                                     }
                                     
