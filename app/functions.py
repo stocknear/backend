@@ -195,6 +195,33 @@ FUNCTION_SOURCE_METADATA = {
         "name": "Dark Pool Flow", 
         "description": "Off-exchange trading activity",
         "url_pattern": "/dark-pool-flow"
+    },
+    
+    # Additional Functions for Agent Triggers
+    "get_company_data": {
+        "name": "Company Overview",
+        "description": "Basic company information and profile data",
+        "url_pattern": "/{asset_type}/{ticker}"
+    },
+    "get_why_priced_moved": {
+        "name": "Price Movement Analysis", 
+        "description": "Analysis of recent price changes and catalysts",
+        "url_pattern": "/{asset_type}/{ticker}"
+    },
+    "get_ticker_business_metrics": {
+        "name": "Business Metrics",
+        "description": "Key business performance indicators",
+        "url_pattern": "/{asset_type}/{ticker}/metrics"
+    },
+    "get_ticker_bull_vs_bear": {
+        "name": "Bull vs Bear Analysis",
+        "description": "Bullish and bearish sentiment analysis",
+        "url_pattern": "/{asset_type}/{ticker}/forecast"
+    },
+    "get_ticker_hottest_options_contracts": {
+        "name": "Hot Options Contracts",
+        "description": "Most active options contracts",
+        "url_pattern": "/{asset_type}/{ticker}/options"
     }
 }
 
