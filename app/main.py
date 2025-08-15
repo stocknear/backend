@@ -4989,7 +4989,8 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
                                                         # Avoid duplicate sources
                                                         if not any(s["function"] == tool_name and s.get("ticker") == ticker_symbol for s in sources_collected):
                                                             sources_collected.append(individual_source_info)
-                                                continue  # Skip the single ticker logic below
+                                                # After processing multiple tickers, continue to next event
+                                                continue
                                         
                                         # Check if it's an ETF
                                         if ticker and ticker in etf_symbols:
