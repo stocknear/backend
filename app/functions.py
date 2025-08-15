@@ -140,7 +140,7 @@ FUNCTION_SOURCE_METADATA = {
         "description": "Upcoming economic events and indicators",
         "url_pattern": "/economic-calendar"
     },
-    "get_earnings_calendar": {
+    "get_earnings_releases": {
         "name": "Earnings Calendar",
         "description": "Upcoming earnings announcements", 
         "url_pattern": "/earnings-calendar"
@@ -1252,7 +1252,7 @@ async def get_ticker_analyst_estimate(tickers: List[str]) -> Dict[str, List[Dict
 
 
 @function_tool
-async def get_earnings_calendar() -> List[Dict[str, Any]]:
+async def get_earnings_releases() -> List[Dict[str, Any]]:
     """
     Retrieve today/upcoming company earnings releases/announcements with key financial metrics.
 
@@ -2825,5 +2825,5 @@ async def get_ticker_earnings_call_transcripts(
 
 
 #Testing purposes
-#data = asyncio.run(get_earnings_calendar())
+#data = asyncio.run(get_earnings_releases())
 #print(data)
