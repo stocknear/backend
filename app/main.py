@@ -4843,6 +4843,62 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
             full_content = ""
             found_end_of_dicts = False
             sources_collected = []  # Track sources from function calls
+            tools_called = set()  # Backup tracking of all tools called
+            
+            def add_source_from_tool(tool_name, tool_args=None):
+                """Helper function to add a source from tool information"""
+                if tool_name in tools_called:
+                    return  # Already added this tool
+                    
+                tools_called.add(tool_name)
+                
+                # Get metadata from FUNCTION_SOURCE_METADATA
+                metadata = FUNCTION_SOURCE_METADATA.get(tool_name, {})
+                
+                # Use metadata or fallback to generated name
+                friendly_name = metadata.get("name", tool_name.replace("_", " ").title())
+                description = metadata.get("description", f"Data from {friendly_name}")
+                url_pattern = metadata.get("url_pattern", "")
+                
+                # Extract ticker from tool arguments  
+                ticker = None
+                ticker_type = "Stock"  # Default to Stock
+                
+                if tool_args:
+                    # Try different parameter names for ticker
+                    ticker = tool_args.get("ticker") or tool_args.get("symbol") or tool_args.get("stock")
+                    
+                    # Handle plural 'tickers' parameter (array)
+                    if not ticker and "tickers" in tool_args:
+                        tickers_list = tool_args.get("tickers")
+                        if isinstance(tickers_list, list) and len(tickers_list) > 0:
+                            ticker = tickers_list[0]  # Take first ticker
+                    
+                    # Check if it's an ETF
+                    if ticker and ticker in etf_symbols:
+                        ticker_type = "ETF"
+                
+                # Generate the URL based on pattern
+                source_url = ""
+                if url_pattern and ticker:
+                    asset_type = "etf" if ticker_type == "ETF" else "stocks"
+                    source_url = url_pattern.format(asset_type=asset_type, ticker=ticker)
+                elif url_pattern and not ticker:
+                    # For non-ticker specific URLs (like market news)
+                    source_url = url_pattern
+
+                source_info = {
+                    "name": friendly_name,
+                    "description": description,
+                    "function": tool_name,
+                    "ticker": ticker,
+                    "type": ticker_type,
+                    "url": source_url,
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+                
+                sources_collected.append(source_info)
+            
             try:
                 result = Runner.run_streamed(agent, input=history_messages)
                 async for event in result.stream_events():
