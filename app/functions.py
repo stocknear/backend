@@ -37,7 +37,7 @@ FUNCTION_SOURCE_METADATA = {
     "get_ticker_balance_sheet_statement": {
         "name": "Balance Sheet",
         "description": "Assets, liabilities, and equity data",
-        "url_pattern": "/{asset_type}/{ticker}/financials"
+        "url_pattern": "/{asset_type}/{ticker}/financials/balance-sheet"
     },
     "get_ticker_income_statement": {
         "name": "Income Statement", 
@@ -81,7 +81,7 @@ FUNCTION_SOURCE_METADATA = {
     "get_ticker_shareholders": {
         "name": "Shareholder Information",
         "description": "Institutional and insider ownership",
-        "url_pattern": "/{asset_type}/{ticker}/insider"
+        "url_pattern": "/{asset_type}/{ticker}/insider/institute"
     },
     "get_ticker_earnings": {
         "name": "Earnings Reports",
@@ -102,9 +102,7 @@ FUNCTION_SOURCE_METADATA = {
         "name": "Key Metrics",
         "description": "Financial performance indicators",
         "url_pattern": "/{asset_type}/{ticker}/statistics"
-    },
-    
-    # Options Data  
+    },    
     "get_ticker_options_overview_data": {
         "name": "Options Overview",
         "description": "Options chain and volatility data", 
@@ -157,7 +155,7 @@ FUNCTION_SOURCE_METADATA = {
     "get_congress_activity": {
         "name": "Congressional Trading",
         "description": "Stock trades by members of Congress",
-        "url_pattern": "/politicians/flow-data"
+        "url_pattern": "/politicians"
     },
     "get_insider_tracker": {
         "name": "Insider Tracker", 
@@ -196,12 +194,10 @@ FUNCTION_SOURCE_METADATA = {
         "description": "Off-exchange trading activity",
         "url_pattern": "/dark-pool-flow"
     },
-    
-    # Additional Functions for Agent Triggers
     "get_company_data": {
         "name": "Company Overview",
         "description": "Basic company information and profile data",
-        "url_pattern": "/{asset_type}/{ticker}"
+        "url_pattern": "/{asset_type}/{ticker}/profile"
     },
     "get_why_priced_moved": {
         "name": "Price Movement Analysis", 
@@ -222,7 +218,137 @@ FUNCTION_SOURCE_METADATA = {
         "name": "Hot Options Contracts",
         "description": "Most active options contracts",
         "url_pattern": "/{asset_type}/{ticker}/options/hottest-contracts"
-    }
+    },
+    "get_monthly_dividend_stocks": {
+        "name": "Monthly Dividend Stocks",
+        "description": "Stocks That Pay Monthly Dividends ",
+        "url_pattern": "/list/monthly-dividend-stocks"
+    },
+    "get_ticker_short_data": {
+        "name": "Short Interest Data",
+        "description": "Short selling metrics and statistics",
+        "url_pattern": "/{asset_type}/{ticker}/statistics/short-interest"
+    },
+    "get_ticker_earnings_price_reaction": {
+        "name": "Earnings Price Reaction",
+        "description": "Stock price movement after earnings",
+        "url_pattern": "/{asset_type}/{ticker}/statistics/price-reaction"
+    },
+    "get_top_rating_stocks": {
+        "name": "Top Rated Stocks",
+        "description": "Highest rated stocks by analysts",
+        "url_pattern": "/analysts/top-stocks"
+    },
+    "get_top_premarket_gainers": {
+        "name": "Pre-Market Gainers",
+        "description": "Top gaining stocks in pre-market",
+        "url_pattern": "/market-mover/premarket/gainers"
+    },
+    "get_top_aftermarket_gainers": {
+        "name": "After-Market Gainers", 
+        "description": "Top gaining stocks in after-hours",
+        "url_pattern": "/market-mover/aftermarket/gainers"
+    },
+    "get_top_premarket_losers": {
+        "name": "Pre-Market Losers",
+        "description": "Top losing stocks in pre-market",
+        "url_pattern": "/market-mover/premarket/losers"
+    },
+    "get_top_aftermarket_losers": {
+        "name": "After-Market Losers",
+        "description": "Top losing stocks in after-hours", 
+        "url_pattern": "/market-mover/aftermarket/losers"
+    },
+    "get_top_active_stocks": {
+        "name": "Most Active Stocks",
+        "description": "Stocks with highest trading volume",
+        "url_pattern": "/market-mover/active"
+    },
+    "get_potus_tracker": {
+        "name": "POTUS Tracker",
+        "description": "Presidential stock trading activity",
+        "url_pattern": "/potus-tracker"
+    },
+    "get_latest_congress_trades": {
+        "name": "Latest Congress Trades",
+        "description": "Recent congressional stock transactions",
+        "url_pattern": "/politicians/flow-data"
+    },
+    "get_ticker_financial_score": {
+        "name": "Financial Score",
+        "description": "Overall financial health rating",
+        "url_pattern": "/{asset_type}/{ticker}/statistics"
+    },
+    "get_ticker_owner_earnings": {
+        "name": "Owner Earnings",
+        "description": "Berkshire-style owner earnings calculation",
+        "url_pattern": "/{asset_type}/{ticker}/statistics"
+    },
+    "get_oversold_tickers": {
+        "name": "Oversold Stocks",
+        "description": "Stocks with oversold technical indicators",
+        "url_pattern": "/list/oversold-stocks"
+    },
+    "get_overbought_tickers": {
+        "name": "Overbought Stocks", 
+        "description": "Stocks with overbought technical indicators",
+        "url_pattern": "/list/overbought-stocks"
+    },
+    "get_dividend_kings": {
+        "name": "Dividend Kings",
+        "description": "Stocks with 50+ years of dividend increases",
+        "url_pattern": "/list/dividend/dividend-kings"
+    },
+    "get_dividend_aristocrats": {
+        "name": "Dividend Aristocrats",
+        "description": "S&P 500 stocks with 25+ years of dividend increases",
+        "url_pattern": "/list/dividend/dividend-aristocrats"
+    },
+    "get_top_rated_dividend_stocks": {
+        "name": "Top Dividend Stocks",
+        "description": "Highest rated dividend paying stocks",
+        "url_pattern": "/list/top-rated-dividend-stocks"
+    },
+    "get_ticker_trend_forecast": {
+        "name": "Trend Forecast",
+        "description": "Technical analysis and trend predictions",
+        "url_pattern": "/{asset_type}/{ticker}/forecast/ai"
+    },
+    "get_ipo_calendar": {
+        "name": "IPO Calendar",
+        "description": "Upcoming initial public offerings",
+        "url_pattern": "/ipos"
+    },
+    "get_penny_stocks": {
+        "name": "Penny Stocks",
+        "description": "Low-priced stocks under $5",
+        "url_pattern": "/list/penny-stocks"
+    },
+    "get_most_shorted_stocks": {
+        "name": "Most Shorted Stocks",
+        "description": "Stocks with highest short interest",
+        "url_pattern": "/list/most-shorted-stocks"
+    },
+    "get_bitcoin_etfs": {
+        "name": "Bitcoin ETFs",
+        "description": "Bitcoin and cryptocurrency ETFs",
+        "url_pattern": "/list/bitcoin-etfs"
+    },
+    "get_all_sector_overview": {
+        "name": "Sector Overview",
+        "description": "Performance overview of all market sectors",
+        "url_pattern": "/industry/sectors"
+    },
+    "get_ticker_earnings_call_transcripts": {
+        "name": "Earnings Call Transcripts",
+        "description": "Quarterly earnings call transcripts and analysis",
+        "url_pattern": "/{asset_type}/{ticker}/insider/transcripts"
+    },
+    "get_stock_screener": {
+        "name": "Stock Screener",
+        "description": "Filter stocks by financial criteria and metrics",
+        "url_pattern": "/stock-screener"
+    },
 }
 
 
