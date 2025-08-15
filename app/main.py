@@ -4816,7 +4816,7 @@ Return ONLY a JSON array of 5 question strings, no other text."""
                 {"role": "system", "content": "You are a helpful assistant that generates follow-up questions about stocks and financial topics."},
                 {"role": "user", "content": prompt}
             ],
-            max_completion_tokens=300
+            max_completion_tokens=1000
         )
         
         # Parse the response to get the questions
@@ -4858,6 +4858,8 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
             del cleaned_item['callComponent']
         if 'sources' in cleaned_item:
             del cleaned_item['sources']  # Remove sources before sending to OpenAI API
+        if 'relatedQuestions' in cleaned_item:
+            del cleaned_item['relatedQuestions']  # Remove related questions before sending to OpenAI API
         if cleaned_item['role'] == 'system' and '<' in cleaned_item['content']:
             cleaned_item['content'] = strip_html(cleaned_item['content'])
         cleaned_messages.append(cleaned_item)
