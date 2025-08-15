@@ -52,14 +52,14 @@ FUNCTION_SOURCE_METADATA = {
     "get_ticker_ratios_statement": {
         "name": "Financial Ratios",
         "description": "Profitability, liquidity, and efficiency ratios",
-        "url_pattern": "/{asset_type}/{ticker}/financials"
+        "url_pattern": "/{asset_type}/{ticker}/financials/ratios"
     },
     
     # Analyst Data
     "get_ticker_analyst_rating": {
         "name": "Analyst Ratings",
         "description": "Buy/sell recommendations from analysts",
-        "url_pattern": "/{asset_type}/{ticker}/forecast"
+        "url_pattern": "/{asset_type}/{ticker}/forecast/analyst"
     },
     "get_ticker_analyst_estimate": {
         "name": "Analyst Estimates",
@@ -71,7 +71,7 @@ FUNCTION_SOURCE_METADATA = {
     "get_ticker_news": {
         "name": "Company News",
         "description": "Latest news and press releases",
-        "url_pattern": "/{asset_type}/{ticker}/news"
+        "url_pattern": "/{asset_type}/{ticker}"
     },
     "get_ticker_insider_trading": {
         "name": "Insider Trading",
@@ -86,7 +86,7 @@ FUNCTION_SOURCE_METADATA = {
     "get_ticker_earnings": {
         "name": "Earnings Reports",
         "description": "Quarterly earnings and guidance",
-        "url_pattern": "/{asset_type}/{ticker}/forecast"
+        "url_pattern": "/{asset_type}/{ticker}"
     },
     "get_ticker_dividend": {
         "name": "Dividend Information", 
@@ -101,7 +101,7 @@ FUNCTION_SOURCE_METADATA = {
     "get_ticker_key_metrics": {
         "name": "Key Metrics",
         "description": "Financial performance indicators",
-        "url_pattern": "/{asset_type}/{ticker}/metrics"
+        "url_pattern": "/{asset_type}/{ticker}/statistics"
     },
     
     # Options Data  
@@ -167,7 +167,7 @@ FUNCTION_SOURCE_METADATA = {
     "get_analyst_tracker": {
         "name": "Analyst Tracker",
         "description": "Analyst recommendations and changes", 
-        "url_pattern": "/analysts/top-stocks"
+        "url_pattern": "/analysts/analyst-data"
     },
     "get_market_flow": {
         "name": "Market Flow",
@@ -216,12 +216,12 @@ FUNCTION_SOURCE_METADATA = {
     "get_ticker_bull_vs_bear": {
         "name": "Bull vs Bear Analysis",
         "description": "Bullish and bearish sentiment analysis",
-        "url_pattern": "/{asset_type}/{ticker}/forecast"
+        "url_pattern": "/{asset_type}/{ticker}"
     },
     "get_ticker_hottest_options_contracts": {
         "name": "Hot Options Contracts",
         "description": "Most active options contracts",
-        "url_pattern": "/{asset_type}/{ticker}/options"
+        "url_pattern": "/{asset_type}/{ticker}/options/hottest-contracts"
     }
 }
 
