@@ -33,6 +33,14 @@ def get_spy_heatmap():
    
     # Drop rows where the marketCap == 0
     df = df[df["marketCap"] > 0]
+    
+    # Fix None values in sector and industry to prevent treemap errors
+    df['sector'] = df['sector'].fillna('Other')
+    df['industry'] = df['industry'].fillna('Other')
+    
+    # Also drop rows where sector or industry are still None after fillna
+    df = df.dropna(subset=['sector', 'industry'])
+    
     return df
 
 def create_treemap(time_period):
