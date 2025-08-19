@@ -339,11 +339,12 @@ async def delete_old_notifications():
 async def email_marketing():
     """
     Send marketing emails to free tier users based on account age.
-    Day 2 after signup: day_2.html
-    Day 3 after signup: day_3.html
-    Day 4 after signup: day_4.html
-    Day 5 after signup: day_5.html
-    Day 6 after signup: day_6.html
+    Day 1 after signup: day_1.html - Welcome & Value Proposition
+    Day 2 after signup: day_2.html - Stock Screener
+    Day 3 after signup: day_3.html - Price Alerts
+    Day 4 after signup: day_4.html - AI Analysis
+    Day 5 after signup: day_5.html - Dark Pool & Options Flow
+    Day 6 after signup: day_6.html - Hedge Fund & Congress Tracking
     """
     print("Starting email marketing campaign...")
     
@@ -354,6 +355,7 @@ async def email_marketing():
 
     # Email subject lines for each day
     email_subjects = {
+        1: "Welcome to Stocknear! Your Trading Game Just Changed",
         2: "Discover Winning Stocks in Seconds",
         3: "Never Miss a Breakout Again",
         4: "Your AI Analyst Works 24/7",
@@ -370,8 +372,8 @@ async def email_marketing():
             # Calculate days since account creation
             created_date = user.created.date()
             days_since_created = (today - created_date).days
-            # Check if we should send an email (days 2-6)
-            if 2 <= days_since_created <= 6:
+            # Check if we should send an email (days 1-6)
+            if 1 <= days_since_created <= 6:
                 template_name = f"day_{days_since_created}"
                 subject = email_subjects.get(days_since_created, f"Day {days_since_created}: Unlock Your Trading Potential")
                 
