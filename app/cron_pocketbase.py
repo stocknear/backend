@@ -35,6 +35,7 @@ pb_password = os.getenv('POCKETBASE_PASSWORD')
 
 aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
 aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
+aws_region_ses = os.getenv("AWS_REGION_SES")
 
 berlin_tz = pytz.timezone('Europe/Berlin')
 pb = PocketBase('http://127.0.0.1:8090')
@@ -55,8 +56,6 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 
 
 def send_email(recipient):
-    # Replace the placeholders with your AWS SES credentials
-    region_name = 'eu-north-1' #email-smtp.eu-north-1.amazonaws.com
 
     # Replace the placeholders with your sender email and password
     sender_email = 'mrahimi@stocknear.com'
@@ -81,15 +80,25 @@ def send_email(recipient):
     message.attach(MIMEText(html_content, 'html'))
 
     # Use Amazon SES to send the email
+    # Extract region from SMTP endpoint if it's in that format
+    if aws_region_ses and 'email-smtp' in aws_region_ses:
+        # Extract region from format like 'email-smtp.eu-north-1.amazonaws.com'
+        region = aws_region_ses.split('.')[1] if '.' in aws_region_ses else 'eu-north-1'
+    else:
+        region = aws_region_ses if aws_region_ses else 'eu-north-1'
+    
     ses_client = boto3.client(
         'ses',
         aws_access_key_id=aws_access_key_id,
         aws_secret_access_key=aws_secret_access_key,
-        region_name=region_name
+        region_name=region
     )
 
     try:
         # Send the email
+        print(recipient)
+        print(message.as_string())
+
         response = ses_client.send_raw_email(
             Source=message['From'],
             Destinations=[message['To']],
@@ -351,10 +360,10 @@ async def refresh_bulk_credits():
 
 
 async def run_all_except_refresh():
-    await update_discord_roles()
     await update_free_trial()
-    await downgrade_user()
-    await delete_old_notifications()
+    #await update_discord_roles()
+    #await downgrade_user()
+    #await delete_old_notifications()
 
 def main():
     if '--refresh' in sys.argv:
