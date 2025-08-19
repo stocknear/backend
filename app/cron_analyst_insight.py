@@ -6,7 +6,8 @@ import asyncio
 from dotenv import load_dotenv
 from tqdm import tqdm
 from datetime import datetime
-from openai import OpenAI
+from openai import AsyncOpenAI
+
 import aiofiles
 import time
 
@@ -16,18 +17,17 @@ load_dotenv()
 
 # Initialize OpenAI client
 benzinga_api_key = os.getenv('BENZINGA_API_KEY')
-openai_api_key = os.getenv('OPENAI_API_KEY')
-org_id = os.getenv('OPENAI_ORG')
-client = OpenAI(
-    api_key=openai_api_key,
-    organization=org_id,
-)
+async_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+chat_model = os.getenv("CHAT_MODEL")
 
 headers = {"accept": "application/json"}
 url = "https://api.benzinga.com/api/v1/analyst/insights"
 
 # Save JSON asynchronously
 async def save_json(symbol, data):
+    # Ensure the directory exists
+    os.makedirs("json/analyst/insight", exist_ok=True)
+    # Save JSON asynchronously
     async with aiofiles.open(f"json/analyst/insight/{symbol}.json", 'w') as file:
         await file.write(ujson.dumps(data))
 
@@ -55,20 +55,19 @@ async def get_analyst_insight(session, ticker):
 async def get_summary(data):
     try:
         data_string = f"Insights: {data['insight']}"
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
+        response = await async_client.chat.completions.create(
+            model=chat_model,
             messages=[
-                {"role": "system", "content": "Summarize analyst insights clearly and concisely in under 400 characters. Ensure the summary is professional and easy to understand. Conclude with whether the report is bullish or bearish."},
+                {"role": "system", "content": "Summarize analyst insights clearly and concisely in under 400 characters. Ensure the tone is professional and easy to understand. Conclude with a one-sentence statement on whether the report takes a bullish or bearish stance."},
                 {"role": "user", "content": data_string}
             ],
-            max_tokens=150,
-            temperature=0.7
         )
         summary = response.choices[0].message.content
         data['insight'] = summary
+        print('Successful')
         return data
-    except Exception as e:
-        print(e)
+    except:
+        pass
 
 # Process individual symbol
 async def process_symbol(session, symbol):
