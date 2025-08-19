@@ -47,3 +47,6 @@ orjson
 aiofiles
 openai-agents
 async-openai
+boto3
+selenium
+webdriver_manager

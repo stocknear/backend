@@ -6,7 +6,6 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException
 from webdriver_manager.chrome import ChromeDriverManager
-from geopy.geocoders import Nominatim
 import aiohttp
 import asyncio
 import orjson
@@ -15,7 +14,8 @@ from dotenv import load_dotenv
 import os
 import sqlite3
 import pandas as pd
-from openai import OpenAI
+from openai import AsyncOpenAI
+
 from datetime import datetime, timedelta
 import hashlib
 
@@ -30,15 +30,9 @@ def generate_unique_id(data):
 
 
 load_dotenv()
-geolocator = Nominatim(user_agent="myGeocodingApp/1.0 (your-email@example.com)")
 
-openai_api_key = os.getenv('OPENAI_API_KEY')
-org_id = os.getenv('OPENAI_ORG')
-client = OpenAI(
-    api_key=openai_api_key,
-    organization=org_id,
-)
-
+async_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+chat_model = os.getenv("CHAT_MODEL")
 
 query_template = """
     SELECT
@@ -73,7 +67,7 @@ url ="https://www.whitehouse.gov/presidential-actions/"
 driver.get(url)
 
 
-def get_summary(data):
+async def get_summary(data):
     unique_id = generate_unique_id(data)  # Assuming this function exists
     
     # Check if the file exists
@@ -88,8 +82,8 @@ def get_summary(data):
     
     try:
         data_string = f"Analyze this executive order: {data['description']}"
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
+        response = await async_client.chat.completions.create(
+            model=chat_model,
             messages=[
                 {
                     "role": "system",
@@ -97,13 +91,12 @@ def get_summary(data):
                 },
                 {"role": "user", "content": data_string}
             ],
-            max_tokens=1000,
-            temperature=0.7
         )
         
         summary = response.choices[0].message.content
         data['description'] = summary
-        
+        print(data['description'])
+
         # Save the data with the generated summary
         with open(file_path, "w", encoding="utf-8") as file:
             json_str = ujson.dumps(data)
@@ -332,7 +325,7 @@ async def get_data():
 
     for item in executive_orders:
         try:
-            data = get_summary(item)
+            data = await get_summary(item)
         except Exception as e:
             print(e)
 
