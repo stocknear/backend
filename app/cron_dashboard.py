@@ -518,8 +518,6 @@ async def run():
         if len(upcoming_earnings) < 5:
             upcoming_earnings = await get_upcoming_earnings(session, tomorrow, filter_today=True)
 
-        recent_analyst_report = await get_analyst_report()
-
         recent_wiim = await get_latest_wiim()
 
         
