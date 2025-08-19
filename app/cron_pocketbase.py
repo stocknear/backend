@@ -95,10 +95,6 @@ def send_email(recipient):
     )
 
     try:
-        # Send the email
-        print(recipient)
-        print(message.as_string())
-
         response = ses_client.send_raw_email(
             Source=message['From'],
             Destinations=[message['To']],
