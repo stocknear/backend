@@ -55,16 +55,19 @@ intents.members = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 
-def send_email(recipient):
+def send_email(recipient, template_name='free_trial', subject=None):
 
     # Replace the placeholders with your sender email and password
     sender_email = 'mrahimi@stocknear.com'
 
     to_email = recipient # user email address
-    subject = f'Your Free Trial expired'
+    
+    # Set default subject if not provided
+    if subject is None:
+        subject = f'Your Free Trial expired'
     
     # Read the index.html file
-    with open('html_template/free_trial.html', 'r') as file:
+    with open(f'html_template/{template_name}.html', 'r') as file:
         html_content = file.read()
 
   
@@ -333,6 +336,78 @@ async def delete_old_notifications():
         except:
             pass
 
+async def email_marketing():
+    """
+    Send marketing emails to free tier users based on account age.
+    Day 2 after signup: day_2.html
+    Day 3 after signup: day_3.html
+    Day 4 after signup: day_4.html
+    Day 5 after signup: day_5.html
+    Day 6 after signup: day_6.html
+    """
+    print("Starting email marketing campaign...")
+    
+    # Get all users who are not Plus or Pro tier
+    data = pb.collection("users").get_full_list(
+        query_params={"filter": f"tier != 'Plus' && tier != 'Pro'"}
+    )
+
+    # Email subject lines for each day
+    email_subjects = {
+        2: "Discover Winning Stocks in Seconds",
+        3: "Never Miss a Breakout Again",
+        4: "Your AI Analyst Works 24/7",
+        5: "See What Wall Street Doesn't Want You to See",
+        6: "Copy the Smartest Money in the Market"
+    }
+    
+    today = datetime.now(berlin_tz).date()
+    emails_sent = 0
+    emails_skipped = 0
+    
+    for user in data:
+        try:
+            # Calculate days since account creation
+            created_date = user.created.date()
+            days_since_created = (today - created_date).days
+            # Check if we should send an email (days 2-6)
+            if 2 <= days_since_created <= 6:
+                template_name = f"day_{days_since_created}"
+                subject = email_subjects.get(days_since_created, f"Day {days_since_created}: Unlock Your Trading Potential")
+                
+                # Get existing marketing field or initialize as empty dict
+                try:
+                    marketing_data = user.marketing if hasattr(user, 'marketing') and user.marketing else {}
+                except:
+                    marketing_data = {}
+                
+                # Check if this specific email has already been sent
+                if template_name in marketing_data and marketing_data[template_name] == True:
+                    emails_skipped += 1
+                    print(f"Skipping {template_name} email for {user.email} - already sent")
+                    continue
+                
+                try:
+                    # Send the email
+                    send_email(user.email, template_name=template_name, subject=subject)
+                    
+                    # Update the marketing field to track that this email was sent
+                    marketing_data[template_name] = True
+                    pb.collection("users").update(user.id, {
+                        "marketing": marketing_data
+                    })
+                    
+                    emails_sent += 1
+                    print(f"Sent {template_name} email to {user.email} and updated tracking")
+                    
+                except Exception as e:
+                    print(f"Failed to send {template_name} email to {user.email}: {e}")
+                    
+        except Exception as e:
+            print(f"Error processing user {user.id}: {e}")
+    
+    print(f"Email marketing completed. Sent {emails_sent} emails, skipped {emails_skipped} (already sent).")
+
 async def refresh_bulk_credits():
     user_data =  pb.collection('users').get_full_list()
     for item in tqdm(user_data):
@@ -357,9 +432,10 @@ async def refresh_bulk_credits():
 
 async def run_all_except_refresh():
     await update_free_trial()
-    #await update_discord_roles()
-    #await downgrade_user()
-    #await delete_old_notifications()
+    await email_marketing()
+    await update_discord_roles()
+    await downgrade_user()
+    await delete_old_notifications()
 
 def main():
     if '--refresh' in sys.argv:
