@@ -196,7 +196,8 @@ def get_top_stocks():
     # Define the date range for the past 12 months
     start_date = end_date - timedelta(days=365)
 
-    # Track unique analyst-stock pairs and get the latest Strong Buy for each pair
+    # Track unique analyst-stock pairs and get the latest Strong Buy rating within the past 12 months
+    # from each unique analyst with a 4-star or higher rating
     res_list = []
     
     for analyst in filtered_data:
@@ -236,7 +237,8 @@ def get_top_stocks():
                     'analyst_ids': set()
                 }
 
-            # Only count unique analysts per ticker
+            # Only count unique analysts per ticker (each analyst counted once per stock)
+            # This ensures we're considering only the latest rating from each unique analyst
             if analyst_id not in ticker_data[ticker]['analyst_ids']:
                 ticker_data[ticker]['pt_list'].append(pt_current)
                 ticker_data[ticker]['analyst_ids'].add(analyst_id)

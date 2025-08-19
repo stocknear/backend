@@ -446,7 +446,7 @@ try:
 
     chunk_size = len(stock_symbols) // 300  # Divide the list into N chunks
     chunks = [stock_symbols[i:i + chunk_size] for i in range(0, len(stock_symbols), chunk_size)]
-    chunks = [['MRVL']]
+    #chunks = [['MRVL']]
     for chunk in chunks:
         run(chunk, analyst_stats_list, con)
 
