@@ -131,59 +131,81 @@ def calculate_rating(data):
     if total_ratings == 0 or difference >= 600:
         return 0
     else:
-        # Define weights for each factor
+        # Adjusted weights for more balanced scoring
         weights = {
-            'return': 0.35,
-            'success_rate': 0.35,
-            'total_ratings': 0.1,
-            'recency': 0.1,
-            'returnPercentile': 0.05,
-            'ratingsPercentile': 0.05,
+            'return': 0.30,         # Reduced from 0.35
+            'success_rate': 0.30,   # Reduced from 0.35
+            'total_ratings': 0.15,  # Increased from 0.1
+            'recency': 0.10,        # Same
+            'returnPercentile': 0.075,  # Increased from 0.05
+            'ratingsPercentile': 0.075, # Increased from 0.05
         }
 
-        # Calculate weighted sum
+        # More generous scaling for returns (adjusted max_value and curve_factor)
+        return_component = weights['return'] * smooth_scale(
+            overall_average_return + 10,  # Shift up to make 0% return more neutral
+            max_value=40,  # Reduced from 50 for more generous scaling
+            curve_factor=1.5  # Reduced from 1.8 for smoother curve
+        )
+        
+        # Calculate weighted sum with adjusted components
         weighted_components = [
-            weights['return'] * smooth_scale(overall_average_return, max_value=50, curve_factor=1.8),
-            weights['success_rate'] * smooth_scale(overall_success_rate, max_value=100, curve_factor=1.5),
-            weights['total_ratings'] * smooth_scale(min(total_ratings, 100), max_value=100, curve_factor=1.3),
-            weights['recency'] * (1 / (1 + math.log1p(difference))),
-            weights['returnPercentile'] * smooth_scale(average_return_percentile),
-            weights['ratingsPercentile'] * smooth_scale(total_ratings_percentile),
+            return_component,
+            weights['success_rate'] * smooth_scale(overall_success_rate, max_value=100, curve_factor=1.3),  # Reduced from 1.5
+            weights['total_ratings'] * smooth_scale(min(total_ratings, 80), max_value=80, curve_factor=1.2),  # Adjusted threshold
+            weights['recency'] * (1 / (1 + math.log1p(difference/7))),  # Scaled by week instead of day
+            weights['returnPercentile'] * smooth_scale(average_return_percentile, max_value=100, curve_factor=1.2),
+            weights['ratingsPercentile'] * smooth_scale(total_ratings_percentile, max_value=100, curve_factor=1.2),
         ]
 
-        # Calculate base rating
+        # Calculate base rating with a higher baseline
         base_rating = sum(weighted_components)
-        normalized_rating = min(max(base_rating / sum(weights.values()) * 5, 0), 5)
-        # Encourage higher ratings for sufficient data and good performance
-        if total_ratings > 45 and overall_success_rate > 45 and overall_average_return > 45:
-            normalized_rating += 1.5
+        # Start with a base of 2.5 to ensure decent analysts get reasonable ratings
+        normalized_rating = 2.5 + (base_rating / sum(weights.values()) * 3.5)  # Base 2.5 + up to 3.5 from performance
+        
+        # More generous bonus conditions with lower thresholds
+        if total_ratings >= 35 and overall_success_rate >= 58 and overall_average_return >= 18:
+            normalized_rating += 0.8  # Top tier bonus
+        elif total_ratings >= 20 and overall_success_rate >= 54 and overall_average_return >= 12:
+            normalized_rating += 0.5  # Strong performer bonus
+        elif total_ratings >= 12 and overall_success_rate >= 51 and overall_average_return >= 8:
+            normalized_rating += 0.35  # Good performer bonus
+        elif total_ratings >= 8 and overall_success_rate >= 49 and overall_average_return >= 4:
+            normalized_rating += 0.25  # Decent performer bonus
+        elif total_ratings >= 5 and overall_success_rate >= 47 and overall_average_return >= 0:
+            normalized_rating += 0.15  # Basic qualifier bonus
 
-        elif total_ratings > 30 and overall_success_rate > 50 and overall_average_return > 50:
-            normalized_rating += 0.5
+        # Less aggressive penalties  
+        if overall_average_return <= -20:
+            normalized_rating = max(normalized_rating - 1.2, 0)
+        elif overall_average_return <= -15:
+            normalized_rating = max(normalized_rating - 0.8, 0)  
+        elif overall_average_return <= -10:
+            normalized_rating = max(normalized_rating - 0.4, 0)  
+        elif overall_average_return <= -5:
+            normalized_rating = max(normalized_rating - 0.2, 0)  
+        elif overall_average_return < 0:
+            normalized_rating = max(normalized_rating - 0.05, 0)  # Very minor penalty for slightly negative returns
 
-        elif total_ratings >= 10 and overall_success_rate >= 50 and overall_average_return >= 50:
-            normalized_rating += 0.5
+        # More lenient success rate cap
+        if overall_success_rate < 45:
+            normalized_rating = min(normalized_rating, 3.7)  # Increased from 3.5
+        elif overall_success_rate < 50:
+            normalized_rating = min(normalized_rating, 4.2)  # Allow 4+ ratings with decent success
 
-        elif total_ratings >= 10 and overall_success_rate >= 50 and overall_average_return >= 15:
-            normalized_rating += 0.3
+        # Adjusted recency cap - more forgiving
+        if difference > 60:
+            normalized_rating = min(normalized_rating, 4.7)  # Only cap if older than 2 months
+        elif difference > 30:
+            normalized_rating = min(normalized_rating, 4.9)  # Very minor cap for 1+ month old
 
-        # Apply additional conditions based on return and success rate thresholds
-        if overall_average_return <= -10:
-            normalized_rating = max(normalized_rating - 1.5, 0)
-        if overall_average_return <= -5:
-            normalized_rating = max(normalized_rating - 0.5, 0)
-        elif overall_average_return <= 5:
-            normalized_rating = max(normalized_rating - 0.3, 0)
-
-        if overall_success_rate < 50:
-            normalized_rating = min(normalized_rating, 3.5)
-
-        # Cap the rating for older ratings
-        if difference > 30:
-            normalized_rating = min(normalized_rating, 4.8)
+        # Percentile boost for top performers (new addition)
+        if average_return_percentile >= 70 and total_ratings_percentile >= 50:
+            normalized_rating += 0.2  # Boost for analysts in top percentiles
+        elif average_return_percentile >= 60 and total_ratings_percentile >= 40:
+            normalized_rating += 0.1
 
         # Ensure final rating remains in valid bounds
-        #print(round(min(max(normalized_rating, 0), 5), 2))
         return round(min(max(normalized_rating, 0), 5), 2)
 
 def get_top_stocks():

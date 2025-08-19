@@ -75,7 +75,6 @@ def get_all_analyst_summary(res_list):
     # Use only the latest rating per analyst and limit to 60 entries
     unique_filtered_data = filter_latest_entries(filtered_data)[:60]
 
-    # Collect the latest price target for each analyst
     latest_pt_current = defaultdict(list)
     for item in unique_filtered_data:
         if 'adjusted_pt_current' in item and item['adjusted_pt_current']:
