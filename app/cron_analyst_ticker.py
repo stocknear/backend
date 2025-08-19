@@ -155,7 +155,11 @@ def get_all_analyst_summary(res_list):
     hold_total = data_dict.get('Hold', 0)
 
     # Count unique analysts
-    numOfAnalyst = len(unique_filtered_data)
+    unique_analysts = set()
+    for item in unique_filtered_data:
+        if item.get('analyst_name'):
+            unique_analysts.add(item['analyst_name'])
+    numOfAnalyst = len(unique_analysts)
     
     # Update stats dictionary with computed metrics and the recommendation list
     stats = {
@@ -262,7 +266,11 @@ def get_top_analyst_summary(res_list):
     hold_total = data_dict.get('Hold', 0)
     
     # Count the unique analysts used in the unique filtered data
-    numOfAnalyst = len(unique_filtered_data)
+    unique_analysts = set()
+    for item in unique_filtered_data:
+        if item.get('analyst_name'):
+            unique_analysts.add(item['analyst_name'])
+    numOfAnalyst = len(unique_analysts)
     
     # Prepare the stats dictionary with all the computed values
     stats = {
@@ -438,7 +446,7 @@ try:
 
     chunk_size = len(stock_symbols) // 300  # Divide the list into N chunks
     chunks = [stock_symbols[i:i + chunk_size] for i in range(0, len(stock_symbols), chunk_size)]
-    #chunks = [['AAPL']]
+    chunks = [['MRVL']]
     for chunk in chunks:
         run(chunk, analyst_stats_list, con)
 
