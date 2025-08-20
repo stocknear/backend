@@ -321,7 +321,7 @@ def run_bot():
     week = datetime.today().weekday()
     if week <= 4:
         run_command(["python3", "cron_discord_bot.py"])
-        run_command(["python3", "cron_twitter.py"])
+        run_command(["python3", "cron_twitter_bot.py"])
         #run_command(["python3", "cron_bsky_bot.py"])
         #run_command(["python3", "cron_linkedin_bot.py"])
         #run_command(["python3", "cron_reddit_bot.py"])
