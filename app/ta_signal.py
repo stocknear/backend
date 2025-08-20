@@ -5,7 +5,6 @@ from ta.volatility import *
 from ta.momentum import *
 from ta.trend import *
 from ta.volume import *
-from backtesting import Backtest, Strategy
 from datetime import datetime
 import sqlite3
 import concurrent.futures
