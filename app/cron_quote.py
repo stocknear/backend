@@ -159,24 +159,19 @@ async def run():
     is_market_closed = (current_time_new_york.hour < 9 or
                   (current_time_new_york.hour == 9 and current_time_new_york.minute < 30) or
                   current_time_new_york.hour >= 16)
+    
+    # Check if we're within 5 minutes after market close (4:00 PM - 4:05 PM ET)
+    is_within_5min_after_close = (current_time_new_york.hour == 16 and current_time_new_york.minute <= 5)
 
-
-    #Crypto Quotes
-    '''
-    latest_quote = await get_quote_of_stocks(crypto_symbols)
-    for item in latest_quote:
-        symbol = item['symbol']
-
-        await save_quote_as_json(symbol, item)
-    '''
-    # Stock and ETF Quotes
     
     total_symbols = stocks_symbols+etf_symbols+index_symbols
     chunk_size = len(total_symbols) // 20  # Divide the list into N chunks
     chunks = [total_symbols[i:i + chunk_size] for i in range(0, len(total_symbols), chunk_size)]
     delete_files_in_directory("json/pre-post-quote")
     for chunk in tqdm(chunks):
-        if is_market_closed == False:
+        # Run get_quote_of_stocks during market hours OR within 15 minutes after close
+        if is_market_closed == False or is_within_5min_after_close:
+            print("Market Quote running...")
             async with aiohttp.ClientSession() as session:
                 latest_quote = await get_quote_of_stocks(session, chunk)
                 save_tasks = []
@@ -189,17 +184,22 @@ async def run():
                         pass
                 await asyncio.gather(*save_tasks)
 
-        if is_market_closed == True:
+            #Always true
+            bid_ask_quote = await get_bid_ask_quote_of_stocks(chunk)
+            for item in bid_ask_quote:
+                try:
+                    symbol = item['symbol']
+                    await save_bid_ask_as_json(symbol, item)
+                except:
+                    pass
+
+        elif is_market_closed == True:
+            print("Pre-Post Quote running...")
             latest_quote = await get_pre_post_quote_of_stocks(chunk)
             for item in latest_quote:
                 symbol = item['symbol']
                 await save_pre_post_quote_as_json(symbol, item)
-                #print(f"Saved data for {symbol}.")
-        #Always true
-        bid_ask_quote = await get_bid_ask_quote_of_stocks(chunk)
-        for item in bid_ask_quote:
-            symbol = item['symbol']
-            await save_bid_ask_as_json(symbol, item)
+        
 
 try:
     asyncio.run(run())
