@@ -88,6 +88,23 @@ def abbreviate_number(n):
         return f"{n/1_000_000_000:.1f}B"
 
 
+def extract_first_value(s):
+    """
+    Extract the first value from a string like "$1K-$15K" or "$1M-$5M"
+    and return it as an integer.
+    """
+    s = s.upper().replace('$', '')
+    first_part = s.split('-')[0]
+
+    if 'K' in first_part:
+        return int(float(first_part.replace('K', '')) * 1_000)
+    elif 'M' in first_part:
+        return int(float(first_part.replace('M', '')) * 1_000_000)
+    else:
+        # If no K or M, just try converting directly
+        return int(first_part)
+
+
 def send_tweet(message):
     payload = {"text": message}
 
@@ -375,8 +392,128 @@ def recent_earnings():
 
 
 
+def analyst_report():
+    try:
+        with open("json/twitter/analyst_report.json", "r") as file:
+            seen_list = orjson.loads(file.read())
+            seen_list = [item for item in seen_list if datetime.fromisoformat(item['date']).date() == today]
+    except:
+        seen_list = []
+
+    with open("json/dashboard/data.json", 'rb') as file:
+        data = orjson.loads(file.read())['analystReport']
+        date_obj = datetime.strptime(data['date'], '%b %d, %Y')
+        data['date'] = date_obj.strftime('%Y-%m-%d')
+
+    if datetime.fromisoformat(data['date']).date() == today:
+    
+        if seen_list:
+            seen_ids = {item['id'] for item in seen_list}
+        else:
+            seen_ids = {}
+
+        if data['id'] not in seen_ids:
+            symbol = data['symbol']
+            insight = data['insight']
+        
+            with open(f"json/quote/{symbol}.json","r") as file:
+                quote_data = orjson.loads(file.read())
+
+            market_cap = abbreviate_number(quote_data.get('marketCap',0))
+            
+            summary = (
+                f"According to {data['numOfAnalyst']} analysts, ${symbol} has a '{data['consensusRating']}' rating. "
+                f"12-month target: ${data['highPriceTarget']} "
+                f"({'↑' if data['highPriceChange'] > 0 else '↓'}{abs(data['highPriceChange'])}%)"
+            )
+
+            message = f"Analyst Report for ${symbol}:\n\n"
+            message += f"{insight}\n\n"
+            message += f"{summary}"
+            
+            try:
+                send_tweet(message)
+                seen_list.append({'date': data['date'], 'id': data['id']})
+                save_json(seen_list, "analyst_report")
+                print("Analyst report tweet sent successfully!")
+            except Exception as e:
+                print(f"Error sending analyst report tweet: {e}")
+        else:
+            print("Analyst Report already sent!")
+
+
+def congress_trading():
+    try:
+        with open("json/twitter/congress_trading.json", "r") as file:
+            seen_list = orjson.loads(file.read())
+            seen_list = [item for item in seen_list if datetime.fromisoformat(item['date']).date() == today]
+    except:
+        seen_list = []
+
+    with open("json/congress-trading/rss-feed/data.json", 'rb') as file:
+        data = orjson.loads(file.read())
+        data = [item for item in data if datetime.fromisoformat(item['disclosureDate']).date() == today]
+
+    res_list = []
+    for item in data:
+        try:
+            with open(f"json/quote/{item['ticker']}.json","r") as file:
+                quote_data = orjson.loads(file.read())
+                item['name'] = quote_data.get('name','n/a')
+
+            item['amountInt'] = extract_first_value(item['amount'])
+            unique_str = f"{item['disclosureDate']}-{item['transactionDate']}-{item['ticker']}-{item['amount']}-{item['representative']}"
+            item['id'] = hashlib.md5(unique_str.encode()).hexdigest()
+            
+            if item['amountInt'] >= 15_000:
+                res_list.append(item)
+
+        except Exception as e:
+            print(e)
+    
+    if res_list:
+        if seen_list:
+            seen_ids = {item['id'] for item in seen_list}
+        else:
+            seen_ids = {}
+
+        for item in res_list:
+            try:
+                if item != None and item['id'] not in seen_ids:
+                    symbol = item['ticker']
+                    representative = item['representative']
+                    amount = item['amount']
+                    transaction_type = item['type']
+                    transaction_date = datetime.strptime(item['transactionDate'], "%Y-%m-%d").strftime("%m/%d/%Y")
+                    
+                    message = f"Congress Trading Alert:\n\n"
+                    message += f"{representative} {transaction_type.lower()} ${symbol}\n"
+                    message += f"• Amount: {amount}\n"
+                    message += f"• Trade Date: {transaction_date}\n\n"
+                    #message += f"Track more trades: stocknear.com/congress-trading"
+                    
+                    try:
+                        send_tweet(message)
+                        seen_list.append({'date': item['disclosureDate'], 'id': item['id'], 'symbol': symbol})
+                        print("Congress trading tweet sent successfully!")
+                    except Exception as e:
+                        print(f"Error sending congress trading tweet: {e}")
+                else:
+                    print("Congress Data already sent!")
+
+            except Exception as e:
+                print(e)
+                
+        try:
+            save_json(seen_list, "congress_trading")
+        except Exception as e:
+            print(e)
+
+
 if __name__ == '__main__':
     wiim()
     recent_earnings()
     dark_pool_flow()
     options_flow()
+    analyst_report()
+    congress_trading()
