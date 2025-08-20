@@ -193,7 +193,7 @@ def dark_pool_flow():
             message += f"• Quantity: {quantity}\n"
             message += f"• Price: ${price}\n"
             message += f"• Amount: ${amount}\n\n"
-            message += f"Follow up: stocknear.com/dark-pool-flow"
+            #message += f"Follow up: stocknear.com/dark-pool-flow"
             
             try:
                 send_tweet(message)
@@ -283,7 +283,7 @@ def options_flow():
         message += f"• Expiration: {date_expiration}\n"
         message += f"• Size: {size}\n"
         message += f"• Premium: ${premium}\n\n"
-        message += f"Follow up: stocknear.com/options-flow"
+        #message += f"Follow up: stocknear.com/options-flow"
         
         send_tweet(message)
         
@@ -355,7 +355,7 @@ def recent_earnings():
                     message +=f"· Revenue of {revenue} {revenue_surprise_text} estimates by {revenue_surprise}, with {revenue_yoy_change:.2f}% YoY {revenue_yoy_direction}. \n"
                     message +=f"· EPS of {eps} {eps_surprise_text} estimates by {eps_surprise}, with {eps_yoy_change:.2f}% YoY {eps_yoy_direction}."
                     message +=f"\n \n"
-                    message+=f"Follow up here stocknear.com/stocks/{symbol}"
+                    #message+=f"Follow up here stocknear.com/stocks/{symbol}"
                     
                     send_tweet(message)
 
