@@ -817,9 +817,24 @@ async def get_stock_screener(con):
     next_year = datetime.now().year+1
 
     #Stock Screener Data
-    
-    cursor.execute("SELECT symbol, name, sma_20, sma_50, sma_100, sma_200, ema_20, ema_50, ema_100, ema_200, rsi, atr, stoch_rsi, mfi, cci, beta FROM stocks WHERE symbol NOT LIKE '%.%' AND eps IS NOT NULL AND marketCap IS NOT NULL AND beta IS NOT NULL")
+    cursor.execute("""
+        SELECT symbol, name, sma_20, sma_50, sma_100, sma_200,
+               ema_20, ema_50, ema_100, ema_200,
+               rsi, atr, stoch_rsi, mfi, cci, beta
+        FROM stocks
+        WHERE symbol NOT LIKE '%.%'
+          AND eps IS NOT NULL
+          AND marketCap IS NOT NULL
+          AND beta IS NOT NULL
+          AND sma_20 IS NOT NULL
+    """)
+
     raw_data = cursor.fetchall()
+    if len(raw_data) < 4000:
+        #make sure the stock screener has all the data
+        print(f'Stock Screener Skipped because only {len(raw_data)} stocks found')
+        return
+
     stock_screener_data = [{
             'symbol': symbol,
             'name': name,

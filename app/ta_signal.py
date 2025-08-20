@@ -111,9 +111,13 @@ def process_symbol(ticker):
 
 con = sqlite3.connect(f'backup_db/stocks.db')
 
+
 symbol_query = f"SELECT DISTINCT symbol FROM stocks"
 symbol_cursor = con.execute(symbol_query)
 symbols = [symbol[0] for symbol in symbol_cursor.fetchall()]
+
+#Test mode
+#symbols = ['TSLA']
 
 start_date = datetime(2022, 1, 1)
 end_date = datetime.today()
