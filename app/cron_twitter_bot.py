@@ -376,7 +376,7 @@ def recent_earnings():
 
 
 if __name__ == '__main__':
-    #wiim()
-    #recent_earnings()
+    wiim()
+    recent_earnings()
     dark_pool_flow()
-    #options_flow()
+    options_flow()
