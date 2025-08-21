@@ -555,9 +555,9 @@ def main():
     options_flow()
     dark_pool_flow()
     analyst_report()
-    congress_trading()
+    #congress_trading()
     recent_earnings()
-    wiim()
-    
+    #wiim()
+
 if __name__ == '__main__':
     main()
