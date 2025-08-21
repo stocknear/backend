@@ -196,9 +196,6 @@ def recent_earnings():
                     print("Recent Earnings already posted!")
             except Exception as e:
                 print(e)
-
-            except Exception as e:
-                print(e)
         try:
             with open("json/bsky/recent_earnings.json","wb") as file:
                 file.write(orjson.dumps(seen_list))
@@ -206,6 +203,152 @@ def recent_earnings():
             print(e)
 
 
+def dark_pool_flow():
+    """Post unusual dark pool activity alerts"""
+    N_minutes_ago = now - timedelta(minutes=40)
+    
+    try:
+        with open("json/bsky/dark_pool.json", "r") as file:
+            seen_list = orjson.loads(file.read())
+            seen_list = [item for item in seen_list if datetime.fromisoformat(item['date']).date() == today]
+    except:
+        seen_list = []
+
+    with open("json/dark-pool/feed/data.json", "r") as file:
+        res_list = orjson.loads(file.read())
+        res_list = [item for item in res_list if float(item['premium']) >= 100E6 and datetime.fromisoformat(item['date']).date() == today]
+    
+    if res_list:
+        filtered_recent = [
+            item for item in res_list
+            if (dt := datetime.fromisoformat(item['date'])) >= N_minutes_ago
+        ]
+
+        if filtered_recent:
+            best_order = max(filtered_recent, key=lambda x: x['premium'])
+            result = {k: best_order[k] for k in ['date', 'trackingID', 'price', 'size', 'premium', 'ticker']}
+        else:
+            result = None
+
+        seen_ids = {item['trackingID'] for item in seen_list} if seen_list else set()
+
+        if result and result['trackingID'] not in seen_ids:
+            symbol = result['ticker']
+            quantity = format_number(result['size'])
+            price = result['price']
+            amount = format_number(result['premium'])
+
+            message = f"🚨 Dark Pool Alert: ${symbol}\n\n"
+            message += f"• Quantity: {quantity} shares\n\n"
+            message += f"• Price: ${price}\n\n"
+            message += f"• Total: ${amount}\n\n"
+            message += f"Large institutional order detected away from public markets.\n\n"
+            message += f"Track more: stocknear.com/dark-pool-flow"
+            
+            try:
+                post = client.send_post(message)
+                seen_list.append({'date': result['date'], 'trackingID': result['trackingID']})
+                save_json(seen_list, "dark_pool")
+                print("Dark pool Bluesky post created successfully!")
+            except Exception as e:
+                print(f"Error posting dark pool update: {e}")
+        else:
+            print("Dark pool already posted!")
+
+
+def options_flow():
+    """Post unusual options flow alerts"""
+    now_ny = datetime.now(ny_tz)
+    N_minutes_ago_options = now_ny - timedelta(minutes=10)
+    today_ny = now_ny.date()
+
+    try:
+        with open("json/bsky/options_flow.json", "rb") as file:
+            seen_list = orjson.loads(file.read())
+            today_iso = today_ny.isoformat()
+            seen_list = [item for item in seen_list if item['date'] == today_iso]
+    except:
+        seen_list = []
+
+    try:
+        with open("json/options-flow/feed/data.json", "rb") as file:
+            res_list = orjson.loads(file.read())
+    except Exception as e:
+        print(f"Error loading options data: {e}")
+        res_list = []
+
+    filtered = []
+    for item in res_list:
+        try:
+            if float(item.get('cost_basis', 0)) < 1E5:
+                continue
+                
+            item_date = datetime.fromisoformat(item['date']).date()
+            if item_date != today_ny:
+                continue
+            
+            item_time = datetime.strptime(item['time'], "%H:%M:%S").time()
+            item_dt = ny_tz.localize(datetime.combine(item_date, item_time))
+            if item_dt < N_minutes_ago_options:
+                filtered.append(item)
+        except Exception as e:
+            continue
+
+    if not filtered:
+        return
+
+    best_order = max(filtered, key=lambda x: float(x['cost_basis']))
+    result = {
+        k: best_order[k] for k in [
+            'date', 'sentiment', 'option_activity_type', 'ticker', 'id',
+            'strike_price', 'date_expiration', 'size', 'cost_basis',
+            'execution_estimate', 'volume', 'open_interest', 'put_call'
+        ]
+    }
+
+    seen_ids = {item['id'] for item in seen_list}
+    if result['id'] in seen_ids:
+        print("Options Flow data already posted!")
+        return
+
+    try:
+        symbol = result['ticker']
+        size = format_number(result['size'])
+        premium = format_number(result['cost_basis'])
+        strike = result['strike_price']
+        put_call = result['put_call'].replace('Calls', 'Call').replace('Puts', 'Put')
+        sentiment = result['sentiment']
+        option_type = result['option_activity_type']
+        
+        date_expiration = datetime.strptime(result['date_expiration'], "%Y-%m-%d").strftime("%m/%d")
+        
+        message = f"Options Alert: ${symbol} {sentiment} {put_call}\n\n"
+        message += f"• Strike: ${strike}\n"
+        message += f"• Exp: {date_expiration}\n\n"
+        message += f"• Size: {size} contracts\n\n"
+        message += f"• Premium: ${premium}\n\n"
+        message += f"• Type: {option_type}\n\n"
+        
+        if sentiment.lower() == "bullish":
+            message += f"Institutional positioning for upward movement."
+        elif sentiment.lower() == "bearish":
+            message += f"Institutional positioning for downward movement."
+        else:
+            message += f"Institutional neutral positioning."
+            
+        message += f"\n\nTrack more: stocknear.com/options-flow"
+        
+        post = client.send_post(message)
+        seen_list.append({'date': result['date'], 'id': result['id']})
+        save_json(seen_list, "options_flow")
+        print("Options flow Bluesky post created successfully!")
+
+    except Exception as e:
+        print(f"Error posting options flow update: {e}")
+
+
 if __name__ == '__main__':
-    wiim()
+    #wiim()
     recent_earnings()
+    options_flow()
+    dark_pool_flow()
