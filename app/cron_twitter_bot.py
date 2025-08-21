@@ -1,13 +1,10 @@
 from dotenv import load_dotenv
 import os
 import tweepy
-from requests_oauthlib import OAuth1Session
 from datetime import datetime, timedelta, timezone, date
-import requests
 import hashlib
 import orjson
 import pytz
-import time
 
 load_dotenv()
 
@@ -22,15 +19,14 @@ today = datetime.utcnow().date()
 now = datetime.now(timezone.utc)
 now_ny = datetime.now(ny_tz)
 
-oauth = OAuth1Session(
-        consumer_key,
-        client_secret=consumer_secret,
-        resource_owner_key=access_token,
-        resource_owner_secret=access_token_secret,
-    )
-
-
-
+# Initialize Twitter API v2 client with Tweepy
+client = tweepy.Client(
+    consumer_key=consumer_key,
+    consumer_secret=consumer_secret,
+    access_token=access_token,
+    access_token_secret=access_token_secret,
+    wait_on_rate_limit=False
+)
 def save_json(data, file):
     directory = "json/twitter"
     os.makedirs(directory, exist_ok=True)
@@ -106,21 +102,33 @@ def extract_first_value(s):
 
 
 def send_tweet(message):
-    payload = {"text": message}
-
-    response = oauth.post(
-        "https://api.twitter.com/2/tweets",
-        json=payload,
-    )
-
-    if response.status_code != 201:
-        raise Exception(
-            "Request returned an error: {} {}".format(response.status_code, response.text)
-        )
-
-    print("Response code: {}".format(response.status_code))
-    json_response = response.json()
-    print(orjson.dumps(json_response).decode())
+    """Send a tweet using Twitter API v2 via Tweepy client"""
+    try:
+        # Create tweet using Tweepy client (Twitter API v2)
+        response = client.create_tweet(text=message)
+        
+        # Extract tweet data from response
+        tweet_data = response.data
+        tweet_id = tweet_data['id']
+        tweet_text = tweet_data['text']
+        
+        print(f"Tweet sent successfully! ID: {tweet_id}")
+        print(f"Tweet content: {tweet_text[:50]}...")
+        
+        return tweet_id
+        
+    except tweepy.TooManyRequests as e:
+        print(f"Rate limit reached: {e}")
+        raise
+    except tweepy.Forbidden as e:
+        print(f"Forbidden - check your permissions: {e}")
+        raise
+    except tweepy.Unauthorized as e:
+        print(f"Unauthorized - check your credentials: {e}")
+        raise
+    except Exception as e:
+        print(f"Error sending tweet: {e}")
+        raise
 
 
 def wiim():
