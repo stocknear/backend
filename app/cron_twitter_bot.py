@@ -492,7 +492,14 @@ def congress_trading():
                     representative = item['representative']
                     amount = item['amount']
                     transaction_type = item['type']
-                    transaction_date = datetime.strptime(item['transactionDate'], "%Y-%m-%d").strftime("%m/%d/%Y")
+                    raw_date = item['transactionDate']  # e.g. "2025-08-21"
+                    trade_date = datetime.strptime(raw_date, "%Y-%m-%d").date()
+
+                    # check if it's in the future
+                    if trade_date > date.today():
+                        trade_date = date.today()
+                    transaction_date = trade_date.strftime("%b %d, %Y")
+
                     
                     message = f"Congress Trading Alert:\n\n"
                     message += f"{representative} {transaction_type.lower()} ${symbol}\n"
