@@ -165,7 +165,7 @@ async def get_data(session, ticker, con):
                         else:
                             revenue_surprise = round(revenue - revenue_est, 0) if revenue is not None and revenue_est not in (None, 0) else None
 
-                        if revenue and revenue_prior and eps_prior and eps and revenue_surprise and eps_surprise:
+                        if all(v is not None for v in [revenue, revenue_prior, eps_prior, eps, revenue_surprise, eps_surprise]):
                             res_list = {
                                 'epsPrior':eps_prior,
                                 'epsSurprise': eps_surprise,
@@ -198,7 +198,7 @@ try:
     cursor.execute("PRAGMA journal_mode = wal")
     cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%' AND symbol NOT LIKE '%-%'")
     stock_symbols = [row[0] for row in cursor.fetchall()]
-    #stock_symbols = ['BRK-A']
+    #stock_symbols = ['TGT']
 
     asyncio.run(run(stock_symbols, con))
     
