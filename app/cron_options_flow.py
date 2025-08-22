@@ -121,6 +121,7 @@ async def main():
 # Run the async event loop
 if __name__ == "__main__":
     market_open = check_market_hours()
+    asyncio.run(main())
     if market_open:
         asyncio.run(main())
     else:

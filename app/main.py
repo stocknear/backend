@@ -2820,13 +2820,16 @@ async def get_options_flow_feed(data: OptionsFlowFeed, api_key: str = Security(g
     try:
         with open(f"json/options-flow/feed/data.json", 'rb') as file:
             data = orjson.loads(file.read())
+            #sorted_trades = sorted(data, key=lambda x: x['cost_basis'], reverse=True)
+            #sorted_trades = [item for item in sorted_trades if item['ticker'] == 'TSLA']
+            #print(sorted_trades[0])
+
             if len(order_list) > 0:
                 data = [item for item in data if item['id'] not in order_list]
 
             res_list = [{k: v for k, v in item.items() if k not in fields_to_remove} for item in data]
     except:
         res_list = []
-
     data = orjson.dumps(res_list)
     compressed_data = gzip.compress(data)
     return StreamingResponse(

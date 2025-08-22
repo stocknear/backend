@@ -179,7 +179,7 @@ def wiim():
 
 
 def dark_pool_flow():
-    N_minutes_ago = now_ny - timedelta(minutes=40)
+    N_minutes_ago = now_ny - timedelta(minutes=30)
     try:
         with open("json/twitter/dark_pool.json", "r") as file:
             seen_list = orjson.loads(file.read())
@@ -198,7 +198,7 @@ def dark_pool_flow():
 
         # If there are any recent orders, find the one with the highest premium
         if filtered_recent:
-            best_order = max(filtered_recent, key=lambda x: x['premium'])
+            best_order = max(filtered_recent, key=lambda x: float(x['premium']))
             result = {k: best_order[k] for k in ['date', 'trackingID', 'price', 'size', 'premium', 'ticker']}
         else:
             result = None

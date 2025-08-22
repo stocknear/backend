@@ -174,7 +174,7 @@ def wiim():
 
 def dark_pool_flow():
     """Post unusual dark pool activity alerts"""
-    N_minutes_ago = now_ny - timedelta(minutes=40)
+    N_minutes_ago = now_ny - timedelta(minutes=30)
     
     try:
         with open("json/reddit/dark_pool.json", "r") as file:
@@ -194,7 +194,7 @@ def dark_pool_flow():
         ]
 
         if filtered_recent:
-            best_order = max(filtered_recent, key=lambda x: x['premium'])
+            best_order = max(filtered_recent, key=lambda x: float(x['premium']))
             result = {k: best_order[k] for k in ['date', 'trackingID', 'price', 'size', 'premium', 'ticker']}
         else:
             result = None
