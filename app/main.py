@@ -2867,34 +2867,54 @@ async def get_options_flow_stream(data: OptionsInsight, api_key: str = Security(
             }
         )
     
-    async def generate_stream():
+    # Format the options data as a string for analysis
+    formatted_data = f"Analyze this options order flow data: {str(options_data)}"
+    
+    # Prepare messages for agent
+    messages = [
+        {"role": "user", "content": formatted_data}
+    ]
+    
+    # Add today's date as context
+    today_date = datetime.now().strftime("%B %d, %Y")
+    date_context = {
+        "role": "system",
+        "content": f"Today's date is {today_date}. Use this for any date-related queries or when referring to current market conditions."
+    }
+    messages = [date_context] + messages
+    
+    # Agent setup for options insight
+    agent = Agent(
+        name="Stocknear AI Agent",
+        instructions=OPTIONS_INSIGHT_INSTRUCTION,
+        model=os.getenv("FAST_CHAT_MODEL"),
+        tools=[],  # No tools needed for options insight analysis
+        model_settings=model_settings
+    )
+    
+    async def event_generator():
+        full_content = ""
+        
         try:
-            # Format the options data as a string for analysis
-            formatted_data = f"Analyze this options order flow data: {str(options_data)}"
-            
-            # Create streaming completion
-            stream = await async_client.chat.completions.create(
-                model=os.getenv("FAST_CHAT_MODEL"),
-                messages=[
-                    {"role": "system", "content": OPTIONS_INSIGHT_INSTRUCTION},
-                    {"role": "user", "content": formatted_data}
-                ],
-                stream=True
-            )
-            
-            full_response = ""
-            
-            # Stream each chunk to the client
-            async for chunk in stream:
-                if chunk.choices[0].delta.content:
-                    content = chunk.choices[0].delta.content
-                    full_response += content
-                    # Send as JSON chunks like the chat endpoint
-                    yield orjson.dumps({"content": full_response}) + b"\n"
+            result = Runner.run_streamed(agent, input=messages)
+            async for event in result.stream_events():
+                try:
+                    # Process only raw_response_event events
+                    if event.type == "raw_response_event":
+                        delta = getattr(event.data, "delta", "")
+                        if not delta:
+                            continue
+                        
+                        full_content += delta
+                        yield orjson.dumps({"content": full_content}) + b"\n"
+                        
+                except Exception as e:
+                    print(f"Event processing error: {e}")
+                    continue
             
             # Cache the complete response for future use
-            if full_response:
-                result = {"analysis": full_response}
+            if full_content:
+                result = {"analysis": full_content}
                 compressed_data = gzip.compress(orjson.dumps(result))
                 redis_client.set(cache_key, compressed_data)
                 redis_client.expire(cache_key, 60*15)
@@ -2904,7 +2924,7 @@ async def get_options_flow_stream(data: OptionsInsight, api_key: str = Security(
             yield orjson.dumps({"error": str(e)}) + b"\n"
     
     return StreamingResponse(
-        generate_stream(),
+        event_generator(),
         media_type="text/plain",
         headers={
             "Cache-Control": "no-cache, no-transform",
