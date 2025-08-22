@@ -93,10 +93,11 @@ def all_hedge_funds(con):
         'performancePercentage3Year': row[6],
         #'performance3yearRelativeToSP500Percentage': row[7]
     } for row in all_ciks if (
-        row[0] not in ['0001418333'] and row[2] is not None and row[2] > 5 and row[4] > 0 and
+        row[2] is not None and row[2] > 5 and row[4] > 0 and
         row[6] is not None and abs(row[6]) < 500
     )]
     sorted_res_list = sorted(res_list, key=lambda x: x['marketValue'], reverse=True)
+    sorted_res_list = [x for x in sorted_res_list if x['marketValue'] <= 15e12]
 
     #print(sorted_res_list[:10])
     
