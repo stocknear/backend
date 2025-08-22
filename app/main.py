@@ -83,9 +83,10 @@ client = httpx.AsyncClient(http2=True, timeout=10.0)
 
 #================LLM Configuration====================#
 async_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-with open("json/llm/instructions.txt","r",encoding="utf-8") as file:
-    INSTRUCTIONS = file.read()
-
+with open("json/llm/chat_instruction.txt","r",encoding="utf-8") as file:
+    CHAT_INSTRUCTION = file.read()
+with open("json/llm/options_insight_instruction.txt","r",encoding="utf-8") as file:
+    OPTIONS_INSIGHT_INSTRUCTION = file.read()
 
 model_settings = ModelSettings(
     tool_choice="auto",
@@ -337,6 +338,9 @@ class OptionsFlowData(BaseModel):
 class OptionsFlowFeed(BaseModel):
     orderList: List
     
+class OptionsInsight(BaseModel):
+    optionsData: Dict
+
 class HistoricalPrice(BaseModel):
     ticker: str
     timePeriod: str
@@ -2838,6 +2842,46 @@ async def get_options_flow_feed(data: OptionsFlowFeed, api_key: str = Security(g
     )
 
 
+
+@app.post("/options-insight")
+async def get_options_flow_feed(data: OptionsInsight, api_key: str = Security(get_api_key)):
+    options_data = data.optionsData
+    print(options_data)
+    try:
+        # Format the options data as a string for analysis
+        formatted_data = f"Analyze this options order flow data: {str(options_data)}"
+        
+        response = await async_client.chat.completions.create(
+            model=os.getenv("FAST_CHAT_MODEL"),
+            messages=[
+                {"role": "system", "content": OPTIONS_INSIGHT_INSTRUCTION},
+                {"role": "user", "content": formatted_data}
+            ],
+        )
+        
+        # Get the text content from the response
+        #stream the result for faster responsive answer to the frontend
+        analysis_result = response.choices[0].message.content
+        # Structure the response
+        result = {
+            "analysis": analysis_result,
+        }
+        
+    except Exception as e:
+        result = {}
+        print(e)
+    
+    # Convert to JSON and compress
+    data = orjson.dumps(result)
+    compressed_data = gzip.compress(data)
+    
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
+
+
 @app.get("/dark-pool-flow-feed")
 async def get_dark_pool_feed(api_key: str = Security(get_api_key)):
     cache_key = f"dark-pool-flow-feed"
@@ -4900,7 +4944,7 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
     # Agent setup
     agent = Agent(
         name="Stocknear AI Agent",
-        instructions=INSTRUCTIONS,
+        instructions=CHAT_INSTRUCTION,
         model=selected_model,
         tools=selected_tools,
         model_settings=model_settings
