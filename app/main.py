@@ -2844,41 +2844,72 @@ async def get_options_flow_feed(data: OptionsFlowFeed, api_key: str = Security(g
 
 
 @app.post("/options-insight")
-async def get_options_flow_feed(data: OptionsInsight, api_key: str = Security(get_api_key)):
+async def get_options_flow_stream(data: OptionsInsight, api_key: str = Security(get_api_key)):
     options_data = data.optionsData
-    print(options_data)
-    try:
-        # Format the options data as a string for analysis
-        formatted_data = f"Analyze this options order flow data: {str(options_data)}"
-        
-        response = await async_client.chat.completions.create(
-            model=os.getenv("FAST_CHAT_MODEL"),
-            messages=[
-                {"role": "system", "content": OPTIONS_INSIGHT_INSTRUCTION},
-                {"role": "user", "content": formatted_data}
-            ],
-        )
-        
-        # Get the text content from the response
-        #stream the result for faster responsive answer to the frontend
-        analysis_result = response.choices[0].message.content
-        # Structure the response
-        result = {
-            "analysis": analysis_result,
-        }
-        
-    except Exception as e:
-        result = {}
-        print(e)
     
-    # Convert to JSON and compress
-    data = orjson.dumps(result)
-    compressed_data = gzip.compress(data)
+    # Check cache first
+    cache_key = f"options-insight-{options_data}"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        # If cached, return as a single chunk
+        decompressed = gzip.decompress(cached_result)
+        result = orjson.loads(decompressed)
+        
+        async def cached_stream():
+            yield orjson.dumps({"content": result["analysis"]}) + b"\n"
+        
+        return StreamingResponse(
+            cached_stream(),
+            media_type="text/plain",
+            headers={
+                "Cache-Control": "no-cache, no-transform",
+                "Connection": "keep-alive"
+            }
+        )
+    
+    async def generate_stream():
+        try:
+            # Format the options data as a string for analysis
+            formatted_data = f"Analyze this options order flow data: {str(options_data)}"
+            
+            # Create streaming completion
+            stream = await async_client.chat.completions.create(
+                model=os.getenv("FAST_CHAT_MODEL"),
+                messages=[
+                    {"role": "system", "content": OPTIONS_INSIGHT_INSTRUCTION},
+                    {"role": "user", "content": formatted_data}
+                ],
+                stream=True
+            )
+            
+            full_response = ""
+            
+            # Stream each chunk to the client
+            async for chunk in stream:
+                if chunk.choices[0].delta.content:
+                    content = chunk.choices[0].delta.content
+                    full_response += content
+                    # Send as JSON chunks like the chat endpoint
+                    yield orjson.dumps({"content": full_response}) + b"\n"
+            
+            # Cache the complete response for future use
+            if full_response:
+                result = {"analysis": full_response}
+                compressed_data = gzip.compress(orjson.dumps(result))
+                redis_client.set(cache_key, compressed_data)
+                redis_client.expire(cache_key, 60*15)
+                
+        except Exception as e:
+            print(f"Streaming error: {e}")
+            yield orjson.dumps({"error": str(e)}) + b"\n"
     
     return StreamingResponse(
-        io.BytesIO(compressed_data),
-        media_type="application/json",
-        headers={"Content-Encoding": "gzip"}
+        generate_stream(),
+        media_type="text/plain",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive"
+        }
     )
 
 
