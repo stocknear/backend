@@ -78,6 +78,22 @@ async def testing_strategy(tickers, start_date="2020-01-01", end_date=None, buy_
         # Create visualization
         create_performance_plot(plot_data, tickers, result.get('strategy_name', 'Strategy'))
 
+    # Display live recommendations if available
+    if result.get("live_recommendations"):
+        print("\n" + "="*50)
+        print("LIVE TRADING RECOMMENDATIONS")
+        print("="*50)
+        
+        for rec in result["live_recommendations"]:
+            print(f"\nTicker: {rec['ticker']}")
+            print(f"Recommendation: {rec['recommendation']}")
+            print(f"Reason: {rec['reason']}")
+            print(f"Confidence: {rec['confidence']}")
+            if rec['last_price']:
+                print(f"Current Price: ${rec['last_price']}")
+            print(f"Analysis Date: {rec['date']}")
+            if rec.get('signal_date'):
+                print(f"Signal Date: {rec['signal_date']}")
 
     return result
 
@@ -175,7 +191,7 @@ async def main():
     # Buy when price crosses above middle band (20-day SMA)
     # Sell when price crosses below middle band
     data = {
-        "tickers": ["AAPL"],
+        "tickers": ["AAPL","TSLA","PLTR"],
         "start_date": "2020-01-01",
         "end_date": "2025-08-12",
         "buy_condition": [

@@ -103,6 +103,11 @@ class BacktestingEngine:
                     'data_points': len(data)
                 })
                 
+                # Add live recommendations for current market conditions
+                live_recommendations = await self.get_live_recommendations([ticker], buy_conditions, sell_conditions)
+                if live_recommendations:
+                    result['live_recommendations'] = live_recommendations
+                
                 return result
                 
             else:
@@ -124,6 +129,11 @@ class BacktestingEngine:
                     'success': True,
                     'data_points': sum(len(df) for df in data_dict.values())
                 })
+                
+                # Add live recommendations for current market conditions
+                live_recommendations = await self.get_live_recommendations(tickers, buy_conditions, sell_conditions)
+                if live_recommendations:
+                    result['live_recommendations'] = live_recommendations
                 
                 return result
                 
@@ -512,6 +522,152 @@ class BacktestingEngine:
             result['spy_benchmark']['error'] = spy_benchmark['error']
         
         return result
+    
+    async def get_live_recommendations(self, tickers: List[str], buy_conditions: List[Dict[str, Any]], 
+                                     sell_conditions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Generate live trading recommendations based on current market data
+        
+        Args:
+            tickers: List of ticker symbols
+            buy_conditions: Buy condition rules
+            sell_conditions: Sell condition rules
+            
+        Returns:
+            List of recommendations for each ticker
+        """
+        try:
+            recommendations = []
+            
+            # Create strategy with the same conditions used in backtest
+            parameters = {
+                'buy_conditions': buy_conditions,
+                'sell_conditions': sell_conditions
+            }
+            strategy = CustomStrategy(parameters)
+            
+            for ticker in tickers:
+                try:
+                    # Get latest data (last 100 days to ensure we have enough for indicators)
+                    from datetime import datetime, timedelta
+                    end_date = datetime.now().strftime('%Y-%m-%d')
+                    start_date = (datetime.now() - timedelta(days=100)).strftime('%Y-%m-%d')
+                    
+                    data = await self.data_manager.load_historical_data(ticker, start_date, end_date)
+                    
+                    if data.empty or len(data) < 20:  # Need at least 20 days for indicators
+                        recommendations.append({
+                            'ticker': ticker.upper(),
+                            'recommendation': 'HOLD',
+                            'reason': 'Insufficient data for analysis',
+                            'confidence': 'LOW',
+                            'last_price': None,
+                            'date': end_date
+                        })
+                        continue
+                    
+                    # Prepare data with indicators
+                    prepared_data = strategy.prepare_data(data)
+                    
+                    # Generate signals for the latest data point
+                    signals = strategy.generate_signals(prepared_data)
+                    
+                    # Get the most recent signal
+                    latest_signal = None
+                    latest_date = None
+                    
+                    for signal in signals:
+                        signal_date = datetime.strptime(signal.date, '%Y-%m-%d')
+                        if latest_date is None or signal_date > latest_date:
+                            latest_date = signal_date
+                            latest_signal = signal
+                    
+                    # Get current price and determine recommendation
+                    current_price = float(prepared_data['close'].iloc[-1])
+                    current_date = prepared_data.index[-1].strftime('%Y-%m-%d')
+                    
+                    if latest_signal and latest_date:
+                        # Check if signal is recent (within last 5 trading days)
+                        days_diff = (datetime.now() - latest_date).days
+                        
+                        if days_diff <= 7:  # Recent signal
+                            if latest_signal.signal_type.value == 'BUY':
+                                recommendation = 'BUY'
+                                reason = self._format_signal_reason(buy_conditions, 'buy')
+                                confidence = 'HIGH' if days_diff <= 2 else 'MEDIUM'
+                            elif latest_signal.signal_type.value == 'SELL':
+                                recommendation = 'SELL'
+                                reason = self._format_signal_reason(sell_conditions, 'sell')
+                                confidence = 'HIGH' if days_diff <= 2 else 'MEDIUM'
+                            else:
+                                recommendation = 'HOLD'
+                                reason = 'No clear signal from strategy'
+                                confidence = 'LOW'
+                        else:
+                            recommendation = 'HOLD'
+                            reason = f'Last signal was {days_diff} days ago'
+                            confidence = 'LOW'
+                    else:
+                        recommendation = 'HOLD'
+                        reason = 'No signals generated by current strategy'
+                        confidence = 'LOW'
+                    
+                    recommendations.append({
+                        'ticker': ticker.upper(),
+                        'recommendation': recommendation,
+                        'reason': reason,
+                        'confidence': confidence,
+                        'last_price': round(current_price, 2),
+                        'date': current_date,
+                        'signal_date': latest_signal.date if latest_signal else None
+                    })
+                    
+                except Exception as e:
+                    recommendations.append({
+                        'ticker': ticker.upper(),
+                        'recommendation': 'HOLD',
+                        'reason': f'Error analyzing ticker: {str(e)}',
+                        'confidence': 'LOW',
+                        'last_price': None,
+                        'date': datetime.now().strftime('%Y-%m-%d')
+                    })
+            
+            return recommendations
+            
+        except Exception as e:
+            return [{
+                'ticker': 'ALL',
+                'recommendation': 'HOLD',
+                'reason': f'Error generating recommendations: {str(e)}',
+                'confidence': 'LOW',
+                'last_price': None,
+                'date': datetime.now().strftime('%Y-%m-%d')
+            }]
+    
+    def _format_signal_reason(self, conditions: List[Dict[str, Any]], action: str) -> str:
+        """Format the reason for a trading signal based on conditions"""
+        try:
+            if not conditions:
+                return f"Strategy indicates {action.upper()}"
+            
+            condition_parts = []
+            for condition in conditions:
+                name = condition.get('name', 'indicator')
+                operator = condition.get('operator', 'comparison')
+                value = condition.get('value', 'threshold')
+                
+                # Format the condition in readable form
+                if operator == 'above':
+                    condition_parts.append(f"{name} > {value}")
+                elif operator == 'below':
+                    condition_parts.append(f"{name} < {value}")
+                else:
+                    condition_parts.append(f"{name} {operator} {value}")
+            
+            return f"{action.capitalize()} signal: " + " AND ".join(condition_parts[:2])  # Limit to first 2 conditions for readability
+            
+        except Exception:
+            return f"Strategy conditions met for {action.upper()}"
 
     def _empty_backtest_result(self) -> Dict[str, Any]:
         """Return empty backtest result structure"""
