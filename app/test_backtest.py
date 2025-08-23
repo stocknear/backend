@@ -88,7 +88,6 @@ async def testing_strategy(tickers, start_date="2020-01-01", end_date=None, buy_
             print(f"\nTicker: {rec['ticker']}")
             print(f"Recommendation: {rec['recommendation']}")
             print(f"Reason: {rec['reason']}")
-            print(f"Confidence: {rec['confidence']}")
             if rec['last_price']:
                 print(f"Current Price: ${rec['last_price']}")
             print(f"Analysis Date: {rec['date']}")
