@@ -2917,7 +2917,7 @@ async def get_options_flow_stream(data: OptionsInsight, api_key: str = Security(
                 result = {"analysis": full_content}
                 compressed_data = gzip.compress(orjson.dumps(result))
                 redis_client.set(cache_key, compressed_data)
-                redis_client.expire(cache_key, 60*15)
+                redis_client.expire(cache_key, 60*5)
                 
         except Exception as e:
             print(f"Streaming error: {e}")

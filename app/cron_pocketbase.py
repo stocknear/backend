@@ -434,7 +434,7 @@ async def refresh_bulk_credits():
 
 async def run_all_except_refresh():
     await update_free_trial()
-    await email_marketing()
+    #await email_marketing()
     await update_discord_roles()
     await downgrade_user()
     await delete_old_notifications()
