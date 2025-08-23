@@ -43,7 +43,7 @@ class BacktestingEngine:
     
     async def run(self, tickers: List[str], buy_conditions: List[Dict[str, Any]], 
                   sell_conditions: List[Dict[str, Any]], start_date: str = None, 
-                  end_date: str = None) -> Dict:
+                  end_date: str = None, stop_loss: float = None, profit_taker: float = None) -> Dict:
         """
         Unified method to run custom rule-based backtesting
         
@@ -78,7 +78,9 @@ class BacktestingEngine:
             # Create strategy with conditions
             parameters = {
                 'buy_conditions': buy_conditions,
-                'sell_conditions': sell_conditions
+                'sell_conditions': sell_conditions,
+                'stop_loss': stop_loss,
+                'profit_taker': profit_taker
             }
             strategy = CustomStrategy(parameters)
             
@@ -106,7 +108,7 @@ class BacktestingEngine:
                 })
                 
                 # Add live recommendations for current market conditions
-                live_recommendations = await self.get_live_recommendations([ticker], buy_conditions, sell_conditions)
+                live_recommendations = await self.get_live_recommendations([ticker], buy_conditions, sell_conditions, stop_loss, profit_taker)
                 if live_recommendations:
                     result['live_recommendations'] = live_recommendations
                 
@@ -133,7 +135,7 @@ class BacktestingEngine:
                 })
                 
                 # Add live recommendations for current market conditions
-                live_recommendations = await self.get_live_recommendations(tickers, buy_conditions, sell_conditions)
+                live_recommendations = await self.get_live_recommendations(tickers, buy_conditions, sell_conditions, stop_loss, profit_taker)
                 if live_recommendations:
                     result['live_recommendations'] = live_recommendations
                 
@@ -526,7 +528,8 @@ class BacktestingEngine:
         return result
     
     async def get_live_recommendations(self, tickers: List[str], buy_conditions: List[Dict[str, Any]], 
-                                     sell_conditions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+                                     sell_conditions: List[Dict[str, Any]], stop_loss: float = None, 
+                                     profit_taker: float = None) -> List[Dict[str, Any]]:
         """
         Generate live trading recommendations based on current market data
         
@@ -544,7 +547,9 @@ class BacktestingEngine:
             # Create strategy with the same conditions used in backtest
             parameters = {
                 'buy_conditions': buy_conditions,
-                'sell_conditions': sell_conditions
+                'sell_conditions': sell_conditions,
+                'stop_loss': stop_loss,
+                'profit_taker': profit_taker
             }
             strategy = CustomStrategy(parameters)
             

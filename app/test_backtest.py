@@ -11,7 +11,7 @@ sys.path.append('.')
 from backtesting.backtest_engine import BacktestingEngine
 
 
-async def testing_strategy(tickers, start_date="2020-01-01", end_date=None, buy_conditions=None, sell_conditions=None):    
+async def testing_strategy(tickers, start_date="2020-01-01", end_date=None, buy_conditions=None, sell_conditions=None, stop_loss=None, profit_taker=None):    
     # Create engine instance
     engine = BacktestingEngine(initial_capital=100000)
     
@@ -26,11 +26,22 @@ async def testing_strategy(tickers, start_date="2020-01-01", end_date=None, buy_
         buy_conditions=buy_conditions,
         sell_conditions=sell_conditions,
         start_date=start_date,
-        end_date=end_date
+        end_date=end_date,
+        stop_loss=stop_loss,
+        profit_taker=profit_taker
     )
     
     if result.get('success'):
         print(f"Success: {result['strategy_name']}")
+        
+        # Display risk management parameters if set
+        if stop_loss or profit_taker:
+            print(f"\n--- Risk Management ---")
+            if stop_loss:
+                print(f"Stop Loss: {stop_loss}%")
+            if profit_taker:
+                print(f"Profit Taker: {profit_taker}%")
+            print("")
         
         # Display appropriate results based on single vs multi-ticker
         if 'tickers' in result:
@@ -186,9 +197,9 @@ def create_performance_plot(plot_data, tickers, strategy_name):
 
 
 async def main():
-    # Bollinger Bands Strategy - Middle Band Bounce
+    # Bollinger Bands Strategy - Middle Band Bounce with Risk Management
     # Buy when price crosses above middle band (20-day SMA)
-    # Sell when price crosses below middle band
+    # Sell when price crosses below middle band OR hit stop loss/profit taker
     data = {
         "tickers": ["AAPL","TSLA","PLTR"],
         "start_date": "2020-01-01",
@@ -198,7 +209,9 @@ async def main():
         ],
         "sell_condition": [
             {"name": "price", "value": "bb_middle", "operator": "below"}
-        ]
+        ],
+        "stop_loss": 5,  # Exit if price drops 5% from entry
+        "profit_taker": 10  # Exit if price rises 10% from entry
     }
     
     # Other Bollinger Bands strategies:
@@ -224,7 +237,9 @@ async def main():
         start_date=data["start_date"],
         end_date=data["end_date"],
         buy_conditions=data.get("buy_condition", []),
-        sell_conditions=data.get("sell_condition", [])
+        sell_conditions=data.get("sell_condition", []),
+        stop_loss=data.get("stop_loss"),
+        profit_taker=data.get("profit_taker")
     )
 
 

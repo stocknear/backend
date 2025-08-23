@@ -4720,8 +4720,10 @@ async def get_data(data: Backtesting, api_key: str = Security(get_api_key)):
     sell_conditions = strategy_data.get('sell_condition', [])
     initial_capital = strategy_data['initial_capital']
     commission = strategy_data['commission']/100 #convert percent into decimal
+    stop_loss = strategy_data.get('stop_loss', None)
+    profit_taker = strategy_data.get('profit_taker', None)
 
-    cache_key = f"backtesting-{','.join(tickers)}-{commission}-{initial_capital}-{start_date}-{end_date}-{hash(orjson.dumps([buy_conditions, sell_conditions]))}"
+    cache_key = f"backtesting-{','.join(tickers)}-{commission}-{initial_capital}-{start_date}-{end_date}-{stop_loss}-{profit_taker}-{hash(orjson.dumps([buy_conditions, sell_conditions]))}"
 
     # Check cache
     cached_result = redis_client.get(cache_key)
@@ -4740,7 +4742,9 @@ async def get_data(data: Backtesting, api_key: str = Security(get_api_key)):
             buy_conditions=buy_conditions,
             sell_conditions=sell_conditions,
             start_date=start_date,
-            end_date=end_date
+            end_date=end_date,
+            stop_loss=stop_loss,
+            profit_taker=profit_taker
         )
       
     except:

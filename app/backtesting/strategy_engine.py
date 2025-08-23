@@ -92,6 +92,13 @@ class CustomStrategy(BaseStrategy):
         self.buy_conditions = parameters.get('buy_conditions', []) if parameters else []
         self.sell_conditions = parameters.get('sell_conditions', []) if parameters else []
         
+        # Risk management parameters
+        self.stop_loss_pct = parameters.get('stop_loss', None) if parameters else None
+        self.profit_taker_pct = parameters.get('profit_taker', None) if parameters else None
+        
+        # Track entry prices for risk management (ticker -> entry_price)
+        self.entry_prices = {}
+        
         # Validate that both conditions are provided
         if not self.buy_conditions:
             raise ValueError("buy_conditions are required for CustomStrategy")
@@ -106,8 +113,8 @@ class CustomStrategy(BaseStrategy):
         # The rule engine will calculate all indicators, so we return the raw data
         return data.copy()
     
-    def generate_signals(self, data: pd.DataFrame) -> List[TradingSignal]:
-        """Generate trading signals using custom rules"""
+    def generate_signals(self, data: pd.DataFrame, ticker: str = None) -> List[TradingSignal]:
+        """Generate trading signals using custom rules with risk management"""
         signals = []
         
         if data.empty:
@@ -116,14 +123,57 @@ class CustomStrategy(BaseStrategy):
         # Generate signals using rule engine
         signals_df = self.rule_engine.generate_signals(data, self.buy_conditions, self.sell_conditions)
         
-        # Convert to TradingSignal objects
+        # Track position state for risk management
+        in_position = False
+        entry_price = None
+        
+        # Convert to TradingSignal objects with risk management
         for date, row in signals_df.iterrows():
             date_str = date.strftime('%Y-%m-%d')
+            current_price = row['price']
             
-            if row['buy']:
+            # Check for risk management exits if in position
+            if in_position and entry_price is not None:
+                exit_signal = None
+                exit_reason = None
+                
+                # Check stop loss
+                if self.stop_loss_pct is not None:
+                    stop_loss_price = entry_price * (1 - self.stop_loss_pct / 100)
+                    if current_price <= stop_loss_price:
+                        exit_signal = SignalType.SELL
+                        exit_reason = f'Stop loss triggered at {self.stop_loss_pct}% loss'
+                
+                # Check profit taker
+                if self.profit_taker_pct is not None and exit_signal is None:
+                    profit_taker_price = entry_price * (1 + self.profit_taker_pct / 100)
+                    if current_price >= profit_taker_price:
+                        exit_signal = SignalType.SELL
+                        exit_reason = f'Profit taker triggered at {self.profit_taker_pct}% gain'
+                
+                # Create exit signal if triggered
+                if exit_signal is not None:
+                    signals.append(TradingSignal(
+                        signal_type=exit_signal,
+                        price=current_price,
+                        shares=0,
+                        date=date_str,
+                        metadata={
+                            'reason': exit_reason,
+                            'conditions': 'risk_management',
+                            'rule_type': 'risk_management',
+                            'entry_price': entry_price
+                        }
+                    ))
+                    in_position = False
+                    entry_price = None
+                    continue  # Skip regular signal processing for this row
+            
+            # Process regular buy/sell signals
+            if row['buy'] and not in_position:
                 signals.append(TradingSignal(
                     signal_type=SignalType.BUY,
-                    price=row['price'],
+                    price=current_price,
                     shares=0,  # Portfolio manager will calculate shares
                     date=date_str,
                     metadata={
@@ -132,10 +182,13 @@ class CustomStrategy(BaseStrategy):
                         'rule_type': 'custom'
                     }
                 ))
-            elif row['sell']:
+                in_position = True
+                entry_price = current_price
+                
+            elif row['sell'] and in_position:
                 signals.append(TradingSignal(
                     signal_type=SignalType.SELL,
-                    price=row['price'],
+                    price=current_price,
                     shares=0,  # Portfolio manager will calculate shares
                     date=date_str,
                     metadata={
@@ -144,6 +197,8 @@ class CustomStrategy(BaseStrategy):
                         'rule_type': 'custom'
                     }
                 ))
+                in_position = False
+                entry_price = None
         
         return signals
     
@@ -154,6 +209,8 @@ class CustomStrategy(BaseStrategy):
             'description': 'Custom rule-based strategy with flexible conditions and logical connectors',
             'buy_conditions': self.buy_conditions,
             'sell_conditions': self.sell_conditions,
+            'stop_loss': self.stop_loss_pct,
+            'profit_taker': self.profit_taker_pct,
             'rule_engine': 'CustomRuleEngine'
         })
         return info
