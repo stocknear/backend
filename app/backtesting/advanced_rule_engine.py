@@ -80,9 +80,34 @@ class CustomRuleEngine:
             if 'bb_lower' in required_indicators:
                 indicators['bb_lower'] = bb_data['lower']
         
-        # ATR
+        # ATR base indicator (still needed for multiplier bands)
         if 'atr' in required_indicators:
             indicators['atr'] = self.ti.atr(data['high'], data['low'], data['close'])
+        
+        # ATR Multiplier Bands for breakout signals
+        # Extract multiplier values from indicator names like 'atr_upper_1.5' or 'atr_lower_2'
+        atr_upper_indicators = [ind for ind in required_indicators if ind.startswith('atr_upper_')]
+        atr_lower_indicators = [ind for ind in required_indicators if ind.startswith('atr_lower_')]
+        
+        if atr_upper_indicators or atr_lower_indicators:
+            atr = self.ti.atr(data['high'], data['low'], data['close'])
+            prev_close = data['close'].shift(1)
+            
+            # Upper ATR bands (for buy signals)
+            for indicator in atr_upper_indicators:
+                try:
+                    multiplier = float(indicator.split('_')[2])
+                    indicators[indicator] = prev_close + (atr * multiplier)
+                except (IndexError, ValueError):
+                    pass
+            
+            # Lower ATR bands (for sell signals)
+            for indicator in atr_lower_indicators:
+                try:
+                    multiplier = float(indicator.split('_')[2])
+                    indicators[indicator] = prev_close - (atr * multiplier)
+                except (IndexError, ValueError):
+                    pass
         
         # ADX
         if 'adx' in required_indicators:

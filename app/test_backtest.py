@@ -171,17 +171,25 @@ def create_performance_plot(plot_data, tickers, strategy_name):
 
 
 async def main():
+    # ATR Multiplier Strategy - Optimal configuration
+    # Buy when price breaks above previous close + ATR * multiplier
+    # Sell when price breaks below previous close - ATR * multiplier
     data = {
         "tickers": ["AAPL"],
         "start_date": "2020-01-01",
         "end_date": "2025-08-12",
         "buy_condition": [
-            {"name": "atr", "value": 5, "operator": "above"}  # ATR-based buy
+            {"name": "price", "value": "atr_upper_1", "operator": "above"}  # Buy when price > prev_close + ATR*2
         ],
         "sell_condition": [
-            {"name": "atr", "value": 3, "operator": "below"}  # ATR-based sell
+            {"name": "price", "value": "atr_lower_1", "operator": "below"}  # Sell when price < prev_close - ATR*2
         ]
     }
+    
+    # Other multiplier examples:
+    # - Use "atr_upper_1" and "atr_lower_1" for 1x multiplier (more signals)
+    # - Use "atr_upper_3" and "atr_lower_3" for 3x multiplier (fewer signals)
+    # - Use asymmetric like "atr_upper_1" and "atr_lower_2" for different buy/sell sensitivity
 
     await testing_strategy(
         data["tickers"],
