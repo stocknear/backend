@@ -171,25 +171,38 @@ def create_performance_plot(plot_data, tickers, strategy_name):
 
 
 async def main():
-    # ATR Multiplier Strategy - Optimal configuration
-    # Buy when price breaks above previous close + ATR * multiplier
-    # Sell when price breaks below previous close - ATR * multiplier
+    # Bollinger Bands Strategy - Middle Band Bounce
+    # Buy when price crosses above middle band (20-day SMA)
+    # Sell when price crosses below middle band
     data = {
         "tickers": ["AAPL"],
         "start_date": "2020-01-01",
         "end_date": "2025-08-12",
         "buy_condition": [
-            {"name": "price", "value": "atr_upper_1", "operator": "above"}  # Buy when price > prev_close + ATR*2
+            {"name": "price", "value": "bb_middle", "operator": "above"}
         ],
         "sell_condition": [
-            {"name": "price", "value": "atr_lower_1", "operator": "below"}  # Sell when price < prev_close - ATR*2
+            {"name": "price", "value": "bb_middle", "operator": "below"}
         ]
     }
     
-    # Other multiplier examples:
-    # - Use "atr_upper_1" and "atr_lower_1" for 1x multiplier (more signals)
-    # - Use "atr_upper_3" and "atr_lower_3" for 3x multiplier (fewer signals)
-    # - Use asymmetric like "atr_upper_1" and "atr_lower_2" for different buy/sell sensitivity
+    # Other Bollinger Bands strategies:
+    # 1. Mean Reversion: Buy at bb_lower, Sell at bb_upper
+    # 2. Breakout: Buy above bb_upper, Sell below bb_middle
+    # 3. Squeeze: Combine with RSI for better signals
+    
+    # ATR Multiplier Strategy Example:
+    # data = {
+    #     "tickers": ["AAPL"],
+    #     "start_date": "2020-01-01",
+    #     "end_date": "2025-08-12",
+    #     "buy_condition": [
+    #         {"name": "price", "value": "atr_upper_2", "operator": "above"}
+    #     ],
+    #     "sell_condition": [
+    #         {"name": "price", "value": "atr_lower_2", "operator": "below"}
+    #     ]
+    # }
 
     await testing_strategy(
         data["tickers"],
