@@ -197,36 +197,36 @@ def create_performance_plot(plot_data, tickers, strategy_name):
 
 
 async def run():
-
-    
-    cci_data = {
+  
+    vwap_data = {
         "tickers": ["AAPL"],
         "start_date": "2022-01-01", 
         "end_date": "2024-12-31",
         "buy_condition": [
-            {"name": "cci", "value": -100, "operator": "below"}  # CCI below -100 (oversold)
+            {"name": "price", "value": "vwap", "operator": "above"}  # Price above VWAP
         ],
         "sell_condition": [
-            {"name": "cci", "value": 100, "operator": "above"}  # CCI above 100 (overbought)
+            {"name": "price", "value": "vwap", "operator": "below"}  # Price below VWAP
         ],
-        "stop_loss": 5,   # 5% stop loss
-        "profit_taker": 10  # 10% profit target
+        "stop_loss": 4,   # 4% stop loss
+        "profit_taker": 8  # 8% profit target
     }
     
+    print("Strategy Description:")
+    print("- Buy: Price crosses above VWAP (institutional support)")
+    print("- Sell: Price crosses below VWAP (institutional resistance)")
+    print("- Risk Management: 4% stop loss, 8% profit target")
+    print()
+    
     await testing_strategy(
-        cci_data["tickers"],
-        start_date=cci_data["start_date"], 
-        end_date=cci_data["end_date"],
-        buy_conditions=cci_data.get("buy_condition", []),
-        sell_conditions=cci_data.get("sell_condition", []),
-        stop_loss=cci_data.get("stop_loss"),
-        profit_taker=cci_data.get("profit_taker")
+        vwap_data["tickers"],
+        start_date=vwap_data["start_date"], 
+        end_date=vwap_data["end_date"],
+        buy_conditions=vwap_data.get("buy_condition", []),
+        sell_conditions=vwap_data.get("sell_condition", []),
+        stop_loss=vwap_data.get("stop_loss"),
+        profit_taker=vwap_data.get("profit_taker")
     )
-
-
-
-
-
 
 async def main():
    await run()
