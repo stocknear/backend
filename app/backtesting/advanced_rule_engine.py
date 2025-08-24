@@ -114,13 +114,30 @@ class CustomRuleEngine:
             indicators['adx'] = self.ti.adx(data['high'], data['low'], data['close'])
         
         # Stochastic Oscillator
-        stochastic_indicators = {'stoch_k', 'stoch_d'}
+        stochastic_indicators = {'stoch_k', 'stoch_d', 'stoch_k_oversold', 'stoch_k_overbought', 
+                                'stoch_d_oversold', 'stoch_d_overbought', 'stoch_crossover'}
         if stochastic_indicators.intersection(required_indicators):
             stoch_data = self.ti.stochastic_oscillator(data['high'], data['low'], data['close'])
             if 'stoch_k' in required_indicators:
                 indicators['stoch_k'] = stoch_data['k_percent']
             if 'stoch_d' in required_indicators:
                 indicators['stoch_d'] = stoch_data['d_percent']
+            
+            # Oversold/Overbought levels for %K
+            if 'stoch_k_oversold' in required_indicators:
+                indicators['stoch_k_oversold'] = 20  # Static level for comparison
+            if 'stoch_k_overbought' in required_indicators:
+                indicators['stoch_k_overbought'] = 80  # Static level for comparison
+                
+            # Oversold/Overbought levels for %D
+            if 'stoch_d_oversold' in required_indicators:
+                indicators['stoch_d_oversold'] = 20  # Static level for comparison
+            if 'stoch_d_overbought' in required_indicators:
+                indicators['stoch_d_overbought'] = 80  # Static level for comparison
+            
+            # Crossover indicator (positive when %K > %D, negative when %K < %D)
+            if 'stoch_crossover' in required_indicators:
+                indicators['stoch_crossover'] = stoch_data['k_percent'] - stoch_data['d_percent']
         
         # CCI
         if 'cci' in required_indicators:

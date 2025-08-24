@@ -197,40 +197,24 @@ def create_performance_plot(plot_data, tickers, strategy_name):
 
 
 async def main():
-    # Bollinger Bands Strategy - Middle Band Bounce with Risk Management
-    # Buy when price crosses above middle band (20-day SMA)
-    # Sell when price crosses below middle band OR hit stop loss/profit taker
+
+
     data = {
-        "tickers": ["AAPL","TSLA","PLTR"],
+        "tickers": ["AAPL"],
         "start_date": "2020-01-01",
         "end_date": "2025-08-12",
         "buy_condition": [
-            {"name": "price", "value": "bb_middle", "operator": "above"}
+            {"name": "stoch_k", "value": 20, "operator": "below"},  # In oversold zone
+            {"name": "stoch_crossover", "value": 0, "operator": "above", "logic": "and"}  # AND %K crosses above %D
         ],
         "sell_condition": [
-            {"name": "price", "value": "bb_middle", "operator": "below"}
+            {"name": "stoch_k", "value": 80, "operator": "above"},  # In overbought zone
+            {"name": "stoch_crossover", "value": 0, "operator": "below", "logic": "and"}  # AND %K crosses below %D
         ],
         "stop_loss": 5,  # Exit if price drops 5% from entry
         "profit_taker": 10  # Exit if price rises 10% from entry
     }
-    
-    # Other Bollinger Bands strategies:
-    # 1. Mean Reversion: Buy at bb_lower, Sell at bb_upper
-    # 2. Breakout: Buy above bb_upper, Sell below bb_middle
-    # 3. Squeeze: Combine with RSI for better signals
-    
-    # ATR Multiplier Strategy Example:
-    # data = {
-    #     "tickers": ["AAPL"],
-    #     "start_date": "2020-01-01",
-    #     "end_date": "2025-08-12",
-    #     "buy_condition": [
-    #         {"name": "price", "value": "atr_upper_2", "operator": "above"}
-    #     ],
-    #     "sell_condition": [
-    #         {"name": "price", "value": "atr_lower_2", "operator": "below"}
-    #     ]
-    # }
+
 
     await testing_strategy(
         data["tickers"],
