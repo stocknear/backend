@@ -88,6 +88,9 @@ with open("json/llm/chat_instruction.txt","r",encoding="utf-8") as file:
 with open("json/llm/options_insight_instruction.txt","r",encoding="utf-8") as file:
     OPTIONS_INSIGHT_INSTRUCTION = file.read()
 
+with open("json/llm/backtesting_instruction.txt","r",encoding="utf-8") as file:
+    BACKTESTING_INSTRUCTION = file.read()
+
 model_settings = ModelSettings(
     tool_choice="auto",
     parallel_tool_calls=True,
@@ -4815,6 +4818,7 @@ TRIGGER_CONFIG = {
     ],
     "@fundamentaldata": FUNDAMENTAL_TOOLS,
     "@stockscreener": [],
+    "@backtesting": [],
     "@warrenbuffet": FUNDAMENTAL_TOOLS,
     "@charliemunger": FUNDAMENTAL_TOOLS,
     "@billackman": FUNDAMENTAL_TOOLS,
@@ -4890,6 +4894,42 @@ async def get_rule_of_list_from_llm(user_query: str) -> list | None:
     except Exception:
         return None
 
+async def create_backtesting_strategy(user_query: str) -> dict | None:
+    """Create a backtesting strategy based on user query and return the parsed strategy."""
+    try:
+        agent = Agent(
+            name="Stocknear AI Agent",
+            instructions=BACKTESTING_INSTRUCTION,
+            model=os.getenv("CHAT_MODEL"),
+            tools=[],
+            model_settings=model_settings
+        )
+
+        formatted_data = f"Create a backtesting strategy based on this information: {user_query}"
+        
+        messages = [
+            {"role": "user", "content": formatted_data}
+        ]
+        
+        today_date = datetime.now().strftime("%Y-%m-%d")
+        date_context = {
+            "role": "system",
+            "content": f"Today's date is {today_date}. Use this for any date-related queries or when referring to current market conditions."
+        }
+        messages = [date_context] + messages
+
+        # Run the agent and get the complete response
+        result = await Runner.run(agent, input=messages)
+        response = json.loads(result.final_output)
+        if not response:
+            print("No response content received")
+            return None
+        return response
+        
+    except Exception as e:
+        print(f"Error in create_backtesting_strategy: {e}")
+        return None
+    
 
 def strip_html(content):
     return BeautifulSoup(content, "html.parser").get_text()
@@ -4980,6 +5020,49 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
         }
         history_messages = [system_msg] + history_messages
 
+    elif matched_trigger == "@backtesting":
+        strategy_data = await create_backtesting_strategy(user_query)
+        tickers = strategy_data['tickers']
+        start_date = strategy_data.get('start_date',"2015-01-01")
+        end_date = strategy_data.get('end_date', datetime.now().strftime("%Y-%m-%d"))
+        buy_conditions = strategy_data.get('buy_condition', [])
+        sell_conditions = strategy_data.get('sell_condition', [])
+        initial_capital = strategy_data.get('initial_capital',100_000)
+        commission = strategy_data.get('commission', 5)/100 #convert percent into decimal
+        stop_loss = strategy_data.get('stop_loss', None)
+        profit_taker = strategy_data.get('profit_taker', None)
+
+        engine = BacktestingEngine(initial_capital=initial_capital, commission=commission)
+
+        try:
+            context = await engine.run(
+                tickers=tickers,
+                buy_conditions=buy_conditions,
+                sell_conditions=sell_conditions,
+                start_date=start_date,
+                end_date=end_date,
+                stop_loss=stop_loss,
+                profit_taker=profit_taker
+            )
+            context.pop('strategy_name', None)
+            context.pop('trade_history', None)
+            context.pop('plot_data', None)
+
+            print(context)
+        except:
+            context = {}
+
+        system_msg = {
+            "role": "system",
+            "content": (
+                f"You are a trading assistant. Analyze the backtesting results carefully. "
+                f"First, clearly list the strategy's buy and sell rules as provided: {json.dumps(strategy_data, indent=2)}. "
+                f"Present the result data of the strategy: {json.dumps(context, indent=2)}. Do not add anything else aftewards."
+            )
+        }
+
+        history_messages = [system_msg] + history_messages
+        
     elif matched_trigger in TRIGGER_TO_INSTRUCTION:
         system_msg = {
             "role": "system",
