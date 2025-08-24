@@ -327,6 +327,78 @@ class CustomRuleEngine:
                 if indicator in psych_data:
                     indicators[indicator] = psych_data[indicator]
         
+        # ROC (Rate of Change)
+        if 'roc' in required_indicators:
+            indicators['roc'] = self.ti.roc(data['close'])
+        
+        # Custom period ROC (e.g., roc_10, roc_20)
+        roc_custom_indicators = [ind for ind in required_indicators if ind.startswith('roc_')]
+        for indicator in roc_custom_indicators:
+            try:
+                window = int(indicator.split('_')[1])
+                indicators[indicator] = self.ti.roc(data['close'], window)
+            except (IndexError, ValueError):
+                pass
+        
+        # TSI (True Strength Index)
+        tsi_indicators = {'tsi', 'tsi_signal'}
+        if tsi_indicators.intersection(required_indicators):
+            tsi_data = self.ti.tsi(data['close'])
+            if 'tsi' in required_indicators:
+                indicators['tsi'] = tsi_data['tsi']
+            if 'tsi_signal' in required_indicators:
+                indicators['tsi_signal'] = tsi_data['signal']
+        
+        # Custom period TSI (e.g., tsi_13_25_13)
+        tsi_custom_indicators = [ind for ind in required_indicators if ind.startswith('tsi_') and ind != 'tsi_signal']
+        for indicator in tsi_custom_indicators:
+            try:
+                parts = indicator.split('_')
+                if len(parts) >= 4:
+                    fast = int(parts[1])
+                    slow = int(parts[2])
+                    signal = int(parts[3])
+                    tsi_data = self.ti.tsi(data['close'], fast, slow, signal)
+                    indicators[indicator] = tsi_data['tsi']
+                    indicators[f'{indicator}_signal'] = tsi_data['signal']
+            except (IndexError, ValueError):
+                pass
+        
+        # Aroon Indicator
+        aroon_indicators = {'aroon_up', 'aroon_down', 'aroon_oscillator'}
+        if aroon_indicators.intersection(required_indicators):
+            aroon_data = self.ti.aroon(data['high'], data['low'])
+            if 'aroon_up' in required_indicators:
+                indicators['aroon_up'] = aroon_data['aroon_up']
+            if 'aroon_down' in required_indicators:
+                indicators['aroon_down'] = aroon_data['aroon_down']
+            if 'aroon_oscillator' in required_indicators:
+                indicators['aroon_oscillator'] = aroon_data['aroon_oscillator']
+        
+        # Custom period Aroon (e.g., aroon_up_14, aroon_down_14)
+        aroon_custom_indicators = [ind for ind in required_indicators if ind.startswith('aroon_') and 
+                                  ind not in ['aroon_up', 'aroon_down', 'aroon_oscillator']]
+        if aroon_custom_indicators:
+            # Group by window period
+            aroon_windows = set()
+            for ind in aroon_custom_indicators:
+                try:
+                    parts = ind.split('_')
+                    if len(parts) >= 3:
+                        window = int(parts[2])
+                        aroon_windows.add(window)
+                except (IndexError, ValueError):
+                    pass
+            
+            for window in aroon_windows:
+                aroon_data = self.ti.aroon(data['high'], data['low'], window)
+                if f'aroon_up_{window}' in required_indicators:
+                    indicators[f'aroon_up_{window}'] = aroon_data['aroon_up']
+                if f'aroon_down_{window}' in required_indicators:
+                    indicators[f'aroon_down_{window}'] = aroon_data['aroon_down']
+                if f'aroon_oscillator_{window}' in required_indicators:
+                    indicators[f'aroon_oscillator_{window}'] = aroon_data['aroon_oscillator']
+        
         self.indicators = indicators
         return indicators
 

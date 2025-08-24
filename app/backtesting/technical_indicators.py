@@ -374,3 +374,63 @@ class TechnicalIndicators:
         })
         
         return result
+
+    @staticmethod
+    def roc(prices: pd.Series, window: int = 12) -> pd.Series:
+        """Rate of Change - Momentum oscillator measuring percent change"""
+        roc = ((prices - prices.shift(window)) / prices.shift(window)) * 100
+        return roc
+
+    @staticmethod
+    def tsi(prices: pd.Series, fast: int = 13, slow: int = 25, signal: int = 13) -> Dict[str, pd.Series]:
+        """True Strength Index - Double-smoothed momentum oscillator"""
+        # Calculate price change
+        price_change = prices.diff()
+        
+        # Calculate absolute price change
+        abs_price_change = price_change.abs()
+        
+        # First smoothing (slow EMA)
+        ema_slow_pc = price_change.ewm(span=slow, adjust=False).mean()
+        ema_slow_apc = abs_price_change.ewm(span=slow, adjust=False).mean()
+        
+        # Second smoothing (fast EMA)
+        double_smoothed_pc = ema_slow_pc.ewm(span=fast, adjust=False).mean()
+        double_smoothed_apc = ema_slow_apc.ewm(span=fast, adjust=False).mean()
+        
+        # Calculate TSI
+        with np.errstate(divide='ignore', invalid='ignore'):
+            tsi_line = 100 * (double_smoothed_pc / double_smoothed_apc)
+            tsi_line = tsi_line.replace([np.inf, -np.inf], np.nan)
+        
+        # Calculate signal line
+        signal_line = tsi_line.ewm(span=signal, adjust=False).mean()
+        
+        return {
+            'tsi': tsi_line,
+            'signal': signal_line
+        }
+
+    @staticmethod
+    def aroon(high: pd.Series, low: pd.Series, window: int = 25) -> Dict[str, pd.Series]:
+        """Aroon Indicator - Identifies trend changes and strength"""
+        # Calculate Aroon Up: ((window - periods since window high) / window) * 100
+        aroon_up = high.rolling(window=window + 1).apply(
+            lambda x: ((window - (window - np.argmax(x))) / window * 100) if len(x) == window + 1 else np.nan,
+            raw=True
+        )
+        
+        # Calculate Aroon Down: ((window - periods since window low) / window) * 100
+        aroon_down = low.rolling(window=window + 1).apply(
+            lambda x: ((window - (window - np.argmin(x))) / window * 100) if len(x) == window + 1 else np.nan,
+            raw=True
+        )
+        
+        # Calculate Aroon Oscillator
+        aroon_oscillator = aroon_up - aroon_down
+        
+        return {
+            'aroon_up': aroon_up,
+            'aroon_down': aroon_down,
+            'aroon_oscillator': aroon_oscillator
+        }

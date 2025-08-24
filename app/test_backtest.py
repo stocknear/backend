@@ -198,44 +198,35 @@ def create_performance_plot(plot_data, tickers, strategy_name):
 
 async def run():
     
-    # Test Standard Deviation Volatility Strategy - TESTING THE FIX
+    # Test ROC (Rate of Change) Strategy
     print("=" * 60)
-    print("VOLATILITY BREAKOUT STRATEGY (STANDARD DEVIATION) - TESTING FIX")
+    print("ROC (RATE OF CHANGE) MOMENTUM STRATEGY TEST")
     print("=" * 60)
     
-    std_data = {
+    roc_data = {
         "tickers": ["AAPL"],
-        "start_date": "2022-01-01", 
+        "start_date": "2023-01-01", 
         "end_date": "2024-12-31",
         "buy_condition": [
-            {"name": "std", "value": 2.0, "operator": "above"}  # High volatility environment
+            {"name": "roc", "value": 5, "operator": "above"}  # Strong positive momentum
         ],
         "sell_condition": [
-            {"name": "std", "value": 1.0, "operator": "below"}  # Low volatility - exit
+            {"name": "roc", "value": -2, "operator": "below"}  # Negative momentum
         ],
         "stop_loss": 3,
-        "profit_taker": 6
+        "profit_taker": 8
     }
-    
-    print("Strategy Description:")
-    print("- Buy: Standard deviation above 2.0 (high volatility)")
-    print("- Sell: Standard deviation below 1.0 (low volatility)")
-    print("- Risk Management: 3% stop loss, 6% profit target")
-    print("- Fix: Now properly handles 'std' indicator without underscore")
-    print()
-    
+  
     await testing_strategy(
-        std_data["tickers"],
-        start_date=std_data["start_date"],
-        end_date=std_data["end_date"],
-        buy_conditions=std_data.get("buy_condition", []),
-        sell_conditions=std_data.get("sell_condition", []),
-        stop_loss=std_data.get("stop_loss"),
-        profit_taker=std_data.get("profit_taker")
+        roc_data["tickers"],
+        start_date=roc_data["start_date"],
+        end_date=roc_data["end_date"],
+        buy_conditions=roc_data.get("buy_condition", []),
+        sell_conditions=roc_data.get("sell_condition", []),
+        stop_loss=roc_data.get("stop_loss"),
+        profit_taker=roc_data.get("profit_taker")
     )
     
-    return  # Exit early to only test std fix
-
     
 
 async def main():
