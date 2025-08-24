@@ -146,6 +146,19 @@ class CustomRuleEngine:
         # OBV
         if 'obv' in required_indicators:
             indicators['obv'] = self.ti.obv(data['close'], data['volume'])
+            
+        # OBV with moving averages (e.g., obv_sma_10, obv_sma_20)
+        obv_sma_indicators = [ind for ind in required_indicators if ind.startswith('obv_sma_')]
+        if obv_sma_indicators:
+            if 'obv' not in indicators:
+                indicators['obv'] = self.ti.obv(data['close'], data['volume'])
+            
+            for indicator in obv_sma_indicators:
+                try:
+                    window = int(indicator.split('_')[2])
+                    indicators[indicator] = self.ti.sma(indicators['obv'], window)
+                except (IndexError, ValueError):
+                    pass
         
         # VWAP
         if 'vwap' in required_indicators:
