@@ -197,36 +197,46 @@ def create_performance_plot(plot_data, tickers, strategy_name):
 
 
 async def run():
-  
-    vwap_data = {
+    
+    # Test Standard Deviation Volatility Strategy - TESTING THE FIX
+    print("=" * 60)
+    print("VOLATILITY BREAKOUT STRATEGY (STANDARD DEVIATION) - TESTING FIX")
+    print("=" * 60)
+    
+    std_data = {
         "tickers": ["AAPL"],
         "start_date": "2022-01-01", 
         "end_date": "2024-12-31",
         "buy_condition": [
-            {"name": "price", "value": "vwap", "operator": "above"}  # Price above VWAP
+            {"name": "std", "value": 2.0, "operator": "above"}  # High volatility environment
         ],
         "sell_condition": [
-            {"name": "price", "value": "vwap", "operator": "below"}  # Price below VWAP
+            {"name": "std", "value": 1.0, "operator": "below"}  # Low volatility - exit
         ],
-        "stop_loss": 4,   # 4% stop loss
-        "profit_taker": 8  # 8% profit target
+        "stop_loss": 3,
+        "profit_taker": 6
     }
     
     print("Strategy Description:")
-    print("- Buy: Price crosses above VWAP (institutional support)")
-    print("- Sell: Price crosses below VWAP (institutional resistance)")
-    print("- Risk Management: 4% stop loss, 8% profit target")
+    print("- Buy: Standard deviation above 2.0 (high volatility)")
+    print("- Sell: Standard deviation below 1.0 (low volatility)")
+    print("- Risk Management: 3% stop loss, 6% profit target")
+    print("- Fix: Now properly handles 'std' indicator without underscore")
     print()
     
     await testing_strategy(
-        vwap_data["tickers"],
-        start_date=vwap_data["start_date"], 
-        end_date=vwap_data["end_date"],
-        buy_conditions=vwap_data.get("buy_condition", []),
-        sell_conditions=vwap_data.get("sell_condition", []),
-        stop_loss=vwap_data.get("stop_loss"),
-        profit_taker=vwap_data.get("profit_taker")
+        std_data["tickers"],
+        start_date=std_data["start_date"],
+        end_date=std_data["end_date"],
+        buy_conditions=std_data.get("buy_condition", []),
+        sell_conditions=std_data.get("sell_condition", []),
+        stop_loss=std_data.get("stop_loss"),
+        profit_taker=std_data.get("profit_taker")
     )
+    
+    return  # Exit early to only test std fix
+
+    
 
 async def main():
    await run()

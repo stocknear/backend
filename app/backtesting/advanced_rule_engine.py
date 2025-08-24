@@ -170,6 +170,163 @@ class CustomRuleEngine:
         if 'volume_ma' in required_indicators:
             indicators['volume_ma'] = data['volume'].rolling(window=20).mean()
         
+        # Williams %R
+        williams_r_indicators = [ind for ind in required_indicators if ind.startswith('williams_r')]
+        for indicator in williams_r_indicators:
+            if indicator == 'williams_r':
+                # Default 14-period Williams %R
+                indicators['williams_r'] = self.ti.williams_r(data['high'], data['low'], data['close'])
+            else:
+                # Custom period Williams %R (e.g., williams_r_10)
+                try:
+                    window = int(indicator.split('_')[2])
+                    indicators[indicator] = self.ti.williams_r(data['high'], data['low'], data['close'], window)
+                except (IndexError, ValueError):
+                    pass
+        
+        # Money Flow Index (MFI)
+        mfi_indicators = [ind for ind in required_indicators if ind.startswith('mfi')]
+        for indicator in mfi_indicators:
+            if indicator == 'mfi':
+                # Default 14-period MFI
+                indicators['mfi'] = self.ti.mfi(data['high'], data['low'], data['close'], data['volume'])
+            else:
+                # Custom period MFI (e.g., mfi_10)
+                try:
+                    window = int(indicator.split('_')[1])
+                    indicators[indicator] = self.ti.mfi(data['high'], data['low'], data['close'], data['volume'], window)
+                except (IndexError, ValueError):
+                    pass
+        
+        # Parabolic SAR
+        if 'parabolic_sar' in required_indicators:
+            indicators['parabolic_sar'] = self.ti.parabolic_sar(data['high'], data['low'], data['close'])
+        
+        # Donchian Channels
+        donchian_indicators = {'donchian_upper', 'donchian_middle', 'donchian_lower'}
+        if donchian_indicators.intersection(required_indicators):
+            # Check for custom window (e.g., donchian_upper_50)
+            custom_donchian = [ind for ind in required_indicators if ind.startswith('donchian_') and len(ind.split('_')) > 2]
+            if custom_donchian:
+                # Handle custom windows
+                donchian_windows = set()
+                for ind in custom_donchian:
+                    try:
+                        window = int(ind.split('_')[2])
+                        donchian_windows.add(window)
+                    except (IndexError, ValueError):
+                        pass
+                
+                for window in donchian_windows:
+                    donchian_data = self.ti.donchian_channels(data['high'], data['low'], window)
+                    if f'donchian_upper_{window}' in required_indicators:
+                        indicators[f'donchian_upper_{window}'] = donchian_data['upper']
+                    if f'donchian_middle_{window}' in required_indicators:
+                        indicators[f'donchian_middle_{window}'] = donchian_data['middle']
+                    if f'donchian_lower_{window}' in required_indicators:
+                        indicators[f'donchian_lower_{window}'] = donchian_data['lower']
+            else:
+                # Default 20-period Donchian Channels
+                donchian_data = self.ti.donchian_channels(data['high'], data['low'])
+                if 'donchian_upper' in required_indicators:
+                    indicators['donchian_upper'] = donchian_data['upper']
+                if 'donchian_middle' in required_indicators:
+                    indicators['donchian_middle'] = donchian_data['middle']
+                if 'donchian_lower' in required_indicators:
+                    indicators['donchian_lower'] = donchian_data['lower']
+        
+        # Standard Deviation (Volatility)
+        if 'std' in required_indicators:
+            # Default 20-period standard deviation
+            indicators['std'] = self.ti.standard_deviation(data['close'])
+        
+        # Custom period standard deviation (e.g., std_10, std_30)
+        std_custom_indicators = [ind for ind in required_indicators if ind.startswith('std_')]
+        for indicator in std_custom_indicators:
+            try:
+                window = int(indicator.split('_')[1])
+                indicators[indicator] = self.ti.standard_deviation(data['close'], window)
+            except (IndexError, ValueError):
+                pass
+        
+        # Historical Volatility
+        if 'hist_vol' in required_indicators:
+            # Default 20-period historical volatility
+            indicators['hist_vol'] = self.ti.historical_volatility(data['close'])
+        
+        # Custom period historical volatility (e.g., hist_vol_30)
+        hist_vol_custom_indicators = [ind for ind in required_indicators if ind.startswith('hist_vol_')]
+        for indicator in hist_vol_custom_indicators:
+            try:
+                window = int(indicator.split('_')[2])
+                indicators[indicator] = self.ti.historical_volatility(data['close'], window)
+            except (IndexError, ValueError):
+                pass
+        
+        # Chaikin Volatility
+        if 'chaikin_vol' in required_indicators:
+            # Default Chaikin volatility
+            indicators['chaikin_vol'] = self.ti.chaikin_volatility(data['high'], data['low'])
+        
+        # Custom parameters Chaikin volatility (e.g., chaikin_vol_14_7)
+        chaikin_vol_custom_indicators = [ind for ind in required_indicators if ind.startswith('chaikin_vol_')]
+        for indicator in chaikin_vol_custom_indicators:
+            try:
+                parts = indicator.split('_')
+                if len(parts) >= 3:
+                    window = int(parts[2])
+                    period = int(parts[3]) if len(parts) > 3 else 10
+                    indicators[indicator] = self.ti.chaikin_volatility(data['high'], data['low'], window, period)
+            except (IndexError, ValueError):
+                pass
+        
+        # Pivot Points
+        pivot_indicators = {'pivot', 'pivot_r1', 'pivot_r2', 'pivot_r3', 'pivot_s1', 'pivot_s2', 'pivot_s3'}
+        if pivot_indicators.intersection(required_indicators):
+            pivot_data = self.ti.pivot_points(data['high'], data['low'], data['close'])
+            if 'pivot' in required_indicators:
+                indicators['pivot'] = pivot_data['pivot']
+            if 'pivot_r1' in required_indicators:
+                indicators['pivot_r1'] = pivot_data['r1']
+            if 'pivot_r2' in required_indicators:
+                indicators['pivot_r2'] = pivot_data['r2']
+            if 'pivot_r3' in required_indicators:
+                indicators['pivot_r3'] = pivot_data['r3']
+            if 'pivot_s1' in required_indicators:
+                indicators['pivot_s1'] = pivot_data['s1']
+            if 'pivot_s2' in required_indicators:
+                indicators['pivot_s2'] = pivot_data['s2']
+            if 'pivot_s3' in required_indicators:
+                indicators['pivot_s3'] = pivot_data['s3']
+        
+        # Fibonacci Retracements
+        fib_indicators = {'fib_236', 'fib_382', 'fib_500', 'fib_618', 'fib_786', 'fib_high', 'fib_low'}
+        if fib_indicators.intersection(required_indicators):
+            # Default uptrend fibonacci
+            fib_data = self.ti.fibonacci_retracements(data['high'], data['low'])
+            if 'fib_236' in required_indicators:
+                indicators['fib_236'] = fib_data['fib_236']
+            if 'fib_382' in required_indicators:
+                indicators['fib_382'] = fib_data['fib_382']
+            if 'fib_500' in required_indicators:
+                indicators['fib_500'] = fib_data['fib_500']
+            if 'fib_618' in required_indicators:
+                indicators['fib_618'] = fib_data['fib_618']
+            if 'fib_786' in required_indicators:
+                indicators['fib_786'] = fib_data['fib_786']
+            if 'fib_high' in required_indicators:
+                indicators['fib_high'] = fib_data['fib_high']
+            if 'fib_low' in required_indicators:
+                indicators['fib_low'] = fib_data['fib_low']
+        
+        # Psychological Levels
+        psych_indicators = [ind for ind in required_indicators if ind.startswith('psych_')]
+        if psych_indicators:
+            psych_data = self.ti.psychological_levels(data['close'])
+            for indicator in psych_indicators:
+                if indicator in psych_data:
+                    indicators[indicator] = psych_data[indicator]
+        
         self.indicators = indicators
         return indicators
 
