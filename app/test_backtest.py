@@ -197,44 +197,32 @@ def create_performance_plot(plot_data, tickers, strategy_name):
 
 
 async def run():
-    """
-    Test Pure On-Balance Volume (OBV) strategy
+
     
-    OBV-Only Strategy Logic:
-    - Buy when: OBV is above its own moving average (rising trend)
-    - Sell when: OBV is below its own moving average (falling trend)
-    
-    This strategy uses ONLY the OBV indicator for all trading decisions.
-    """
-    print("="*60)
-    print("TESTING PURE OBV (ON-BALANCE VOLUME) STRATEGY")
-    print("Using ONLY OBV indicator for buy/sell signals")
-    print("="*60)
-    
-    obv_data = {
+    cci_data = {
         "tickers": ["AAPL"],
         "start_date": "2022-01-01", 
         "end_date": "2024-12-31",
         "buy_condition": [
-            {"name": "obv", "value": "obv_sma_20", "operator": "above"}  # OBV above its 20-day SMA (uptrend)
+            {"name": "cci", "value": -100, "operator": "below"}  # CCI below -100 (oversold)
         ],
         "sell_condition": [
-            {"name": "obv", "value": "obv_sma_20", "operator": "below"}  # OBV below its 20-day SMA (downtrend)
+            {"name": "cci", "value": 100, "operator": "above"}  # CCI above 100 (overbought)
         ],
-        "stop_loss": 8,   # 8% stop loss
-        "profit_taker": 15  # 15% profit target
+        "stop_loss": 5,   # 5% stop loss
+        "profit_taker": 10  # 10% profit target
     }
     
-    
     await testing_strategy(
-        obv_data["tickers"],
-        start_date=obv_data["start_date"], 
-        end_date=obv_data["end_date"],
-        buy_conditions=obv_data.get("buy_condition", []),
-        sell_conditions=obv_data.get("sell_condition", []),
-        stop_loss=obv_data.get("stop_loss"),
-        profit_taker=obv_data.get("profit_taker")
+        cci_data["tickers"],
+        start_date=cci_data["start_date"], 
+        end_date=cci_data["end_date"],
+        buy_conditions=cci_data.get("buy_condition", []),
+        sell_conditions=cci_data.get("sell_condition", []),
+        stop_loss=cci_data.get("stop_loss"),
+        profit_taker=cci_data.get("profit_taker")
     )
+
 
 
 
