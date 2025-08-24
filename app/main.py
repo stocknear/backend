@@ -5044,7 +5044,6 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
                 stop_loss=stop_loss,
                 profit_taker=profit_taker
             )
-            context.pop('strategy_name', None)
             context.pop('trade_history', None)
             context.pop('plot_data', None)
 

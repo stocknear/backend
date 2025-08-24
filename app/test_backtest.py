@@ -32,7 +32,6 @@ async def testing_strategy(tickers, start_date="2020-01-01", end_date=None, buy_
     )
     
     if result.get('success'):
-        print(f"Success: {result['strategy_name']}")
         
         # Display risk management parameters if set
         if stop_loss or profit_taker:
@@ -153,7 +152,7 @@ def create_performance_plot(plot_data, tickers, strategy_name):
         plt.xlabel('Date', fontsize=12, weight='bold')
         plt.ylabel('Return (%)', fontsize=12, weight='bold')
         
-        title = f'Backtesting Results — {strategy_name}'
+        title = f'Backtesting Results'
         
         plt.title(title, fontsize=14, weight='bold', pad=20)
         

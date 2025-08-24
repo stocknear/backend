@@ -61,7 +61,6 @@ class BacktestingEngine:
         if not buy_conditions:
             return {
                 'tickers': [t.upper() for t in tickers] if len(tickers) > 1 else tickers[0].upper(),
-                'strategy': 'custom',
                 'error': 'buy_conditions are required and cannot be empty',
                 'success': False
             }
@@ -69,7 +68,6 @@ class BacktestingEngine:
         if not sell_conditions:
             return {
                 'tickers': [t.upper() for t in tickers] if len(tickers) > 1 else tickers[0].upper(),
-                'strategy': 'custom',
                 'error': 'sell_conditions are required and cannot be empty',
                 'success': False
             }
@@ -93,7 +91,6 @@ class BacktestingEngine:
                 if data.empty:
                     return {
                         'ticker': ticker.upper(),
-                        'strategy': 'custom',
                         'error': f'No historical data available for {ticker}',
                         'success': False
                     }
@@ -102,7 +99,6 @@ class BacktestingEngine:
                 result = await self.run_strategy_backtest(data, strategy, start_date, end_date, ticker)
                 result.update({
                     'ticker': ticker.upper(),
-                    'strategy': 'custom',
                     'success': True,
                     'data_points': len(data)
                 })
@@ -121,7 +117,6 @@ class BacktestingEngine:
                 if not data_dict:
                     return {
                         'tickers': [t.upper() for t in tickers],
-                        'strategy': 'custom',
                         'error': f'No historical data available for any of the tickers: {tickers}',
                         'success': False
                     }
@@ -129,7 +124,6 @@ class BacktestingEngine:
                 # Run multi-ticker backtest
                 result = await self.run_strategy_backtest_multi_ticker(data_dict, strategy, start_date, end_date)
                 result.update({
-                    'strategy': 'custom',
                     'success': True,
                     'data_points': sum(len(df) for df in data_dict.values())
                 })
@@ -144,7 +138,6 @@ class BacktestingEngine:
         except Exception as e:
             return {
                 'tickers': [t.upper() for t in tickers] if len(tickers) > 1 else tickers[0].upper(),
-                'strategy': 'custom',
                 'error': f'Custom backtesting failed: {str(e)}',
                 'success': False
             }
@@ -328,7 +321,6 @@ class BacktestingEngine:
         plot_data = self._prepare_multi_ticker_plot_data(portfolio.portfolio_history, data_dict, spy_benchmark)
         
         result = {
-            'strategy_name': strategy.name,
             'tickers': tickers,
             'period': f"{earliest_date.strftime('%b %d, %Y')} to {latest_date.strftime('%b %d, %Y')}",
             'total_return': round(performance.get('total_return', 0) * 100, 2),
@@ -496,7 +488,6 @@ class BacktestingEngine:
         plot_data = self._prepare_plot_data(portfolio.portfolio_history, prepared_data, spy_benchmark)
         
         result = {
-            'strategy_name': strategy.name,
             'period': f"{prepared_data.index[0].strftime('%b %d, %Y')} to {prepared_data.index[-1].strftime('%b %d, %Y')}",
             'total_return': round(performance.get('total_return', 0) * 100, 2),
             'annual_return': round(performance.get('annual_return', 0) * 100, 2),
