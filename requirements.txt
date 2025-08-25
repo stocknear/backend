@@ -50,3 +50,4 @@ async-openai
 boto3
 selenium
 webdriver_manager
+finra_api_queries

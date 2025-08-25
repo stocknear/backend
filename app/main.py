@@ -4934,6 +4934,34 @@ async def create_backtesting_strategy(user_query: str) -> dict | None:
 def strip_html(content):
     return BeautifulSoup(content, "html.parser").get_text()
 
+def extract_tickers_from_content(content: str) -> list:
+    """Extract ticker symbols from LLM response content"""
+    import re
+    
+    # Create a set of all available symbols from searchbar_data for validation
+    available_symbols = {item['symbol'].upper() for item in searchbar_data if item.get('symbol')}
+    
+    found_tickers = []
+    
+    # Look for ticker symbols in various formats:
+    # 1. HTML links: <a href="/stocks/AAPL">AAPL</a> or <a href="/etf/SPY">SPY</a>
+    link_pattern = r'<a[^>]*href="(?:/stocks/|/etf/)([A-Z]{1,5})"[^>]*>([A-Z]{1,5})</a>'
+    link_matches = re.findall(link_pattern, content, re.IGNORECASE)
+    for match in link_matches:
+        ticker = match[0].upper()
+        if ticker in available_symbols:
+            found_tickers.append(ticker)
+    
+    # 2. Standalone ticker symbols (1-5 uppercase letters, possibly with $ prefix)
+    standalone_pattern = r'\b(?:\$)?([A-Z]{1,5})\b'
+    standalone_matches = re.findall(standalone_pattern, content)
+    for ticker in standalone_matches:
+        if ticker in available_symbols and ticker not in ['THE', 'AND', 'FOR', 'ALL', 'BUT', 'CAN', 'GET', 'HAS', 'HAD', 'HER', 'HIS', 'HOW', 'ITS', 'MAY', 'NEW', 'NOW', 'OLD', 'SEE', 'TWO', 'WHO', 'BOY', 'DID', 'ITS', 'LET', 'OWN', 'SAY', 'SHE', 'TOO', 'USE']:
+            found_tickers.append(ticker)
+    
+    # Remove duplicates while preserving order
+    return list(dict.fromkeys(found_tickers))
+
 async def generate_related_questions(user_query: str, ai_response: str) -> list:
     """Generate 5 related questions based on user query and AI response"""
     try:
@@ -4987,6 +5015,7 @@ Return ONLY a JSON array of 5 question strings, no other text."""
     except Exception as e:
         print(f"Error generating related questions: {e}")
         return []
+
 
 @app.post("/chat")
 async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
