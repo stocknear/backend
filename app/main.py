@@ -4986,46 +4986,66 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
             # Get only essential data for top results
             top_stocks = context.get('matched_stocks', [])[:10]  # Top 10 for display
             
-            # Create minimal stock summaries
+            # Create minimal stock summaries with filter-relevant data
             stock_summaries = []
             for stock in top_stocks:
                 summary = {
                     'symbol': stock.get('symbol'),
-                    'name': stock.get('name', '')[:30],  # Truncate long names
-                    'price': round(stock.get('price', 0), 2),
-                    'marketCap': stock.get('marketCap', 0)
+                    'name': stock.get('name', '')[:25],  # Truncate long names
                 }
                 
-                # Add query-specific metrics
-                query_lower = user_query.lower()
-                if 'short' in query_lower:
-                    summary.update({
-                        'shortFloat%': stock.get('shortFloatPercent'),
-                        'shortRatio': stock.get('shortRatio')
-                    })
-                if 'volume' in query_lower:
-                    summary['avgVolume'] = stock.get('avgVolume')
-                if 'pe' in query_lower or 'ratio' in query_lower:
-                    summary['pe'] = stock.get('pe')
-                if 'dividend' in query_lower:
-                    summary['divYield%'] = stock.get('dividendYield')
-                if 'rsi' in query_lower:
-                    summary['rsi'] = stock.get('rsi')
-                
+                # Add data based on the applied filters
+                for rule in formatted_rules:
+                    rule_name = rule.get('name')
+                    if rule_name and rule_name in stock:
+                        value = stock.get(rule_name)
+                        if value is not None:
+                            summary[rule_name] = value
+                            
                 stock_summaries.append(summary)
+            
+            # Format applied filters for display using ALL_RULES metadata
+            from rule_extractor import ALL_RULES
+            
+            filter_summary = []
+            for rule in formatted_rules:
+                rule_name = rule.get('name', '')
+                condition = rule.get('condition', '')
+                value = rule.get('value', '')
+                
+                # Get rule metadata from ALL_RULES
+                rule_meta = ALL_RULES.get(rule_name, {})
+                label = rule_meta.get('label', rule_name)
+                var_type = rule_meta.get('varType', None)
+                
+                # Format value based on variable type
+                formatted_value = str(value)
+                if var_type == 'percent' or var_type == 'percentSign':
+                    formatted_value = f"{value}%"
+                elif rule_name == 'price':
+                    formatted_value = f"${value}"
+                elif rule_name in ['marketCap', 'volume', 'avgVolume'] and isinstance(value, str):
+                    # Keep string format for values like "10B", "1M"  
+                    formatted_value = value
+                
+                # Create readable filter description
+                filter_summary.append(f"{label} {condition} {formatted_value}")
             
             # Create concise system message
             total_found = context.get('total_matches', 0)
+            filters_applied = " AND ".join(filter_summary)
+            
             system_msg = {
                 "role": "system",
                 "content": (
                     f"Stock screener results: {total_found} total stocks found matching '{user_query}'.\n\n"
+                    f"Applied Filters: {filters_applied}\n\n"
                     f"Top {len(stock_summaries)} results:\n{json.dumps(stock_summaries, indent=1)}\n\n"
                     f"Provide a clear response with:\n"
-                    f"1. Brief explanation of screening criteria used\n" 
-                    f"2. Formatted table/list of top results with key metrics\n"
-                    f"3. Brief analysis of why these stocks match the query\n"
-                    f"Keep response concise and actionable."
+                    f"1. Brief explanation of the {len(formatted_rules)} screening criteria applied\n" 
+                    f"2. Formatted table showing stocks with their filter-relevant metrics\n"
+                    f"3. Brief analysis highlighting why these stocks match the criteria\n"
+                    f"Focus on the filter criteria values rather than generic stock data."
                 )
             }
             
