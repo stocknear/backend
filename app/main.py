@@ -2822,7 +2822,6 @@ fields_to_remove = {'exchange', 'tradeCount', 'description', 'aggressor_ind',"as
 @app.post("/options-flow-feed")
 async def get_options_flow_feed(data: OptionsFlowFeed, api_key: str = Security(get_api_key)):
     order_list = data.orderList
-
     try:
         with open(f"json/options-flow/feed/data.json", 'rb') as file:
             data = orjson.loads(file.read())
@@ -2960,15 +2959,13 @@ async def get_dark_pool_feed(api_key: str = Security(get_api_key)):
     compressed_data = gzip.compress(data)
 
     redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key,60)
+    redis_client.expire(cache_key, 10 * 60)
 
     return StreamingResponse(
         io.BytesIO(compressed_data),
         media_type="application/json",
         headers={"Content-Encoding": "gzip"}
     )
-
-
 
 
 @app.get("/top-analysts")
