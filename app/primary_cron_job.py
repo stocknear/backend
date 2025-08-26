@@ -448,7 +448,7 @@ schedule.every(30).minutes.do(run_threaded, run_cron_industry).tag('industry_job
 schedule.every(8).minutes.do(run_threaded, run_one_day_price).tag('one_day_price_job')
 
 
-schedule.every(30).minutes.do(run_threaded, run_tracker).tag('tracker_job')
+schedule.every(1).hours.do(run_threaded, run_if_not_running(run_tracker, 'tracker_job')).tag('tracker_job')
 
 
 schedule.every(10).minutes.do(run_threaded, run_market_moods).tag('market_moods_job')
@@ -465,7 +465,6 @@ schedule.every(5).minutes.do(run_threaded, run_push_notifications).tag('push_not
 schedule.every(5).minutes.do(run_threaded, run_market_flow).tag('market_flow_job')
 schedule.every(5).minutes.do(run_threaded, run_list).tag('stock_list_job')
 schedule.every(2).minutes.do(run_threaded, run_bot).tag('social_media_bot')
-
 
 
 schedule.every(15).minutes.do(run_threaded, run_dark_pool_level).tag('dark_pool_level_job')
