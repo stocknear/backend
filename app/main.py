@@ -4837,30 +4837,7 @@ TRIGGER_TO_INSTRUCTION = {
     "@cathiewood": generate_wood_instruction,
 }
 
-# Precomputed for efficiency
-KEY_SCREENER_STR = ', '.join(key_screener)
-EXTRACT_RULE_FUNCTION = {
-    "name": "extract_rule_of_list",
-    "description": f"Retrieves stock data based on specified financial criteria. Available metrics: {KEY_SCREENER_STR}. Operators: >, >=, <, <=, ==, !=",
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "rule_of_list": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "metric": {"type": "string"},
-                        "operator": {"type": "string"},
-                        "value": {}
-                    },
-                    "required": ["metric", "operator", "value"]
-                }
-            }
-        },
-        "required": ["rule_of_list"]
-    }
-}
+
 
 def normalize_query(query: str) -> str:
     """Normalize query for case-insensitive matching and handle spaces"""
@@ -4873,23 +4850,6 @@ def get_tools_for_query(user_query: str) -> tuple[list, str | None]:
             return tools, trigger, os.getenv('REASON_CHAT_MODEL')
     return all_tools, None, os.getenv('CHAT_MODEL')
 
-
-async def get_rule_of_list_from_llm(user_query: str) -> list | None:
-    """Efficient rule extraction with pre-defined schema"""
-    try:
-        response = await async_client.chat.completions.create(
-            model=os.getenv("CHAT_MODEL"),
-            messages=[
-                {"role": "system", "content": "Extract stock screening rules from user queries."},
-                {"role": "user", "content": user_query}
-            ],
-            tools=[{"type": "function", "function": EXTRACT_RULE_FUNCTION}],
-            tool_choice="required"
-        )
-        args = response.choices[0].message.tool_calls[0].function.arguments
-        return orjson.loads(args).get("rule_of_list")
-    except Exception:
-        return None
 
 async def create_backtesting_strategy(user_query: str) -> dict | None:
     """Create a backtesting strategy based on user query and return the parsed strategy."""
@@ -5010,12 +4970,73 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
     selected_tools, matched_trigger, selected_model = get_tools_for_query(user_query)
     # Handle special triggers
     if matched_trigger == "@stockscreener":
-        rules = await get_rule_of_list_from_llm(user_query)
-        context = await get_stock_screener(rules)
-        system_msg = {
-            "role": "system",
-            "content": f"Use ONLY these matched stocks: {json.dumps(context['matched_stocks'])}"
-        }
+        # Use enhanced rule extraction and screening
+        from rule_extractor import extract_screener_rules, format_rules_for_screener
+        from stock_screener_python import python_screener
+        
+        try:
+            # Extract rules using complete frontend context
+            extracted_rules = await extract_screener_rules(user_query)
+            formatted_rules = await format_rules_for_screener(extracted_rules)
+            print(extracted_rules)
+            print(formatted_rules)
+            # Screen stocks using the Python screener
+            context = await python_screener.screen(formatted_rules, limit=20)  # Limit to 20 for token efficiency
+            
+            # Get only essential data for top results
+            top_stocks = context.get('matched_stocks', [])[:10]  # Top 10 for display
+            
+            # Create minimal stock summaries
+            stock_summaries = []
+            for stock in top_stocks:
+                summary = {
+                    'symbol': stock.get('symbol'),
+                    'name': stock.get('name', '')[:30],  # Truncate long names
+                    'price': round(stock.get('price', 0), 2),
+                    'marketCap': stock.get('marketCap', 0)
+                }
+                
+                # Add query-specific metrics
+                query_lower = user_query.lower()
+                if 'short' in query_lower:
+                    summary.update({
+                        'shortFloat%': stock.get('shortFloatPercent'),
+                        'shortRatio': stock.get('shortRatio')
+                    })
+                if 'volume' in query_lower:
+                    summary['avgVolume'] = stock.get('avgVolume')
+                if 'pe' in query_lower or 'ratio' in query_lower:
+                    summary['pe'] = stock.get('pe')
+                if 'dividend' in query_lower:
+                    summary['divYield%'] = stock.get('dividendYield')
+                if 'rsi' in query_lower:
+                    summary['rsi'] = stock.get('rsi')
+                
+                stock_summaries.append(summary)
+            
+            # Create concise system message
+            total_found = context.get('total_matches', 0)
+            system_msg = {
+                "role": "system",
+                "content": (
+                    f"Stock screener results: {total_found} total stocks found matching '{user_query}'.\n\n"
+                    f"Top {len(stock_summaries)} results:\n{json.dumps(stock_summaries, indent=1)}\n\n"
+                    f"Provide a clear response with:\n"
+                    f"1. Brief explanation of screening criteria used\n" 
+                    f"2. Formatted table/list of top results with key metrics\n"
+                    f"3. Brief analysis of why these stocks match the query\n"
+                    f"Keep response concise and actionable."
+                )
+            }
+            
+        except Exception as e:
+            print(f"Screener error: {e}")
+            # Fallback message
+            system_msg = {
+                "role": "system", 
+                "content": f"Unable to process stock screening query: '{user_query}'. Please try a simpler query like 'most shorted stocks below $10' or 'large cap tech stocks'."
+            }
+        
         history_messages = [system_msg] + history_messages
 
     elif matched_trigger == "@backtesting":
