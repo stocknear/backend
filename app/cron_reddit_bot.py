@@ -552,8 +552,8 @@ def congress_trading():
 
 
 def main():
-    options_flow()
-    dark_pool_flow()
+    #options_flow()
+    #dark_pool_flow()
     analyst_report()
     #congress_trading()
     recent_earnings()
