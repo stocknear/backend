@@ -205,7 +205,7 @@ listOfRelevantCountries = [
   "Yemen",
   "Zambia",
   "Zimbabwe",
-];
+]
 
 industryList = [
   "Steel",
@@ -367,8 +367,20 @@ industryList = [
   "Independent Power Producers",
   "Diversified Utilities",
   "General Utilities",
-];
-# Complete allRules definition from frontend (from the user's message)
+]
+SECTOR_LIST = [
+    "Basic Materials",
+    "Communication Services",
+    "Consumer Cyclical",
+    "Consumer Defensive",
+    "Energy",
+    "Financial Services",
+    "Healthcare",
+    "Industrials",
+    "Real Estate",
+    "Technology",
+    "Utilities",
+]
 ALL_RULES = {
     "avgVolume": {
         "label": "Average Volume",

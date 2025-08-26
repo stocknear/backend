@@ -1,414 +1,752 @@
-"""
-Enhanced Stock Screener Engine
-Handles complex temporal and conditional queries for stock screening
-"""
-
-import asyncio
-import aiofiles
-import orjson
-import json
-from datetime import datetime, timedelta, date
-from typing import List, Dict, Any, Optional, Union, Callable, Tuple
-from pathlib import Path
-import operator
 import re
-from dataclasses import dataclass, field
-import numpy as np
+from datetime import datetime, timedelta
+from typing import List, Dict, Any, Optional, Union, Callable
+import json
+from pathlib import Path
+import asyncio
 
-# Define base directory
-BASE_DIR = Path(__file__).parent / "json"
+# Lists from frontend utils (these should match the frontend exactly)
+SECTOR_LIST = [
+    "Basic Materials",
+    "Communication Services",
+    "Consumer Cyclical",
+    "Consumer Defensive",
+    "Energy",
+    "Financial Services",
+    "Healthcare",
+    "Industrials",
+    "Real Estate",
+    "Technology",
+    "Utilities",
+]
 
-# Operators mapping
-OPERATORS = {
-    '>': operator.gt,
-    '>=': operator.ge, 
-    '<': operator.lt,
-    '<=': operator.le,
-    '==': operator.eq,
-    '=': operator.eq,
-    '!=': operator.ne,
-    'above': operator.gt,
-    'below': operator.lt,
-    'over': operator.gt,
-    'under': operator.lt,
-    'between': lambda x, v: v[0] <= x <= v[1] if isinstance(v, (list, tuple)) and len(v) == 2 else False,
-    'exactly': operator.eq,
-    'not': operator.ne,
+INDUSTRY_LIST = [
+  "Steel",
+  "Silver",
+  "Other Precious Metals",
+  "Gold",
+  "Copper",
+  "Aluminum",
+  "Paper, Lumber & Forest Products",
+  "Industrial Materials",
+  "Construction Materials",
+  "Chemicals - Specialty",
+  "Chemicals",
+  "Agricultural Inputs",
+  "Telecommunications Services",
+  "Internet Content & Information",
+  "Publishing",
+  "Broadcasting",
+  "Advertising Agencies",
+  "Entertainment",
+  "Travel Lodging",
+  "Travel Services",
+  "Specialty Retail",
+  "Luxury Goods",
+  "Home Improvement",
+  "Residential Construction",
+  "Department Stores",
+  "Personal Products & Services",
+  "Leisure",
+  "Gambling, Resorts & Casinos",
+  "Furnishings, Fixtures & Appliances",
+  "Restaurants",
+  "Auto - Parts",
+  "Auto - Manufacturers",
+  "Auto - Recreational Vehicles",
+  "Auto - Dealerships",
+  "Apparel - Retail",
+  "Apparel - Manufacturers",
+  "Apparel - Footwear & Accessories",
+  "Packaging & Containers",
+  "Tobacco",
+  "Grocery Stores",
+  "Discount Stores",
+  "Household & Personal Products",
+  "Packaged Foods",
+  "Food Distribution",
+  "Food Confectioners",
+  "Agricultural Farm Products",
+  "Education & Training Services",
+  "Beverages - Wineries & Distilleries",
+  "Beverages - Non-Alcoholic",
+  "Beverages - Alcoholic",
+  "Uranium",
+  "Solar",
+  "Oil & Gas Refining & Marketing",
+  "Oil & Gas Midstream",
+  "Oil & Gas Integrated",
+  "Oil & Gas Exploration & Production",
+  "Oil & Gas Equipment & Services",
+  "Oil & Gas Energy",
+  "Oil & Gas Drilling",
+  "Coal",
+  "Shell Companies",
+  "Investment - Banking & Investment Services",
+  "Insurance - Specialty",
+  "Insurance - Reinsurance",
+  "Insurance - Property & Casualty",
+  "Insurance - Life",
+  "Insurance - Diversified",
+  "Insurance - Brokers",
+  "Financial - Mortgages",
+  "Financial - Diversified",
+  "Financial - Data & Stock Exchanges",
+  "Financial - Credit Services",
+  "Financial - Conglomerates",
+  "Financial - Capital Markets",
+  "Banks - Regional",
+  "Banks - Diversified",
+  "Banks",
+  "Asset Management",
+  "Asset Management - Bonds",
+  "Asset Management - Income",
+  "Asset Management - Leveraged",
+  "Asset Management - Cryptocurrency",
+  "Asset Management - Global",
+  "Medical - Specialties",
+  "Medical - Pharmaceuticals",
+  "Medical - Instruments & Supplies",
+  "Medical - Healthcare Plans",
+  "Medical - Healthcare Information Services",
+  "Medical - Equipment & Services",
+  "Medical - Distribution",
+  "Medical - Diagnostics & Research",
+  "Medical - Devices",
+  "Medical - Care Facilities",
+  "Drug Manufacturers - Specialty & Generic",
+  "Drug Manufacturers - General",
+  "Biotechnology",
+  "Waste Management",
+  "Trucking",
+  "Railroads",
+  "Aerospace & Defense",
+  "Marine Shipping",
+  "Integrated Freight & Logistics",
+  "Airlines, Airports & Air Services",
+  "General Transportation",
+  "Manufacturing - Tools & Accessories",
+  "Manufacturing - Textiles",
+  "Manufacturing - Miscellaneous",
+  "Manufacturing - Metal Fabrication",
+  "Industrial - Distribution",
+  "Industrial - Specialties",
+  "Industrial - Pollution & Treatment Controls",
+  "Environmental Services",
+  "Industrial - Machinery",
+  "Industrial - Infrastructure Operations",
+  "Industrial - Capital Goods",
+  "Consulting Services",
+  "Business Equipment & Supplies",
+  "Staffing & Employment Services",
+  "Rental & Leasing Services",
+  "Engineering & Construction",
+  "Security & Protection Services",
+  "Specialty Business Services",
+  "Construction",
+  "Conglomerates",
+  "Electrical Equipment & Parts",
+  "Agricultural - Machinery",
+  "Agricultural - Commodities/Milling",
+  "REIT - Specialty",
+  "REIT - Retail",
+  "REIT - Residential",
+  "REIT - Office",
+  "REIT - Mortgage",
+  "REIT - Industrial",
+  "REIT - Hotel & Motel",
+  "REIT - Healthcare Facilities",
+  "REIT - Diversified",
+  "Real Estate - Services",
+  "Real Estate - Diversified",
+  "Real Estate - Development",
+  "Real Estate - General",
+  "Information Technology Services",
+  "Hardware, Equipment & Parts",
+  "Computer Hardware",
+  "Electronic Gaming & Multimedia",
+  "Software - Services",
+  "Software - Infrastructure",
+  "Software - Application",
+  "Semiconductors",
+  "Media & Entertainment",
+  "Communication Equipment",
+  "Technology Distributors",
+  "Consumer Electronics",
+  "Renewable Utilities",
+  "Regulated Water",
+  "Regulated Gas",
+  "Regulated Electric",
+  "Independent Power Producers",
+  "Diversified Utilities",
+  "General Utilities",
+]
+
+COUNTRIES_LIST = [
+  "Afghanistan",
+  "Albania",
+  "Algeria",
+  "Andorra",
+  "Angola",
+  "Antigua and Barbuda",
+  "Argentina",
+  "Armenia",
+  "Australia",
+  "Austria",
+  "Azerbaijan",
+  "Bahamas",
+  "Bahrain",
+  "Bangladesh",
+  "Barbados",
+  "Belarus",
+  "Belgium",
+  "Belize",
+  "Benin",
+  "Bhutan",
+  "Bolivia",
+  "Bosnia and Herzegovina",
+  "Botswana",
+  "Brazil",
+  "Brunei",
+  "Bulgaria",
+  "Burkina Faso",
+  "Burundi",
+  "Cabo Verde",
+  "Cambodia",
+  "Cameroon",
+  "Canada",
+  "Central African Republic",
+  "Chad",
+  "Chile",
+  "China",
+  "Colombia",
+  "Comoros",
+  "Congo (Congo-Brazzaville)",
+  "Costa Rica",
+  "Croatia",
+  "Cuba",
+  "Cyprus",
+  "Czechia (Czech Republic)",
+  "Democratic Republic of the Congo",
+  "Denmark",
+  "Djibouti",
+  "Dominica",
+  "Dominican Republic",
+  "Ecuador",
+  "Egypt",
+  "El Salvador",
+  "Equatorial Guinea",
+  "Eritrea",
+  "Estonia",
+  "Eswatini (fmr. 'Swaziland')",
+  "Ethiopia",
+  "Fiji",
+  "Finland",
+  "France",
+  "Gabon",
+  "Gambia",
+  "Georgia",
+  "Germany",
+  "Ghana",
+  "Greece",
+  "Grenada",
+  "Guatemala",
+  "Guinea",
+  "Guinea-Bissau",
+  "Guyana",
+  "Haiti",
+  "Holy See",
+  "Honduras",
+  "Hong Kong",
+  "Hungary",
+  "Iceland",
+  "India",
+  "Indonesia",
+  "Iran",
+  "Iraq",
+  "Ireland",
+  "Israel",
+  "Italy",
+  "Jamaica",
+  "Japan",
+  "Jordan",
+  "Kazakhstan",
+  "Kenya",
+  "Kiribati",
+  "Kuwait",
+  "Kyrgyzstan",
+  "Laos",
+  "Latvia",
+  "Lebanon",
+  "Lesotho",
+  "Liberia",
+  "Libya",
+  "Liechtenstein",
+  "Lithuania",
+  "Luxembourg",
+  "Madagascar",
+  "Malawi",
+  "Malaysia",
+  "Maldives",
+  "Mali",
+  "Malta",
+  "Marshall Islands",
+  "Mauritania",
+  "Mauritius",
+  "Mexico",
+  "Micronesia",
+  "Moldova",
+  "Monaco",
+  "Mongolia",
+  "Montenegro",
+  "Morocco",
+  "Mozambique",
+  "Myanmar (formerly Burma)",
+  "Namibia",
+  "Nauru",
+  "Nepal",
+  "Netherlands",
+  "New Zealand",
+  "Nicaragua",
+  "Niger",
+  "Nigeria",
+  "North Korea",
+  "North Macedonia",
+  "Norway",
+  "Oman",
+  "Pakistan",
+  "Palau",
+  "Palestine",
+  "Panama",
+  "Papua New Guinea",
+  "Paraguay",
+  "Peru",
+  "Philippines",
+  "Poland",
+  "Portugal",
+  "Qatar",
+  "Romania",
+  "Russia",
+  "Rwanda",
+  "Saint Kitts and Nevis",
+  "Saint Lucia",
+  "Saint Vincent and the Grenadines",
+  "Samoa",
+  "San Marino",
+  "Sao Tome and Principe",
+  "Saudi Arabia",
+  "Senegal",
+  "Serbia",
+  "Seychelles",
+  "Sierra Leone",
+  "Singapore",
+  "Slovakia",
+  "Slovenia",
+  "Solomon Islands",
+  "Somalia",
+  "South Africa",
+  "South Korea",
+  "South Sudan",
+  "Spain",
+  "Sri Lanka",
+  "Sudan",
+  "Suriname",
+  "Sweden",
+  "Switzerland",
+  "Syria",
+  "Tajikistan",
+  "Tanzania",
+  "Taiwan",
+  "Thailand",
+  "Timor-Leste",
+  "Togo",
+  "Tonga",
+  "Trinidad and Tobago",
+  "Tunisia",
+  "Turkey",
+  "Turkmenistan",
+  "Tuvalu",
+  "Uganda",
+  "Ukraine",
+  "United Arab Emirates",
+  "UK",
+  "United States",
+  "Uruguay",
+  "Uzbekistan",
+  "Vanuatu",
+  "Venezuela",
+  "Vietnam",
+  "Yemen",
+  "Zambia",
+  "Zimbabwe",
+]
+
+def generate_moving_average_conditions():
+    """Generate moving average conditions matching frontend logic"""
+    conditions = {}
+    periods = [20, 50, 100, 200]
+    ma_types = ['ema', 'sma']
+    
+    # Generate conditions for each MA type
+    for ma_type in ma_types:
+        ma_type_upper = ma_type.upper()
+        
+        # Price above MA conditions
+        for period in periods:
+            key = f"Price above {ma_type_upper}{period}"
+            conditions[key] = lambda item, mt=ma_type, p=period: item.get('price', 0) > item.get(f'{mt}{p}', 0)
+        
+        # Price below MA conditions
+        for period in periods:
+            key = f"Price below {ma_type_upper}{period}"
+            conditions[key] = lambda item, mt=ma_type, p=period: item.get('price', 0) < item.get(f'{mt}{p}', 0)
+        
+        # MA cross conditions
+        for i, period1 in enumerate(periods):
+            for j, period2 in enumerate(periods):
+                if i != j:
+                    key = f"{ma_type_upper}{period1} above {ma_type_upper}{period2}"
+                    conditions[key] = lambda item, mt=ma_type, p1=period1, p2=period2: item.get(f'{mt}{p1}', 0) > item.get(f'{mt}{p2}', 0)
+    
+    return conditions
+
+# Generate moving average conditions
+MOVING_AVERAGE_CONDITIONS = {
+    **generate_moving_average_conditions(),
+    "Price > Graham Number": lambda item: item.get('price', 0) > item.get('grahamNumber', 0),
+    "Price < Graham Number": lambda item: item.get('price', 0) < item.get('grahamNumber', 0),
+    "Price > Lynch Fair Value": lambda item: item.get('price', 0) > item.get('lynchFairValue', 0),
+    "Price < Lynch Fair Value": lambda item: item.get('price', 0) < item.get('lynchFairValue', 0),
 }
 
-# Time period mappings
-TIME_PERIODS = {
-    'past_day': 1,
-    'past_week': 7,
-    'past_month': 30,
-    'past_3_months': 90,
-    'past_6_months': 180,
-    'past_year': 365,
-    'past_2_years': 730,
-    'past_5_years': 1825,
-    '1d': 1,
-    '1w': 7,
-    '1m': 30,
-    '3m': 90,
-    '6m': 180,
-    '1y': 365,
-    '2y': 730,
-    '5y': 1825,
-}
-
-@dataclass
-class TemporalCondition:
-    """Represents a time-based condition for stock screening"""
-    metric: str
-    start_condition: Dict[str, Any]  # e.g., {'operator': '<', 'value': 5}
-    end_condition: Dict[str, Any]    # e.g., {'operator': '>', 'value': 5}
-    time_period: str  # e.g., 'past_year'
-    duration_days: Optional[int] = None  # minimum days condition must be met
-    
-@dataclass
-class ScreenerRule:
-    """Enhanced screener rule with support for complex conditions"""
-    metric: str
-    operator: str
-    value: Any
-    rule_type: str = 'simple'  # 'simple', 'temporal', 'compound'
-    temporal_condition: Optional[TemporalCondition] = None
-    sub_rules: List['ScreenerRule'] = field(default_factory=list)
-    logical_operator: str = 'AND'  # 'AND' or 'OR' for compound rules
-
-class StockScreenerEngine:
-    """Enhanced stock screener with temporal and complex query support"""
-    
-    def __init__(self):
-        self.base_dir = BASE_DIR
-        self.stock_data_cache = {}
-        self.historical_data_cache = {}
+def convert_unit_to_value(input_val: Union[str, float, int, List]) -> Any:
+    """
+    Convert units to values exactly matching frontend logic
+    """
+    try:
+        if isinstance(input_val, list):
+            return [convert_unit_to_value(item) for item in input_val]
         
-    async def load_stock_data(self) -> List[Dict]:
-        """Load current stock screener data"""
-        if 'current' in self.stock_data_cache:
-            return self.stock_data_cache['current']
-            
-        file_path = self.base_dir / "stock-screener/data.json"
-        async with aiofiles.open(file_path, 'rb') as file:
-            data = orjson.loads(await file.read())
-            # Filter out OTC stocks
-            filtered_data = [item for item in data if item.get('exchange') != 'OTC']
-            self.stock_data_cache['current'] = filtered_data
-            return filtered_data
-    
-    async def load_historical_prices(self, symbol: str, period: str = 'one-year') -> Optional[List[Dict]]:
-        """Load historical price data for a symbol"""
-        cache_key = f"{symbol}_{period}"
-        if cache_key in self.historical_data_cache:
-            return self.historical_data_cache[cache_key]
+        if isinstance(input_val, (int, float)):
+            return input_val
         
-        # Map period to directory
-        period_map = {
-            'one-week': 'one-week',
-            'one-month': 'one-month', 
-            'six-months': 'six-months',
-            'one-year': 'one-year',
-            'five-years': 'five-years',
-            'max': 'max'
+        if not isinstance(input_val, str):
+            return input_val
+        
+        lower_input = input_val.lower()
+        
+        # Non-numeric values that should be returned as-is
+        non_numeric_values = {
+            "any",
+            *[s.lower() for s in SECTOR_LIST],
+            *[i.lower() for i in INDUSTRY_LIST],
+            *[c.lower() for c in COUNTRIES_LIST],
+            'before market open',
+            'after market close',
+            'quarterly',
+            'monthly',
+            'annual',
+            'semi-annual',
+            "hold",
+            "sell", 
+            "buy",
+            "strong buy",
+            "strong sell",
+            "compliant",
+            "non-compliant",
+            "stock price",
         }
         
-        period_dir = period_map.get(period, 'one-year')
-        file_path = self.base_dir / f"historical-price/{period_dir}/{symbol}.json"
+        if lower_input in non_numeric_values:
+            return input_val
+        
+        # Handle percentage values
+        if input_val.endswith("%"):
+            numeric_value = float(input_val[:-1])
+            return numeric_value  # Frontend doesn't divide by 100
+        
+        # Handle units (B, M, K)
+        units = {'B': 1_000_000_000, 'M': 1_000_000, 'K': 1_000}
+        match = re.match(r'^(-?\d+(?:\.\d+)?)([BMK])?$', input_val)
+        
+        if match:
+            value = float(match.group(1))
+            unit = match.group(2)
+            return value * units.get(unit, 1) if unit else value
+        
+        # Default numeric conversion
+        try:
+            return float(input_val)
+        except ValueError:
+            return input_val
+            
+    except Exception as e:
+        print(f"Error converting value: {input_val}, error: {e}")
+        return input_val
+
+def create_rule_check(rule: Dict, rule_name: str, rule_value: Any) -> Callable:
+    """
+    Create rule checking function matching frontend logic exactly
+    """
+    # Handle 'any' condition quickly
+    if rule.get('value') == 'any':
+        return lambda item: True
+    
+    # Earnings date handling
+    if rule.get('name') == 'earningsDate':
+        return create_earnings_date_check(rule, rule_value)
+    
+    # Categorical field checks
+    categorical_fields = [
+        'analystRating', 'topAnalystRating', 'earningsTime', 'halalStocks', 'score',
+        'sector', 'industry', 'country', 'payoutFrequency'
+    ]
+    
+    if rule.get('name') in categorical_fields:
+        def categorical_check(item):
+            item_value = item.get(rule['name'])
+            if isinstance(rule_value, list):
+                return item_value in rule_value
+            return item_value == rule_value
+        return categorical_check
+    
+    # Moving average field checks
+    moving_average_fields = [
+        'ema20', 'ema50', 'ema100', 'ema200',
+        'sma20', 'sma50', 'sma100', 'sma200',
+        'grahamnumber', 'lynchfairvalue'
+    ]
+    
+    if rule_name in moving_average_fields:
+        def ma_check(item):
+            if isinstance(rule_value, list):
+                return all(
+                    MOVING_AVERAGE_CONDITIONS.get(condition, lambda x: True)(item)
+                    for condition in rule_value
+                )
+            return True
+        return ma_check
+    
+    # Between condition
+    if rule.get('condition') == 'between' and isinstance(rule_value, list):
+        def between_check(item):
+            item_value = item.get(rule['name'])
+            if item_value is None:
+                return False
+                
+            converted_values = [convert_unit_to_value(v) for v in rule_value]
+            min_val, max_val = converted_values
+            
+            # Handle empty/undefined min and max
+            if (min_val in ('', None) and max_val in ('', None)):
+                return True
+            
+            if min_val in ('', None):
+                return item_value < max_val
+            
+            if max_val in ('', None):
+                return item_value > min_val
+            
+            return min_val < item_value < max_val
+        return between_check
+    
+    # Default numeric comparisons
+    def numeric_check(item):
+        item_value = item.get(rule['name'])
+        if item_value is None or rule_value is None:
+            return False
+        
+        condition = rule.get('condition')
         
         try:
-            if file_path.exists():
-                async with aiofiles.open(file_path, 'rb') as file:
-                    data = orjson.loads(await file.read())
-                    self.historical_data_cache[cache_key] = data
-                    return data
-        except Exception as e:
-            print(f"Error loading historical data for {symbol}: {e}")
-        
-        return None
-    
-    async def check_temporal_condition(self, symbol: str, condition: TemporalCondition) -> bool:
-        """Check if a stock meets a temporal condition"""
-        # Determine the period to load based on time_period
-        days = TIME_PERIODS.get(condition.time_period, 365)
-        
-        if days <= 30:
-            period = 'one-month'
-        elif days <= 180:
-            period = 'six-months'
-        elif days <= 365:
-            period = 'one-year'
-        else:
-            period = 'five-years'
-        
-        # Load historical data
-        historical_data = await self.load_historical_prices(symbol, period)
-        if not historical_data:
-            return False
-        
-        # Get relevant time window
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=days)
-        
-        # Filter data to time window
-        relevant_data = []
-        for point in historical_data:
-            if 'date' in point:
-                try:
-                    point_date = datetime.strptime(point['date'], '%Y-%m-%d')
-                    if start_date <= point_date <= end_date:
-                        relevant_data.append(point)
-                except:
-                    continue
-        
-        if not relevant_data:
-            return False
-        
-        # Check temporal condition
-        metric_key = 'close' if condition.metric == 'price' else condition.metric
-        
-        # Find periods where start condition was met
-        start_met_periods = []
-        for i, point in enumerate(relevant_data):
-            value = point.get(metric_key)
-            if value is not None:
-                start_op = OPERATORS.get(condition.start_condition['operator'], operator.eq)
-                if start_op(value, condition.start_condition['value']):
-                    start_met_periods.append(i)
-        
-        if not start_met_periods:
-            return False
-        
-        # Check if end condition was met after start condition
-        for start_idx in start_met_periods:
-            # Look forward from this point
-            for point in relevant_data[start_idx + 1:]:
-                value = point.get(metric_key)
-                if value is not None:
-                    end_op = OPERATORS.get(condition.end_condition['operator'], operator.eq)
-                    if end_op(value, condition.end_condition['value']):
-                        # Check duration requirement if specified
-                        if condition.duration_days:
-                            start_date = datetime.strptime(relevant_data[start_idx]['date'], '%Y-%m-%d')
-                            end_date = datetime.strptime(point['date'], '%Y-%m-%d')
-                            if (end_date - start_date).days >= condition.duration_days:
-                                return True
-                        else:
-                            return True
-        
-        return False
-    
-    def check_simple_rule(self, stock: Dict, rule: ScreenerRule) -> bool:
-        """Check if stock meets a simple screening rule"""
-        metric_value = stock.get(rule.metric)
-        if metric_value is None:
-            return False
-        
-        op = OPERATORS.get(rule.operator, operator.eq)
-        try:
-            return op(metric_value, rule.value)
+            if condition == 'exactly' and item_value != rule_value:
+                return False
+            if condition == 'over' and item_value <= rule_value:
+                return False
+            if condition == 'under' and item_value > rule_value:
+                return False
         except (TypeError, ValueError):
             return False
-    
-    async def check_rule(self, stock: Dict, rule: ScreenerRule) -> bool:
-        """Check if stock meets a screening rule (simple or temporal)"""
-        if rule.rule_type == 'simple':
-            return self.check_simple_rule(stock, rule)
         
-        elif rule.rule_type == 'temporal':
-            if rule.temporal_condition:
-                symbol = stock.get('symbol')
-                if symbol:
-                    return await self.check_temporal_condition(symbol, rule.temporal_condition)
+        return True
+    
+    return numeric_check
+
+def create_earnings_date_check(rule: Dict, rule_value: Any) -> Callable:
+    """Create earnings date check matching frontend logic"""
+    # Get current date in UTC
+    now = datetime.utcnow()
+    today_utc = datetime(now.year, now.month, now.day)
+    
+    def fmt_date(d: datetime) -> str:
+        return d.strftime('%Y-%m-%d')
+    
+    # Pre-compute ranges for each label
+    ranges = {
+        'today': (fmt_date(today_utc), fmt_date(today_utc)),
+        'tomorrow': (
+            fmt_date(today_utc + timedelta(days=1)),
+            fmt_date(today_utc + timedelta(days=1))
+        ),
+        'next 7d': (
+            fmt_date(today_utc),
+            fmt_date(today_utc + timedelta(days=6))
+        ),
+        'next 30d': (
+            fmt_date(today_utc),
+            fmt_date(today_utc + timedelta(days=29))
+        ),
+        'this month': (
+            fmt_date(today_utc.replace(day=1)),
+            fmt_date((today_utc.replace(month=today_utc.month+1) if today_utc.month < 12 else today_utc.replace(year=today_utc.year+1, month=1)).replace(day=1) - timedelta(days=1))
+        ),
+        'next month': (
+            fmt_date((today_utc.replace(month=today_utc.month+1) if today_utc.month < 12 else today_utc.replace(year=today_utc.year+1, month=1)).replace(day=1)),
+            fmt_date((today_utc.replace(month=today_utc.month+2) if today_utc.month < 11 else today_utc.replace(year=today_utc.year+1, month=today_utc.month-10)).replace(day=1) - timedelta(days=1))
+        )
+    }
+    
+    # Handle both single string and array
+    labels = [str(rule_value).strip().lower()] if not isinstance(rule_value, list) else [str(v).strip().lower() for v in rule_value]
+    
+    # Find widest date range
+    min_date = '9999-12-31'
+    max_date = '0000-01-01'
+    
+    for label in labels:
+        if label in ranges:
+            start, end = ranges[label]
+            if start < min_date:
+                min_date = start
+            if end > max_date:
+                max_date = end
+    
+    if min_date == '9999-12-31' or max_date == '0000-01-01':
+        return lambda item: True
+    
+    def earnings_check(item):
+        earnings_date = item.get('earningsDate')
+        if not earnings_date:
             return False
         
-        elif rule.rule_type == 'compound':
-            results = []
-            for sub_rule in rule.sub_rules:
-                result = await self.check_rule(stock, sub_rule)
-                results.append(result)
+        try:
+            # Parse the earnings date
+            if isinstance(earnings_date, str):
+                date_obj = datetime.fromisoformat(earnings_date.replace('Z', '+00:00'))
+            else:
+                date_obj = earnings_date
             
-            if rule.logical_operator == 'AND':
-                return all(results)
-            elif rule.logical_operator == 'OR':
-                return any(results)
-        
-        return False
+            item_date_str = date_obj.strftime('%Y-%m-%d')
+            return min_date <= item_date_str <= max_date
+        except:
+            return False
     
-    async def screen_stocks(
-        self,
-        rules: List[ScreenerRule],
-        sort_by: Optional[str] = None,
-        sort_order: str = 'desc',
-        limit: int = 100
-    ) -> Dict[str, Any]:
-        """Screen stocks based on provided rules"""
-        # Load current stock data
-        stocks = await self.load_stock_data()
+    return earnings_check
+
+async def filter_stock_screener_data(stock_screener_data: List[Dict], rule_of_list: List[Dict]) -> List[Dict]:
+    """
+    Filter stock screener data exactly matching frontend logic
+    """
+    # Early return if no data or no rules
+    if not stock_screener_data or not rule_of_list:
+        return stock_screener_data or []
+    
+    # Precompile rule conditions
+    compiled_rules = []
+    for rule in rule_of_list:
+        rule_name = rule.get('name', '').lower()
+        rule_value = convert_unit_to_value(rule.get('value'))
         
-        # Filter stocks based on rules
-        matched_stocks = []
+        compiled_rules.append({
+            **rule,
+            'compiledCheck': create_rule_check(rule, rule_name, rule_value)
+        })
+    
+    # Filter data using compiled rules
+    filtered_data = []
+    for item in stock_screener_data:
+        if all(rule['compiledCheck'](item) for rule in compiled_rules):
+            filtered_data.append(item)
+    
+    # Sort by market cap descending (matching frontend)
+    filtered_data.sort(key=lambda x: (x.get('marketCap') is None, x.get('marketCap', 0)), reverse=True)
+    
+    return filtered_data
+
+class PythonStockScreener:
+    """Python version of the stock screener matching frontend behavior exactly"""
+    
+    def __init__(self, data_path: Optional[str] = None):
+        self.data_path = Path(data_path) if data_path else Path(__file__).parent / "json" / "stock-screener" / "data.json"
+        self.stock_data = None
+    
+    async def load_data(self):
+        """Load stock screener data"""
+        if self.stock_data is None:
+            with open(self.data_path, 'r') as f:
+                data = json.load(f)
+                # Filter out OTC stocks like frontend
+                self.stock_data = [item for item in data if item.get('exchange') != 'OTC']
+        return self.stock_data
+    
+    async def screen(self, rules: List[Dict], limit: Optional[int] = None) -> Dict:
+        """Screen stocks using the provided rules"""
+        stock_data = await self.load_data()
         
-        # Process in batches for better performance with async operations
-        batch_size = 50
-        for i in range(0, len(stocks), batch_size):
-            batch = stocks[i:i + batch_size]
-            
-            # Check each stock in parallel
-            tasks = []
-            for stock in batch:
-                async def check_stock(s):
-                    for rule in rules:
-                        if not await self.check_rule(s, rule):
-                            return None
-                    return s
-                
-                tasks.append(check_stock(stock))
-            
-            results = await asyncio.gather(*tasks)
-            matched_stocks.extend([r for r in results if r is not None])
+        # Convert rules to match expected format
+        formatted_rules = []
+        for rule in rules:
+            # Handle both old and new rule formats
+            if isinstance(rule, dict):
+                # If it's already in the right format, use it
+                if 'name' in rule and rule.get('value') is not None:
+                    formatted_rules.append(rule)
+                # Convert from simple format
+                elif 'metric' in rule and rule.get('value') is not None:
+                    formatted_rules.append({
+                        'name': rule.get('metric'),
+                        'value': rule.get('value'),
+                        'condition': rule.get('operator', 'over').replace('>', 'over').replace('<', 'under').replace('==', 'exactly')
+                    })
         
-        # Sort if requested
-        if sort_by and matched_stocks and sort_by in matched_stocks[0]:
-            matched_stocks.sort(
-                key=lambda x: (x.get(sort_by) is None, x.get(sort_by)),
-                reverse=(sort_order.lower() == 'desc')
-            )
+        # Filter the data
+        filtered_data = await filter_stock_screener_data(stock_data, formatted_rules)
         
-        # Apply limit
-        if limit:
-            matched_stocks = matched_stocks[:limit]
-        
-        # Format results
-        formatted_results = []
-        for stock in matched_stocks:
-            result = {
-                'symbol': stock.get('symbol'),
-                'name': stock.get('name'),
-                'price': stock.get('price'),
-                'marketCap': stock.get('marketCap'),
-                'exchange': stock.get('exchange'),
-                'sector': stock.get('sector'),
-                'industry': stock.get('industry'),
-            }
-            
-            # Add requested metrics
-            for rule in rules:
-                if rule.metric in stock:
-                    result[rule.metric] = stock[rule.metric]
-            
-            formatted_results.append(result)
+        # Apply limit if specified
+        if limit and limit > 0:
+            filtered_data = filtered_data[:limit]
         
         return {
-            'matched_stocks': formatted_results,
-            'total_matches': len(formatted_results),
+            'matched_stocks': filtered_data,
+            'total_matches': len(filtered_data),
+            'original_data_length': len(stock_data),
             'query_time': datetime.now().isoformat()
         }
-    
-    def parse_natural_language_query(self, query: str) -> List[ScreenerRule]:
-        """Parse natural language query into screener rules"""
-        rules = []
-        query_lower = query.lower()
-        
-        # Example patterns for temporal queries
-        temporal_patterns = [
-            # Pattern: "moved from below X to above Y"
-            (r'moved from below \$?(\d+(?:\.\d+)?)\s*(?:per share)?\s*to above \$?(\d+(?:\.\d+)?)', 'price_movement'),
-            # Pattern: "crossed above/below X"
-            (r'crossed (above|below) \$?(\d+(?:\.\d+)?)', 'price_cross'),
-            # Pattern: "increased/decreased by X%"
-            (r'(increased|decreased) by (\d+(?:\.\d+)?)%', 'percentage_change'),
-        ]
-        
-        # Check for temporal patterns
-        for pattern, pattern_type in temporal_patterns:
-            match = re.search(pattern, query_lower)
-            if match:
-                if pattern_type == 'price_movement':
-                    below_value = float(match.group(1))
-                    above_value = float(match.group(2))
-                    
-                    # Determine time period
-                    time_period = 'past_year'  # default
-                    for period_key, days in TIME_PERIODS.items():
-                        if period_key.replace('_', ' ') in query_lower:
-                            time_period = period_key
-                            break
-                    
-                    # Check for duration requirement
-                    duration_match = re.search(r'for (?:at least )?(\d+) days?', query_lower)
-                    duration_days = int(duration_match.group(1)) if duration_match else 1
-                    
-                    temporal_condition = TemporalCondition(
-                        metric='price',
-                        start_condition={'operator': '<', 'value': below_value},
-                        end_condition={'operator': '>', 'value': above_value},
-                        time_period=time_period,
-                        duration_days=duration_days
-                    )
-                    
-                    rules.append(ScreenerRule(
-                        metric='price',
-                        operator='temporal',
-                        value=None,
-                        rule_type='temporal',
-                        temporal_condition=temporal_condition
-                    ))
-        
-        # Add current price constraint if mentioned
-        if 'current price' in query_lower:
-            price_match = re.search(r'current price\s*(above|below|over|under|between)?\s*\$?(\d+(?:\.\d+)?)', query_lower)
-            if price_match:
-                op = price_match.group(1) or '>'
-                value = float(price_match.group(2))
-                rules.append(ScreenerRule(
-                    metric='price',
-                    operator=op,
-                    value=value,
-                    rule_type='simple'
-                ))
-        
-        # Add market cap constraints
-        if 'market cap' in query_lower or 'billion' in query_lower or 'million' in query_lower:
-            cap_match = re.search(r'(\d+(?:\.\d+)?)\s*(billion|million)', query_lower)
-            if cap_match:
-                value = float(cap_match.group(1))
-                multiplier = 1e9 if cap_match.group(2) == 'billion' else 1e6
-                rules.append(ScreenerRule(
-                    metric='marketCap',
-                    operator='>',
-                    value=value * multiplier,
-                    rule_type='simple'
-                ))
-        
-        # Add volume constraints
-        if 'volume' in query_lower:
-            vol_match = re.search(r'volume\s*(above|over|greater than)?\s*(\d+(?:\.\d+)?)\s*(million|k)?', query_lower)
-            if vol_match:
-                value = float(vol_match.group(2))
-                if vol_match.group(3) == 'million':
-                    value *= 1e6
-                elif vol_match.group(3) == 'k':
-                    value *= 1e3
-                rules.append(ScreenerRule(
-                    metric='avgVolume',
-                    operator='>',
-                    value=value,
-                    rule_type='simple'
-                ))
-        
-        # Add sector/industry filters
-        sectors = ['technology', 'healthcare', 'financial', 'energy', 'consumer', 'industrial']
-        for sector in sectors:
-            if sector in query_lower:
-                rules.append(ScreenerRule(
-                    metric='sector',
-                    operator='==',
-                    value=sector.capitalize(),
-                    rule_type='simple'
-                ))
-        
-        return rules
 
-# Export the engine
-screener_engine = StockScreenerEngine()
+# Create global instance
+python_screener = PythonStockScreener()
+
+
+#Test mode
+if __name__ == "__main__":
+    rules = [
+        {
+            "condition": "",
+            "name": "sector",
+            "value": ["Industrials"]
+        },
+        {
+            "condition": "over",
+            "name": "change3M",
+            "value": "30"
+        }
+    ]
+
+    async def main():
+        result = await python_screener.screen(rules, limit=20)
+        print(result)
+
+    asyncio.run(main())
+
+# Export main functions
+__all__ = ['python_screener', 'filter_stock_screener_data', 'convert_unit_to_value', 'create_rule_check']

@@ -56,7 +56,8 @@ from bs4 import BeautifulSoup
 from collections import Counter
 
 from backtesting.backtest_engine import BacktestingEngine
-
+from rule_extractor import extract_screener_rules, format_rules_for_screener
+from stock_screener_engine import python_screener
 
 
 # DB constants & context manager
@@ -4970,16 +4971,10 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
     selected_tools, matched_trigger, selected_model = get_tools_for_query(user_query)
     # Handle special triggers
     if matched_trigger == "@stockscreener":
-        # Use enhanced rule extraction and screening
-        from rule_extractor import extract_screener_rules, format_rules_for_screener
-        from stock_screener_python import python_screener
-        
         try:
             # Extract rules using complete frontend context
             extracted_rules = await extract_screener_rules(user_query)
             formatted_rules = await format_rules_for_screener(extracted_rules)
-            print(extracted_rules)
-            print(formatted_rules)
             # Screen stocks using the Python screener
             context = await python_screener.screen(formatted_rules, limit=20)  # Limit to 20 for token efficiency
             
