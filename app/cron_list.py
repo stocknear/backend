@@ -101,17 +101,24 @@ async def get_etf_holding():
             # Load holdings data from the SQL query result
             data = orjson.loads(df['holding'].iloc[0])
             last_update = data[0]['updated'][0:10]
-            # Rename 'asset' to 'symbol' and keep other keys the same
-            res = [
+            
+            # Prepare initial holdings
+            raw_res = [
                 {
                     'symbol': item.get('asset', None),
                     'name': item.get('name', None).capitalize() if item.get('name') else None,
                     'weightPercentage': item.get('weightPercentage', None),
-                    'sharesNumber': item.get('marketValue', None) if not item.get('asset') and item.get('sharesNumber') == 0 else item.get('sharesNumber', None)
+                    'sharesNumber': (
+                        item.get('marketValue', None)
+                        if not item.get('asset') and item.get('sharesNumber') == 0
+                        else item.get('sharesNumber', None)
+                    )
                 }
-                for item in data if item.get('marketValue', 0) >= 0 and item.get('weightPercentage', 0) > 0]
+                for item in data
+                if item.get('marketValue', 0) >= 0 and item.get('weightPercentage', 0) > 0
+            ]
 
-            for item in res:
+            for item in raw_res:
                 try:
                     symbol = item['symbol']
 
@@ -121,19 +128,39 @@ async def get_etf_holding():
                         item['name'] = 'Bitcoin'
 
                     quote_data = await get_quote_data(item['symbol'])
-                    item['price'] = round(quote_data.get('price'), 2) if quote_data else None
-                    item['changesPercentage'] = round(quote_data.get('changesPercentage'), 2) if quote_data else None
-                    item['name'] = quote_data.get('name') if quote_data else item['name']
 
-                except:
+                    if quote_data:
+                        price = quote_data.get('price')
+                        changes = quote_data.get('changesPercentage')
+
+                        # Skip the whole element if price is None
+                        if price is None or changes is None:
+                            continue  
+
+                        # Otherwise add valid fields
+                        item['price'] = round(price, 2)
+                        if changes is not None:
+                            item['changesPercentage'] = round(changes, 2)
+
+                        if quote_data.get('name'):
+                            item['name'] = quote_data['name']
+
+                        # Round weightPercentage if available
+                        item['weightPercentage'] = (
+                            round(item.get('weightPercentage'), 2)
+                            if item['weightPercentage']
+                            else None
+                        )
+
+                        res.append(item)
+
+                except Exception:
                     pass
-                
-                # Assign price and changesPercentage if available, otherwise set to None
-                item['weightPercentage'] = round(item.get('weightPercentage'), 2) if item['weightPercentage'] else None
 
-        except Exception as e:
+        except Exception:
             last_update = None
             res = []
+
         # Save results to a file if there's data to write
         if res:
             for rank, item in enumerate(res, 1):
@@ -144,6 +171,7 @@ async def get_etf_holding():
     
     # Close the database connection
     etf_con.close()
+
 
 
 
