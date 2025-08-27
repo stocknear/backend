@@ -693,14 +693,17 @@ class PythonStockScreener:
         """Screen stocks using the provided rules"""
         stock_data = await self.load_data()
         
-        # Convert rules to match expected format
+        # Convert rules to match expected format and collect rule names
         formatted_rules = []
+        rule_names = set()
+        
         for rule in rules:
             # Handle both old and new rule formats
             if isinstance(rule, dict):
                 # If it's already in the right format, use it
                 if 'name' in rule and rule.get('value') is not None:
                     formatted_rules.append(rule)
+                    rule_names.add(rule.get('name'))
                 # Convert from simple format
                 elif 'metric' in rule and rule.get('value') is not None:
                     formatted_rules.append({
@@ -708,16 +711,32 @@ class PythonStockScreener:
                         'value': rule.get('value'),
                         'condition': rule.get('operator', 'over').replace('>', 'over').replace('<', 'under').replace('==', 'exactly')
                     })
+                    rule_names.add(rule.get('metric'))
         
         # Filter the data
         filtered_data = await filter_stock_screener_data(stock_data, formatted_rules)
         
+        # Always include these essential fields
+        essential_fields = {'symbol', 'name', 'price', 'changesPercentage', 'marketCap', 'volume'}
+        
+        # Combine essential fields with rule-based fields
+        output_fields = essential_fields | rule_names
+        
+        # Filter each stock item to include only relevant fields
+        filtered_output = []
+        for stock in filtered_data:
+            filtered_stock = {}
+            for field in output_fields:
+                if field in stock:
+                    filtered_stock[field] = stock[field]
+            filtered_output.append(filtered_stock)
+        
         # Apply limit if specified
         if limit and limit > 0:
-            filtered_data = filtered_data[:limit]
+            filtered_output = filtered_output[:limit]
         
         return {
-            'matched_stocks': filtered_data,
+            'matched_stocks': filtered_output,
             'total_matches': len(filtered_data),
             'original_data_length': len(stock_data),
             'query_time': datetime.now().isoformat()
@@ -728,6 +747,7 @@ python_screener = PythonStockScreener()
 
 
 #Test mode
+'''
 if __name__ == "__main__":
     rules = [
         {
@@ -747,6 +767,6 @@ if __name__ == "__main__":
         print(result)
 
     asyncio.run(main())
-
+'''
 # Export main functions
 __all__ = ['python_screener', 'filter_stock_screener_data', 'convert_unit_to_value', 'create_rule_check']
