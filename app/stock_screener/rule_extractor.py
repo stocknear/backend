@@ -1679,7 +1679,7 @@ async def extract_screener_rules(query: str) -> Dict[str, Any]:
 
 {rules_context}
 
-Extract specific rules that match the user's request. For "most shorted stocks", use shortFloatPercent and shortRatio rules. Always include reasonable minimum market cap for liquidity."""
+Extract only the specific rules that match the user's request. For "most shorted stocks", use shortFloatPercent and shortRatio rules. Only include rules explicitly mentioned or clearly implied by the user."""
 
         response = await async_client.chat.completions.create(
             model=os.getenv("CHAT_MODEL", "gpt-4o-mini"),

@@ -5039,7 +5039,6 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
                     f"Provide a clear response with:\n"
                     f"1. Brief explanation of the {len(formatted_rules)} screening criteria applied\n" 
                     f"2. Formatted table showing stocks with their filter-relevant metrics\n"
-                    f"3. Brief analysis highlighting why these stocks match the criteria\n"
                     f"Focus on the filter criteria values rather than generic stock data."
                 )
             }
@@ -5128,6 +5127,8 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
             tools_called = set()  # Backup tracking of all tools called
             
             # Start generating related questions in parallel - will be populated later
+            # Skip related questions for @stockscreener
+            should_generate_questions = matched_trigger != "@stockscreener"
             related_questions_task = None
             
             def add_source_from_tool(tool_name, tool_args=None):
@@ -5319,7 +5320,7 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
                                 full_content += delta
                                 
                                 # Start related questions generation after we have some content (around 100 chars)
-                                if not related_questions_task and len(full_content.strip()) > 100:
+                                if should_generate_questions and not related_questions_task and len(full_content.strip()) > 100:
                                     related_questions_task = asyncio.create_task(
                                         generate_related_questions(user_query, full_content)
                                     )
@@ -5396,7 +5397,7 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
                                 full_content += delta
                                 
                                 # Start related questions generation if not already started
-                                if not related_questions_task and len(full_content.strip()) > 100:
+                                if should_generate_questions and not related_questions_task and len(full_content.strip()) > 100:
                                     related_questions_task = asyncio.create_task(
                                         generate_related_questions(user_query, full_content)
                                     )
@@ -5421,21 +5422,22 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
                     }) + b"\n"
                 
                 # Get related questions from parallel task or generate if not started
-                try:
-                    if related_questions_task:
-                        # Await the parallel task that was started during streaming
-                        related_questions = await related_questions_task
-                    else:
-                        # Fallback: generate now if task wasn't started (shouldn't happen)
-                        related_questions = await generate_related_questions(user_query, full_content)
-                    
-                    if related_questions:
-                        yield orjson.dumps({
-                            "event": "related_questions",
-                            "questions": related_questions
-                        }) + b"\n"
-                except Exception as e:
-                    print(f"Error generating related questions: {e}")
+                if should_generate_questions:
+                    try:
+                        if related_questions_task:
+                            # Await the parallel task that was started during streaming
+                            related_questions = await related_questions_task
+                        else:
+                            # Fallback: generate now if task wasn't started (shouldn't happen)
+                            related_questions = await generate_related_questions(user_query, full_content)
+                        
+                        if related_questions:
+                            yield orjson.dumps({
+                                "event": "related_questions",
+                                "questions": related_questions
+                            }) + b"\n"
+                    except Exception as e:
+                        print(f"Error generating related questions: {e}")
                     
             except Exception as e:
                 print(f"Streaming error: {e}")
