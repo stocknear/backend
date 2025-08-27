@@ -59,7 +59,6 @@ from backtesting.backtest_engine import BacktestingEngine
 from rule_extractor import extract_screener_rules, format_rules_for_screener
 from stock_screener_engine import python_screener
 
-
 # DB constants & context manager
 API_URL = "http://localhost:8000"
 
@@ -1605,7 +1604,7 @@ async def stock_finder(data: StockScreenerData, api_key: str = Security(get_api_
 async def get_data(data: OptionsScreenerData, api_key: str = Security(get_api_key)):
     # Sort selected dates
     selected_dates = sorted(data.selectedDates)
-
+    
     # Prepare cache key
     cache_key = f"options-screener-data-{selected_dates}"
     cached_result = redis_client.get(cache_key)
@@ -1615,6 +1614,8 @@ async def get_data(data: OptionsScreenerData, api_key: str = Security(get_api_ke
             media_type="application/json",
             headers={"Content-Encoding": "gzip"}
         )
+
+    # Index filtering is now handled client-side
 
     #need to load the data everytime since moneyness is computed every 5 min
 
@@ -1640,6 +1641,8 @@ async def get_data(data: OptionsScreenerData, api_key: str = Security(get_api_ke
                 item for item in options_screener_data 
                 if item.get('expiration') == earliest
             ] if earliest else []
+        
+        # Index filtering is handled client-side for better performance
 
         # Sort filtered data by totalPrem descending
         filtered_data.sort(key=lambda x: x.get("totalPrem", 0), reverse=True)
@@ -1647,8 +1650,6 @@ async def get_data(data: OptionsScreenerData, api_key: str = Security(get_api_ke
     except Exception as e:
         print(f"Error filtering data: {e}")
         filtered_data = []
-
-    print(f"Filtered {len(filtered_data)} items")
 
     # Serialize response including unique_expirations
     payload = {
@@ -1659,7 +1660,7 @@ async def get_data(data: OptionsScreenerData, api_key: str = Security(get_api_ke
     compressed_data = gzip.compress(serialized)
 
     redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 15*60)
+    redis_client.expire(cache_key, 60*60)
 
     return StreamingResponse(
         io.BytesIO(compressed_data),
@@ -2020,6 +2021,54 @@ async def etf_holdings(data: TickerData, api_key: str = Security(get_api_key)):
     redis_client.set(cache_key, compressed_data)
     redis_client.expire(cache_key,60*10)
 
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
+
+@app.post("/refresh-index-cache")
+async def refresh_index_symbols_cache(api_key: str = Security(get_api_key)):
+    """Refresh the in-memory index symbols cache"""
+    try:
+        refresh_index_cache(force=True)
+        return {"message": "Index symbols cache refreshed successfully", "status": "success"}
+    except Exception as e:
+        return {"message": f"Error refreshing cache: {str(e)}", "status": "error"}
+
+@app.get("/index-symbols")
+async def get_index_symbols_endpoint(api_key: str = Security(get_api_key)):
+    """Get all index symbols for client-side filtering"""
+    cache_key = "index-symbols"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
+    
+    with open("json/etf/holding/OEF.json", 'rb') as file:
+        oef_data = orjson.loads(file.read())
+        sp100_symbols = {holding['symbol'] for holding in oef_data.get('holdings', [])}
+        
+    # Load S&P 500 (SPY)
+    with open("json/etf/holding/SPY.json", 'rb') as file:
+        spy_data = orjson.loads(file.read())
+        sp500_symbols = {holding['symbol'] for holding in spy_data.get('holdings', [])}
+                
+    response_data = {
+        "sp100": list(sp100_symbols),
+        "sp500": list(sp500_symbols)
+    }
+    
+    print(response_data)
+    serialized = orjson.dumps(response_data)
+    compressed_data = gzip.compress(serialized)
+    
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 3600 * 24)  # 24 hours
+    
     return StreamingResponse(
         io.BytesIO(compressed_data),
         media_type="application/json",
