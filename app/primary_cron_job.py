@@ -93,6 +93,7 @@ def run_options_jobs():
     now = datetime.now(ny_tz)
     week = now.weekday()
     if week <= 5:
+        run_command(["python3"," cron_unusual_activity.py"])
         run_command(["python3", "cron_options_single_contract.py"])
         run_command(["python3", "cron_options_max_pain.py"])
         run_command(["python3", "cron_options_chain_statistics.py"])
@@ -302,12 +303,12 @@ def run_tracker():
         run_command(["python3", "cron_options_screener.py","update"])
 
 
-    now = datetime.now(ny_tz)
-    week = now.weekday()
-    current_time = now.time()
-    hour = now.hour
-    if week <= 4 and 8 <= hour < 17:
-        run_command(["python3", "cron_unusual_activity.py"])
+    #now = datetime.now(ny_tz)
+    #week = now.weekday()
+    #current_time = now.time()
+    #hour = now.hour
+    #if week <= 4 and 8 <= hour < 17:
+    #    run_command(["python3", "cron_unusual_activity.py"])
 
 
 
@@ -449,7 +450,7 @@ schedule.every(30).minutes.do(run_threaded, run_cron_industry).tag('industry_job
 schedule.every(8).minutes.do(run_threaded, run_one_day_price).tag('one_day_price_job')
 
 
-schedule.every(1).hours.do(run_threaded, run_if_not_running(run_tracker, 'tracker_job')).tag('tracker_job')
+schedule.every(20).minutes.do(run_threaded, run_tracker).tag('tracker_job')
 
 
 schedule.every(10).minutes.do(run_threaded, run_market_moods).tag('market_moods_job')
