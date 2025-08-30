@@ -51,3 +51,4 @@ boto3
 selenium
 webdriver_manager
 finra_api_queries
+fear_and_greed

@@ -214,11 +214,6 @@ def run_one_day_price():
         if datetime_time(9, 30) <= now.time() < datetime_time(16, 30):
             run_command(["python3", "cron_one_day_price.py"])
 
-def run_sec_filings():
-    week = datetime.today().weekday()
-    if week <= 4:
-        run_command(["python3", "cron_sec_filings.py"])
-
 
 def run_analyst_rating():
     week = datetime.today().weekday()
@@ -284,6 +279,7 @@ def run_tracker():
         "cron_reddit_tracker.py",
         "cron_reddit_statistics.py",
         "cron_potus_tracker.py",
+        "cron_fear_and_greed.py",
     ]
     for script in scripts:
         run_command(["python3", script])
