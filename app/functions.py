@@ -2824,6 +2824,30 @@ async def get_ticker_earnings_call_transcripts(
     return results
 
 
+@function_tool
+async def get_fear_and_greed_index() -> Dict[str, Any]:
+    """
+    Retrieves the current Fear & Greed index.
+
+    The index provides a numeric value, a sentiment category, and the timestamp
+    of the latest update, representing market sentiment ranging from fear to greed.
+
+    Returns:
+        Dict[str, Any]: A dictionary containing the current Fear & Greed index:
+            {
+                "value": 64,                # Numeric index value
+                "category": "greed",        # Sentiment category
+                "last_update": "2025-08-29T23:59:42+00:00"  # ISO 8601 timestamp
+            }
+        If the file is missing or malformed, a FileNotFoundError or JSON parsing
+        error may be raised.
+    """
+    base_dir = BASE_DIR / "fear-and-greed/data.json"
+    with open(base_dir, "rb") as file:
+        data = orjson.loads(file.read()).get("current")
+
+    return data
+
 #Testing purposes
-#data = asyncio.run(get_earnings_releases())
+#data = asyncio.run(get_fear_and_greed_index())
 #print(data)
