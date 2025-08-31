@@ -349,6 +349,11 @@ FUNCTION_SOURCE_METADATA = {
         "description": "Filter stocks by financial criteria and metrics",
         "url_pattern": "/stock-screener"
     },
+    "get_fear_and_greed_index": {
+        "name": "Fear & Greed Index",
+        "description": "Track market sentiment based on fear and greed signals",
+        "url_pattern": "/fear-and-greed"
+    },
 }
 
 
