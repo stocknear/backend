@@ -354,6 +354,11 @@ FUNCTION_SOURCE_METADATA = {
         "description": "Track market sentiment based on fear and greed signals",
         "url_pattern": "/fear-and-greed"
     },
+    "get_reddit_tracker": {
+        "name": "Reddit Tracker",
+        "description": "Retrieve trending tickers from WallStreetBets.",
+        "url_pattern": "/reddit-tracker"
+    },
 }
 
 
@@ -2853,6 +2858,52 @@ async def get_fear_and_greed_index() -> Dict[str, Any]:
 
     return data
 
+@function_tool
+async def get_reddit_tracker() -> Dict[str, Any]:
+    """
+    Retrieves WallStreetBets trending tickers for 1 week, 1 month, and 3 months.  
+
+    Each period contains a list of trending tickers with their discussion metrics.  
+
+    Example item:
+        {
+            "symbol": "RBLX",                  # Stock ticker
+            "count": 6,                        # Number of mentions
+            "sentiment": "Bearish",            # Overall sentiment (Bullish/Bearish/Neutral)
+            "weightPercentage": 3.45,          # Relative weight in discussions (%)
+            "name": "Roblox Corporation",      # Company name
+            "price": 123.99,                   # Last traded price
+            "changesPercentage": -0.66,        # Price change percentage
+            "marketCap": 85955687223,          # Market capitalization
+            "assetType": "stocks",             # Asset type
+            "rank": 8                          # Rank among trending tickers
+        }
+
+    Returns:
+        Dict[str, Any]: A dictionary with three keys:
+            {
+                "oneWeek": [ ... top 10 tickers ... ],
+                "oneMonth": [ ... top 10 tickers ... ],
+                "threeMonths": [ ... top 10 tickers ... ]
+            }
+
+        If the file is missing or malformed, a FileNotFoundError or JSON parsing
+        error may be raised.
+    """
+    base_dir = BASE_DIR / "reddit-tracker/wallstreetbets/trending.json"
+    with open(base_dir, "rb") as file:
+        data = orjson.loads(file.read())
+
+        # Remove oneDay key if present
+        data.pop("oneDay", None)
+
+        data['oneWeek'] = data.get('oneWeek', [])[:10]
+        data['oneMonth'] = data.get('oneMonth', [])[:10]
+        data['threeMonths'] = data.get('threeMonths', [])[:10]
+    return data
+
+
+
 #Testing purposes
-#data = asyncio.run(get_fear_and_greed_index())
+#data = asyncio.run(get_reddit_tracker())
 #print(data)
