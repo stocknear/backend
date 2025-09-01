@@ -10,6 +10,7 @@ from GetStartEndDate import GetStartEndDate
 from collections import defaultdict
 import re
 import os
+import numpy as np
 from dotenv import load_dotenv
 load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
@@ -77,6 +78,36 @@ async def get_data(session, date, class_type='sector'):
         data = await response.json()
         return data
 
+def is_outlier(value, threshold=3):
+    """
+    Detect if a value is an outlier using a threshold approach.
+    For percentage changes:
+    - 1-day changes beyond ±50% are considered outliers
+    - 1-year changes beyond ±500% are considered outliers
+    """
+    if value is None:
+        return False
+    
+    # For 1-day changes, filter extreme movements (beyond ±50%)
+    if abs(value) > 50:
+        return True
+    
+    return False
+
+def is_outlier_1y(value):
+    """
+    Detect if a 1-year change is an outlier.
+    1-year changes beyond ±500% are considered outliers
+    """
+    if value is None:
+        return False
+    
+    # For 1-year changes, filter extreme movements (beyond ±500%)
+    if abs(value) > 500:
+        return True
+    
+    return False
+
 def get_each_industry_data():
     industry_data = defaultdict(list)  # Dictionary to store industries and their corresponding stock data
     for stock in stock_screener_data:
@@ -133,12 +164,12 @@ async def run():
         'totalMarketCap': 0.0, 
         'totalDividendYield': 0.0, 
         'totalProfitMargin': 0.0,
-        'totalChange1D': 0.0, 
-        'totalChange1Y': 0.0,
+        'weightedChange1D': 0.0,  # Market-cap weighted 1D change
+        'weightedChange1Y': 0.0,  # Market-cap weighted 1Y change
+        'change1DMarketCap': 0.0,  # Total market cap of stocks with 1D change data
+        'change1YMarketCap': 0.0,  # Total market cap of stocks with 1Y change data
         'peCount': 0, 
         'dividendCount': 0, 
-        'change1DCount': 0, 
-        'change1YCount': 0,
         'profitMarginCount': 0,
     }))
 
@@ -173,15 +204,15 @@ async def run():
                     sector_industry_data[sector][industry]['totalProfitMargin'] += float(profit_margin)
                     sector_industry_data[sector][industry]['profitMarginCount'] += 1
                 
-                # Accumulate 1-month change if available
-                if change_1_day is not None:
-                    sector_industry_data[sector][industry]['totalChange1D'] += float(change_1_day)
-                    sector_industry_data[sector][industry]['change1DCount'] += 1
+                # Calculate market-cap weighted 1-day change (excluding outliers)
+                if change_1_day is not None and market_cap > 0 and not is_outlier(change_1_day):
+                    sector_industry_data[sector][industry]['weightedChange1D'] += float(change_1_day) * float(market_cap)
+                    sector_industry_data[sector][industry]['change1DMarketCap'] += float(market_cap)
                 
-                # Accumulate 1-year change if available
-                if change_1_year is not None:
-                    sector_industry_data[sector][industry]['totalChange1Y'] += float(change_1_year)
-                    sector_industry_data[sector][industry]['change1YCount'] += 1
+                # Calculate market-cap weighted 1-year change (excluding outliers)
+                if change_1_year is not None and market_cap > 0 and not is_outlier_1y(change_1_year):
+                    sector_industry_data[sector][industry]['weightedChange1Y'] += float(change_1_year) * float(market_cap)
+                    sector_industry_data[sector][industry]['change1YMarketCap'] += float(market_cap)
         except Exception as e:
             print(e)
 
@@ -193,7 +224,7 @@ async def run():
             # Sort industries by stock count in descending order
             sorted_industries = sorted(industries.items(), key=lambda x: x[1]['numStocks'], reverse=True)
             
-            # Add sorted industries with averages to the overview for each sector
+            # Add sorted industries with market-cap weighted averages to the overview for each sector
             overview[sector] = [
                 {
                     'industry': industry,
@@ -201,8 +232,8 @@ async def run():
                     'totalMarketCap': data['totalMarketCap'],
                     'avgDividendYield': round((data['totalDividendYield'] / data['dividendCount']),2) if data['dividendCount'] > 0 else None,
                     'profitMargin': round((data['totalProfitMargin'] / data['profitMarginCount']),2) if data['profitMarginCount'] > 0 else None,
-                    'avgChange1D': round((data['totalChange1D'] / data['change1DCount']),2) if data['change1DCount'] > 0 else None,
-                    'avgChange1Y': round((data['totalChange1Y'] / data['change1YCount']),2) if data['change1YCount'] > 0 else None
+                    'avgChange1D': round((data['weightedChange1D'] / data['change1DMarketCap']),2) if data['change1DMarketCap'] > 0 else None,
+                    'avgChange1Y': round((data['weightedChange1Y'] / data['change1YMarketCap']),2) if data['change1YMarketCap'] > 0 else None
                 } for industry, data in sorted_industries
             ]
         except:
@@ -211,15 +242,21 @@ async def run():
     # Assign the P/E values from pe_industry to the overview
     async with aiohttp.ClientSession() as session:
         pe_industry = await get_data(session, date, class_type='industry')
-    for sector, industries in overview.items():
-        for industry_data in industries:
-            industry_name = industry_data['industry']
+    
+    # Check if pe_industry is a valid list
+    if pe_industry and isinstance(pe_industry, list):
+        for sector, industries in overview.items():
+            for industry_data in industries:
+                industry_name = industry_data['industry']
 
-            # Look for a matching industry in pe_industry to assign the P/E ratio
-            matching_pe = next((item['pe'] for item in pe_industry if item['industry'] == industry_name), None)
-            
-            if matching_pe is not None:
-                industry_data['pe'] = round(float(matching_pe), 2)
+                # Look for a matching industry in pe_industry to assign the P/E ratio
+                matching_pe = next((item.get('pe') for item in pe_industry if isinstance(item, dict) and item.get('industry') == industry_name), None)
+                
+                if matching_pe is not None:
+                    try:
+                        industry_data['pe'] = round(float(matching_pe), 2)
+                    except (ValueError, TypeError):
+                        pass
 
     save_as_json(overview, filename = 'overview')
     
@@ -315,7 +352,7 @@ async def run():
         if etf_symbol:
             with open(f"json/quote/{etf_symbol}.json","rb") as file:
                 change_1d = orjson.loads(file.read()).get('changesPercentage', None)
-                print(change_1d)
+                #print(change_1d)
             change_1y = calculate_etf_price_change(etf_symbol, 252)
 
         # Calculate averages and profit margin for the sector
@@ -330,18 +367,24 @@ async def run():
         })
 
 
-    # Assign the P/E values from pe_industry to the overview
+    # Assign the P/E values from pe_sector to the overview
     async with aiohttp.ClientSession() as session:
         pe_sector = await get_data(session, date, class_type='sector')
-    # Loop through sector_overview to update P/E ratios from pe_sector
-    for sector_data in sector_overview:
-        sector_name = sector_data['sector']
+    
+    # Check if pe_sector is a valid list
+    if pe_sector and isinstance(pe_sector, list):
+        # Loop through sector_overview to update P/E ratios from pe_sector
+        for sector_data in sector_overview:
+            sector_name = sector_data['sector']
 
-        # Find the matching sector in pe_sector and assign the P/E ratio
-        matching_pe = next((item['pe'] for item in pe_sector if item['sector'] == sector_name), None)
+            # Find the matching sector in pe_sector and assign the P/E ratio
+            matching_pe = next((item.get('pe') for item in pe_sector if isinstance(item, dict) and item.get('sector') == sector_name), None)
 
-        if matching_pe is not None:
-            sector_data['pe'] = round(float(matching_pe), 2)
+            if matching_pe is not None:
+                try:
+                    sector_data['pe'] = round(float(matching_pe), 2)
+                except (ValueError, TypeError):
+                    pass
     sector_overview = sorted(sector_overview, key= lambda x: x['numStocks'], reverse=True)
     sector_overview = [entry for entry in sector_overview if all(value is not None for value in entry.values())]
     save_as_json(sector_overview, filename='sector-overview')
