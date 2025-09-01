@@ -344,15 +344,100 @@ def get_30_day_average_data(sector_ticker):
     return avg_data
 
 
+def get_sector_flow_analysis():
+    """Calculate premium flow by sector using SP500 tickers and stockdeck sector data"""
+    sector_list = [
+        "Basic Materials",
+        "Communication Services", 
+        "Consumer Cyclical",
+        "Consumer Defensive",
+        "Energy",
+        "Financial Services",
+        "Healthcare",
+        "Industrials",
+        "Real Estate",
+        "Technology",
+        "Utilities",
+    ]
+    
+    # Load SP500 ticker list
+    with open("json/stocks-list/list/sp500.json", "r") as file:
+        sp500_data = orjson.loads(file.read())
+        sp500_tickers = [item['symbol'] for item in sp500_data]
+    
+    # Load the options flow data
+    with open("json/options-flow/feed/data.json", "r") as file:
+        all_data = orjson.loads(file.read())
+    
+    # Group SP500 tickers by sector using stockdeck data
+    sector_tickers = defaultdict(list)
+    
+    for ticker in tqdm(sp500_tickers, desc="Loading sector data"):
+        try:
+            # Load stockdeck data for this ticker to get sector information
+            with open(f"json/stockdeck/{ticker}.json", "r") as file:
+                stockdeck_data = orjson.loads(file.read())
+                sector = stockdeck_data.get('sector')
+                if sector and sector in sector_list:
+                    sector_tickers[sector].append(ticker)
+        except:
+            # Skip if stockdeck file doesn't exist
+            continue
+    
+    sector_premium_data = {}
+    
+    # Calculate premium flow for each sector
+    for sector in sector_list:
+        tickers_in_sector = sector_tickers.get(sector, [])
+        total_call_premium = 0
+        total_put_premium = 0
+        
+        # Calculate call and put premiums separately for all tickers in this sector
+        for ticker in tickers_in_sector:
+            # Filter options flow data for this ticker
+            ticker_data = [item for item in all_data if item.get('ticker') == ticker]
+            
+            for item in ticker_data:
+                try:
+                    cost = float(item.get("cost_basis", 0))
+                    put_call = item.get("put_call", "")
+                    
+                    if put_call == "Calls":
+                        total_call_premium += cost
+                    elif put_call == "Puts":
+                        total_put_premium += cost
+                except:
+                    continue
+        
+        total_premium = total_call_premium + total_put_premium
+        
+        sector_premium_data[sector] = {
+            'sector': sector,
+            'callPrem': int(total_call_premium),
+            'putPrem': int(total_put_premium),
+            'totalPremium': int(total_premium),
+        }
+    
+    # Sort sectors by total premium (highest to lowest)
+    sector_flow = sorted(sector_premium_data.values(), key=lambda x: x['totalPremium'], reverse=True)
+    
+    return sector_flow
+
 def get_market_flow():
     market_tide = get_sector_data(sector_ticker="SPY")
+    time_str = market_tide[0]['time']
+    date_obj = datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S")
+
     overview = get_overview_data(sector_ticker="SPY")
     avg_30_day = get_30_day_average_data(sector_ticker="SPY")
+    sector_flow = get_sector_flow_analysis()
+    
     data = {
+        'date': date_obj.strftime("%b %d, %Y"),
         'marketTide': market_tide, 
         'overview': {**overview,**avg_30_day},
+        'sectorFlow': sector_flow
     }
-    print(data['overview'])
     if data:
         save_json(data, 'data')
 
