@@ -233,6 +233,58 @@ async def run():
     save_as_json(industry_overview, filename='industry-overview')
 
 
+    # Mapping of sectors to their respective ETF symbols
+    sector_etf_mapping = {
+        'Technology': 'XLK',
+        'Financial Services': 'XLF',
+        'Energy': 'XLE',
+        'Healthcare': 'XLV',
+        'Industrials': 'XLI',
+        'Consumer Cyclical': 'XLY',
+        'Consumer Defensive': 'XLP',
+        'Basic Materials': 'XLB',
+        'Real Estate': 'XLRE',
+        'Utilities': 'XLU',
+        'Communication Services': 'XLC'
+    }
+
+    def calculate_etf_price_change(etf_symbol, days):
+        """Calculate the percentage change for an ETF over specified days"""
+        try:
+            with open(f"json/historical-price/adj/{etf_symbol}.json", 'r') as file:
+                historical_data = ujson.load(file)
+            
+            if not historical_data:
+                return None
+            
+            # Sort by date in descending order (most recent first)
+            historical_data = sorted(historical_data, key=lambda x: x['date'], reverse=True)
+            
+            # Get the most recent price
+            latest_price = historical_data[0]['adjClose']
+            
+            # For 1-day change, get yesterday's price
+            if days == 1:
+                if len(historical_data) > 1:
+                    previous_price = historical_data[1]['adjClose']
+                else:
+                    return None
+            else:
+                # For 1-year change, find the price from approximately 252 trading days ago
+                # (252 is approximately the number of trading days in a year)
+                target_index = min(252, len(historical_data) - 1)
+                if target_index > 0:
+                    previous_price = historical_data[target_index]['adjClose']
+                else:
+                    return None
+            
+            # Calculate percentage change
+            price_change = ((latest_price - previous_price) / previous_price) * 100
+            return round(price_change, 2)
+        except Exception as e:
+            print(f"Error calculating ETF price change for {etf_symbol}: {e}")
+            return None
+
     sector_overview = []
 
     for sector, industries in sector_industry_data.items():
@@ -240,12 +292,8 @@ async def run():
         total_stocks = 0
         total_dividend_yield = 0
         total_profit_margin = 0
-        total_change_1d = 0
-        total_change_1y = 0
 
         dividend_count = 0
-        change_1d_count = 0
-        change_1y_count = 0
         profit_margin_count = 0
 
         for industry, data in industries.items():
@@ -253,14 +301,22 @@ async def run():
             total_market_cap += data['totalMarketCap']
             total_stocks += data['numStocks']
             total_profit_margin += data['totalProfitMargin']
-            total_change_1d += data['totalChange1D']
-            total_change_1y += data['totalChange1Y']
 
-            dividend_count += data['dividendCount']
-            change_1d_count += data['change1DCount']
-            change_1y_count += data['change1YCount']
             profit_margin_count += data['profitMarginCount']
             total_dividend_yield += data['totalDividendYield']
+            dividend_count += data['dividendCount']
+
+        # Get ETF symbol for this sector
+        etf_symbol = sector_etf_mapping.get(sector)
+        
+        # Calculate 1-day and 1-year changes using ETF data
+        change_1d = None
+        change_1y = None
+        if etf_symbol:
+            with open(f"json/quote/{etf_symbol}.json","rb") as file:
+                change_1d = orjson.loads(file.read()).get('changesPercentage', None)
+                print(change_1d)
+            change_1y = calculate_etf_price_change(etf_symbol, 252)
 
         # Calculate averages and profit margin for the sector
         sector_overview.append({
@@ -269,8 +325,8 @@ async def run():
             'totalMarketCap': total_market_cap,
             'avgDividendYield': round((total_dividend_yield / dividend_count), 2) if dividend_count > 0 else None,
             'profitMargin': round((total_profit_margin / profit_margin_count), 2) if profit_margin_count > 0 else None,
-            'avgChange1D': round((total_change_1d / change_1d_count), 2) if change_1d_count > 0 else None,
-            'avgChange1Y': round((total_change_1y / change_1y_count), 2) if change_1y_count > 0 else None
+            'avgChange1D': change_1d,
+            'avgChange1Y': change_1y
         })
 
 
