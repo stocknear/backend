@@ -268,8 +268,8 @@ async def get_data(session, total_symbols):
             revenue_segmentation_data = []
 
             urls = [
-                f"https://financialmodelingprep.com/stable/revenue-product-segmentation?symbol={symbol}&apikey={api_key}",
-                f"https://financialmodelingprep.com/stable/revenue-geographic-segmentation?symbol={symbol}&apikey={api_key}"
+                f"https://financialmodelingprep.com/stable/revenue-product-segmentation?symbol={symbol}&period=quarter&apikey={api_key}",
+                f"https://financialmodelingprep.com/stable/revenue-geographic-segmentation?symbol={symbol}&period=quarter&apikey={api_key}"
             ]
 
             for url in urls:
