@@ -256,6 +256,7 @@ async def downgrade_user():
         if item.tier not in ['Pro', 'Plus']:
             try:
                 '''
+                frontend is doing this part
                 pb.collection("users").update(item.id, {
                         "credits": 10,
                     })
@@ -433,7 +434,7 @@ async def refresh_bulk_credits():
 
 
 async def run_all_except_refresh():
-    await update_free_trial()
+    #await update_free_trial()
     #await email_marketing()
     await update_discord_roles()
     await downgrade_user()
