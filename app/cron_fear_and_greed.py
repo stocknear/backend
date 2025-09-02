@@ -220,7 +220,7 @@ try:
             "fetched_at": datetime.now().isoformat(),
             "start_date": start_date,
             "current": {
-                "value": current.value,
+                "value": round(current.value,0),
                 "category": current.description,
                 "last_update": current.last_update.isoformat() if hasattr(current.last_update, 'isoformat') else str(current.last_update)
             },
