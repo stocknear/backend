@@ -200,8 +200,8 @@ FUNCTION_SOURCE_METADATA = {
         "url_pattern": "/{asset_type}/{ticker}/profile"
     },
     "get_why_priced_moved": {
-        "name": "Price Movement Analysis", 
-        "description": "Analysis of recent price changes and catalysts",
+        "name": "Why Priced Moved", 
+        "description": "Reason of recent price changes",
         "url_pattern": "/{asset_type}/{ticker}"
     },
     "get_ticker_business_metrics": {

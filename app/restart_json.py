@@ -1805,14 +1805,18 @@ async def get_ipo_calendar(con, symbols):
                         entry['return'] = round(((entry['currentPrice'] / entry['ipoPrice'] - 1) * 100), 2)
                 except Exception as e:
                     entry['return'] = None
-                res.append({
-                    "symbol": entry.get("symbol"),
-                    "name": entry.get("company"),
-                    "ipoDate": entry.get("date"),
-                    "ipoPrice": entry.get("ipoPrice"),
-                    "currentPrice": round(entry.get("currentPrice"), 2) if entry.get("currentPrice") is not None else None,
-                    "return": entry.get("return"),
-                })
+
+                required_fields = ("ipoPrice", "currentPrice", "return")
+                if all(entry.get(field) is not None for field in required_fields):
+                    res.append({
+                        "symbol": entry.get("symbol"),
+                        "name": entry.get("company"),
+                        "ipoDate": entry.get("date"),
+                        "ipoPrice": entry["ipoPrice"],
+                        "currentPrice": round(entry["currentPrice"], 2),
+                        "return": entry["return"],
+                    })
+
         except Exception as e:
             continue
 
@@ -1853,13 +1857,15 @@ async def save_json_files():
     etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
 
+    # Save IPO calendar
+    data = await get_ipo_calendar(con, symbols)
+    save_json(data, "json/ipo-calendar")
+
     # Save stock screener data
     stock_screener_data = await get_stock_screener(con)
     save_json(stock_screener_data, "json/stock-screener")
     
-    # Save IPO calendar
-    data = await get_ipo_calendar(con, symbols)
-    save_json(data, "json/ipo-calendar")
+
 
     # Save economic calendar
     economic_list = await get_economic_calendar()
