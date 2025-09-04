@@ -1807,9 +1807,16 @@ async def get_ipo_calendar(con, symbols):
                     entry['return'] = None
 
                 required_fields = ("ipoPrice", "currentPrice", "return")
-                if all(entry.get(field) is not None for field in required_fields):
+
+                with open(f"json/one-day-price/{symbol}.json","rb") as file:
+                    daily_price_history = orjson.loads(file.read())
+
+                with open(f"json/historical-price/adj/{symbol}.json","rb") as file:
+                    total_price_history = orjson.loads(file.read())
+
+                if all(entry.get(field) is not None for field in required_fields) and len(daily_price_history) > 0 and len(total_price_history) > 0:
                     res.append({
-                        "symbol": entry.get("symbol"),
+                        "symbol": symbol,
                         "name": entry.get("company"),
                         "ipoDate": entry.get("date"),
                         "ipoPrice": entry["ipoPrice"],
