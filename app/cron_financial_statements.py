@@ -68,8 +68,18 @@ async def add_ratio_elements(symbol):
             with open(ratios_path, "r") as file:
                 ratio_data = ujson.load(file)
 
+            # Load income statement data for revenue
+            income_statement_path = f"json/financial-statements/income-statement/{period}/{symbol}.json"
+            with open(income_statement_path, "r") as file:
+                income_statement_data = ujson.load(file)
+
+            # Load cash flow statement data for free cash flow
+            cash_flow_path = f"json/financial-statements/cash-flow-statement/{period}/{symbol}.json"
+            with open(cash_flow_path, "r") as file:
+                cash_flow_data = ujson.load(file)
+
             if ratio_data and key_metrics_data:
-                for ratio_item, key_metrics_item in zip(ratio_data,key_metrics_data):
+                for i, (ratio_item, key_metrics_item) in enumerate(zip(ratio_data,key_metrics_data)):
                     try:
                         ratio_item['returnOnEquity'] = round(key_metrics_item.get('returnOnEquity',0),2)
                         ratio_item['returnOnAssets'] = round(key_metrics_item.get('returnOnAssets',0),2)
@@ -79,6 +89,16 @@ async def add_ratio_elements(symbol):
                         ratio_item['evToFreeCashFlow'] = round(key_metrics_item.get('evToFreeCashFlow',0),2)
                         ratio_item['earningsYield'] = round(key_metrics_item.get('earningsYield',0),2)
                         ratio_item['freeCashFlowYield'] = round(key_metrics_item.get('freeCashFlowYield',0),2)
+
+                        # Calculate freeCashFlowMargin
+                        if i < len(income_statement_data) and i < len(cash_flow_data):
+                            revenue = income_statement_data[i].get('revenue', 0)
+                            free_cash_flow = cash_flow_data[i].get('freeCashFlow', 0)
+                            
+                            if revenue and revenue != 0:
+                                ratio_item['freeCashFlowMargin'] = round(free_cash_flow / revenue, 2)
+                            else:
+                                ratio_item['freeCashFlowMargin'] = 0
 
                     except:
                         pass
@@ -141,6 +161,7 @@ async def run():
     cursor.execute("PRAGMA journal_mode = wal")
     cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
     total_symbols = [row[0] for row in cursor.fetchall()]
+    #total_symbols = ['MCD']
     con.close()
 
     rate_limiter = RateLimiter(max_requests=1000, time_window=60)
