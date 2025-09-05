@@ -214,4 +214,10 @@ save_data(daily_statistics, 'stats.json')
 
 # Compute and save trending tickers
 trending_tickers = compute_trending_tickers(daily_stats_dict)
+
+for period in ["oneDay", "oneWeek", "oneMonth", "threeMonths"]:
+    for item in trending_tickers.get(period, []):
+        item.pop("count", None)
+
+
 save_data(trending_tickers, 'trending.json')
