@@ -25,7 +25,8 @@ def get_analyst_from_directory():
                     analyst_data = orjson.loads(file.read())
                     if analyst_data['analystScore'] >= 3:
                         ratings = [item for item in analyst_data['ratingsList'] 
-                                   if datetime.strptime(item["date"], "%Y-%m-%d").date() >= threshold_date]
+                                   if datetime.strptime(item["date"], "%Y-%m-%d").date() >= threshold_date
+                                   and datetime.strptime(item["date"], "%Y-%m-%d").date() <= today]
                         if ratings:
                             for item_ratings in ratings:
                                 try:
