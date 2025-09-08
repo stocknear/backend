@@ -359,7 +359,7 @@ async def fetch_json(session: aiohttp.ClientSession, url: str) -> List[Dict]:
 async def fetch_all_data(api_key: str) -> tuple[List[Dict], Set[str]]:
     """Fetch both all tickers and OTC tickers concurrently."""
     all_tickers_url = f"https://financialmodelingprep.com/api/v3/stock/list?apikey={api_key}"
-    OTC_url = f"https://financialmodelingprep.com/stable/company-screener?exchange=OTC&marketCapMoreThan=10000000000&isETF=false&limit=5000&apikey={api_key}"
+    OTC_url = f"https://financialmodelingprep.com/stable/company-screener?exchange=OTC&marketCapMoreThan=5000000000&isETF=False&&isFund=False&isActivelyTrading=True&limit=5000&apikey={api_key}"
     
     async with aiohttp.ClientSession() as session:
         # Fetch both URLs concurrently
@@ -367,6 +367,9 @@ async def fetch_all_data(api_key: str) -> tuple[List[Dict], Set[str]]:
         OTC_task = fetch_json(session, OTC_url)
         
         all_tickers_data, OTC_data = await asyncio.gather(all_tickers_task, OTC_task)
+        OTC_data = sorted(OTC_data, key=lambda x: x['marketCap'], reverse=True)
+
+        print("OTC symbols:", len(OTC_data))
     
     # Filter exchanges and symbols in one pass
     valid_exchanges = {'OTC', 'AMEX', 'NYSE', 'NASDAQ'}
