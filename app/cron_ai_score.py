@@ -598,7 +598,7 @@ def save_results(data: Dict, symbol: str, base_path: str = "json/ai-score/compan
 def main():
     """Main execution function"""
 
-    #total_symbols = load_symbol_list()
+    total_symbols = load_symbol_list()
     #testing mode
     #total_symbols = ['AMD']
 
