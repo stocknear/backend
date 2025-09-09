@@ -5,6 +5,7 @@ import aiohttp
 import pandas as pd
 from tqdm import tqdm
 from dotenv import load_dotenv
+from datetime import datetime
 import os
 
 load_dotenv()
@@ -218,6 +219,87 @@ async def get_etf_provider():
     # Close the cursor and connection
     cursor.close()
     etf_con.close()
+
+
+
+async def get_etf_new_launches():
+    # Create a connection to the ETF database
+    etf_con = sqlite3.connect("etf.db")
+    cursor = etf_con.cursor()
+
+    query = """
+        SELECT symbol, name, expenseRatio, totalAssets, numberOfHoldings, inceptionDate 
+        FROM etfs 
+        ORDER BY inceptionDate DESC 
+        LIMIT ?
+    """
+    cursor.execute(query, (500,))  # limit
+    data = cursor.fetchall()
+
+    cursor.close()
+    etf_con.close()
+
+    res = [
+        {
+            "symbol": row[0],
+            "name": row[1],
+            "expenseRatio": row[2],
+            "totalAssets": row[3],
+            "numberOfHoldings": row[4],
+            "inceptionDate": row[5],
+        }
+        for row in data
+    ]
+
+    filtered_data = []
+    today = datetime.utcnow().date()
+
+    for item in res:
+        try:
+            # Parse and check inceptionDate
+            inception_date = None
+            if item["inceptionDate"]:
+                try:
+                    inception_date = datetime.strptime(item["inceptionDate"], "%Y-%m-%d").date()
+                except ValueError:
+                    # Skip if inceptionDate format is invalid
+                    continue
+
+            # Skip ETFs with inceptionDate in the future
+            if inception_date and inception_date > today:
+                continue
+
+            symbol = item["symbol"]
+
+            # Load quote data
+            with open(f"json/quote/{symbol}.json", "rb") as file:
+                quote_data = orjson.loads(file.read())
+
+            item["price"] = round(quote_data.get("price", 0), 2) if quote_data else None
+            item["changesPercentage"] = (
+                round(quote_data.get("changesPercentage", 0), 2) if quote_data else None
+            )
+
+            # Load historical price
+            with open(f"json/one-day-price/{symbol}.json", "rb") as file:
+                historical_price = orjson.loads(file.read())
+
+            if (
+                len(historical_price) > 0
+                and item["price"] is not None
+                and item["changesPercentage"] is not None
+            ):
+                filtered_data.append(item)
+
+        except Exception as e:
+            print(f"Error processing {item['symbol']}: {e}")
+            continue
+
+    if filtered_data:
+        os.makedirs("json/etf-new-launches", exist_ok=True)
+        with open("json/etf-new-launches/data.json", "wb") as file:
+            file.write(orjson.dumps(filtered_data[:100]))  # hundred latest new etfs
+
 
 
 
@@ -1678,6 +1760,7 @@ async def run():
         get_highest_option_volume('putVolume'),
         get_etf_holding(),
         get_etf_provider(),
+        get_etf_new_launches(),
         get_most_buybacks(),
         get_monthly_dividends(),
     )

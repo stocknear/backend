@@ -2383,22 +2383,30 @@ async def etf_holdings(data: ETFProviderData, api_key: str = Security(get_api_ke
 async def etf_provider(api_key: str = Security(get_api_key)):
     cache_key = f"etf-new-launches"
     cached_result = redis_client.get(cache_key)
-    limit = 100
     if cached_result:
-        return orjson.loads(cached_result)
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
 
-    # Check if data is cached; if not, fetch and cache it
-    cursor = etf_con.cursor()
-    query = "SELECT symbol, name, expenseRatio, totalAssets, numberOfHoldings, inceptionDate FROM etfs ORDER BY inceptionDate DESC LIMIT ?"
-    cursor.execute(query, (limit,))
-    raw_data = cursor.fetchall()
-    cursor.close()
+    try:
+        with open(f"json/etf-new-launches/data.json", 'rb') as file:
+            res = orjson.loads(file.read())
+    except:
+        res = []
 
-    # Extract only relevant data and sort it
-    res = [{'symbol': row[0], 'name': row[1], 'expenseRatio': row[2], 'totalAssets': row[3], 'numberOfHoldings': row[4], 'inceptionDate': row[5]} for row in raw_data]
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 3600 * 24)  # Set cache expiration time to 1 day
-    return res
+    data = orjson.dumps(res)
+    compressed_data = gzip.compress(data)
+
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key,60*10)
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
 
 @app.get("/etf-bitcoin-list")
 async def get_etf_bitcoin_list(api_key: str = Security(get_api_key)):
