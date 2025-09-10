@@ -112,6 +112,7 @@ const sendData = async () => {
             parseFloat(jsonData?.lp)
           ) / 3;
 
+        
           const finalPrice = Math.abs(avgPrice - jsonData?.bp) / jsonData?.bp > 0.01
             ? jsonData.bp 
             : avgPrice;
@@ -127,6 +128,7 @@ const sendData = async () => {
                 ap: jsonData?.ap,
                 bp: jsonData?.bp,
                 lp: jsonData?.lp,
+                ls: jsonData?.ls,
                 avgPrice: finalPrice,
                 type: jsonData?.type,
                 time: formatTimestampNewYork(jsonData?.t),
