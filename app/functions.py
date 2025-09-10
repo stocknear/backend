@@ -128,8 +128,6 @@ FUNCTION_SOURCE_METADATA = {
         "description": "Contract positions by strike and expiry",
         "url_pattern": "/{asset_type}/{ticker}/options/oi"
     },
-    
-    # Market Data
     "get_market_news": {
         "name": "Market News",
         "description": "General market news and updates",
@@ -1417,6 +1415,11 @@ async def get_feed_data(
                 {k: v for k, v in item.items() if k not in filter_keys}
                 for item in data
             ]
+            try:
+                cleaned_data = [item for item in cleaned_data if item['assetType'].lower() in ['stocks','stock']]
+            except:
+                pass
+
             sorted_data = sorted(
                 cleaned_data,
                 key=lambda x: x.get(sort_key, 0),
@@ -1489,7 +1492,7 @@ async def get_latest_dark_pool_feed(tickers: List[str]) -> Dict[str, List[Dict[s
     return await get_feed_data(
         tickers=tickers,
         file_path=BASE_DIR / "dark-pool/feed/data.json",
-        filter_keys={"assetType", "sector", "trackingID"},
+        filter_keys={"sector", "trackingID"},
         sort_key="premium",
     )
 
@@ -2905,5 +2908,5 @@ async def get_reddit_tracker() -> Dict[str, Any]:
 
 
 #Testing purposes
-#data = asyncio.run(get_reddit_tracker())
+#data = asyncio.run(get_latest_options_flow_feed([]))
 #print(data)
