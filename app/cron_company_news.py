@@ -34,7 +34,7 @@ async def filter_and_deduplicate(data, excluded_domains=None, deduplicate_key='t
     seen_keys = set()
     filtered_data = []
     for item in data:
-        if not any(domain in item['url'] for domain in excluded_domains):
+        if not any(domain in item['url'] for domain in excluded_domains) and item['image'] is not None:
             key = item.get(deduplicate_key)
             if key and key not in seen_keys:
                 filtered_data.append(item)

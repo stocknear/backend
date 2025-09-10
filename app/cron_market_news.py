@@ -15,7 +15,7 @@ def filter_and_deduplicate(data,deduplicate_key='title'):
     filtered_data = []
     excluded_domains = ['accesswire.com']
     for item in data:
-        if not any(domain in item['url'] for domain in excluded_domains):
+        if not any(domain in item['url'] for domain in excluded_domains) and item['image'] is not None:
             key = item.get(deduplicate_key)
             if key and key not in seen_keys:
                 filtered_data.append(item)
