@@ -2,6 +2,7 @@ import pandas as pd
 from datetime import datetime
 import numpy as np
 import ujson
+import orjson
 import asyncio
 import sqlite3
 import os
@@ -9,112 +10,108 @@ from tqdm import tqdm
 
 async def save_json(symbol, data):
     os.makedirs("json/var", exist_ok=True)  # Ensure directory exists
-    with open(f"json/var/{symbol}.json", 'w') as file:
-        ujson.dump(data, file)
+    with open(f"json/var/{symbol}.json", 'wb') as file:
+        file.write(orjson.dumps(data))
 
-# Define risk rating scale
-def assign_risk_rating(var):
-    if var >= 25: 
-        return 1
-    elif var >= 20:
-        return 2
-    elif var >= 15:
-        return 3
-    elif var >= 10:
-        return 4
-    elif var >= 8:
-        return 5
-    elif var >= 6:
-        return 6
-    elif var >= 4:
-        return 7
-    elif var >= 2:
-        return 8
-    elif var >= 1:
-        return 9
-    else:
-        return 10
-
-def compute_var(df):
+def compute_var_monte_carlo(df, num_simulations=10000, trading_days_per_month=21):
+    """
+    Calculate monthly VaR using Monte Carlo simulation
+    
+    Args:
+        df: DataFrame with price data
+        num_simulations: Number of Monte Carlo simulations to run
+        trading_days_per_month: Average trading days in a month (typically 21)
+    
+    Returns:
+        Monthly VaR at 95% confidence level (as percentage)
+    """
+    # Make a copy to avoid SettingWithCopyWarning
+    df = df.copy()
+    
     # Calculate daily returns
-    df['Returns'] = df['close'].pct_change()
+    df['Returns'] = df['adjClose'].pct_change()
     df = df.dropna()
-    # Calculate VaR at 95% confidence level
+    
+    if len(df) < 2:
+        return 0
+    
+    # Calculate historical statistics
+    daily_returns = df['Returns'].values
+    mean_return = np.mean(daily_returns)
+    std_return = np.std(daily_returns)
+    
+    # Monte Carlo simulation for monthly returns
+    monthly_returns = []
+    
+    for _ in range(num_simulations):
+        # Simulate daily returns for one month
+        simulated_daily_returns = np.random.normal(
+            mean_return, 
+            std_return, 
+            trading_days_per_month
+        )
+        
+        # Calculate compounded monthly return
+        # (1 + r1) * (1 + r2) * ... * (1 + rn) - 1
+        monthly_return = np.prod(1 + simulated_daily_returns) - 1
+        monthly_returns.append(monthly_return)
+    
+    # Calculate VaR at 95% confidence level (5th percentile)
     confidence_level = 0.95
-    var = np.percentile(df['Returns'], 100 * (1 - confidence_level))
-    var_N_days = round(var * np.sqrt(len(df)) * 100, 2)  # N days: the length of df represents the N days
+    var_percentile = (1 - confidence_level) * 100
+    monthly_var = np.percentile(monthly_returns, var_percentile)
+    
+    # Convert to percentage and return as positive value for loss
+    var_percentage = round(abs(monthly_var) * 100, 2)
+    
+    # Cap at 99% maximum loss
+    if var_percentage > 99:
+        var_percentage = 99
+    
+    return var_percentage
 
-    if var_N_days <= -100:
-        var_N_days = -99
-
-    return var_N_days  # Positive value represents a loss
 
 async def run():
     start_date = "2015-01-01"
     end_date = datetime.today().strftime("%Y-%m-%d")
 
     con = sqlite3.connect('stocks.db')
-    etf_con = sqlite3.connect('etf.db')
 
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
     cursor.execute("SELECT DISTINCT symbol FROM stocks")
     stocks_symbols = [row[0] for row in cursor.fetchall()]
 
-    etf_cursor = etf_con.cursor()
-    etf_cursor.execute("PRAGMA journal_mode = wal")
-    etf_cursor.execute("SELECT DISTINCT symbol FROM etfs")
-    etf_symbols = [row[0] for row in etf_cursor.fetchall()]
-
-    total_symbols = stocks_symbols + etf_symbols
+    total_symbols = stocks_symbols
+    con.close()
 
     for symbol in tqdm(total_symbols):
         try:
-            if symbol in etf_symbols:  
-                query_con = etf_con
-            elif symbol in stocks_symbols:  
-                query_con = con
-            else:
-                continue
+            with open(f"json/historical-price/adj/{symbol}.json","rb") as file:
+                df = pd.DataFrame(orjson.loads(file.read()))
 
-            query_template = """
-                    SELECT
-                        date, open, high, low, close, volume
-                    FROM
-                        "{symbol}"
-                    WHERE
-                        date BETWEEN ? AND ?
-                """
-            query = query_template.format(symbol=symbol)
-            df = pd.read_sql_query(query, query_con, params=(start_date, end_date))
-
-            # Convert date to datetime
             df['date'] = pd.to_datetime(df['date'])
 
-            # Group by year and month
-            monthly_groups = df.groupby(df['date'].dt.to_period('M'))
-            history = []
+        
+            recent_days = 252
+            if len(df) > recent_days:
+                df_recent = df.tail(recent_days)
+            else:
+                df_recent = df
+            
+            # Compute current VaR using all recent data
+            current_var = compute_var_monte_carlo(df_recent)
+            
+            # Create simplified history with just the current VaR
+            history = [{'date': end_date, 'var': current_var}]
 
-            for period, group in monthly_groups:
-                if len(group) >=19:  # Check if the month has at least 19 data points
-                    var_data = compute_var(group)
-                    history.append({'date': str(period), 'var': var_data})
+            res = {'history': history}
+            if res:
+                await save_json(symbol, res)
 
-            risk_rating = assign_risk_rating(abs(history[-1]['var']))
-            outlook = 'Neutral'
-            if risk_rating < 5:
-                outlook = 'Risky'
-            elif risk_rating > 5:
-                outlook = 'Minimum Risk'
-            res = {'rating': risk_rating, 'history': history, 'outlook': outlook}
+        except:
+            pass
 
-            await save_json(symbol, res)
-
-        except Exception as e:
-            print(f"Error processing {symbol}: {e}")
-
-    con.close()
-    etf_con.close()
 
 try:
     asyncio.run(run())
