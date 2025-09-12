@@ -3763,6 +3763,57 @@ async def get_industry_overview(api_key: str = Security(get_api_key)):
         headers={"Content-Encoding": "gzip"}
     )
 
+
+@app.post("/earnings-statistics")
+async def get_next_earnings(data: TickerData, api_key: str = Security(get_api_key)):
+    ticker = data.ticker.upper()
+    cache_key = f"earnings-statistics-{ticker}"
+    
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+            io.BytesIO(cached_result),
+            media_type="application/json",
+            headers={"Content-Encoding": "gzip"}
+        )
+
+    try:
+        with open(f"json/earnings/raw/{ticker}.json", "rb") as file:
+            earnings_data = orjson.loads(file.read())
+            earnings_data.sort(key=lambda x: x["date"])
+
+        # Earliest earnings date
+        min_date = earnings_data[0]["date"] if earnings_data else None
+
+        with open(f"json/historical-price/adj/{ticker}.json", "rb") as file:
+            history = orjson.loads(file.read())
+            history.sort(key=lambda x: x["date"])
+            if min_date:
+                history = [
+                    {"date": h["date"], "price": h["adjClose"]}
+                    for h in history
+                    if h["date"] >= min_date
+                ]
+            else:
+                history = [
+                    {"date": h["date"], "price": h["adjClose"]}
+                    for h in history
+                ]
+
+        res = {"historicalEarnings": earnings_data, "historicalPrice": history}
+    except (FileNotFoundError, orjson.JSONDecodeError):
+        res = {}
+
+    compressed_data = gzip.compress(orjson.dumps(res))
+
+    redis_client.setex(cache_key, 15 * 60, compressed_data)
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
+
 @app.post("/next-earnings")
 async def get_next_earnings(data:TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
