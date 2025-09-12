@@ -3779,30 +3779,9 @@ async def get_next_earnings(data: TickerData, api_key: str = Security(get_api_ke
 
     try:
         with open(f"json/earnings/raw/{ticker}.json", "rb") as file:
-            earnings_data = orjson.loads(file.read())
-            earnings_data.sort(key=lambda x: x["date"])
-
-        # Earliest earnings date
-        min_date = earnings_data[0]["date"] if earnings_data else None
-
-        with open(f"json/historical-price/adj/{ticker}.json", "rb") as file:
-            history = orjson.loads(file.read())
-            history.sort(key=lambda x: x["date"])
-            if min_date:
-                history = [
-                    {"date": h["date"], "price": h["adjClose"]}
-                    for h in history
-                    if h["date"] >= min_date
-                ]
-            else:
-                history = [
-                    {"date": h["date"], "price": h["adjClose"]}
-                    for h in history
-                ]
-
-        res = {"historicalEarnings": earnings_data, "historicalPrice": history}
+            res = orjson.loads(file.read())
     except (FileNotFoundError, orjson.JSONDecodeError):
-        res = {}
+        res = []
 
     compressed_data = gzip.compress(orjson.dumps(res))
 
