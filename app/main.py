@@ -3778,13 +3778,29 @@ async def get_next_earnings(data: TickerData, api_key: str = Security(get_api_ke
         )
 
     try:
+        # Boundaries (UTC)
+        today = datetime.utcnow().strftime("%Y-%m-%d")
+
+        # --- Earnings ---
         with open(f"json/earnings/raw/{ticker}.json", "rb") as file:
-            res = orjson.loads(file.read())
+            raw_earnings = orjson.loads(file.read())
+
+        # Keep only entries within the last 5 years AND not in the future (fast string compare)
+        earnings_data = [
+            e for e in raw_earnings
+            if isinstance(e.get("date"), str) and e["date"] <= today
+        ]
+
+        # Sort ascending by date (oldest -> newest)
+        earnings_data.sort(key=lambda x: x["date"])
+     
+
+        res = {"historicalEarnings": earnings_data}
     except (FileNotFoundError, orjson.JSONDecodeError):
-        res = []
+        res = {}
 
     compressed_data = gzip.compress(orjson.dumps(res))
-
+    # setex in one call (TTL 15 minutes)
     redis_client.setex(cache_key, 15 * 60, compressed_data)
 
     return StreamingResponse(
