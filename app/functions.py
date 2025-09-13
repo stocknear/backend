@@ -84,9 +84,9 @@ FUNCTION_SOURCE_METADATA = {
         "url_pattern": "/{asset_type}/{ticker}/insider/institute"
     },
     "get_ticker_earnings": {
-        "name": "Earnings Reports",
+        "name": "Earnings Surprise",
         "description": "Quarterly earnings and guidance",
-        "url_pattern": "/{asset_type}/{ticker}"
+        "url_pattern": "/{asset_type}/{ticker}/statistics/earnings"
     },
     "get_ticker_dividend": {
         "name": "Dividend Information", 
@@ -230,7 +230,7 @@ FUNCTION_SOURCE_METADATA = {
     "get_ticker_earnings_price_reaction": {
         "name": "Earnings Price Reaction",
         "description": "Stock price movement after earnings",
-        "url_pattern": "/{asset_type}/{ticker}/statistics/price-reaction"
+        "url_pattern": "/{asset_type}/{ticker}/statistics/earnings/price-reaction"
     },
     "get_top_rating_stocks": {
         "name": "Top Rated Stocks",
@@ -1364,7 +1364,7 @@ async def get_ticker_earnings_price_reaction(tickers: List[str]) -> Dict[str, An
 @function_tool
 async def get_ticker_earnings(tickers: List[str]) -> Dict[str, Any]:
     """
-    Retrieve the historical, latest, and upcoming earnings dates for multiple stocks, including EPS and revenue estimates,
+    Retrieve the historical, latest, and upcoming earnings dates for multiple stocks, including EPS and revenue estimates and surprises,
     as well as prior EPS and revenue figures for comparison.
 
     Args:
