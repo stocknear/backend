@@ -161,61 +161,34 @@ def compute_price_ratio(symbol, metric_type = 'freeCashFlow'):
                 except Exception as e:
                     print(f"Error calculating ratio for {mkt_date}: {e}")
         
-        print(price_to_fcf_list)
-    
+        price_to_fcf_list = [item for item in price_to_fcf_list if int(item['date'][:4]) >= START_YEAR]
 
-        '''
-        # Load income statement for shares outstanding
-        income_path = f"json/financial-statements/income-statement/ttm/{symbol}.json"
-        with open(income_path, "rb") as f:
-            income_data = orjson.loads(f.read())
-        
-        if isinstance(income_data, list) and income_data:
-            income_data = income_data[0]
-        
-        shares = income_data.get("weightedAverageShsOutDil")
-        if not shares:
-            return None
-        
-        # Calculate per-share metrics and ratios
-        if metric_type == 'fcf':
-            cf_path = f"json/financial-statements/cash-flow-statement/ttm/{symbol}.json"
-            with open(cf_path, "rb") as f:
-                cf_data = orjson.loads(f.read())
-            if isinstance(cf_data, list) and cf_data:
-                cf_data = cf_data[0]
-            fcf = cf_data.get("freeCashFlow")
-            if fcf:
-                fcf_per_share = fcf / shares
-                return current_price / fcf_per_share if fcf_per_share > 0 else None
-        
-        elif metric_type == 'earnings':
-            net_income = income_data.get("netIncome")
-            if net_income:
-                eps = net_income / shares
-                return current_price / eps if eps > 0 else None
-        
-        elif metric_type == 'sales':
-            revenue = income_data.get("revenue")
-            if revenue:
-                sales_per_share = revenue / shares
-                return current_price / sales_per_share if sales_per_share > 0 else None
-        
-        elif metric_type == 'book':
-            balance_path = f"json/financial-statements/balance-sheet-statement/quarter/{symbol}.json"
-            with open(balance_path, "rb") as f:
-                balance_data = orjson.loads(f.read())
-            if balance_data:
-                latest_balance = sorted(balance_data, key=lambda x: x.get("date", ""))[-1]
-                book_value = latest_balance.get("totalStockholdersEquity")
-                if book_value:
-                    book_per_share = book_value / shares
-                    return current_price / book_per_share if book_per_share > 0 else None
-        '''
+        five_year_avg = None
+        if price_to_fcf_list:
+            # Get the latest date and calculate 5 years back
+            latest_date = max(item['date'] for item in price_to_fcf_list)
+            five_years_ago = str(int(latest_date[:4]) - 5) + latest_date[4:]
+            
+            # Filter for last 5 years
+            last_5_years = [
+                item['priceToFCFRatio'] 
+                for item in price_to_fcf_list 
+                if item['date'] >= five_years_ago
+            ]
+            
+            # Calculate average
+            if last_5_years:
+                five_year_avg = round(sum(last_5_years) / len(last_5_years), 2)
     
+        print(five_year_avg)
+        return {
+            'data': price_to_fcf_list,
+            'five_year_average': five_year_avg
+        }
+
     except Exception as e:
         print(f"Error computing per-share ratio for {symbol}: {e}")
-    
+
     return None
 
 async def get_data(symbol: str):
@@ -299,7 +272,12 @@ async def run():
     for symbol in tqdm(stock_symbols):
         data = await get_data(symbol)
 
-        compute_price_ratio(symbol)
+        shares_growth = compute_cagr(symbol, 'weightedAverageShsOutDil')
+        free_cash_flow_growth = compute_cagr(symbol, 'freeCashFlow')
+        dividend_growth = compute_cagr(symbol, 'dividends')
+        print(shares_growth)
+        price_ratio = compute_price_ratio(symbol)
+        
         #if len(shareholders_list) > 0:
         #    await save_as_json(symbol, shareholders_list)
 
