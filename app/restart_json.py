@@ -554,6 +554,7 @@ def get_financial_statements(item, symbol):
         "treasuryStock",
         "preferredStock",
         "commonStock",
+        "bookValue",
         "retainedEarnings",
         "additionalPaidInCapital",
         "accumulatedOtherComprehensiveIncomeLoss",
