@@ -5,11 +5,14 @@ import pandas as pd
 from tqdm import tqdm
 from datetime import datetime, timedelta
 from collections import defaultdict
+import os
 
 START_YEAR = 2015
 
 async def save_as_json(symbol, data):
-    with open(f"json/valuation/{symbol}.json", 'wb') as file:
+    directory = "json/valuation"
+    os.makedirs(directory, exist_ok=True)
+    with open(f"{directory}/{symbol}.json", 'wb') as file:
         file.write(orjson.dumps(data))
 
 
@@ -180,9 +183,8 @@ def compute_price_ratio(symbol, metric_type = 'freeCashFlow'):
             if last_5_years:
                 five_year_avg = round(sum(last_5_years) / len(last_5_years), 2)
     
-        print(five_year_avg)
         return {
-            'data': price_to_fcf_list,
+            'history': price_to_fcf_list,
             'five_year_average': five_year_avg
         }
 
@@ -253,7 +255,7 @@ async def get_data(symbol: str):
 
     weekly_list = [{"date": v[1], "price": v[2]} for v in weekly_items]
 
-    return {"freeCashFlows": cf_list, "historicalPrice": weekly_list}
+    return {"freeCashFlowHistory": cf_list, "historicalPrice": weekly_list}
 
 
 
@@ -270,18 +272,30 @@ async def run():
     con.close()
 
     for symbol in tqdm(stock_symbols):
-        data = await get_data(symbol)
+        try:
+            data = await get_data(symbol)
 
-        shares_growth = compute_cagr(symbol, 'weightedAverageShsOutDil')
-        free_cash_flow_growth = compute_cagr(symbol, 'freeCashFlow')
-        dividend_growth = compute_cagr(symbol, 'dividends')
-        print(shares_growth)
-        price_ratio = compute_price_ratio(symbol)
+            shares_growth = compute_cagr(symbol, 'weightedAverageShsOutDil')
+            free_cash_flow_growth = compute_cagr(symbol, 'freeCashFlow')
+            dividend_growth = compute_cagr(symbol, 'dividends')
+            price_ratio = compute_price_ratio(symbol)
+            price_ratio_avg = price_ratio.get('five_year_average')
+            price_ratio_history = price_ratio.get('history')
+
+
+            ratio_dict = {item['date']: item['priceToFCFRatio'] for item in price_ratio_history}
+            for price_entry in data['historicalPrice']:
+                date = price_entry['date']
+                if date in ratio_dict:
+                    price_entry['priceToFCFRatio'] = ratio_dict[date]
+
         
-        #if len(shareholders_list) > 0:
-        #    await save_as_json(symbol, shareholders_list)
-
-    con.close()
+            res = {'sharesGrowth': shares_growth, 'dividendGrowth': dividend_growth, "freeCashFlowGrowth": free_cash_flow_growth,
+                    'priceRatioAvg': price_ratio_avg, **data}
+            if res:
+                await save_as_json(symbol, res)
+        except:
+            pass
 
 try:
     asyncio.run(run())
