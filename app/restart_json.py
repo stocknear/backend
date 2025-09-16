@@ -1182,13 +1182,32 @@ async def get_stock_screener(con):
         try:
             with open(f"json/dividends/companies/{symbol}.json", 'r') as file:
                 res = orjson.loads(file.read())
-                item['annualDividend'] = round(res['annualDividend'],2)
-                item['exDividendDate'] = res['history'][0]['date']
-                item['dividendYield'] = round(res['dividendYield'],2)
-                item['payoutRatio'] = round(res['payoutRatio'],2)
-                item['dividendGrowth'] = round(res['dividendGrowth'],2)
-                item['payoutFrequency'] = str(res['payoutFrequency']) if res['payoutFrequency'] != 'Special' else None
-        except:
+
+                ex_date_str = res['history'][0]['date']
+                try:
+                    ex_date = datetime.strptime(ex_date_str, "%Y-%m-%d").date()
+                    too_old = ex_date < (datetime.utcnow().date() - timedelta(days=365))
+                except Exception:
+                    too_old = True
+
+                if too_old:
+                    item['annualDividend'] = None
+                    item['dividendYield'] = None
+                    item['payoutRatio'] = None
+                    item['dividendGrowth'] = None
+                    item['payoutFrequency'] = None
+                    item['exDividendDate'] = None
+                else:
+                    item['annualDividend'] = round(res['annualDividend'], 2)
+                    item['dividendYield'] = round(res['dividendYield'], 2)
+                    item['payoutRatio'] = round(res['payoutRatio'], 2)
+                    item['dividendGrowth'] = round(res['dividendGrowth'], 2)
+                    item['payoutFrequency'] = (
+                        str(res['payoutFrequency']) if res['payoutFrequency'] != 'Special' else None
+                    )
+                    item['exDividendDate'] = ex_date_str
+
+        except Exception:
             item['annualDividend'] = None
             item['dividendYield'] = None
             item['payoutRatio'] = None
