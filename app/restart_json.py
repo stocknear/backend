@@ -1183,6 +1183,7 @@ async def get_stock_screener(con):
             with open(f"json/dividends/companies/{symbol}.json", 'r') as file:
                 res = orjson.loads(file.read())
                 item['annualDividend'] = round(res['annualDividend'],2)
+                item['exDividendDate'] = res['history'][0]['date']
                 item['dividendYield'] = round(res['dividendYield'],2)
                 item['payoutRatio'] = round(res['payoutRatio'],2)
                 item['dividendGrowth'] = round(res['dividendGrowth'],2)
@@ -1193,6 +1194,8 @@ async def get_stock_screener(con):
             item['payoutRatio'] = None
             item['dividendGrowth'] = None
             item['payoutFrequency'] = None
+            item['exDividendDate'] = None
+
 
         try:
             with open(f"json/share-statistics/{symbol}.json", 'r') as file:

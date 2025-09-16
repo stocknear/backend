@@ -142,6 +142,9 @@ data = {
         'text': 'Year-over-year (YoY) dividend growth is how much a company has increased compared to the same time period one year ago.',
         'equation': 'Value Growth = ((Current Value / Previous Value) - 1) * 100%'
     },
+    'exDividendDate': {
+        'text': "Only shareholders that buy the stock before the ex-dividend date will receive the dividend payment."
+    },
     'eps': {
         'text': 'Earnings per share is the portion of a company`s profit that is allocated to each individual stock. EPS is calculated by dividing net income by shares outstanding.',
         'equation': 'EPS = Net Income / Shares Outstanding'
