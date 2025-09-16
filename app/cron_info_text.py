@@ -850,6 +850,15 @@ data = {
     "changesPercentage": {
         "text": "The percentage change in the stock price on the current or latest trading day."
     },
+    "bookValue": {
+        "text": "Book value represents the net asset value of a company, calculated as total assets minus total liabilities. It reflects the amount shareholders would theoretically receive if the company were liquidated at the values recorded on the balance sheet.",
+        "equation": "Book Value = Total Assets – Total Liabilities"
+    },
+    "bookValuePerShare": {
+        "text": "Book value per share measures the equity available to common shareholders on a per-share basis. It is calculated by dividing book value by the weighted average shares outstanding.",
+        "equation": "Book Value Per Share = Book Value / Shares Outstanding"
+    }
+
 
 }
 

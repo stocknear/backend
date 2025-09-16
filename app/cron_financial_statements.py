@@ -109,6 +109,43 @@ async def add_ratio_elements(symbol):
         except Exception as e:
             print(f"Error calculating margins for {symbol}: {e}")
 
+
+async def add_balance_sheet_elements(symbol):
+    for period in ["annual", "quarter"]:
+        try:
+            # Load balance sheet data
+            path = f"json/financial-statements/balance-sheet-statement/{period}/{symbol}.json"
+            with open(path, "r") as file:
+                balance_sheet_data = ujson.load(file)
+
+            # Load income statement data
+            path = f"json/financial-statements/income-statement/{period}/{symbol}.json"
+            with open(path, "r") as file:
+                income_data = ujson.load(file)
+
+            if balance_sheet_data and income_data:
+                for balance_item, income_item in zip(balance_sheet_data, income_data):
+                    try:
+                        total_assets = balance_item.get("totalAssets", 0) or 0
+                        total_liabilities = balance_item.get("totalLiabilities", 0) or 0
+                        shares_out = income_item.get("weightedAverageShsOut", 0) or 0
+
+                        balance_item["bookValue"] = total_assets - total_liabilities
+                        balance_item["bookValuePerShare"] = (
+                            balance_item["bookValue"] / shares_out if shares_out > 0 else None
+                        )
+                    except Exception as inner_e:
+                        print(f"Error processing item for {symbol}: {inner_e}")
+
+                # Save updated data
+                ratios_path = f"json/financial-statements/balance-sheet-statement/{period}/{symbol}.json"
+                with open(ratios_path, "w") as file:
+                    ujson.dump(balance_sheet_data, file)
+
+        except Exception as e:
+            print(f"Error calculating book values for {symbol} ({period}): {e}")
+
+
 async def get_financial_statements(session, symbol, semaphore, rate_limiter):
 
     base_url = "https://financialmodelingprep.com/stable"
@@ -154,6 +191,7 @@ async def get_financial_statements(session, symbol, semaphore, rate_limiter):
 
     
     await add_ratio_elements(symbol)
+    await add_balance_sheet_elements(symbol)
 
 async def run():
     con = sqlite3.connect('stocks.db')
@@ -161,7 +199,7 @@ async def run():
     cursor.execute("PRAGMA journal_mode = wal")
     cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
     total_symbols = [row[0] for row in cursor.fetchall()]
-    #total_symbols = ['MCD']
+    #total_symbols = ['NVDA']
     con.close()
 
     rate_limiter = RateLimiter(max_requests=1000, time_window=60)
