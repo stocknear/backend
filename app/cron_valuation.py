@@ -194,13 +194,11 @@ def compute_price_ratio(symbol, metric_type = 'freeCashFlow'):
     return None
 
 async def get_data(symbol: str):
-
     # --- Cash flow (quarter) ---
     cf_path = f"json/financial-statements/cash-flow-statement/quarter/{symbol}.json"
     cf_raw = load_json(cf_path)
 
     cf_list = []
-    # sort by date string; invalid/missing dates are skipped
     for item in sorted(cf_raw, key=lambda x: x.get("date", "")):
         date_s = item.get("date")
         if not date_s:
@@ -217,11 +215,10 @@ async def get_data(symbol: str):
                 }
             )
 
-    # --- Historical adjusted prices (weekly downsample) ---
+    # --- Historical adjusted prices (bi-weekly downsample) ---
     price_path = f"json/historical-price/adj/{symbol}.json"
     price_raw = load_json(price_path)
 
-    # Build list of (datetime, date_string, price) for valid rows
     price_tuples: List[tuple] = []
     for item in price_raw:
         date_s = item.get("date")
@@ -241,21 +238,24 @@ async def get_data(symbol: str):
     # Ensure chronological order
     price_tuples.sort(key=lambda x: x[0])
 
-    # Group by ISO year-week and keep the last (chronologically) entry in each week.
-    # Using dict; later entries overwrite earlier ones so the last trading day remains.
-    weekly_map = {}
+    # Group by (iso_year, biweekly_number)
+    # biweekly_number = ceil(week / 2)
+    biweekly_map = {}
     for dt, date_s, price in price_tuples:
-        iso = dt.isocalendar()  # (iso_year, iso_week, iso_weekday) in Python >=3.8
-        key = (iso[0], iso[1])  # iso_year, iso_week
-        weekly_map[key] = (dt, date_s, price)
+        iso_year, iso_week, _ = dt.isocalendar()
+        biweek = (iso_week + 1) // 2  # group weeks [1,2]=1, [3,4]=2, etc.
+        key = (iso_year, biweek)
+        # keep last (chronologically) entry within that 2-week block
+        biweekly_map[key] = (dt, date_s, price)
 
-    # Extract and sort by the stored datetime
-    weekly_items = [v for k, v in weekly_map.items()]
-    weekly_items.sort(key=lambda v: v[0])
+    # Extract and sort
+    biweekly_items = list(biweekly_map.values())
+    biweekly_items.sort(key=lambda v: v[0])
 
-    weekly_list = [{"date": v[1], "price": v[2]} for v in weekly_items]
+    biweekly_list = [{"date": v[1], "price": v[2]} for v in biweekly_items]
 
-    return {"freeCashFlowHistory": cf_list, "historicalPrice": weekly_list}
+    return {"freeCashFlowHistory": cf_list, "historicalPrice": biweekly_list}
+
 
 
 
