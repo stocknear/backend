@@ -279,7 +279,7 @@ async def run():
     cursor.execute("SELECT DISTINCT symbol FROM stocks")
     stock_symbols = [row[0] for row in cursor.fetchall()]
     # Testing mode
-    stock_symbols = ['GOOG']
+    #stock_symbols = ['GOOG']
     con.close()
 
     for symbol in tqdm(stock_symbols):
