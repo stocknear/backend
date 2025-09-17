@@ -111,7 +111,7 @@ async def add_ratio_elements(symbol):
 
 
 async def add_balance_sheet_elements(symbol):
-    for period in ["annual", "quarter"]:
+    for period in ["annual", "quarter", "ttm"]:
         try:
             # Load balance sheet data
             path = f"json/financial-statements/balance-sheet-statement/{period}/{symbol}.json"
@@ -199,7 +199,7 @@ async def run():
     cursor.execute("PRAGMA journal_mode = wal")
     cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
     total_symbols = [row[0] for row in cursor.fetchall()]
-    #total_symbols = ['NVDA']
+    #total_symbols = ['GOOG']
     con.close()
 
     rate_limiter = RateLimiter(max_requests=1000, time_window=60)

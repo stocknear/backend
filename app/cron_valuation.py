@@ -29,14 +29,14 @@ def load_json(path: str):
 
 def compute_cagr(symbol, key_element):
     years = 5
-    if key_element == 'freeCashFlow' or key_element == 'operatingCashFlow':
+    if key_element in ['freeCashFlow', 'operatingCashFlow']:
         path = f"json/financial-statements/cash-flow-statement/annual/{symbol}.json"
-    elif key_element == 'operatingIncome':
-        path = f"json/financial-statements/income-statement/annual/{symbol}.json"
-    elif key_element == 'weightedAverageShsOutDil':
+    elif key_element in ['operatingIncome', 'weightedAverageShsOutDil']:
         path = f"json/financial-statements/income-statement/annual/{symbol}.json"
     elif key_element == 'dividends':
         path = f"json/dividends/companies/{symbol}.json"
+    elif key_element == 'bookValue':
+        path = f"json/financial-statements/balance-sheet-statement/annual/{symbol}.json"
     else:
         return 0
 
@@ -126,6 +126,10 @@ def compute_price_ratio(symbol, metric_type='freeCashFlow'):
             data_path = f"json/financial-statements/cash-flow-statement/ttm/{symbol}.json"
             metric_key = 'operatingCashFlow'
             ratio_name = 'priceToOCFRatio'
+        elif metric_type == 'bookValue':
+            data_path = f"json/financial-statements/balance-sheet-statement/ttm/{symbol}.json"
+            metric_key = 'bookValue'
+            ratio_name = 'priceToBookRatio'
         else:
             return None
 
@@ -230,6 +234,22 @@ async def get_data(symbol: str):
         if dt.year >= START_YEAR:
             oi_list.append({"date": date_s, "operatingIncome": item.get("operatingIncome")})
 
+    # --- Book Value (quarter) ---
+    bv_path = f"json/financial-statements/balance-sheet-statement/quarter/{symbol}.json"
+    bv_raw = load_json(bv_path)
+
+    bv_list = []
+    for item in sorted(bv_raw, key=lambda x: x.get("date", "")):
+        date_s = item.get("date")
+        if not date_s:
+            continue
+        try:
+            dt = datetime.strptime(date_s, "%Y-%m-%d")
+        except ValueError:
+            continue
+        if dt.year >= START_YEAR:
+            bv_list.append({"date": date_s, "bookValue": item.get("bookValue")})
+
     # --- Historical adjusted prices (bi-weekly downsample) ---
     price_path = f"json/historical-price/adj/{symbol}.json"
     price_raw = load_json(price_path)
@@ -268,6 +288,7 @@ async def get_data(symbol: str):
         "freeCashFlowHistory": cf_list,
         "operatingCashFlowHistory": ocf_list,
         "operatingIncomeHistory": oi_list,
+        "bookValueHistory": bv_list,
         "historicalPrice": biweekly_list,
     }
 
@@ -290,15 +311,18 @@ async def run():
             free_cash_flow_growth = compute_cagr(symbol, 'freeCashFlow')
             operating_income_growth = compute_cagr(symbol, 'operatingIncome')
             operating_cash_flow_growth = compute_cagr(symbol, 'operatingCashFlow')
+            book_value_growth = compute_cagr(symbol, 'bookValue')
             dividend_growth = compute_cagr(symbol, 'dividends')
             free_cf_ratio = compute_price_ratio(symbol, 'freeCashFlow')
             oper_income_ratio = compute_price_ratio(symbol, 'operatingIncome')
             oper_cf_ratio = compute_price_ratio(symbol, 'operatingCashFlow')
+            book_value_ratio = compute_price_ratio(symbol, 'bookValue')
 
             # Map history into prices
             ratio_dict_fcf = {item['date']: item['priceToFCFRatio'] for item in free_cf_ratio['history']}
             ratio_dict_oi  = {item['date']: item['priceToOperatingIncomeRatio'] for item in oper_income_ratio['history']}
             ratio_dict_ocf = {item['date']: item['priceToOCFRatio'] for item in oper_cf_ratio['history']}
+            ratio_dict_bv  = {item['date']: item['priceToBookRatio'] for item in book_value_ratio['history']}
 
             for price_entry in data['historicalPrice']:
                 date = price_entry['date']
@@ -308,6 +332,8 @@ async def run():
                     price_entry['priceToOperatingIncomeRatio'] = ratio_dict_oi[date]
                 if date in ratio_dict_ocf:
                     price_entry['priceToOCFRatio'] = ratio_dict_ocf[date]
+                if date in ratio_dict_bv:
+                    price_entry['priceToBookRatio'] = ratio_dict_bv[date]
 
             res = {
                 'sharesGrowth': shares_growth,
@@ -315,9 +341,11 @@ async def run():
                 "freeCashFlowGrowth": free_cash_flow_growth,
                 "operatingIncomeGrowth": operating_income_growth,
                 "operatingCashFlowGrowth": operating_cash_flow_growth,
+                "bookValueGrowth": book_value_growth,
                 'priceRatioAvgFCF': free_cf_ratio['five_year_average'],
                 'priceRatioAvgOI': oper_income_ratio['five_year_average'],
                 'priceRatioAvgOCF': oper_cf_ratio['five_year_average'],
+                'priceRatioAvgBV': book_value_ratio['five_year_average'],
                 **data
             }
 
