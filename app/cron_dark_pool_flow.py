@@ -12,6 +12,10 @@ import time
 import hashlib
 import requests
 from tqdm import tqdm
+from datetime import datetime, time as dtime
+from zoneinfo import ZoneInfo  # built-in from Python 3.9+
+
+NY_TZ = ZoneInfo("America/New_York")
 
 load_dotenv()
 api_key = os.getenv('INTRINIO_API_KEY')
@@ -150,7 +154,6 @@ def get_symbols(db_path, table_name):
 
 
 def main():
-
     stock_symbols = get_symbols('stocks.db', 'stocks')
     etf_symbols = get_symbols('etf.db', 'etfs')
     total_symbols = stock_symbols + etf_symbols
@@ -160,24 +163,34 @@ def main():
     print(len(data))
     res = []
 
+    # Today’s date in New York
+    today_date_ny = datetime.now(NY_TZ).date()
+    cutoff_time = dtime(8, 0)  # 8:00 AM cutoff
+
     for item in data:
         try:
             symbol = item['symbol']
-            # Adjust ticker formatting for BRK-A/BRK-B if needed
             ticker = item['symbol']
             if symbol.lower() == 'brk.b':
                 ticker = 'BRK-B'
             elif symbol.lower() == 'brk.a':
                 ticker = 'BRK-A'
-            # Use the datetime 'timestamp' to extract the executed date
-            timestamp_dt = datetime.fromisoformat(item['timestamp'])
-            executed_date = timestamp_dt.strftime('%Y-%m-%d')
-            
-            # Create a unique trackingID using hashlib (MD5)
-            raw_tracking_string = f"{symbol}_{timestamp_dt.isoformat()}"
-            tracking_id = hashlib.md5(raw_tracking_string.encode('utf-8')).hexdigest()[:10]
 
-            if executed_date == today_date:
+            # Parse timestamp & convert to NY timezone
+            timestamp_dt = datetime.fromisoformat(item['timestamp'])
+            if timestamp_dt.tzinfo is None:  # assume UTC if no timezone given
+                timestamp_dt = timestamp_dt.replace(tzinfo=ZoneInfo("UTC"))
+            timestamp_dt = timestamp_dt.astimezone(NY_TZ)
+
+            executed_date = timestamp_dt.date()
+            executed_time = timestamp_dt.time()
+
+            # Only accept data if it's today in NY and after 8am
+            if executed_date == today_date_ny and executed_time >= cutoff_time:
+                # Create tracking ID
+                raw_tracking_string = f"{symbol}_{timestamp_dt.isoformat()}"
+                tracking_id = hashlib.md5(raw_tracking_string.encode('utf-8')).hexdigest()[:10]
+
                 sector = stock_screener_data_dict.get(symbol, {}).get('sector', "")
                 volume = float(item['total_volume'])
                 size = float(item['size'])
@@ -185,15 +198,15 @@ def main():
                 quote_data = get_quote_data(symbol) or {}
                 size_volume_ratio = round((size / volume) * 100, 2) if volume else 0
                 size_avg_volume_ratio = round((size / quote_data.get('avgVolume', 1)) * 100, 2)
-                
+
                 if ticker in total_symbols:
                     res.append({
                         'ticker': ticker,
-                        'date': item['timestamp'],
+                        'date': timestamp_dt.isoformat(),
                         'price': price,
                         'size': size,
                         'volume': volume,
-                        'premium': round(size*price,2),  # default to 0 if premium isn't provided
+                        'premium': round(size*price,2),
                         'sector': sector,
                         'assetType': 'Stock' if ticker in stock_symbols else 'ETF',
                         'sizeVolRatio': size_volume_ratio,
@@ -203,10 +216,9 @@ def main():
         except Exception as e:
             print(f"Error processing {ticker}: {e}")
 
-    # Combine new data with existing data
     if res:
-        # Save the combined data to a daily file
         save_json(res)
+
 
 
 if __name__ == '__main__':

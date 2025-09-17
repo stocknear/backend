@@ -291,7 +291,6 @@ async def run():
             operating_income_growth = compute_cagr(symbol, 'operatingIncome')
             operating_cash_flow_growth = compute_cagr(symbol, 'operatingCashFlow')
             dividend_growth = compute_cagr(symbol, 'dividends')
-            print(operating_cash_flow_growth)
             free_cf_ratio = compute_price_ratio(symbol, 'freeCashFlow')
             oper_income_ratio = compute_price_ratio(symbol, 'operatingIncome')
             oper_cf_ratio = compute_price_ratio(symbol, 'operatingCashFlow')
