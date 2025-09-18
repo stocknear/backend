@@ -107,7 +107,7 @@ async def get_endpoint(session, symbol, con, semaphore):
         querystring = {
             "token": api_key,
             "tickers": api_symbol,
-            "channels": "WIIM",
+            "channels": "wiim",
             "pageSize": "20",
             "sort":"created:desc",
         }
