@@ -21,7 +21,7 @@ api_key = os.getenv('FMP_API_KEY')
 
 
 market_cap_threshold = 10E9
-volume_threshold = 50_000
+volume_threshold = 10_000
 price_threshold = 10
 today = datetime.now(ny_timezone).date()
 
@@ -95,7 +95,7 @@ async def get_gainer_loser_active_stocks(symbols):
                 dt = datetime.fromtimestamp(data['timestamp'], ny_timezone).date()
                 # Ensure the stock meets criteria
                 if (today - dt).days <= 5 and market_cap >= market_cap_threshold and price >= price_threshold and exchange in ['AMEX','NASDAQ','NYSE']:
-                    if price and changes_percentage and changes_percentage < 100:
+                    if price and changes_percentage and changes_percentage < 100 and volume >= volume_threshold:
                         res_list.append({
                             "symbol": symbol,
                             "name": name,
@@ -196,6 +196,7 @@ async def get_pre_after_market_movers(symbols):
                 data = orjson.loads(file.read())
                 market_cap = int(data.get('marketCap', 0))
                 name = data.get('name',None)
+                volume = data.get('volume',0)
                 exchange = data.get('exchange',None)
 
             if market_cap >= market_cap_threshold:
@@ -208,7 +209,7 @@ async def get_pre_after_market_movers(symbols):
                         # Filter out entries where 'close' is None
                         filtered_prices = [price for price in one_day_price if price['close'] is not None]
 
-                    if price and price >= price_threshold and exchange in ['AMEX','NASDAQ','NYSE'] and changes_percentage and len(filtered_prices) > 100: #300
+                    if price and price >= price_threshold and volume >= volume_threshold and exchange in ['AMEX','NASDAQ','NYSE'] and changes_percentage and len(filtered_prices) > 100: #300
                         res_list.append({
                             "symbol": symbol,
                             "name": name,
