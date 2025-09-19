@@ -57,9 +57,6 @@ def get_data(symbol: str):
                 continue
 
             last = history[-1]  # take latest snapshot
-            oi = last.get("open_interest", 0) or 0
-            if oi == 0:
-                continue
 
             greeks = {
                 "delta": last.get("delta"),
@@ -68,7 +65,7 @@ def get_data(symbol: str):
                 "vega": last.get("vega"),
             }
 
-            by_exp[exp_str][strike][opt_type] = {"oi": oi, **greeks}
+            by_exp[exp_str][strike][opt_type] = {**greeks}
 
         except Exception:
             continue
@@ -90,23 +87,14 @@ def get_data(symbol: str):
                 call_gamma.append(safe_round(call_data["gamma"]))
                 call_theta.append(safe_round(call_data["theta"]))
                 call_vega.append(safe_round(call_data["vega"]))
-            else:
-                call_delta.append(None)
-                call_gamma.append(None)
-                call_theta.append(None)
-                call_vega.append(None)
+            
 
             if put_data:
                 put_delta.append(safe_round(put_data["delta"]))
                 put_gamma.append(safe_round(put_data["gamma"]))
                 put_theta.append(safe_round(put_data["theta"]))
                 put_vega.append(safe_round(put_data["vega"]))
-            else:
-                put_delta.append(None)
-                put_gamma.append(None)
-                put_theta.append(None)
-                put_vega.append(None)
-
+          
         result = {
             "expiration": exp_str,
             "strikes": strikes,
