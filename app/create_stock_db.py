@@ -138,6 +138,13 @@ class StockDatabase:
                         if isinstance(parsed_data, list) and "profile" in url:
                             # Handle list response, save as JSON object
                             fundamental_data['profile'] = ujson.dumps(parsed_data)
+                            if parsed_data[0]['isActivelyTrading'] == False:
+                                self.cursor.execute("DELETE FROM stocks WHERE symbol = ?", (symbol,))
+                                self.cursor.execute(f"DROP TABLE IF EXISTS '{symbol}'")
+                                self.conn.commit()
+                                print(f"Deleting inactive ticker {symbol}")
+                                return
+
                             data_dict = {
                                         'beta': parsed_data[0]['beta'],
                                         'country': parsed_data[0]['country'],
@@ -421,9 +428,8 @@ async def main():
         filtered_data = filter_tickers(all_tickers, OTC_symbols)
         
         # For testing - uncomment to limit results
-        #test_symbols = {'BRK-A', 'BRK-B', 'AMD', 'NTDOY'}
+        #test_symbols = {'FFIE','AMD'}
         #filtered_data = [t for t in filtered_data if t.get('symbol') in test_symbols]
-       
         await db.save_stocks(filtered_data)
         
     except Exception as e:
