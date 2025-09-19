@@ -139,7 +139,8 @@ def load_symbol_list():
 
 def main():
     symbols = load_symbol_list()
-    symbols = ["TSLA"]  # override for testing
+    #Testing mode
+    #symbols = ["TSLA"]
     for sym in tqdm(symbols, desc="Greeks Computation"):
         try:
             get_data(sym)
