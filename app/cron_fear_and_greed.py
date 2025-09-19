@@ -12,7 +12,7 @@ print(f"Category: {current.description}")
 print(f"Last updated: {current.last_update}")
 
 BASE_URL = "https://production.dataviz.cnn.io/index/fearandgreed/graphdata/"
-start_date = f"{date.today().year - 2}-01-01"
+start_date = f"{date.today().year - 3}-01-01"
 
 
 def save_json(data, path="json/fear-and-greed/data.json"):
@@ -236,12 +236,8 @@ try:
             "historical": records
         }
 
-        save_json(data)
-        
-        # Extract data for plotting
-        dates = [r["datetime"] for r in records]
-        values = [r["value"] for r in records]
-        
+        if data:
+            save_json(data)
         
 except Exception as e:
     print(f"Error fetching historical data: {e}")
