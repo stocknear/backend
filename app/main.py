@@ -435,6 +435,7 @@ class BulkList(BaseModel):
 class ChatRequest(BaseModel):
     query: str
     messages: list
+    reasoning: str
 
 # Replace NaN values with None in the resulting JSON object
 def replace_nan_inf_with_none(obj):
@@ -2907,6 +2908,13 @@ async def get_options_flow_feed(data: OptionsFlowFeed, api_key: str = Security(g
 async def get_options_flow_stream(data: OptionsInsight, api_key: str = Security(get_api_key)):
     options_data = data.optionsData
     
+    model_settings = ModelSettings(
+        tool_choice="auto",
+        parallel_tool_calls=True,
+        reasoning={"effort": "low"},
+        text={ "verbosity": "low" }
+    )
+
     # Check cache first
     cache_key = f"options-insight-{options_data}"
     cached_result = redis_client.get(cache_key)
@@ -5113,6 +5121,15 @@ Return ONLY a JSON array of 5 question strings, no other text."""
 @app.post("/chat")
 async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
     user_query = normalize_query(data.query)
+    user_reasoning = data.reasoning or 'low'
+    print(user_reasoning)
+    model_settings = ModelSettings(
+        tool_choice="auto",
+        parallel_tool_calls=True,
+        reasoning={"effort": user_reasoning},
+        text={ "verbosity": "low" }
+    )
+
     history_messages = data.messages[-10:]
     cleaned_messages = []
     for item in history_messages:
