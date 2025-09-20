@@ -16,15 +16,15 @@ def run_pocketbase():
     subprocess.run(["python3", "cron_notification_channel.py"])
 
 def run_restart_cache():
-    subprocess.run(["pm2", "restart", "fastapi"])
-    subprocess.run(["pm2", "restart", "fastify"])
-    subprocess.run(["pm2", "restart", "websocket"])
+    subprocess.run(["pm2", "reload", "fastapi"])
+    subprocess.run(["pm2", "reload", "fastify"])
+    subprocess.run(["pm2", "reload", "websocket"])
 
 def run_json_job():
-    subprocess.run(["python3", "restart_json.py"])
-    subprocess.run(["pm2", "restart", "fastapi"])
-    subprocess.run(["pm2", "restart", "fastify"])
-    subprocess.run(["pm2", "restart", "websocket"])
+    subprocess.run(["python3", "reload_json.py"])
+    subprocess.run(["pm2", "reload", "fastapi"])
+    subprocess.run(["pm2", "reload", "fastify"])
+    subprocess.run(["pm2", "reload", "websocket"])
 
 def run_cron_price_alert():
     week = datetime.today().weekday()
