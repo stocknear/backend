@@ -11,8 +11,8 @@ load_dotenv()
 
 # Reddit credentials
 reddit_client = praw.Reddit(
-    client_id=os.getenv('REDDIT_BOT_API_KEY'),
-    client_secret=os.getenv('REDDIT_BOT_API_SECRET'),
+    client_id=os.getenv('REDDIT_API_KEY'),
+    client_secret=os.getenv('REDDIT_API_SECRET'),
     username=os.getenv('REDDIT_USERNAME'),
     password=os.getenv('REDDIT_PASSWORD'),
     user_agent=os.getenv('REDDIT_USER_AGENT', 'script:stocknear_bot:v2.0 (by /u/stocknear)')

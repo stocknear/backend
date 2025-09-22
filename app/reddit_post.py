@@ -463,8 +463,8 @@ def post_to_reddit():
 
     # Initialize Reddit instance
     reddit = praw.Reddit(
-        client_id=os.getenv('REDDIT_BOT_API_KEY'),
-        client_secret=os.getenv('REDDIT_BOT_API_SECRET'),
+        client_id=os.getenv('REDDIT_API_KEY'),
+        client_secret=os.getenv('REDDIT_API_SECRET'),
         username=os.getenv('REDDIT_USERNAME'),
         password=os.getenv('REDDIT_PASSWORD'),
         user_agent=os.getenv('REDDIT_USER_AGENT', 'script:my_bot:v1.0 (by /u/username)')
