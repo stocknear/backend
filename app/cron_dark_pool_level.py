@@ -91,36 +91,38 @@ def analyze_dark_pool_levels(trades: List[Dict],
 
 def today_trend(data):
     filtered_list = []
-    result = []
+
     for item in data:
         try:
-            # Convert date to NY timezone
-            dt_utc = datetime.fromisoformat(item['date'][:-6]).replace(tzinfo=utc)
-            dt_ny = dt_utc.astimezone(ny_tz)
+            # Parse date with timezone info directly
+            dt = datetime.fromisoformat(item['date'])
             
+            # Convert to NY timezone (if not already)
+            dt_ny = dt.astimezone(ny_tz)
+
             # Define trading hours (9:30 AM - 4:00 PM NY time)
             market_open = dt_ny.replace(hour=9, minute=30, second=0, microsecond=0)
             market_close = dt_ny.replace(hour=16, minute=0, second=0, microsecond=0)
-            
-            if market_open <= dt_ny <= market_close:  # Filter valid times
+
+            # Only keep trades within NYSE hours
+            if market_open <= dt_ny <= market_close:
                 filtered_list.append({
                     'size': item['size'],
-                    'date': dt_ny.strftime("%Y-%m-%d %H:%M")  # Format as HH:MM
+                    'date': dt_ny.strftime("%Y-%m-%d %H:%M")
                 })
-        except:
-            pass
+        except Exception as e:
+            print(f"Error parsing item {item}: {e}")
+            continue
 
+    # Sort by time
     filtered_list.sort(key=lambda x: datetime.strptime(x['date'], "%Y-%m-%d %H:%M"))
-    
+
+    # Sum sizes per minute
     summed_data = defaultdict(float)
     for entry in filtered_list:
-        try:
-            summed_data[entry['date']] += entry['size']
-        except:
-            pass
+        summed_data[entry['date']] += entry['size']
 
     result = [{'date': date, 'totalSize': size} for date, size in summed_data.items()]
-
     return result
 
 def run():
@@ -141,6 +143,8 @@ def run():
     etf_con.close()
 
     total_symbols = stocks_symbols+ etf_symbols
+
+
     with open(f"json/dark-pool/feed/data.json", "r") as file:
         raw_data = orjson.loads(file.read())
 
@@ -149,9 +153,7 @@ def run():
         for symbol in tqdm(total_symbols):
             try:
                 res_list = [item for item in raw_data if isinstance(item, dict) and item['ticker'] == symbol]
-                
                 trend_list = today_trend(res_list)
-                
                 dark_pool_levels = analyze_dark_pool_levels(
                     trades=res_list,
                     size_threshold=0,
