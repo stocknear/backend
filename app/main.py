@@ -2878,24 +2878,27 @@ async def get_options_chain(data:HistoricalDate, api_key: str = Security(get_api
 
 
 fields_to_remove = {'exchange', 'tradeCount', 'description', 'aggressor_ind',"ask","bid","midpoint","trade_count"}
-@app.post("/options-flow-feed")
-async def get_options_flow_feed(data: OptionsFlowFeed, api_key: str = Security(get_api_key)):
-    order_list = data.orderList
+@app.get("/options-flow-feed")
+async def get_options_flow_feed(api_key: str = Security(get_api_key)):
+    cache_key = f"options-flow-feed"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return StreamingResponse(
+        io.BytesIO(cached_result),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"})
     try:
         with open(f"json/options-flow/feed/data.json", 'rb') as file:
             data = orjson.loads(file.read())
-            #sorted_trades = sorted(data, key=lambda x: x['cost_basis'], reverse=True)
-            #sorted_trades = [item for item in sorted_trades if item['ticker'] == 'TSLA']
-            #print(sorted_trades[0])
-
-            if len(order_list) > 0:
-                data = [item for item in data if item['id'] not in order_list]
-
             res_list = [{k: v for k, v in item.items() if k not in fields_to_remove} for item in data]
     except:
         res_list = []
+
     data = orjson.dumps(res_list)
     compressed_data = gzip.compress(data)
+    redis_client.set(cache_key, compressed_data)
+    redis_client.expire(cache_key, 60)
+
     return StreamingResponse(
         io.BytesIO(compressed_data),
         media_type="application/json",

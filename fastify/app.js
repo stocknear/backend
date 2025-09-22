@@ -60,6 +60,112 @@ function formatTimestampNewYork(timestamp) {
 
 
 fastify.register(async function (fastify) {
+  
+  // Options Flow WebSocket endpoint
+  fastify.get(
+    "/options-flow",
+    { websocket: true },
+    (connection, req) => {
+      let orderList = [];
+      let sendInterval;
+      const lastSentData = new Set();
+      
+      const sendOptionsFlowData = async () => {
+        const filePath = path.join(
+          __dirname,
+          '../app/json/options-flow/feed/data.json'
+        );
+        
+        try {
+          if (fs.existsSync(filePath)) {
+            const fileData = fs.readFileSync(filePath, 'utf8');
+            
+            if (!fileData) {
+              console.error('Options flow data file is empty');
+              return;
+            }
+            
+            let jsonData;
+            try {
+              jsonData = JSON?.parse(fileData);
+            } catch (parseError) {
+              console.error('Invalid JSON format for options flow data', parseError);
+              return;
+            }
+            
+            // Filter out items that are already sent (in orderList)
+            const newData = jsonData?.filter(item => !orderList.includes(item.id));
+            
+            // Further filter to only send items not yet sent in this session
+            const dataToSend = newData?.filter(item => !lastSentData.has(item.id));
+            
+            if (dataToSend.length > 0 && connection.socket.readyState === WebSocket.OPEN) {
+              // Remove fields as per backend logic
+              const fieldsToRemove = ['exchange', 'tradeCount', 'description', 'aggressor_ind', 'ask', 'bid', 'midpoint', 'trade_count'];
+              const cleanedData = dataToSend?.map(item => {
+                const cleanedItem = {};
+                for (const key in item) {
+                  if (!fieldsToRemove?.includes(key)) {
+                    cleanedItem[key] = item[key];
+                  }
+                }
+                return cleanedItem;
+              });
+              
+              // Send the new data
+              connection?.socket?.send(JSON.stringify(cleanedData));
+              
+              // Mark these items as sent
+              dataToSend?.forEach(item => lastSentData?.add(item.id));
+            }
+          } else {
+            console.error('Options flow data file not found');
+          }
+        } catch (err) {
+          console.error('Error processing options flow data:', err);
+        }
+      };
+      
+      // Handle messages from client (orderList updates)
+      connection.socket.on('message', (message) => {
+        try {
+          const data = JSON.parse(message.toString('utf-8'));
+          if (data.type === 'init' || data.type === 'update') {
+            orderList = data?.orderList || [];
+            console.log('Received orderList from client:', orderList.length, 'items');
+            
+            // Start or restart the interval
+            if (sendInterval) {
+              clearInterval(sendInterval);
+            }
+            sendInterval = setInterval(sendOptionsFlowData, 3000); // Check every 3 seconds
+            
+            // Send initial data immediately
+            sendOptionsFlowData();
+          }
+        } catch (err) {
+          console.error('Failed to parse message from client:', err);
+        }
+      });
+      
+      // Handle client disconnect
+      connection.socket.on('close', () => {
+        console.log('Options flow client disconnected');
+        if (sendInterval) {
+          clearInterval(sendInterval);
+        }
+      });
+      
+      // Handle errors
+      connection.socket.on('error', (err) => {
+        console.error('WebSocket error:', err);
+        if (sendInterval) {
+          clearInterval(sendInterval);
+        }
+      });
+    }
+  );
+  
   fastify.get(
     "/price-data",
     { websocket: true },
