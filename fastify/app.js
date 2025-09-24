@@ -52,9 +52,9 @@ function formatTimestampNewYork(timestamp) {
     minute: "2-digit",
     hour12: false,
   })
-    .format(d)
-    .replace(/(\d+)\/(\d+)\/(\d+),/, "$3-$1-$2")
-    .replace(",", "");
+    ?.format(d)
+    ?.replace(/(\d+)\/(\d+)\/(\d+),/, "$3-$1-$2")
+    ?.replace(",", "");
 }
 
 
@@ -159,6 +159,101 @@ fastify.register(async function (fastify) {
       // Handle errors
       connection.socket.on('error', (err) => {
         console.error('WebSocket error:', err);
+        if (sendInterval) {
+          clearInterval(sendInterval);
+        }
+      });
+    }
+  );
+  
+  // Pre-Post Quote WebSocket endpoint
+  fastify.get(
+    "/pre-post-quote",
+    { websocket: true },
+    (connection, req) => {
+      let ticker = null;
+      let sendInterval;
+      let lastSentData = null;
+      
+      const sendPrePostQuoteData = async () => {
+        if (!ticker) return;
+        
+        const filePath = path.join(
+          __dirname,
+          `../app/json/pre-post-quote/${ticker.toUpperCase()}.json`
+        );
+        
+        try {
+          if (fs.existsSync(filePath)) {
+            const fileData = fs.readFileSync(filePath, 'utf8');
+            
+            if (!fileData) {
+              console.error(`Pre-post quote file is empty for ticker: ${ticker}`);
+              return;
+            }
+            
+            let jsonData;
+            try {
+              jsonData = JSON?.parse(fileData);
+            } catch (parseError) {
+              console.error(`Invalid JSON format for pre-post quote: ${ticker}`, parseError);
+              return;
+            }
+            
+            // Only send if data has changed
+            const currentDataSignature = JSON?.stringify(jsonData);
+            if (currentDataSignature !== lastSentData && connection.socket.readyState === WebSocket.OPEN) {
+              connection.socket?.send(JSON.stringify(jsonData));
+              lastSentData = currentDataSignature;
+              console.log(`Sent pre-post quote update for ${ticker}`);
+            }
+          } else {
+            // File doesn't exist, send empty object
+            if (connection.socket.readyState === WebSocket.OPEN) {
+              connection.socket.send(JSON.stringify({}));
+            }
+          }
+        } catch (err) {
+          console.error('Error processing pre-post quote data:', err);
+        }
+      };
+      
+      // Handle messages from client (ticker selection)
+      connection.socket.on('message', (message) => {
+        try {
+          const data = JSON.parse(message.toString('utf-8'));
+          if (data.ticker) {
+            ticker = data.ticker;
+            console.log('Pre-post quote ticker received from client:', ticker);
+            
+            // Reset last sent data when ticker changes
+            lastSentData = null;
+            
+            // Start or restart the interval
+            if (sendInterval) {
+              clearInterval(sendInterval);
+            }
+            sendInterval = setInterval(sendPrePostQuoteData, 10000); 
+            
+            // Send initial data immediately
+            sendPrePostQuoteData();
+          }
+        } catch (err) {
+          console.error('Failed to parse pre-post quote message from client:', err);
+        }
+      });
+      
+      // Handle client disconnect
+      connection.socket.on('close', () => {
+        console.log('Pre-post quote client disconnected');
+        if (sendInterval) {
+          clearInterval(sendInterval);
+        }
+      });
+      
+      // Handle errors
+      connection.socket.on('error', (err) => {
+        console.error('Pre-post quote WebSocket error:', err);
         if (sendInterval) {
           clearInterval(sendInterval);
         }
