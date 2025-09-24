@@ -435,7 +435,7 @@ class BulkList(BaseModel):
 class ChatRequest(BaseModel):
     query: str
     messages: list
-    reasoning: str
+    reasoning: bool
 
 # Replace NaN values with None in the resulting JSON object
 def replace_nan_inf_with_none(obj):
@@ -2910,13 +2910,6 @@ async def get_options_flow_feed(api_key: str = Security(get_api_key)):
 @app.post("/options-insight")
 async def get_options_flow_stream(data: OptionsInsight, api_key: str = Security(get_api_key)):
     options_data = data.optionsData
-    
-    model_settings = ModelSettings(
-        tool_choice="auto",
-        parallel_tool_calls=True,
-        reasoning={"effort": "low"},
-        text={ "verbosity": "low" }
-    )
 
     # Check cache first
     cache_key = f"options-insight-{options_data}"
@@ -5053,17 +5046,17 @@ def get_tools_for_query(user_query: str) -> tuple[list, str | None]:
     """Get tools and matched trigger for query with efficient lookup"""
     for trigger, tools in TRIGGER_CONFIG.items():
         if trigger in user_query:
-            return tools, trigger, os.getenv('REASON_CHAT_MODEL')
-    return all_tools, None, os.getenv('CHAT_MODEL')
+            return tools, trigger
+    return all_tools, None
 
 
-async def create_backtesting_strategy(user_query: str) -> dict | None:
+async def create_backtesting_strategy(user_query: str, selected_model: str) -> dict | None:
     """Create a backtesting strategy based on user query and return the parsed strategy."""
     try:
         agent = Agent(
             name="Stocknear AI Agent",
             instructions=BACKTESTING_INSTRUCTION,
-            model=os.getenv("CHAT_MODEL"),
+            model=selected_model,
             tools=[],
             model_settings=model_settings
         )
@@ -5116,7 +5109,7 @@ Generate 5 concise, relevant questions that:
 Return ONLY a JSON array of 5 question strings, no other text."""
 
         response = await async_client.chat.completions.create(
-            model=os.getenv("CHAT_MODEL"),
+            model=os.getenv("FAST_CHAT_MODEL"),
             messages=[
                 {"role": "system", "content": "You are a helpful assistant that generates follow-up questions about stocks and financial topics."},
                 {"role": "user", "content": prompt}
@@ -5155,15 +5148,9 @@ Return ONLY a JSON array of 5 question strings, no other text."""
 @app.post("/chat")
 async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
     user_query = normalize_query(data.query)
-    user_reasoning = data.reasoning or 'low'
-    print(user_reasoning)
-    model_settings = ModelSettings(
-        tool_choice="auto",
-        parallel_tool_calls=True,
-        reasoning={"effort": user_reasoning},
-        text={ "verbosity": "low" }
-    )
+    selected_model = os.getenv('REASON_CHAT_MODEL') if data.reasoning == True else os.getenv('CHAT_MODEL')
 
+    
     history_messages = data.messages[-10:]
     cleaned_messages = []
     for item in history_messages:
@@ -5182,7 +5169,7 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
     history_messages = cleaned_messages
 
     # Get tools and matched trigger in single pass
-    selected_tools, matched_trigger, selected_model = get_tools_for_query(user_query)
+    selected_tools, matched_trigger = get_tools_for_query(user_query)
     # Handle special triggers
     if matched_trigger == "@stockscreener":
         try:
