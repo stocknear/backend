@@ -91,11 +91,6 @@ with open("json/llm/options_insight_instruction.txt","r",encoding="utf-8") as fi
 with open("json/llm/backtesting_instruction.txt","r",encoding="utf-8") as file:
     BACKTESTING_INSTRUCTION = file.read()
 
-model_settings = ModelSettings(
-    tool_choice="auto",
-    parallel_tool_calls=True,
-    reasoning={"effort": "low"},
-    text={ "verbosity": "low" },)
 
 all_tools = [get_reddit_tracker, get_fear_and_greed_index, get_ticker_earnings_call_transcripts, get_all_sector_overview, get_bitcoin_etfs, get_most_shorted_stocks, get_penny_stocks, get_ipo_calendar, get_dividend_calendar, get_ticker_trend_forecast, get_monthly_dividend_stocks, get_top_rated_dividend_stocks, get_dividend_aristocrats, get_dividend_kings, get_overbought_tickers, get_oversold_tickers, get_ticker_owner_earnings, get_ticker_financial_score, get_ticker_key_metrics, get_ticker_statistics, get_ticker_dividend, get_ticker_dark_pool, get_ticker_unusual_activity, get_ticker_open_interest_by_strike_and_expiry, get_ticker_max_pain, get_ticker_options_overview_data, get_ticker_shareholders, get_ticker_insider_trading, get_ticker_pre_post_quote, get_ticker_quote, get_market_flow, get_market_news, get_analyst_tracker, get_latest_congress_trades, get_insider_tracker, get_potus_tracker, get_top_active_stocks, get_top_aftermarket_losers, get_top_premarket_losers, get_top_losers, get_top_aftermarket_gainers, get_top_premarket_gainers, get_top_gainers, get_ticker_analyst_rating, get_ticker_news, get_latest_dark_pool_feed, get_latest_options_flow_feed, get_ticker_bull_vs_bear, get_ticker_earnings, get_ticker_earnings_price_reaction, get_top_rating_stocks, get_economic_calendar, get_earnings_releases, get_ticker_analyst_estimate, get_ticker_business_metrics, get_why_priced_moved, get_ticker_short_data, get_company_data, get_ticker_hottest_options_contracts, get_ticker_ratios_statement, get_ticker_cash_flow_statement, get_ticker_income_statement, get_ticker_balance_sheet_statement, get_congress_activity]
 
@@ -2948,6 +2943,13 @@ async def get_options_flow_stream(data: OptionsInsight, api_key: str = Security(
     messages = [date_context] + messages
     
     # Agent setup for options insight
+    model_settings = ModelSettings(
+        tool_choice="auto",
+        parallel_tool_calls=True,
+        reasoning={"effort": "low"},
+        text={ "verbosity": "low" }
+    )
+
     agent = Agent(
         name="Stocknear AI Agent",
         instructions=OPTIONS_INSIGHT_INSTRUCTION,
@@ -5050,7 +5052,7 @@ def get_tools_for_query(user_query: str) -> tuple[list, str | None]:
     return all_tools, None
 
 
-async def create_backtesting_strategy(user_query: str, selected_model: str) -> dict | None:
+async def create_backtesting_strategy(user_query: str, selected_model: str, model_settings) -> dict | None:
     """Create a backtesting strategy based on user query and return the parsed strategy."""
     try:
         agent = Agent(
@@ -5148,9 +5150,15 @@ Return ONLY a JSON array of 5 question strings, no other text."""
 @app.post("/chat")
 async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
     user_query = normalize_query(data.query)
-    selected_model = os.getenv('REASON_CHAT_MODEL') if data.reasoning == True else os.getenv('CHAT_MODEL')
+    selected_model = os.getenv('CHAT_MODEL')
 
-    
+    model_settings = ModelSettings(
+        tool_choice="auto",
+        parallel_tool_calls=True,
+        reasoning={"effort": "medium" if data.reasoning == True else "low"},
+        text={ "verbosity": "low" }
+    )
+
     history_messages = data.messages[-10:]
     cleaned_messages = []
     for item in history_messages:
@@ -5255,7 +5263,7 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
         history_messages = [system_msg] + history_messages
 
     elif matched_trigger == "@backtesting":
-        strategy_data = await create_backtesting_strategy(user_query)
+        strategy_data = await create_backtesting_strategy(user_query, selected_model, model_settings)
         tickers = strategy_data['tickers']
         start_date = strategy_data.get('start_date',"2015-01-01")
         end_date = strategy_data.get('end_date', datetime.now().strftime("%Y-%m-%d"))
