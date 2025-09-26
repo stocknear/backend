@@ -55,6 +55,19 @@ def get_analyst_from_directory():
 
 if __name__ == "__main__":
     data = get_analyst_from_directory()
+
+    # Sort all ratings by date (latest first)
     sorted_data = sorted(data, key=lambda x: datetime.strptime(x['date'], "%Y-%m-%d"), reverse=True)
-    if sorted_data:
-        save_json(sorted_data)
+
+    # Deduplicate so each analystId keeps only their latest rating
+    unique_latest = {}
+    for item in sorted_data:
+        if item['analystId'] not in unique_latest:
+            unique_latest[item['analystId']] = item
+
+    # Convert back to list and keep top 100
+    final_data = list(unique_latest.values())
+    final_data = sorted(final_data, key=lambda x: datetime.strptime(x['date'], "%Y-%m-%d"), reverse=True)[:100]
+
+    if final_data:
+        save_json(final_data)
