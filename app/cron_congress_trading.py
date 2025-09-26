@@ -11,6 +11,8 @@ from tqdm import tqdm
 from dotenv import load_dotenv
 import os
 from utils.helper import replace_representative
+from datetime import datetime
+
 
 with open(f"json/stock-screener/data.json", 'rb') as file:
     stock_screener_data = orjson.loads(file.read())
@@ -241,6 +243,19 @@ def create_search_list():
 
     # Sort the list by the 'lastTrade' date in descending order
     search_politician_list = sorted(search_politician_list, key=lambda x: x['lastTrade'], reverse=True)
+    for item in search_politician_list:
+        try:
+            # parse date
+            dt = datetime.strptime(item['lastTrade'], "%Y-%m-%d")
+            
+            # if it's in the future, replace year with current year
+            if dt.date() > datetime.today().date():
+                dt = dt.replace(year=datetime.today().year)
+            
+            # assign back as string
+            item['lastTrade'] = dt.strftime("%Y-%m-%d")
+        except Exception:
+            pass
 
     # Write the search list to a JSON file
     with open('json/congress-trading/search_list.json', 'wb') as file:
