@@ -27,14 +27,14 @@ async def save_json(data, symbol, dir_path):
 
 async def compute_rsi(price_history, time_period=14):
     df_price = pd.DataFrame(price_history)
-    df_price['rsi'] = rsi(df_price['close'], window=time_period)
+    df_price['rsi'] = rsi(df_price['adjClose'], window=time_period)
     result = df_price.to_dict(orient='records')
     return result
 
 
 async def calculate_price_reactions(ticker, filtered_data, price_history):
     # Ensure price_history is sorted by date
-    price_history.sort(key=lambda x: x['time'])
+    price_history.sort(key=lambda x: x['date'])
 
     results = []
 
@@ -49,7 +49,7 @@ async def calculate_price_reactions(ticker, filtered_data, price_history):
         report_date = item['date']
 
         # Find the index of the report date in the price history
-        report_index = next((i for i, entry in enumerate(price_history) if entry['time'] == report_date), None)
+        report_index = next((i for i, entry in enumerate(price_history) if entry['date'] == report_date), None)
         
         if report_index is None:
             continue  # Skip if report date is not found in the price history
@@ -61,7 +61,7 @@ async def calculate_price_reactions(ticker, filtered_data, price_history):
             'date': report_date,
             'quarter': item['quarter'],
             'year': item['year'],
-            'time': item['time'],
+            'time': item['date'],
             'rsi': int(price_history[report_index]['rsi']) if not pd.isna(price_history[report_index]['rsi']) else None,
             'iv': iv_value,
         }
@@ -82,22 +82,22 @@ async def calculate_price_reactions(ticker, filtered_data, price_history):
                     direction = "forward" if offset >= 0 else "backward"
                     days_key = f"{direction}_{abs(offset)}_days"
 
-                    if offset != 1:
-                        price_reactions[f"{days_key}_close"] = target_price_data['close']
+                    if offset != 0:
+                        price_reactions[f"{days_key}_close"] = target_price_data['adjClose']
                         price_reactions[f"{days_key}_change_percent"] = round(
-                            (target_price_data['close'] / previous_price_data['close'] - 1) * 100, 2
+                            (target_price_data['adjClose'] / previous_price_data['adjClose'] - 1) * 100, 2
                         )
 
-                    if offset == 1:
-                        price_reactions['open'] = target_price_data['open']
-                        price_reactions['high'] = target_price_data['high']
-                        price_reactions['low'] = target_price_data['low']
-                        price_reactions['close'] = target_price_data['close']
+                    if offset == 0:
+                        price_reactions['open'] = target_price_data['adjOpen']
+                        price_reactions['high'] = target_price_data['adjHigh']
+                        price_reactions['low'] = target_price_data['adjLow']
+                        price_reactions['close'] = target_price_data['adjClose']
 
-                        price_reactions[f"open_change_percent"] = round((target_price_data['open'] / previous_price_data['close'] - 1) * 100, 2)
-                        price_reactions[f"high_change_percent"] = round((target_price_data['high'] / previous_price_data['close'] - 1) * 100, 2)
-                        price_reactions[f"low_change_percent"] = round((target_price_data['low'] / previous_price_data['close'] - 1) * 100, 2)
-                        price_reactions[f"close_change_percent"] = round((target_price_data['close'] / previous_price_data['close'] - 1) * 100, 2)
+                        price_reactions[f"open_change_percent"] = round((target_price_data['adjOpen'] / previous_price_data['adjClose'] - 1) * 100, 2)
+                        price_reactions[f"high_change_percent"] = round((target_price_data['adjHigh'] / previous_price_data['adjClose'] - 1) * 100, 2)
+                        price_reactions[f"low_change_percent"] = round((target_price_data['adjLow'] / previous_price_data['adjClose'] - 1) * 100, 2)
+                        price_reactions[f"close_change_percent"] = round((target_price_data['adjClose'] / previous_price_data['adjClose'] - 1) * 100, 2)
 
         results.append(price_reactions)
 
@@ -137,7 +137,7 @@ async def get_past_data(data, ticker):
 
         try:
             # Load the price history data
-            with open(f"json/historical-price/max/{ticker}.json") as file:
+            with open(f"json/historical-price/adj/{ticker}.json") as file:
                 price_history = orjson.loads(file.read())
 
             price_history = await compute_rsi(price_history)
@@ -221,7 +221,7 @@ def main():
         stock_symbols = [row[0] for row in cursor.fetchall()]
         
         # Testing mode - uncomment to test with single symbol
-        # stock_symbols = ['NKE']
+        #stock_symbols = ['MNDY']
         
         print(f"Found {len(stock_symbols)} symbols to process")
 
