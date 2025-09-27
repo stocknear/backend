@@ -5300,11 +5300,24 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
                             continue
 
                         if getattr(part, "thought", False):
-                            match = re.search(r'\*\*(.*?)\*\*', part.text)
-                            if match:
-                                result = match.group(1)
-                                print(result)
-                                yield orjson.dumps({"thoughts": result}) + b"\n"
+                            # Extract both the title (between **) and full content
+                            thought_text = part.text
+                            title_match = re.search(r'\*\*(.*?)\*\*', thought_text)
+                            
+                            thought_data = {}
+                            if title_match:
+                                thought_data["title"] = title_match.group(1)
+                                # Get content after the title (remove the ** markers)
+                                content = re.sub(r'\*\*(.*?)\*\*', '', thought_text).strip()
+                                if content:
+                                    thought_data["content"] = content
+                            else:
+                                # If no title markers, treat entire text as content
+                                thought_data["content"] = thought_text.strip()
+                            
+                            if thought_data:
+                                print(f"Thought data: {thought_data}")
+                                yield orjson.dumps({"thoughts": thought_data}) + b"\n"
                         else:
                             # This is part of the "answer" - yield only the new chunk
                             chunk_text = part.text
