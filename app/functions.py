@@ -1,6 +1,6 @@
 import os
-import asyncio
-import aiofiles
+# import asyncio - removed for sync version
+# import aiofiles - removed for sync version
 import orjson
 import sqlite3
 from dotenv import load_dotenv
@@ -9,7 +9,7 @@ from datetime import datetime, date, timedelta
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Union, Callable, TypeVar, Set, Tuple, cast
 from rapidfuzz import process, fuzz
-import aiohttp
+# import aiohttp - removed for sync version
 import re
 import requests
 
@@ -910,14 +910,14 @@ def fetch_ticker_data(ticker: str, base_dir: Path) -> Optional[Any]:
         return None
 
 
-async def _load_and_filter(
+def _load_and_filter(
     file_path: Path,
     keep_keys: Optional[List[str]] = None,
 ) -> List[Dict[str, Any]]:
     """Load JSON data from file and filter keys based on criteria."""
     try:
-        async with aiofiles.open(file_path, mode="rb") as f:
-            raw = orjson.loads(await f.read())
+        with open(file_path, mode="rb") as f:
+            raw = orjson.loads(f.read())
             
         if not raw:
             return []
@@ -965,7 +965,7 @@ def get_ticker_specific_data(
     return filtered_results
 
 
-async def get_financial_statements(
+def get_financial_statements(
     tickers: List[str],
     statement_type: str = "income",
     time_period: str = "annual",
@@ -989,16 +989,15 @@ async def get_financial_statements(
 
     base_dir = BASE_DIR / "financial-statements" / dir_name / time_period
     
-    # Create all tasks at once for efficient concurrency
-    tasks = [_load_and_filter(base_dir / f"{ticker}.json", keep_keys) for ticker in tickers]
-    results = await asyncio.gather(*tasks)
+    # Process each ticker synchronously
+    results = [_load_and_filter(base_dir / f"{ticker}.json", keep_keys) for ticker in tickers]
     
     # Build result dictionary with non-empty results
     return {ticker: result for ticker, result in zip(tickers, results) if result}
 
 
 
-async def get_ticker_income_statement(
+def get_ticker_income_statement(
     tickers: List[str], time_period: str = "ttm", keep_keys: Optional[List[str]] = None
 ) -> Dict[str, List[Dict[str, Any]]]:
     """
@@ -1027,11 +1026,11 @@ async def get_ticker_income_statement(
             - time_period="quarter"
             Then extract the revenue from the most recent Q1 entry.
     """
-    return await get_financial_statements(tickers, "income", time_period, keep_keys)
+    return get_financial_statements(tickers, "income", time_period, keep_keys)
 
 
 
-async def get_ticker_balance_sheet_statement(
+def get_ticker_balance_sheet_statement(
     tickers: List[str], time_period: str = "ttm", keep_keys: Optional[List[str]] = None
 ) -> Dict[str, List[Dict[str, Any]]]:
     """
@@ -1060,12 +1059,12 @@ async def get_ticker_balance_sheet_statement(
             - time_period="quarter"
         Then extract the "totalAssets" field from the most recent Q1 entry.
     """
-    return await get_financial_statements(tickers, "balance", time_period, keep_keys)
+    return get_financial_statements(tickers, "balance", time_period, keep_keys)
 
 
 
 
-async def get_ticker_cash_flow_statement(
+def get_ticker_cash_flow_statement(
     tickers: List[str], time_period: str = "ttm", keep_keys: Optional[List[str]] = None
 ) -> Dict[str, List[Dict[str, Any]]]:
     """
@@ -1095,7 +1094,7 @@ async def get_ticker_cash_flow_statement(
             - time_period="quarter"
         Then extract the "freeCashFlow" field from the most recent Q1 entry.
     """
-    return await get_financial_statements(tickers, "cash", time_period, keep_keys)
+    return get_financial_statements(tickers, "cash", time_period, keep_keys)
 
 
 
@@ -2284,7 +2283,7 @@ async def get_ticker_dark_pool(tickers: List[str]) -> Dict[str, List[Dict[str, A
 
 
 
-async def get_ticker_dividend(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
+def get_ticker_dividend(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
     """
     Retrieve dividend data and related metrics for a list of stock ticker symbols, 
     including payout frequency, annual dividend, dividend yield, payout ratio, 
@@ -2298,25 +2297,25 @@ async def get_ticker_dividend(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
         Dict[str, Dict[str, Any]]: A dictionary mapping each ticker to its dividend info.
     """
     base_dir = BASE_DIR / "dividends/companies"
-    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
-    results = await asyncio.gather(*tasks)
+    res: Dict[str, Dict[str, Any]] = {}
 
-    res = {}
-    for ticker, result in zip(tickers, results):
-        history = result.get('history', [])
-        if history:
-            result['history'] = history[0]
-            res[ticker] = result
+    for ticker in tickers:
+        result = fetch_ticker_data(ticker, base_dir)
+        if result:
+            history = result.get("history", [])
+            if history:
+                result["history"] = history[0]  # keep only latest history entry
+                res[ticker] = result
 
     return res
 
 
-
-async def get_ticker_statistics(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
+def get_ticker_statistics(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
     f"""
     Retrieves a snapshot of all latest data for a list of stock ticker symbols.
     This includes key quantities such as: {', '.join(key_screener)}.
-    Upside in this context is compared the percentage change compared to the current stock price. Positive upside indicates stock is undervalued and negative overvalued.
+    Upside in this context is compared the percentage change compared to the current stock price. 
+    Positive upside indicates stock is undervalued and negative overvalued.
 
     Args:
         tickers (List[str]): List of stock ticker symbols to analyze.
@@ -2325,28 +2324,32 @@ async def get_ticker_statistics(tickers: List[str]) -> Dict[str, Dict[str, Any]]
         Dict[str, Dict[str, Any]]: A dictionary mapping each ticker to its statistics.
     """
     file_path = BASE_DIR / "stock-screener/data.json"
-    async with aiofiles.open(file_path, 'rb') as file:
-        data = orjson.loads(await file.read())
+
+    with open(file_path, "rb") as file:
+        data = orjson.loads(file.read())
 
     # Initial filter to exclude OTC exchange
-    stock_screener_data = [item for item in data if item.get('exchange') != 'OTC']
-    stock_screener_data_dict = {item['symbol']: item for item in stock_screener_data}
+    stock_screener_data = [item for item in data if item.get("exchange") != "OTC"]
+    stock_screener_data_dict = {item["symbol"]: item for item in stock_screener_data}
 
-    result = {}
-    if len(tickers) > 0:
+    result: Dict[str, Dict[str, Any]] = {}
+    if tickers:
         for symbol in tickers:
             try:
                 if symbol in stock_screener_data_dict:
                     item_data = stock_screener_data_dict[symbol]
-                    result[symbol] = {col: item_data.get(col, None) for col in key_screener}
-            except:
+                    result[symbol] = {
+                        col: item_data.get(col, None) for col in key_screener
+                    }
+            except Exception:
                 pass
+
     return result
 
 
 
 
-async def get_ticker_key_metrics(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
+def get_ticker_key_metrics(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
     f"""
     Retrieves fundamental key metrics data for a list of stock ticker symbols.
     This includes key data such as: {', '.join(key_metrics)}.
@@ -2358,14 +2361,15 @@ async def get_ticker_key_metrics(tickers: List[str]) -> Dict[str, Dict[str, Any]
         Dict[str, List[Dict[str, Any]]]: A dictionary mapping each ticker to a list of filtered key metrics.
     """
     base_dir = BASE_DIR / "financial-statements/key-metrics/ttm"
-    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
-    results = await asyncio.gather(*tasks)
 
-    filtered_results = {}
-    for ticker, data in zip(tickers, results):
+    filtered_results: Dict[str, Any] = {}
+
+    for ticker in tickers:
+        data = fetch_ticker_data(ticker, base_dir)
         if data is not None:
             filtered_data = [
-                {k: v for k, v in item.items() if k not in ['symbol']} for item in data
+                {k: v for k, v in item.items() if k != 'symbol'}
+                for item in data
             ]
             if filtered_data:
                 filtered_results[ticker] = filtered_data
@@ -2374,7 +2378,7 @@ async def get_ticker_key_metrics(tickers: List[str]) -> Dict[str, Dict[str, Any]
 
 
 
-async def get_ticker_financial_score(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
+def get_ticker_financial_score(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
     """
     Retrieve fundamental financial score data for a list of stock ticker symbols. Includes metrics such as
     Altman Z-Score, Piotroski Score, working capital, and total assets.
@@ -2386,14 +2390,19 @@ async def get_ticker_financial_score(tickers: List[str]) -> Dict[str, Dict[str, 
         Dict[str, Dict[str, Any]]: A dictionary mapping each ticker to its financial score data.
     """
     base_dir = BASE_DIR / "financial-score"
-    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
-    results = await asyncio.gather(*tasks)
 
-    return {ticker: result for ticker, result in zip(tickers, results)}
+    results: Dict[str, Dict[str, Any]] = {}
+
+    for ticker in tickers:
+        result = fetch_ticker_data(ticker, base_dir)
+        if result is not None:
+            results[ticker] = result
+
+    return results
 
 
 
-async def get_ticker_owner_earnings(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
+def get_ticker_owner_earnings(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
     f"""
     Retrieves fundamental owner earnings data for a list of stock ticker symbols.
     This includes key data such as: {', '.join(key_owner_earnings)}.
@@ -2405,14 +2414,14 @@ async def get_ticker_owner_earnings(tickers: List[str]) -> Dict[str, Dict[str, A
         Dict[str, List[Dict[str, Any]]]: A dictionary mapping each ticker to a list of filtered owner earnings entries.
     """
     base_dir = BASE_DIR / "financial-statements/owner-earnings/quarter"
-    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
-    results = await asyncio.gather(*tasks)
 
-    filtered_results = {}
-    for ticker, data in zip(tickers, results):
+    filtered_results: Dict[str, Any] = {}
+
+    for ticker in tickers:
+        data = fetch_ticker_data(ticker, base_dir)
         if data is not None:
             filtered_data = [
-                {k: v for k, v in item.items() if k not in ['symbol', 'reportedCurrency']}
+                {k: v for k, v in item.items() if k not in ["symbol", "reportedCurrency"]}
                 for item in data
             ]
             if filtered_data:
@@ -2422,7 +2431,7 @@ async def get_ticker_owner_earnings(tickers: List[str]) -> Dict[str, Dict[str, A
 
 
 
-async def get_oversold_tickers() -> Dict[str, Dict[str, Any]]:
+def get_oversold_tickers() -> Dict[str, Dict[str, Any]]:
     """
     Retrieves the top 10 most oversold stocks based on the Relative Strength Index (RSI), 
     sorted by the lowest RSI values.
@@ -2447,7 +2456,7 @@ async def get_oversold_tickers() -> Dict[str, Dict[str, Any]]:
 
 
 
-async def get_overbought_tickers() -> Dict[str, Dict[str, Any]]:
+def get_overbought_tickers() -> Dict[str, Dict[str, Any]]:
     """
     Retrieves the top 10 most overbought stocks based on the Relative Strength Index (RSI), 
     sorted by the highest RSI values.
@@ -2472,7 +2481,7 @@ async def get_overbought_tickers() -> Dict[str, Dict[str, Any]]:
 
 
 
-async def get_dividend_kings() -> List[Dict[str, Any]]:
+def get_dividend_kings() -> List[Dict[str, Any]]:
     """
     Retrieves the top 10 Dividend Kings—companies that have increased their dividend payouts 
     for at least 50 consecutive years—sorted by the longest streak.
@@ -2496,7 +2505,7 @@ async def get_dividend_kings() -> List[Dict[str, Any]]:
     return result
 
 
-async def get_dividend_aristocrats() -> List[Dict[str, Any]]:
+def get_dividend_aristocrats() -> List[Dict[str, Any]]:
     """
     Retrieves the top 10 Dividend Aristocrats—S&P 500 companies that have increased their 
     dividend payouts for at least 25 consecutive years—sorted by the longest streak.
