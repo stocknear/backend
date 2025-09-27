@@ -1099,7 +1099,7 @@ def get_ticker_cash_flow_statement(
 
 
 
-async def get_ticker_ratios_statement(
+def get_ticker_ratios_statement(
     tickers: List[str], time_period: str = "annual", keep_keys: Optional[List[str]] = None
 ) -> Dict[str, List[Dict[str, Any]]]:
     """
@@ -1134,8 +1134,8 @@ async def get_ticker_ratios_statement(
         raise ValueError(f"Invalid time_period '{time_period}'. For ratios, must be 'annual' or 'quarter'.")
 
     base_dir = BASE_DIR / "financial-statements/ratios" / time_period
-    tasks = [_load_and_filter(base_dir / f"{ticker}.json", keep_keys) for ticker in tickers]
-    results = await asyncio.gather(*tasks)
+    # Process each ticker synchronously
+    results = [_load_and_filter(base_dir / f"{ticker}.json", keep_keys) for ticker in tickers]
 
     return {ticker: result for ticker, result in zip(tickers, results) if result}
 
@@ -1143,7 +1143,7 @@ async def get_ticker_ratios_statement(
 
 
 
-async def get_ticker_hottest_options_contracts(
+def get_ticker_hottest_options_contracts(
     tickers: List[str],
     category: str = "volume"
 ) -> Dict[str, List[Dict[str, Any]]]:
@@ -1159,11 +1159,8 @@ async def get_ticker_hottest_options_contracts(
 
     base_dir = BASE_DIR / "hottest-contracts/companies"
 
-    # Create tasks for each ticker
-    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
-
-    # Gather all results concurrently
-    results = await asyncio.gather(*tasks)
+    # Process each ticker synchronously
+    results = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
 
     # Return top 5 for each ticker
     return {
@@ -1173,7 +1170,7 @@ async def get_ticker_hottest_options_contracts(
     }
 
 
-async def get_company_data(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
+def get_company_data(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
     """
     Fetch financial and organizational overview data for multiple companies.
 
@@ -1194,7 +1191,7 @@ async def get_company_data(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
 
 
 
-async def get_ticker_short_data(tickers: List[str]) -> Dict[str, Any]:
+def get_ticker_short_data(tickers: List[str]) -> Dict[str, Any]:
     """
     Retrieve the most recent and historical short interest data for multiple companies.
 
@@ -1208,7 +1205,7 @@ async def get_ticker_short_data(tickers: List[str]) -> Dict[str, Any]:
 
 
 
-async def get_why_priced_moved(tickers: List[str]) -> Dict[str, Any]:
+def get_why_priced_moved(tickers: List[str]) -> Dict[str, Any]:
     """
     Retrieve recent news explaining the price movement of multiple stocks based on their ticker symbols.
 
@@ -1222,7 +1219,7 @@ async def get_why_priced_moved(tickers: List[str]) -> Dict[str, Any]:
 
 
 
-async def get_ticker_business_metrics(tickers: List[str]) -> Dict[str, Any]:
+def get_ticker_business_metrics(tickers: List[str]) -> Dict[str, Any]:
     """
     Fetch business metrics for multiple stocks, including revenue breakdown by sector and geographic region.
 
@@ -1236,7 +1233,7 @@ async def get_ticker_business_metrics(tickers: List[str]) -> Dict[str, Any]:
 
 
 
-async def get_ticker_analyst_estimate(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+def get_ticker_analyst_estimate(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     """
     Fetch forward-looking analyst estimates for multiple stocks, including average, low, and high projections
     for EPS, revenue, EBITDA, and net income. Call this function when 'Analyst' is mentioned in the query.
@@ -1255,7 +1252,7 @@ async def get_ticker_analyst_estimate(tickers: List[str]) -> Dict[str, List[Dict
 
 
 
-async def get_earnings_releases() -> List[Dict[str, Any]]:
+def get_earnings_releases() -> List[Dict[str, Any]]:
     """
     Retrieve today/upcoming company earnings releases/announcements with key financial metrics.
 
@@ -1281,8 +1278,8 @@ async def get_earnings_releases() -> List[Dict[str, Any]]:
     file_path = BASE_DIR / "earnings-calendar/data.json"
     today = datetime.today().date()
     try:
-        async with aiofiles.open(file_path, mode="rb") as f:
-            data = orjson.loads(await f.read())
+        with open(file_path, mode="rb") as f:
+            data = orjson.loads(f.read())
         
         # Filter for events from today onwards
         filtered_data = []
@@ -1299,7 +1296,7 @@ async def get_earnings_releases() -> List[Dict[str, Any]]:
 
 
 
-async def get_economic_calendar() -> List[Dict[str, Any]]:
+def get_economic_calendar() -> List[Dict[str, Any]]:
     """
     Retrieve a list of upcoming USA economic events for macroeconomic analysis, including event name, date, time,
     previous/consensus/actual values (if available), event importance, and associated country code.
@@ -1310,8 +1307,8 @@ async def get_economic_calendar() -> List[Dict[str, Any]]:
     file_path = BASE_DIR / "economic-calendar/data.json"
     today = datetime.today().date()
     try:
-        async with aiofiles.open(file_path, mode="rb") as f:
-            data = orjson.loads(await f.read())
+        with open(file_path, mode="rb") as f:
+            data = orjson.loads(f.read())
             data = [item for item in data if item['countryCode'] == 'us']
         return [item for item in data if today <= datetime.strptime(item['date'], "%Y-%m-%d").date()][:20]
     except FileNotFoundError:
@@ -1322,7 +1319,7 @@ async def get_economic_calendar() -> List[Dict[str, Any]]:
 
 
 
-async def get_top_rating_stocks() -> list[dict]:
+def get_top_rating_stocks() -> list[dict]:
     """
     Retrieves the top rating stocks from analysts.
     Returns a list of stocks with the highest analyst ratings.
@@ -1333,8 +1330,8 @@ async def get_top_rating_stocks() -> list[dict]:
     file_path = BASE_DIR / "analyst/top-stocks.json"
     
     try:
-        async with aiofiles.open(file_path, mode="rb") as f:
-            data = orjson.loads(await f.read())
+        with open(file_path, mode="rb") as f:
+            data = orjson.loads(f.read())
         return data
     except FileNotFoundError:
         return []
@@ -1343,7 +1340,7 @@ async def get_top_rating_stocks() -> list[dict]:
         return []
 
 
-async def get_ticker_earnings_price_reaction(tickers: List[str]) -> Dict[str, Any]:
+def get_ticker_earnings_price_reaction(tickers: List[str]) -> Dict[str, Any]:
     """
     Fetch past earnings price reactions before and after earnings releases of multiple stocks based on their ticker symbols.
 
@@ -1357,7 +1354,7 @@ async def get_ticker_earnings_price_reaction(tickers: List[str]) -> Dict[str, An
 
 
 
-async def get_ticker_earnings(tickers: List[str]) -> Dict[str, Any]:
+def get_ticker_earnings(tickers: List[str]) -> Dict[str, Any]:
     """
     Retrieve the historical, latest, and upcoming earnings dates for multiple stocks, including EPS and revenue estimates and surprises,
     as well as prior EPS and revenue figures for comparison.
@@ -1372,7 +1369,7 @@ async def get_ticker_earnings(tickers: List[str]) -> Dict[str, Any]:
 
 
 
-async def get_ticker_bull_vs_bear(tickers: List[str]) -> Dict[str, Any]:
+def get_ticker_bull_vs_bear(tickers: List[str]) -> Dict[str, Any]:
     """
     Get historical bull vs. bear sentiment data for multiple stocks.
 
@@ -1386,7 +1383,7 @@ async def get_ticker_bull_vs_bear(tickers: List[str]) -> Dict[str, Any]:
 
 
 
-async def get_feed_data(
+def get_feed_data(
     tickers: List[str], 
     file_path: Path,
     filter_keys: Set[str],
@@ -1394,8 +1391,8 @@ async def get_feed_data(
     limit: int = 20
 ) -> Dict[str, List[Dict[str, Any]]]:
     try:
-        async with aiofiles.open(file_path, mode="rb") as f:
-            data = orjson.loads(await f.read())
+        with open(file_path, mode="rb") as f:
+            data = orjson.loads(f.read())
 
         # Sanitize tickers list
         valid_tickers = {
@@ -1456,7 +1453,7 @@ async def get_feed_data(
 
 
 
-async def get_latest_options_flow_feed(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+def get_latest_options_flow_feed(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     """
     Retrieves the top options flow orders with the highest premiums for multiple stocks, highlighting activity from hedge funds and major traders.
 
@@ -1466,7 +1463,7 @@ async def get_latest_options_flow_feed(tickers: List[str]) -> Dict[str, List[Dic
     Returns:
         Dict[str, List[Dict[str, Any]]]: A dictionary mapping each ticker to a list of its top options flow entries, sorted by premium.
     """
-    return await get_feed_data(
+    return get_feed_data(
         tickers=tickers,
         file_path=BASE_DIR / "options-flow/feed/data.json",
         filter_keys={'aggressor_ind', "exchange", "tradeCount", "trade_count", "underlying_type", "description"},
@@ -1474,7 +1471,7 @@ async def get_latest_options_flow_feed(tickers: List[str]) -> Dict[str, List[Dic
     )
 
 
-async def get_latest_dark_pool_feed(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+def get_latest_dark_pool_feed(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     """
     Retrieves the top dark pool trades for multiple stocks, sorted by the average price paid, highlighting significant activity from hedge funds and major traders.
 
@@ -1484,7 +1481,7 @@ async def get_latest_dark_pool_feed(tickers: List[str]) -> Dict[str, List[Dict[s
     Returns:
         Dict[str, List[Dict[str, Any]]]: A dictionary mapping each ticker to a list of its top dark pool trade entries, sorted by premium.
     """
-    return await get_feed_data(
+    return get_feed_data(
         tickers=tickers,
         file_path=BASE_DIR / "dark-pool/feed/data.json",
         filter_keys={"sector", "trackingID"},
@@ -1492,7 +1489,7 @@ async def get_latest_dark_pool_feed(tickers: List[str]) -> Dict[str, List[Dict[s
     )
 
 
-async def get_ticker_news(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+def get_ticker_news(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     """
     Retrieves the latest news for multiple stocks.
 
@@ -1504,8 +1501,8 @@ async def get_ticker_news(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]
     """
     base_dir = BASE_DIR / "market-news/companies"
     
-    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
-    results = await asyncio.gather(*tasks)
+    # Process each ticker synchronously
+    results = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
     
     filtered_results: Dict[str, List[Dict[str, Any]]] = {}
     for ticker, data in zip(tickers, results):
@@ -1566,7 +1563,7 @@ def get_ticker_analyst_rating(tickers: List[str]) -> Dict[str, Dict[str, List[Di
 
 
 
-async def get_stock_screener(
+def get_stock_screener(
     rule_of_list: Optional[List[Dict[str, Any]]] = None, 
     sort_by: Optional[str] = None, 
     sort_order: str = "desc", 
@@ -1582,8 +1579,8 @@ async def get_stock_screener(
     """
     try:
         file_path = BASE_DIR / "stock-screener/data.json"
-        async with aiofiles.open(file_path, 'rb') as file:
-            data = orjson.loads(await file.read())
+        with open(file_path, 'rb') as file:
+            data = orjson.loads(file.read())
 
         # Initial filter to exclude OTC exchange
         filtered_data = [item for item in data if item.get('exchange') != 'OTC']
@@ -1677,7 +1674,7 @@ async def get_stock_screener(
         return {"matched_stocks": [], "count": 0, "error": f"Error processing screener data: {str(e)}"}
 
 
-async def get_top_gainers() -> list[dict]:
+def get_top_gainers() -> list[dict]:
     """
     Retrieves a list of stocks with the highest percentage gains for the current trading day.
     Returns the top 10 securities ranked by their daily price increase percentage.
@@ -1695,7 +1692,7 @@ async def get_top_gainers() -> list[dict]:
         return [{"error": f"Error processing top gainers data: {str(e)}"}]
 
 
-async def get_top_premarket_gainers() -> list[dict]:
+def get_top_premarket_gainers() -> list[dict]:
     """
     Retrieves a list of stocks with the highest percentage gains for the premarket trading session.
     Returns the top 20 securities ranked by their price increase percentage in the premarket.
@@ -1712,7 +1709,7 @@ async def get_top_premarket_gainers() -> list[dict]:
         return [{"error": f"Error processing top premarket gainers data: {str(e)}"}]
 
 
-async def get_top_aftermarket_gainers() -> list[dict]:
+def get_top_aftermarket_gainers() -> list[dict]:
     """
     Retrieves a list of stocks with the highest percentage gains for the aftermarket trading session.
     Returns the top 20 securities ranked by their price increase percentage in the aftermarket.
@@ -1730,7 +1727,7 @@ async def get_top_aftermarket_gainers() -> list[dict]:
 
 
 
-async def get_top_losers() -> list[dict]:
+def get_top_losers() -> list[dict]:
     """
     Retrieves a list of stocks with the highest percentage losses for the current trading day.
     Returns the top 10 securities ranked by their daily percentage decrease.
@@ -1748,7 +1745,7 @@ async def get_top_losers() -> list[dict]:
 
 
 
-async def get_top_premarket_losers() -> list[dict]:
+def get_top_premarket_losers() -> list[dict]:
     """
     Retrieves a list of stocks with the highest percentage losses for the premarket trading session.
     Returns the top 20 securities ranked by their price decrease percentage in the premarket.
@@ -1766,7 +1763,7 @@ async def get_top_premarket_losers() -> list[dict]:
 
 
 
-async def get_top_aftermarket_losers() -> list[dict]:
+def get_top_aftermarket_losers() -> list[dict]:
     """
     Retrieves a list of stocks with the highest percentage losses for the aftermarket trading session.
     Returns the top 20 securities ranked by their price decrease percentage in the aftermarket.
@@ -1785,7 +1782,7 @@ async def get_top_aftermarket_losers() -> list[dict]:
 
 
 
-async def get_top_active_stocks() -> list[dict]:
+def get_top_active_stocks() -> list[dict]:
     """
     Retrieves a list of stocks with the largest trading volume for the current trading day.
     Returns stocks ranked by their daily volume, showing the most actively traded securities.
@@ -1801,7 +1798,7 @@ async def get_top_active_stocks() -> list[dict]:
         return [{"error": f"Error processing most active stock data: {str(e)}"}]
 
 
-async def get_potus_tracker() -> dict:
+def get_potus_tracker() -> dict:
     """
     Gets the latest POTUS tracker data, including presidential schedule, Truth Social posts,
     executive orders, and S&P 500 (SPY) performance since the current president's inauguration.
@@ -1817,7 +1814,7 @@ async def get_potus_tracker() -> dict:
         return {"error": f"Error processing potus tracker data: {str(e)}"}
 
 
-async def get_insider_tracker() -> list[dict]:
+def get_insider_tracker() -> list[dict]:
     """
     Retrieves the latest insider trading activity, including recent stock sales or purchases by company executives,
     with relevant company info like symbol, price, market cap, and filing date.
@@ -1833,7 +1830,7 @@ async def get_insider_tracker() -> list[dict]:
         return [{"error": f"Error processing insider tracker data: {str(e)}"}]
 
 
-async def get_latest_congress_trades() -> list[dict]:
+def get_latest_congress_trades() -> list[dict]:
     """
     Retrieves the latest congressional stock trading disclosures including transactions by members of Congress or their spouses.
     Returns details such as ticker, transaction type, amount, representative name, and disclosure dates.
@@ -1860,7 +1857,7 @@ async def get_latest_congress_trades() -> list[dict]:
         return [{"error": f"Error processing congress tracker data: {str(e)}"}]
 
 
-async def get_analyst_tracker() -> list[dict]:
+def get_analyst_tracker() -> list[dict]:
     """
     Retrieves the latest analyst stock ratings, including upgrades, downgrades, maintained ratings,
     price targets, analyst names, firms, and expected upside.
@@ -1881,7 +1878,7 @@ async def get_analyst_tracker() -> list[dict]:
         return [{"error": f"Error processing analyst tracker data: {str(e)}"}]
 
 
-async def get_market_news() -> list[dict]:
+def get_market_news() -> list[dict]:
     """
     Retrieves the latest general news for the stock market.
     Removes some less relevant fields such as site, url, and image.
@@ -1902,7 +1899,7 @@ async def get_market_news() -> list[dict]:
 
 
 
-async def get_market_flow() -> Dict[str, Any]:
+def get_market_flow() -> Dict[str, Any]:
     """
     Retrieves the current options market flow sentiment data for the S&P 500.
 
@@ -1933,7 +1930,7 @@ async def get_market_flow() -> Dict[str, Any]:
 
 
 
-async def get_congress_activity(congress_ids: Union[str, List[str]]) -> Dict[str, List[Any]]:
+def get_congress_activity(congress_ids: Union[str, List[str]]) -> Dict[str, List[Any]]:
     """
     Retrieves and filters congressional trading activity for one or more congresspeople based on their unique IDs or names.
     Groups results by the office of each congressperson.
@@ -2009,7 +2006,7 @@ async def get_congress_activity(congress_ids: Union[str, List[str]]) -> Dict[str
     return result
 
 
-async def get_ticker_quote(tickers: List[str]) -> Dict[str, Any]:
+def get_ticker_quote(tickers: List[str]) -> Dict[str, Any]:
     """
     Retrieves the most recent stock quote data for one or more ticker symbols.
     Returns real-time information including:
@@ -2034,7 +2031,7 @@ async def get_ticker_quote(tickers: List[str]) -> Dict[str, Any]:
 
 
 
-async def get_ticker_pre_post_quote(tickers: List[str]) -> Dict[str, Any]:
+def get_ticker_pre_post_quote(tickers: List[str]) -> Dict[str, Any]:
     """
     Retrieves the most recent stock premarket/aftermarket quote data for one or more ticker symbols.
     Returns real-time information including:
@@ -2051,7 +2048,7 @@ async def get_ticker_pre_post_quote(tickers: List[str]) -> Dict[str, Any]:
 
 
 
-async def get_ticker_insider_trading(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+def get_ticker_insider_trading(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     """
     Fetch detailed insider trading records—such as buys, sells, grant dates, and volumes—executed by corporate insiders 
     (officers, directors, major shareholders) for the specified stock tickers.
@@ -2065,8 +2062,8 @@ async def get_ticker_insider_trading(tickers: List[str]) -> Dict[str, List[Dict[
     """
     base_dir = BASE_DIR / "insider-trading/history"
     
-    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
-    results = await asyncio.gather(*tasks)
+    # Process each ticker synchronously
+    results = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
     
     filtered_results: Dict[str, List[Dict[str, Any]]] = {}
     for ticker, data in zip(tickers, results):
@@ -2081,7 +2078,7 @@ async def get_ticker_insider_trading(tickers: List[str]) -> Dict[str, List[Dict[
     return filtered_results
 
 
-async def get_ticker_shareholders(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+def get_ticker_shareholders(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     """
     Fetch current institutional and major shareholder data for the specified stock tickers, including top institutional holders 
     and ownership statistics such as investor counts, total invested value, and put/call ratios.
@@ -2099,8 +2096,8 @@ async def get_ticker_shareholders(tickers: List[str]) -> Dict[str, List[Dict[str
     for path in ['shareholders', 'ownership-stats']:
         base_dir = BASE_DIR / path
         
-        tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
-        results = await asyncio.gather(*tasks)
+        # Process each ticker synchronously
+        results = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
 
         filtered_results: Dict[str, List[Dict[str, Any]]] = {}
         for ticker, data in zip(tickers, results):
@@ -2126,7 +2123,7 @@ async def get_ticker_shareholders(tickers: List[str]) -> Dict[str, List[Dict[str
 
 
 
-async def get_ticker_options_overview_data(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
+def get_ticker_options_overview_data(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
     """
     Fetch comprehensive options statistics for the most recent trading day for the specified stock tickers.
     Includes overview, implied volatility, open interest, volume, and expiration table.
@@ -2139,8 +2136,8 @@ async def get_ticker_options_overview_data(tickers: List[str]) -> Dict[str, Dict
     """
     base_dir = BASE_DIR / "options-chain-statistics"
     
-    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
-    results = await asyncio.gather(*tasks)
+    # Process each ticker synchronously
+    results = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
 
     final_results: Dict[str, Dict[str, Any]] = {}
     for ticker, data in zip(tickers, results):
@@ -2152,7 +2149,7 @@ async def get_ticker_options_overview_data(tickers: List[str]) -> Dict[str, Dict
 
 
 
-async def get_ticker_max_pain(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+def get_ticker_max_pain(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     """
     Retrieve max pain analysis for multiple stock tickers, including expiration dates, strike prices, call and put payouts,
     and the calculated max pain point per expiration.
@@ -2165,15 +2162,15 @@ async def get_ticker_max_pain(tickers: List[str]) -> Dict[str, List[Dict[str, An
     """
     base_dir = BASE_DIR / "max-pain"
     
-    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
-    results = await asyncio.gather(*tasks)
+    # Process each ticker synchronously
+    results = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
     
     return {ticker: result for ticker, result in zip(tickers, results) if result}
 
 
 
 
-async def get_ticker_open_interest_by_strike_and_expiry(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+def get_ticker_open_interest_by_strike_and_expiry(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     """
     Fetch and aggregate options open interest data for one or more equity tickers, returning:
         - expiry-data: total call and put OI grouped by each expiration date (only future expiries)
@@ -2193,8 +2190,8 @@ async def get_ticker_open_interest_by_strike_and_expiry(tickers: List[str]) -> D
 
     for category_type in ['expiry', 'strike']:
         base_dir = BASE_DIR / f"oi/{category_type}"
-        tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
-        results = await asyncio.gather(*tasks)
+        # Process each ticker synchronously
+        results = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
         
         res: Dict[str, List[Dict[str, Any]]] = {}
         for ticker, result in zip(tickers, results):
@@ -2215,7 +2212,7 @@ async def get_ticker_open_interest_by_strike_and_expiry(tickers: List[str]) -> D
 
 
 
-async def get_ticker_unusual_activity(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+def get_ticker_unusual_activity(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     """
     Retrieve recent unusual options activity for one or more stock tickers, including large trades, sweeps, and high-premium orders.
     Returns the top 10 most recent entries per ticker, sorted by date descending.
@@ -2229,8 +2226,8 @@ async def get_ticker_unusual_activity(tickers: List[str]) -> Dict[str, List[Dict
     """
     base_dir = BASE_DIR / "unusual-activity"
     
-    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
-    results = await asyncio.gather(*tasks)
+    # Process each ticker synchronously
+    results = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
 
     sorted_results: Dict[str, List[Dict[str, Any]]] = {}
     for ticker, result in zip(tickers, results):
@@ -2242,7 +2239,7 @@ async def get_ticker_unusual_activity(tickers: List[str]) -> Dict[str, List[Dict
 
 
 
-async def get_ticker_dark_pool(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+def get_ticker_dark_pool(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     """
     Retrieves dark pool trading data and related analytics for a list of stock ticker symbols, including:
         - volume-summary: latest volume summaries per ticker
@@ -2260,8 +2257,8 @@ async def get_ticker_dark_pool(tickers: List[str]) -> Dict[str, List[Dict[str, A
 
     for category_type in ['companies', 'price-level']:
         base_dir = BASE_DIR / f"dark-pool/{category_type}"
-        tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
-        results = await asyncio.gather(*tasks)
+        # Process each ticker synchronously
+        results = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
         
         res: Dict[str, Any] = {}
         for ticker, result in zip(tickers, results):
