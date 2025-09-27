@@ -5164,7 +5164,7 @@ Return ONLY a JSON array of 5 question strings, no other text."""
 @app.post("/chat")
 async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
     user_query = normalize_query(data.query)
-
+    print(data.reasoning)
     history_messages = data.messages[-10:]
     cleaned_messages = []
     for item in history_messages:
@@ -5184,8 +5184,6 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
 
     # Get tools and matched trigger
     selected_tools, matched_trigger = get_tools_for_query(user_query)
-    print(f"DEBUG: selected_tools count: {len(selected_tools) if selected_tools else 0}")
-    print(f"DEBUG: matched_trigger: {matched_trigger}")
 
     # Add today's date as context
     today_date = datetime.now().strftime("%B %d, %Y")
