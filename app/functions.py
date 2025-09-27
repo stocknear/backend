@@ -11,8 +11,7 @@ from typing import List, Dict, Any, Optional, Union, Callable, TypeVar, Set, Tup
 from rapidfuzz import process, fuzz
 import aiohttp
 import re
-
-from agents import function_tool
+import requests
 
 load_dotenv()
 
@@ -896,18 +895,20 @@ def extract_names_and_descriptions(text):
 
 
 # Generic file fetching function
-async def fetch_ticker_data(ticker: str, base_dir: Path) -> Optional[Any]:
+
+def fetch_ticker_data(ticker: str, base_dir: Path) -> Optional[Any]:
     """Generic function to fetch data for a ticker from a JSON file."""
     file_path = base_dir / f"{ticker}.json"
     try:
-        async with aiofiles.open(file_path, mode="rb") as f:
-            content = await f.read()
+        with open(file_path, mode="rb") as f:
+            content = f.read()
             return orjson.loads(content)
     except FileNotFoundError:
         return None
     except (orjson.JSONDecodeError, KeyError) as e:
         print(f"Error processing {ticker}: {e}")
         return None
+
 
 async def _load_and_filter(
     file_path: Path,
@@ -1530,9 +1531,9 @@ async def get_ticker_news(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]
 
 
 
-async def get_ticker_analyst_rating(tickers: List[str]) -> Dict[str, Dict[str, List[Dict[str, Any]]]]:
+def get_ticker_analyst_rating(tickers: List[str]) -> Dict[str, Dict[str, List[Dict[str, Any]]]]:
     """
-    Retrieves the latest analyst ratings for multiple stocks.
+    Retrieves the latest analyst ratings for multiple stocks synchronously.
 
     Args:
         tickers (List[str]): List of stock ticker symbols (e.g., ["AAPL", "GOOGL"]).
@@ -1545,17 +1546,12 @@ async def get_ticker_analyst_rating(tickers: List[str]) -> Dict[str, Dict[str, L
     history_dir = BASE_DIR / "analyst" / "history"
     summary_dir = BASE_DIR / "analyst" / "summary" / "all_analyst"
 
-    history_tasks = [fetch_ticker_data(t, history_dir) for t in tickers]
-    summary_tasks = [fetch_ticker_data(t, summary_dir) for t in tickers]
-
-    histories, summaries = await asyncio.gather(
-        asyncio.gather(*history_tasks),
-        asyncio.gather(*summary_tasks)
-    )
-
     results: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
 
-    for ticker, hist_data, summ_data in zip(tickers, histories, summaries):
+    for ticker in tickers:
+        hist_data = fetch_ticker_data(ticker, history_dir)
+        summ_data = fetch_ticker_data(ticker, summary_dir)
+
         results[ticker] = {}
 
         if hist_data:
@@ -1567,12 +1563,13 @@ async def get_ticker_analyst_rating(tickers: List[str]) -> Dict[str, Dict[str, L
 
         if isinstance(summ_data, dict):
             summary_clean = {
-                k: v for k, v in summ_data.items() 
+                k: v for k, v in summ_data.items()
                 if k not in {'recommendationList', 'pastPriceList'}
             }
             results[ticker]['rating_summary'] = [summary_clean]
-            
+
     return results
+
 
 
 async def get_stock_screener(
@@ -2612,7 +2609,7 @@ async def get_ticker_trend_forecast(tickers: List[str]) -> Dict[str, Dict[str, A
     return filtered_result
 
 
-async def get_dividend_calendar() -> List[Dict[str, Any]]:
+def get_dividend_calendar() -> List[Dict[str, Any]]:
     """
     Fetches a list of upcoming dividend-paying stocks along with key payout details.
 
@@ -2652,7 +2649,7 @@ async def get_dividend_calendar() -> List[Dict[str, Any]]:
 
 
 
-async def get_ipo_calendar() -> List[Dict[str, Any]]:
+def get_ipo_calendar() -> List[Dict[str, Any]]:
     """
     Retrieves data on the 50 most recent initial public offerings (IPOs).
 
@@ -2682,7 +2679,7 @@ async def get_ipo_calendar() -> List[Dict[str, Any]]:
     return result
 
 
-async def get_penny_stocks() -> List[Dict[str, Any]]:
+def get_penny_stocks() -> List[Dict[str, Any]]:
     """
     Retrieves a list of actively traded penny stocks, defined as stocks priced below $5 per share
     and with a trading volume exceeding 10,000 shares.
@@ -2706,7 +2703,7 @@ async def get_penny_stocks() -> List[Dict[str, Any]]:
     return data
 
 
-async def get_most_shorted_stocks() -> List[Dict[str, Any]]:
+def get_most_shorted_stocks() -> List[Dict[str, Any]]:
     """
     Retrieves a list of the most heavily shorted stocks based on short float percentage,
     which indicates the percentage of a company's float that is sold short.
@@ -2730,7 +2727,7 @@ async def get_most_shorted_stocks() -> List[Dict[str, Any]]:
     return data
 
 
-async def get_bitcoin_etfs() -> List[Dict[str, Any]]:
+def get_bitcoin_etfs() -> List[Dict[str, Any]]:
     """
     Retrieves a list of Bitcoin Exchange-Traded Funds (ETFs), which are financial instruments
     designed to track the price of Bitcoin and are traded on stock exchanges.
@@ -2754,7 +2751,7 @@ async def get_bitcoin_etfs() -> List[Dict[str, Any]]:
     return data
 
 
-async def get_all_sector_overview() -> List[Dict[str, Any]]:
+def get_all_sector_overview() -> List[Dict[str, Any]]:
     """
     Retrieves an overview of all stock market sectors, including aggregated and median-based metrics.
 
@@ -2781,7 +2778,7 @@ async def get_all_sector_overview() -> List[Dict[str, Any]]:
 
 
 
-async def get_ticker_earnings_call_transcripts(
+def get_ticker_earnings_call_transcripts(
     tickers: List[str],
     year: int,
     quarter: int
@@ -2795,6 +2792,7 @@ async def get_ticker_earnings_call_transcripts(
         tickers (List[str]): List of stock ticker symbols (e.g., ["AAPL", "MSFT"]).
         year (int): The fiscal year of the earnings call (e.g., 2024).
         quarter (int): The fiscal quarter (1–4).
+        api_key (str): Your Financial Modeling Prep API key.
 
     Returns:
         Dict[str, Dict[str, Any]]: A dictionary mapping each ticker to its earnings call data:
@@ -2809,30 +2807,30 @@ async def get_ticker_earnings_call_transcripts(
     """
     results = {}
 
-    async with aiohttp.ClientSession() as session:
-        for ticker in tickers:
-            try:
-                url = (
-                    f"https://financialmodelingprep.com/stable/earning-call-transcript"
-                    f"?symbol={ticker}&year={year}&quarter={quarter}&apikey={api_key}"
-                )
+    for ticker in tickers:
+        try:
+            url = (
+                f"https://financialmodelingprep.com/stable/earning-call-transcript"
+                f"?symbol={ticker}&year={year}&quarter={quarter}&apikey={api_key}"
+            )
 
-                async with session.get(url) as response:
-                    raw_data = await response.json()
-                    if not raw_data:
-                        continue
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            raw_data = response.json()
+            if not raw_data:
+                continue
 
-                    entry = raw_data[0]
-                    content = remove_text_before_operator(entry.get("content", ""))
-                    chat = extract_names_and_descriptions(content)
+            entry = raw_data[0]
+            content = remove_text_before_operator(entry.get("content", ""))
+            chat = extract_names_and_descriptions(content)
 
-                    results[ticker] = {
-                        "date": entry.get("date"),
-                        "chat": chat
-                    }
+            results[ticker] = {
+                "date": entry.get("date"),
+                "chat": chat
+            }
 
-            except Exception as e:
-                print(f"Error retrieving transcript for {ticker}: {e}")
+        except Exception as e:
+            print(f"Error retrieving transcript for {ticker}: {e}")
 
     return results
 
@@ -2908,5 +2906,5 @@ def get_reddit_tracker() -> Dict[str, Any]:
 
 
 #Testing purposes
-#data = asyncio.run(get_latest_options_flow_feed([]))
+#data = get_ticker_earnings_call_transcripts(['AMD'], 2022, 3)
 #print(data)

@@ -96,7 +96,10 @@ with open("json/llm/options_insight_instruction.txt","r",encoding="utf-8") as fi
 with open("json/llm/backtesting_instruction.txt","r",encoding="utf-8") as file:
     BACKTESTING_INSTRUCTION = file.read()
 
-all_tools = [get_reddit_tracker, get_fear_and_greed_index] #[get_ticker_earnings_call_transcripts, get_all_sector_overview, get_bitcoin_etfs, get_most_shorted_stocks, get_penny_stocks, get_ipo_calendar, get_dividend_calendar, get_ticker_trend_forecast, get_monthly_dividend_stocks, get_top_rated_dividend_stocks, get_dividend_aristocrats, get_dividend_kings, get_overbought_tickers, get_oversold_tickers, get_ticker_owner_earnings, get_ticker_financial_score, get_ticker_key_metrics, get_ticker_statistics, get_ticker_dividend, get_ticker_dark_pool, get_ticker_unusual_activity, get_ticker_open_interest_by_strike_and_expiry, get_ticker_max_pain, get_ticker_options_overview_data, get_ticker_shareholders, get_ticker_insider_trading, get_ticker_pre_post_quote, get_ticker_quote, get_market_flow, get_market_news, get_analyst_tracker, get_latest_congress_trades, get_insider_tracker, get_potus_tracker, get_top_active_stocks, get_top_aftermarket_losers, get_top_premarket_losers, get_top_losers, get_top_aftermarket_gainers, get_top_premarket_gainers, get_top_gainers, get_ticker_analyst_rating, get_ticker_news, get_latest_dark_pool_feed, get_latest_options_flow_feed, get_ticker_bull_vs_bear, get_ticker_earnings, get_ticker_earnings_price_reaction, get_top_rating_stocks, get_economic_calendar, get_earnings_releases, get_ticker_analyst_estimate, get_ticker_business_metrics, get_why_priced_moved, get_ticker_short_data, get_company_data, get_ticker_hottest_options_contracts, get_ticker_ratios_statement, get_ticker_cash_flow_statement, get_ticker_income_statement, get_ticker_balance_sheet_statement, get_congress_activity]
+all_tools = [get_reddit_tracker, get_fear_and_greed_index, get_ticker_earnings_call_transcripts, 
+            get_all_sector_overview, get_bitcoin_etfs, get_most_shorted_stocks,
+            get_penny_stocks, get_ipo_calendar, get_dividend_calendar,
+            ] #[get_ticker_trend_forecast, get_monthly_dividend_stocks, get_top_rated_dividend_stocks, get_dividend_aristocrats, get_dividend_kings, get_overbought_tickers, get_oversold_tickers, get_ticker_owner_earnings, get_ticker_financial_score, get_ticker_key_metrics, get_ticker_statistics, get_ticker_dividend, get_ticker_dark_pool, get_ticker_unusual_activity, get_ticker_open_interest_by_strike_and_expiry, get_ticker_max_pain, get_ticker_options_overview_data, get_ticker_shareholders, get_ticker_insider_trading, get_ticker_pre_post_quote, get_ticker_quote, get_market_flow, get_market_news, get_analyst_tracker, get_latest_congress_trades, get_insider_tracker, get_potus_tracker, get_top_active_stocks, get_top_aftermarket_losers, get_top_premarket_losers, get_top_losers, get_top_aftermarket_gainers, get_top_premarket_gainers, get_top_gainers, get_ticker_analyst_rating, get_ticker_news, get_latest_dark_pool_feed, get_latest_options_flow_feed, get_ticker_bull_vs_bear, get_ticker_earnings, get_ticker_earnings_price_reaction, get_top_rating_stocks, get_economic_calendar, get_earnings_releases, get_ticker_analyst_estimate, get_ticker_business_metrics, get_why_priced_moved, get_ticker_short_data, get_company_data, get_ticker_hottest_options_contracts, get_ticker_ratios_statement, get_ticker_cash_flow_statement, get_ticker_income_statement, get_ticker_balance_sheet_statement, get_congress_activity]
 
 
 #======================================================#
@@ -5166,6 +5169,8 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
 
     # Get tools and matched trigger
     selected_tools, matched_trigger = get_tools_for_query(user_query)
+    print(f"DEBUG: selected_tools count: {len(selected_tools) if selected_tools else 0}")
+    print(f"DEBUG: matched_trigger: {matched_trigger}")
 
     # Add today's date as context
     today_date = datetime.now().strftime("%B %d, %Y")
@@ -5218,52 +5223,59 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
             thoughts = ""
             answer = ""
 
+            
             for chunk in response:
                 if not chunk.candidates:
                     continue
                     
                 candidate = chunk.candidates[0]
-                # Handle function calls
-                if hasattr(candidate, 'function_calls') and candidate.function_calls:
-                    for func_call in candidate.function_calls:
-                        tool_name = func_call.name
-                        tool_args = dict(func_call.args) if func_call.args else {}
-                        
-                        # Track sources
-                        if tool_name not in tools_called:
-                            tools_called.add(tool_name)
+                
+                # Check for function calls in the chunk
+                if hasattr(candidate, 'content') and candidate.content and candidate.content.parts:
+                    for part in candidate.content.parts:
+                        # Check for function call in this part
+                        if hasattr(part, 'function_call') and part.function_call:
+                            func_call = part.function_call
+                            tool_name = func_call.name
+                            tool_args = dict(func_call.args) if func_call.args else {}
                             
-                            # Get metadata
-                            metadata = FUNCTION_SOURCE_METADATA.get(tool_name, {})
-                            friendly_name = metadata.get("name", tool_name.replace("_", " ").title())
-                            description = metadata.get("description", f"Data from {friendly_name}")
-                            url_pattern = metadata.get("url_pattern", "")
+                            print(f"Function call detected: {tool_name} with args: {tool_args}")
                             
-                            # Extract ticker
-                            ticker = tool_args.get("ticker") or tool_args.get("symbol") or tool_args.get("stock")
-                            ticker_type = "Stock"
-                            
-                            if ticker and ticker in etf_symbols:
-                                ticker_type = "ETF"
-                            
-                            # Generate URL
-                            source_url = ""
-                            if url_pattern and ticker:
-                                asset_type = "etf" if ticker_type == "ETF" else "stocks"
-                                source_url = url_pattern.format(asset_type=asset_type, ticker=ticker)
-                            elif url_pattern and not ticker:
-                                source_url = url_pattern
-                            
-                            source_info = {
-                                "name": friendly_name,
-                                "description": description,
-                                "function": tool_name,
-                                "ticker": ticker,
-                                "type": ticker_type,
-                                "url": source_url,
-                                "timestamp": datetime.utcnow().isoformat()
-                            }
-                            sources_collected.append(source_info)
+                            # Track sources
+                            if tool_name not in tools_called:
+                                tools_called.add(tool_name)
+                                
+                                # Get metadata
+                                metadata = FUNCTION_SOURCE_METADATA.get(tool_name, {})
+                                friendly_name = metadata.get("name", tool_name.replace("_", " ").title())
+                                description = metadata.get("description", f"Data from {friendly_name}")
+                                url_pattern = metadata.get("url_pattern", "")
+                                
+                                # Extract ticker
+                                ticker = tool_args.get("ticker") or tool_args.get("symbol") or tool_args.get("stock")
+                                ticker_type = "Stock"
+                                
+                                if ticker and ticker in etf_symbols:
+                                    ticker_type = "ETF"
+                                
+                                # Generate URL
+                                source_url = ""
+                                if url_pattern and ticker:
+                                    asset_type = "etf" if ticker_type == "ETF" else "stocks"
+                                    source_url = url_pattern.format(asset_type=asset_type, ticker=ticker)
+                                elif url_pattern and not ticker:
+                                    source_url = url_pattern
+                                
+                                source_info = {
+                                    "name": friendly_name,
+                                    "description": description,
+                                    "function": tool_name,
+                                    "ticker": ticker,
+                                    "type": ticker_type,
+                                    "url": source_url,
+                                    "timestamp": datetime.utcnow().isoformat()
+                                }
+                                sources_collected.append(source_info)
                 
                 # Handle content parts
                 if hasattr(candidate, 'content') and candidate.content.parts:
