@@ -5192,7 +5192,7 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
     system_instruction = f"{CHAT_INSTRUCTION}\n\nContext: Today's date is {today_date}. Use this for any date-related queries or when referring to current market conditions."
     
     # Build conversation text with system instruction
-    conversation_parts = [system_instruction]
+    conversation_parts = []
     
     # Add conversation history
     for msg in history_messages:
@@ -5220,6 +5220,7 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
             # Create config with function calling
             config = types.GenerateContentConfig(
                 tools=selected_tools,
+                system_instruction=system_instruction,
                 thinking_config=types.ThinkingConfig(
                     include_thoughts=True,
                     thinking_budget=-1
@@ -5314,7 +5315,6 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
                                 thought_data["content"] = thought_text.strip()
                             
                             if thought_data:
-                                print(f"Thought data: {thought_data}")
                                 yield orjson.dumps({"thoughts": thought_data}) + b"\n"
                         else:
                             # This is part of the "answer" - yield only the new chunk
