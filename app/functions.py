@@ -1001,7 +1001,7 @@ async def get_financial_statements(
     return {ticker: result for ticker, result in zip(tickers, results) if result}
 
 
-@function_tool
+
 async def get_ticker_income_statement(
     tickers: List[str], time_period: str = "ttm", keep_keys: Optional[List[str]] = None
 ) -> Dict[str, List[Dict[str, Any]]]:
@@ -1034,7 +1034,7 @@ async def get_ticker_income_statement(
     return await get_financial_statements(tickers, "income", time_period, keep_keys)
 
 
-@function_tool
+
 async def get_ticker_balance_sheet_statement(
     tickers: List[str], time_period: str = "ttm", keep_keys: Optional[List[str]] = None
 ) -> Dict[str, List[Dict[str, Any]]]:
@@ -1068,7 +1068,7 @@ async def get_ticker_balance_sheet_statement(
 
 
 
-@function_tool
+
 async def get_ticker_cash_flow_statement(
     tickers: List[str], time_period: str = "ttm", keep_keys: Optional[List[str]] = None
 ) -> Dict[str, List[Dict[str, Any]]]:
@@ -1103,7 +1103,7 @@ async def get_ticker_cash_flow_statement(
 
 
 
-@function_tool
+
 async def get_ticker_ratios_statement(
     tickers: List[str], time_period: str = "annual", keep_keys: Optional[List[str]] = None
 ) -> Dict[str, List[Dict[str, Any]]]:
@@ -1147,7 +1147,7 @@ async def get_ticker_ratios_statement(
 
 
 
-@function_tool
+
 async def get_ticker_hottest_options_contracts(
     tickers: List[str],
     category: str = "volume"
@@ -1177,7 +1177,7 @@ async def get_ticker_hottest_options_contracts(
         if result is not None and category in result
     }
 
-@function_tool
+
 async def get_company_data(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
     """
     Fetch financial and organizational overview data for multiple companies.
@@ -1198,7 +1198,7 @@ async def get_company_data(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
     return await get_ticker_specific_data(tickers, "stockdeck", process_company_data)
 
 
-@function_tool
+
 async def get_ticker_short_data(tickers: List[str]) -> Dict[str, Any]:
     """
     Retrieve the most recent and historical short interest data for multiple companies.
@@ -1212,7 +1212,7 @@ async def get_ticker_short_data(tickers: List[str]) -> Dict[str, Any]:
     return await get_ticker_specific_data(tickers, "share-statistics")
 
 
-@function_tool
+
 async def get_why_priced_moved(tickers: List[str]) -> Dict[str, Any]:
     """
     Retrieve recent news explaining the price movement of multiple stocks based on their ticker symbols.
@@ -1226,7 +1226,7 @@ async def get_why_priced_moved(tickers: List[str]) -> Dict[str, Any]:
     return await get_ticker_specific_data(tickers, "wiim/company")
 
 
-@function_tool
+
 async def get_ticker_business_metrics(tickers: List[str]) -> Dict[str, Any]:
     """
     Fetch business metrics for multiple stocks, including revenue breakdown by sector and geographic region.
@@ -1240,7 +1240,7 @@ async def get_ticker_business_metrics(tickers: List[str]) -> Dict[str, Any]:
     return await get_ticker_specific_data(tickers, "business-metrics")
 
 
-@function_tool
+
 async def get_ticker_analyst_estimate(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     """
     Fetch forward-looking analyst estimates for multiple stocks, including average, low, and high projections
@@ -1259,7 +1259,7 @@ async def get_ticker_analyst_estimate(tickers: List[str]) -> Dict[str, List[Dict
     return {ticker: data for ticker, data in result.items() if data}
 
 
-@function_tool
+
 async def get_earnings_releases() -> List[Dict[str, Any]]:
     """
     Retrieve today/upcoming company earnings releases/announcements with key financial metrics.
@@ -1303,7 +1303,7 @@ async def get_earnings_releases() -> List[Dict[str, Any]]:
         return []
 
 
-@function_tool
+
 async def get_economic_calendar() -> List[Dict[str, Any]]:
     """
     Retrieve a list of upcoming USA economic events for macroeconomic analysis, including event name, date, time,
@@ -1326,7 +1326,7 @@ async def get_economic_calendar() -> List[Dict[str, Any]]:
         return []
 
 
-@function_tool
+
 async def get_top_rating_stocks() -> list[dict]:
     """
     Retrieves the top rating stocks from analysts.
@@ -1347,7 +1347,7 @@ async def get_top_rating_stocks() -> list[dict]:
         print(f"Error processing get top rating stocks: {e}")
         return []
 
-@function_tool
+
 async def get_ticker_earnings_price_reaction(tickers: List[str]) -> Dict[str, Any]:
     """
     Fetch past earnings price reactions before and after earnings releases of multiple stocks based on their ticker symbols.
@@ -1361,7 +1361,7 @@ async def get_ticker_earnings_price_reaction(tickers: List[str]) -> Dict[str, An
     return await get_ticker_specific_data(tickers, "earnings/past")
 
 
-@function_tool
+
 async def get_ticker_earnings(tickers: List[str]) -> Dict[str, Any]:
     """
     Retrieve the historical, latest, and upcoming earnings dates for multiple stocks, including EPS and revenue estimates and surprises,
@@ -1376,7 +1376,7 @@ async def get_ticker_earnings(tickers: List[str]) -> Dict[str, Any]:
     return await get_ticker_specific_data(tickers, "earnings/raw")
 
 
-@function_tool
+
 async def get_ticker_bull_vs_bear(tickers: List[str]) -> Dict[str, Any]:
     """
     Get historical bull vs. bear sentiment data for multiple stocks.
@@ -1460,7 +1460,7 @@ async def get_feed_data(
 
 
 
-@function_tool
+
 async def get_latest_options_flow_feed(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     """
     Retrieves the top options flow orders with the highest premiums for multiple stocks, highlighting activity from hedge funds and major traders.
@@ -1478,7 +1478,7 @@ async def get_latest_options_flow_feed(tickers: List[str]) -> Dict[str, List[Dic
         sort_key="cost_basis"
     )
 
-@function_tool
+
 async def get_latest_dark_pool_feed(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     """
     Retrieves the top dark pool trades for multiple stocks, sorted by the average price paid, highlighting significant activity from hedge funds and major traders.
@@ -1496,7 +1496,7 @@ async def get_latest_dark_pool_feed(tickers: List[str]) -> Dict[str, List[Dict[s
         sort_key="premium",
     )
 
-@function_tool
+
 async def get_ticker_news(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     """
     Retrieves the latest news for multiple stocks.
@@ -1529,7 +1529,7 @@ async def get_ticker_news(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]
 
 
 
-@function_tool
+
 async def get_ticker_analyst_rating(tickers: List[str]) -> Dict[str, Dict[str, List[Dict[str, Any]]]]:
     """
     Retrieves the latest analyst ratings for multiple stocks.
@@ -1685,7 +1685,7 @@ async def get_stock_screener(
     except (orjson.JSONDecodeError, Exception) as e:
         return {"matched_stocks": [], "count": 0, "error": f"Error processing screener data: {str(e)}"}
 
-@function_tool
+
 async def get_top_gainers() -> list[dict]:
     """
     Retrieves a list of stocks with the highest percentage gains for the current trading day.
@@ -1703,7 +1703,7 @@ async def get_top_gainers() -> list[dict]:
     except Exception as e:
         return [{"error": f"Error processing top gainers data: {str(e)}"}]
 
-@function_tool
+
 async def get_top_premarket_gainers() -> list[dict]:
     """
     Retrieves a list of stocks with the highest percentage gains for the premarket trading session.
@@ -1720,7 +1720,7 @@ async def get_top_premarket_gainers() -> list[dict]:
     except Exception as e:
         return [{"error": f"Error processing top premarket gainers data: {str(e)}"}]
 
-@function_tool
+
 async def get_top_aftermarket_gainers() -> list[dict]:
     """
     Retrieves a list of stocks with the highest percentage gains for the aftermarket trading session.
@@ -1738,7 +1738,7 @@ async def get_top_aftermarket_gainers() -> list[dict]:
         return [{"error": f"Error processing top aftermarket gainers data: {str(e)}"}]
 
 
-@function_tool
+
 async def get_top_losers() -> list[dict]:
     """
     Retrieves a list of stocks with the highest percentage losses for the current trading day.
@@ -1756,7 +1756,7 @@ async def get_top_losers() -> list[dict]:
         return [{"error": f"Error processing top losers data: {str(e)}"}]
 
 
-@function_tool
+
 async def get_top_premarket_losers() -> list[dict]:
     """
     Retrieves a list of stocks with the highest percentage losses for the premarket trading session.
@@ -1774,7 +1774,7 @@ async def get_top_premarket_losers() -> list[dict]:
         return [{"error": f"Error processing top premarket losers data: {str(e)}"}]
 
 
-@function_tool
+
 async def get_top_aftermarket_losers() -> list[dict]:
     """
     Retrieves a list of stocks with the highest percentage losses for the aftermarket trading session.
@@ -1793,7 +1793,7 @@ async def get_top_aftermarket_losers() -> list[dict]:
 
 
 
-@function_tool
+
 async def get_top_active_stocks() -> list[dict]:
     """
     Retrieves a list of stocks with the largest trading volume for the current trading day.
@@ -1809,7 +1809,7 @@ async def get_top_active_stocks() -> list[dict]:
     except Exception as e:
         return [{"error": f"Error processing most active stock data: {str(e)}"}]
 
-@function_tool
+
 async def get_potus_tracker() -> dict:
     """
     Gets the latest POTUS tracker data, including presidential schedule, Truth Social posts,
@@ -1825,7 +1825,7 @@ async def get_potus_tracker() -> dict:
     except Exception as e:
         return {"error": f"Error processing potus tracker data: {str(e)}"}
 
-@function_tool
+
 async def get_insider_tracker() -> list[dict]:
     """
     Retrieves the latest insider trading activity, including recent stock sales or purchases by company executives,
@@ -1841,7 +1841,7 @@ async def get_insider_tracker() -> list[dict]:
     except Exception as e:
         return [{"error": f"Error processing insider tracker data: {str(e)}"}]
 
-@function_tool
+
 async def get_latest_congress_trades() -> list[dict]:
     """
     Retrieves the latest congressional stock trading disclosures including transactions by members of Congress or their spouses.
@@ -1868,7 +1868,7 @@ async def get_latest_congress_trades() -> list[dict]:
     except Exception as e:
         return [{"error": f"Error processing congress tracker data: {str(e)}"}]
 
-@function_tool
+
 async def get_analyst_tracker() -> list[dict]:
     """
     Retrieves the latest analyst stock ratings, including upgrades, downgrades, maintained ratings,
@@ -1889,7 +1889,7 @@ async def get_analyst_tracker() -> list[dict]:
     except Exception as e:
         return [{"error": f"Error processing analyst tracker data: {str(e)}"}]
 
-@function_tool
+
 async def get_market_news() -> list[dict]:
     """
     Retrieves the latest general news for the stock market.
@@ -1910,7 +1910,7 @@ async def get_market_news() -> list[dict]:
         return [{"error": f"Error processing market news data: {str(e)}"}]
 
 
-@function_tool
+
 async def get_market_flow() -> Dict[str, Any]:
     """
     Retrieves the current options market flow sentiment data for the S&P 500.
@@ -1941,7 +1941,7 @@ async def get_market_flow() -> Dict[str, Any]:
         return {"error": f"Error processing market flow data: {str(e)}"}
 
 
-@function_tool
+
 async def get_congress_activity(congress_ids: Union[str, List[str]]) -> Dict[str, List[Any]]:
     """
     Retrieves and filters congressional trading activity for one or more congresspeople based on their unique IDs or names.
@@ -2017,7 +2017,7 @@ async def get_congress_activity(congress_ids: Union[str, List[str]]) -> Dict[str
 
     return result
 
-@function_tool
+
 async def get_ticker_quote(tickers: List[str]) -> Dict[str, Any]:
     """
     Retrieves the most recent stock quote data for one or more ticker symbols.
@@ -2042,7 +2042,7 @@ async def get_ticker_quote(tickers: List[str]) -> Dict[str, Any]:
     return await get_ticker_specific_data(tickers, "quote")
 
 
-@function_tool
+
 async def get_ticker_pre_post_quote(tickers: List[str]) -> Dict[str, Any]:
     """
     Retrieves the most recent stock premarket/aftermarket quote data for one or more ticker symbols.
@@ -2059,7 +2059,7 @@ async def get_ticker_pre_post_quote(tickers: List[str]) -> Dict[str, Any]:
     return await get_ticker_specific_data(tickers, "pre-post-quote")
 
 
-@function_tool
+
 async def get_ticker_insider_trading(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     """
     Fetch detailed insider trading records—such as buys, sells, grant dates, and volumes—executed by corporate insiders 
@@ -2089,7 +2089,7 @@ async def get_ticker_insider_trading(tickers: List[str]) -> Dict[str, List[Dict[
                 
     return filtered_results
 
-@function_tool
+
 async def get_ticker_shareholders(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     """
     Fetch current institutional and major shareholder data for the specified stock tickers, including top institutional holders 
@@ -2134,7 +2134,7 @@ async def get_ticker_shareholders(tickers: List[str]) -> Dict[str, List[Dict[str
     return final_res
 
 
-@function_tool
+
 async def get_ticker_options_overview_data(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
     """
     Fetch comprehensive options statistics for the most recent trading day for the specified stock tickers.
@@ -2160,7 +2160,7 @@ async def get_ticker_options_overview_data(tickers: List[str]) -> Dict[str, Dict
     return final_results
 
 
-@function_tool
+
 async def get_ticker_max_pain(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     """
     Retrieve max pain analysis for multiple stock tickers, including expiration dates, strike prices, call and put payouts,
@@ -2181,7 +2181,7 @@ async def get_ticker_max_pain(tickers: List[str]) -> Dict[str, List[Dict[str, An
 
 
 
-@function_tool
+
 async def get_ticker_open_interest_by_strike_and_expiry(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     """
     Fetch and aggregate options open interest data for one or more equity tickers, returning:
@@ -2223,7 +2223,7 @@ async def get_ticker_open_interest_by_strike_and_expiry(tickers: List[str]) -> D
     return final_res
 
 
-@function_tool
+
 async def get_ticker_unusual_activity(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     """
     Retrieve recent unusual options activity for one or more stock tickers, including large trades, sweeps, and high-premium orders.
@@ -2250,7 +2250,7 @@ async def get_ticker_unusual_activity(tickers: List[str]) -> Dict[str, List[Dict
     return sorted_results
 
 
-@function_tool
+
 async def get_ticker_dark_pool(tickers: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     """
     Retrieves dark pool trading data and related analytics for a list of stock ticker symbols, including:
@@ -2291,7 +2291,7 @@ async def get_ticker_dark_pool(tickers: List[str]) -> Dict[str, List[Dict[str, A
     return final_res
 
 
-@function_tool
+
 async def get_ticker_dividend(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
     """
     Retrieve dividend data and related metrics for a list of stock ticker symbols, 
@@ -2319,7 +2319,7 @@ async def get_ticker_dividend(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
     return res
 
 
-@function_tool
+
 async def get_ticker_statistics(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
     f"""
     Retrieves a snapshot of all latest data for a list of stock ticker symbols.
@@ -2353,7 +2353,7 @@ async def get_ticker_statistics(tickers: List[str]) -> Dict[str, Dict[str, Any]]
 
 
 
-@function_tool
+
 async def get_ticker_key_metrics(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
     f"""
     Retrieves fundamental key metrics data for a list of stock ticker symbols.
@@ -2381,7 +2381,7 @@ async def get_ticker_key_metrics(tickers: List[str]) -> Dict[str, Dict[str, Any]
     return filtered_results
 
 
-@function_tool
+
 async def get_ticker_financial_score(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
     """
     Retrieve fundamental financial score data for a list of stock ticker symbols. Includes metrics such as
@@ -2400,7 +2400,7 @@ async def get_ticker_financial_score(tickers: List[str]) -> Dict[str, Dict[str, 
     return {ticker: result for ticker, result in zip(tickers, results)}
 
 
-@function_tool
+
 async def get_ticker_owner_earnings(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
     f"""
     Retrieves fundamental owner earnings data for a list of stock ticker symbols.
@@ -2429,7 +2429,7 @@ async def get_ticker_owner_earnings(tickers: List[str]) -> Dict[str, Dict[str, A
     return filtered_results
 
 
-@function_tool
+
 async def get_oversold_tickers() -> Dict[str, Dict[str, Any]]:
     """
     Retrieves the top 10 most oversold stocks based on the Relative Strength Index (RSI), 
@@ -2454,7 +2454,7 @@ async def get_oversold_tickers() -> Dict[str, Dict[str, Any]]:
     return result
 
 
-@function_tool
+
 async def get_overbought_tickers() -> Dict[str, Dict[str, Any]]:
     """
     Retrieves the top 10 most overbought stocks based on the Relative Strength Index (RSI), 
@@ -2479,7 +2479,7 @@ async def get_overbought_tickers() -> Dict[str, Dict[str, Any]]:
     return result
 
 
-@function_tool
+
 async def get_dividend_kings() -> List[Dict[str, Any]]:
     """
     Retrieves the top 10 Dividend Kings—companies that have increased their dividend payouts 
@@ -2503,7 +2503,7 @@ async def get_dividend_kings() -> List[Dict[str, Any]]:
 
     return result
 
-@function_tool
+
 async def get_dividend_aristocrats() -> List[Dict[str, Any]]:
     """
     Retrieves the top 10 Dividend Aristocrats—S&P 500 companies that have increased their 
@@ -2527,7 +2527,7 @@ async def get_dividend_aristocrats() -> List[Dict[str, Any]]:
     return result
 
 
-@function_tool
+
 async def get_top_rated_dividend_stocks() -> List[Dict[str, Any]]:
     """
     Retrieves the top 10 dividend-paying stocks with strong analyst ratings 
@@ -2556,7 +2556,7 @@ async def get_top_rated_dividend_stocks() -> List[Dict[str, Any]]:
         result = orjson.loads(file.read())[:10]
     return result
 
-@function_tool
+
 async def get_monthly_dividend_stocks() -> List[Dict[str, Any]]:
     """
     Retrieves the top 10 monthly dividend-paying stocks with high yields 
@@ -2582,7 +2582,7 @@ async def get_monthly_dividend_stocks() -> List[Dict[str, Any]]:
         result = orjson.loads(file.read())[:10]
     return result
 
-@function_tool
+
 async def get_ticker_trend_forecast(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
     """
     AI Trend Forecast: Uses an AI model analyzing historical price data to forecast stock trends.
@@ -2611,7 +2611,7 @@ async def get_ticker_trend_forecast(tickers: List[str]) -> Dict[str, Dict[str, A
 
     return filtered_result
 
-@function_tool
+
 async def get_dividend_calendar() -> List[Dict[str, Any]]:
     """
     Fetches a list of upcoming dividend-paying stocks along with key payout details.
@@ -2651,7 +2651,7 @@ async def get_dividend_calendar() -> List[Dict[str, Any]]:
     return result
 
 
-@function_tool
+
 async def get_ipo_calendar() -> List[Dict[str, Any]]:
     """
     Retrieves data on the 50 most recent initial public offerings (IPOs).
@@ -2681,7 +2681,7 @@ async def get_ipo_calendar() -> List[Dict[str, Any]]:
 
     return result
 
-@function_tool
+
 async def get_penny_stocks() -> List[Dict[str, Any]]:
     """
     Retrieves a list of actively traded penny stocks, defined as stocks priced below $5 per share
@@ -2705,7 +2705,7 @@ async def get_penny_stocks() -> List[Dict[str, Any]]:
 
     return data
 
-@function_tool
+
 async def get_most_shorted_stocks() -> List[Dict[str, Any]]:
     """
     Retrieves a list of the most heavily shorted stocks based on short float percentage,
@@ -2729,7 +2729,7 @@ async def get_most_shorted_stocks() -> List[Dict[str, Any]]:
 
     return data
 
-@function_tool
+
 async def get_bitcoin_etfs() -> List[Dict[str, Any]]:
     """
     Retrieves a list of Bitcoin Exchange-Traded Funds (ETFs), which are financial instruments
@@ -2753,7 +2753,7 @@ async def get_bitcoin_etfs() -> List[Dict[str, Any]]:
 
     return data
 
-@function_tool
+
 async def get_all_sector_overview() -> List[Dict[str, Any]]:
     """
     Retrieves an overview of all stock market sectors, including aggregated and median-based metrics.
@@ -2780,7 +2780,7 @@ async def get_all_sector_overview() -> List[Dict[str, Any]]:
     return data
 
 
-@function_tool
+
 async def get_ticker_earnings_call_transcripts(
     tickers: List[str],
     year: int,
@@ -2837,7 +2837,7 @@ async def get_ticker_earnings_call_transcripts(
     return results
 
 
-@function_tool
+
 async def get_fear_and_greed_index() -> Dict[str, Any]:
     """
     Retrieves the current Fear & Greed index.
@@ -2861,8 +2861,8 @@ async def get_fear_and_greed_index() -> Dict[str, Any]:
 
     return data
 
-@function_tool
-async def get_reddit_tracker() -> Dict[str, Any]:
+
+def get_reddit_tracker() -> Dict[str, Any]:
     """
     Retrieves WallStreetBets trending tickers for 1 week, 1 month, and 3 months.  
 

@@ -97,7 +97,7 @@ with open("json/llm/backtesting_instruction.txt","r",encoding="utf-8") as file:
     BACKTESTING_INSTRUCTION = file.read()
 
 
-all_tools = [get_reddit_tracker, get_fear_and_greed_index, get_ticker_earnings_call_transcripts, get_all_sector_overview, get_bitcoin_etfs, get_most_shorted_stocks, get_penny_stocks, get_ipo_calendar, get_dividend_calendar, get_ticker_trend_forecast, get_monthly_dividend_stocks, get_top_rated_dividend_stocks, get_dividend_aristocrats, get_dividend_kings, get_overbought_tickers, get_oversold_tickers, get_ticker_owner_earnings, get_ticker_financial_score, get_ticker_key_metrics, get_ticker_statistics, get_ticker_dividend, get_ticker_dark_pool, get_ticker_unusual_activity, get_ticker_open_interest_by_strike_and_expiry, get_ticker_max_pain, get_ticker_options_overview_data, get_ticker_shareholders, get_ticker_insider_trading, get_ticker_pre_post_quote, get_ticker_quote, get_market_flow, get_market_news, get_analyst_tracker, get_latest_congress_trades, get_insider_tracker, get_potus_tracker, get_top_active_stocks, get_top_aftermarket_losers, get_top_premarket_losers, get_top_losers, get_top_aftermarket_gainers, get_top_premarket_gainers, get_top_gainers, get_ticker_analyst_rating, get_ticker_news, get_latest_dark_pool_feed, get_latest_options_flow_feed, get_ticker_bull_vs_bear, get_ticker_earnings, get_ticker_earnings_price_reaction, get_top_rating_stocks, get_economic_calendar, get_earnings_releases, get_ticker_analyst_estimate, get_ticker_business_metrics, get_why_priced_moved, get_ticker_short_data, get_company_data, get_ticker_hottest_options_contracts, get_ticker_ratios_statement, get_ticker_cash_flow_statement, get_ticker_income_statement, get_ticker_balance_sheet_statement, get_congress_activity]
+all_tools = [get_reddit_tracker] #[get_reddit_tracker, get_fear_and_greed_index, get_ticker_earnings_call_transcripts, get_all_sector_overview, get_bitcoin_etfs, get_most_shorted_stocks, get_penny_stocks, get_ipo_calendar, get_dividend_calendar, get_ticker_trend_forecast, get_monthly_dividend_stocks, get_top_rated_dividend_stocks, get_dividend_aristocrats, get_dividend_kings, get_overbought_tickers, get_oversold_tickers, get_ticker_owner_earnings, get_ticker_financial_score, get_ticker_key_metrics, get_ticker_statistics, get_ticker_dividend, get_ticker_dark_pool, get_ticker_unusual_activity, get_ticker_open_interest_by_strike_and_expiry, get_ticker_max_pain, get_ticker_options_overview_data, get_ticker_shareholders, get_ticker_insider_trading, get_ticker_pre_post_quote, get_ticker_quote, get_market_flow, get_market_news, get_analyst_tracker, get_latest_congress_trades, get_insider_tracker, get_potus_tracker, get_top_active_stocks, get_top_aftermarket_losers, get_top_premarket_losers, get_top_losers, get_top_aftermarket_gainers, get_top_premarket_gainers, get_top_gainers, get_ticker_analyst_rating, get_ticker_news, get_latest_dark_pool_feed, get_latest_options_flow_feed, get_ticker_bull_vs_bear, get_ticker_earnings, get_ticker_earnings_price_reaction, get_top_rating_stocks, get_economic_calendar, get_earnings_releases, get_ticker_analyst_estimate, get_ticker_business_metrics, get_why_priced_moved, get_ticker_short_data, get_company_data, get_ticker_hottest_options_contracts, get_ticker_ratios_statement, get_ticker_cash_flow_statement, get_ticker_income_statement, get_ticker_balance_sheet_statement, get_congress_activity]
 
 
 #======================================================#
@@ -2951,7 +2951,9 @@ User Query: {formatted_data}
                 model="gemini-2.5-flash",
                 contents=[prompt],
                 config=types.GenerateContentConfig(
-                    thinking_config=types.ThinkingConfig(include_thoughts=True)
+                    thinking_config=types.ThinkingConfig(
+                        include_thoughts=True,
+                        thinking_budget=-1) #dynamic thinking
                 ),
             )
 
@@ -2967,7 +2969,6 @@ User Query: {formatted_data}
                         match = re.search(r'\*\*(.*?)\*\*', part.text)
                         if match:
                             result = match.group(1)
-                            print(result)
                         yield orjson.dumps({"thoughts": result}) + b"\n"
                     else:
                         # This is part of the "answer"
@@ -5146,14 +5147,6 @@ Return ONLY a JSON array of 5 question strings, no other text."""
 @app.post("/chat")
 async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
     user_query = normalize_query(data.query)
-    selected_model = os.getenv('CHAT_MODEL')
-
-    model_settings = ModelSettings(
-        tool_choice="auto",
-        parallel_tool_calls=True,
-        reasoning={"effort": "medium" if data.reasoning == True else "low"},
-        text={ "verbosity": "low" }
-    )
 
     history_messages = data.messages[-10:]
     cleaned_messages = []
@@ -5163,496 +5156,148 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
         if 'callComponent' in cleaned_item:
             del cleaned_item['callComponent']
         if 'sources' in cleaned_item:
-            del cleaned_item['sources']  # Remove sources before sending to OpenAI API
+            del cleaned_item['sources']
         if 'relatedQuestions' in cleaned_item:
-            del cleaned_item['relatedQuestions']  # Remove related questions before sending to OpenAI API
+            del cleaned_item['relatedQuestions']
         if cleaned_item['role'] == 'system' and '<' in cleaned_item['content']:
             cleaned_item['content'] = strip_html(cleaned_item['content'])
         cleaned_messages.append(cleaned_item)
 
     history_messages = cleaned_messages
 
-    # Get tools and matched trigger in single pass
+    # Get tools and matched trigger
     selected_tools, matched_trigger = get_tools_for_query(user_query)
-    # Handle special triggers
-    if matched_trigger == "@stockscreener":
-        try:
-            # Extract rules using complete frontend context
-            extracted_rules = await extract_screener_rules(user_query)
-            formatted_rules = await format_rules_for_screener(extracted_rules)
-            # Screen stocks using the Python screener
-            context = await python_screener.screen(formatted_rules, limit=20)  # Limit to 20 for token efficiency
-            
-            # Get only essential data for top results
-            top_stocks = context.get('matched_stocks', [])[:10]  # Top 10 for display
-            
-            # Create minimal stock summaries with filter-relevant data
-            stock_summaries = []
-            for stock in top_stocks:
-                summary = {
-                    'symbol': stock.get('symbol'),
-                    'name': stock.get('name', '')[:25],  # Truncate long names
-                }
-                
-                # Add data based on the applied filters
-                for rule in formatted_rules:
-                    rule_name = rule.get('name')
-                    if rule_name and rule_name in stock:
-                        value = stock.get(rule_name)
-                        if value is not None:
-                            summary[rule_name] = value
-                            
-                stock_summaries.append(summary)
-            
-            # Format applied filters for display using ALL_RULES metadata
-            from rule_extractor import ALL_RULES
-            
-            filter_summary = []
-            for rule in formatted_rules:
-                rule_name = rule.get('name', '')
-                condition = rule.get('condition', '')
-                value = rule.get('value', '')
-                
-                # Get rule metadata from ALL_RULES
-                rule_meta = ALL_RULES.get(rule_name, {})
-                label = rule_meta.get('label', rule_name)
-                var_type = rule_meta.get('varType', None)
-                
-                # Format value based on variable type
-                formatted_value = str(value)
-                if var_type == 'percent' or var_type == 'percentSign':
-                    formatted_value = f"{value}%"
-                elif rule_name == 'price':
-                    formatted_value = f"${value}"
-                elif rule_name in ['marketCap', 'volume', 'avgVolume'] and isinstance(value, str):
-                    # Keep string format for values like "10B", "1M"  
-                    formatted_value = value
-                
-                # Create readable filter description
-                filter_summary.append(f"{label} {condition} {formatted_value}")
-            
-            # Create concise system message
-            total_found = context.get('total_matches', 0)
-            filters_applied = " AND ".join(filter_summary)
-            
-            system_msg = {
-                "role": "system",
-                "content": (
-                    f"Stock screener results: {total_found} total stocks found matching '{user_query}'.\n\n"
-                    f"Applied Filters: {filters_applied}\n\n"
-                    f"Top {len(stock_summaries)} results:\n{json.dumps(stock_summaries, indent=1)}\n\n"
-                    f"Provide a clear response with:\n"
-                    f"1. Brief explanation of the {len(formatted_rules)} screening criteria applied\n" 
-                    f"2. Formatted table showing stocks with their filter-relevant metrics\n"
-                    f"Focus on the filter criteria values rather than generic stock data."
-                )
-            }
-            
-        except Exception as e:
-            print(f"Screener error: {e}")
-            # Fallback message
-            system_msg = {
-                "role": "system", 
-                "content": f"Unable to process stock screening query: '{user_query}'. Please try a simpler query like 'most shorted stocks below $10' or 'large cap tech stocks'."
-            }
-        
-        history_messages = [system_msg] + history_messages
 
-    elif matched_trigger == "@backtesting":
-        strategy_data = await create_backtesting_strategy(user_query, selected_model, model_settings)
-        tickers = strategy_data['tickers']
-        start_date = strategy_data.get('start_date',"2015-01-01")
-        end_date = strategy_data.get('end_date', datetime.now().strftime("%Y-%m-%d"))
-        buy_conditions = strategy_data.get('buy_condition', [])
-        sell_conditions = strategy_data.get('sell_condition', [])
-        initial_capital = strategy_data.get('initial_capital',100_000)
-        commission = strategy_data.get('commission', 5)/100 #convert percent into decimal
-        stop_loss = strategy_data.get('stop_loss', None)
-        profit_taker = strategy_data.get('profit_taker', None)
-
-        engine = BacktestingEngine(initial_capital=initial_capital, commission=commission)
-
-        try:
-            context = await engine.run(
-                tickers=tickers,
-                buy_conditions=buy_conditions,
-                sell_conditions=sell_conditions,
-                start_date=start_date,
-                end_date=end_date,
-                stop_loss=stop_loss,
-                profit_taker=profit_taker
-            )
-            context.pop('trade_history', None)
-            context.pop('plot_data', None)
-
-            print(context)
-        except:
-            context = {}
-
-        system_msg = {
-            "role": "system",
-            "content": (
-                f"You are a trading assistant. Analyze the backtesting results carefully. "
-                f"First, clearly list the strategy's buy and sell rules as provided: {json.dumps(strategy_data, indent=2)}. "
-                f"Present the result data of the strategy: {json.dumps(context, indent=2)}. Do not add anything else aftewards."
-            )
-        }
-
-        history_messages = [system_msg] + history_messages
-        
-    elif matched_trigger in TRIGGER_TO_INSTRUCTION:
-        system_msg = {
-            "role": "system",
-            "content": TRIGGER_TO_INSTRUCTION[matched_trigger]()
-        }
-        history_messages = [system_msg] + history_messages
-    history_messages += [{'role': 'user', "content": user_query}]
-    
     # Add today's date as context
     today_date = datetime.now().strftime("%B %d, %Y")
-    date_context = {
-        "role": "system",
-        "content": f"Today's date is {today_date}. Use this for any date-related queries or when referring to current market conditions."
-    }
-    history_messages = [date_context] + history_messages
-  
-    # Agent setup
-    agent = Agent(
-        name="Stocknear AI Agent",
-        instructions=CHAT_INSTRUCTION,
-        model=selected_model,
-        tools=selected_tools,
-        model_settings=model_settings
-    )
-
-    async def event_generator():
-            full_content = ""
-            found_end_of_dicts = False
-            sources_collected = []  # Track sources from function calls
-            tools_called = set()  # Backup tracking of all tools called
-            
-            # Start generating related questions in parallel - will be populated later
-            # Skip related questions for @stockscreener
-            should_generate_questions = matched_trigger != "@stockscreener"
-            related_questions_task = None
-            
-            def add_source_from_tool(tool_name, tool_args=None):
-                """Helper function to add a source from tool information"""
-                if tool_name in tools_called:
-                    return  # Already added this tool
-                    
-                tools_called.add(tool_name)
-                
-                # Get metadata from FUNCTION_SOURCE_METADATA
-                metadata = FUNCTION_SOURCE_METADATA.get(tool_name, {})
-                
-                # Use metadata or fallback to generated name
-                friendly_name = metadata.get("name", tool_name.replace("_", " ").title())
-                description = metadata.get("description", f"Data from {friendly_name}")
-                url_pattern = metadata.get("url_pattern", "")
-                
-                # Extract ticker from tool arguments  
-                ticker = None
-                ticker_type = "Stock"  # Default to Stock
-                
-                if tool_args:
-                    # Try different parameter names for ticker
-                    ticker = tool_args.get("ticker") or tool_args.get("symbol") or tool_args.get("stock")
-                    
-                    # Handle plural 'tickers' parameter (array) - create sources for all tickers
-                    if not ticker and "tickers" in tool_args:
-                        tickers_list = tool_args.get("tickers")
-                        if isinstance(tickers_list, list) and len(tickers_list) > 0:
-                            # For multiple tickers, create a source for each one
-                            for ticker_symbol in tickers_list:
-                                if ticker_symbol:
-                                    individual_ticker_type = "ETF" if ticker_symbol in etf_symbols else "Stock"
-                                    individual_source_url = ""
-                                    if url_pattern and ticker_symbol:
-                                        asset_type = "etf" if individual_ticker_type == "ETF" else "stocks"
-                                        individual_source_url = url_pattern.format(asset_type=asset_type, ticker=ticker_symbol)
-                                    
-                                    individual_source_info = {
-                                        "name": friendly_name,
-                                        "description": description,
-                                        "function": tool_name,
-                                        "ticker": ticker_symbol,
-                                        "type": individual_ticker_type,
-                                        "url": individual_source_url,
-                                        "timestamp": datetime.utcnow().isoformat()
-                                    }
-                                    sources_collected.append(individual_source_info)
-                            return  # Exit early since we've handled multiple tickers
-                    
-                    # Check if it's an ETF
-                    if ticker and ticker in etf_symbols:
-                        ticker_type = "ETF"
-                
-                # Generate the URL based on pattern
-                source_url = ""
-                if url_pattern and ticker:
-                    asset_type = "etf" if ticker_type == "ETF" else "stocks"
-                    source_url = url_pattern.format(asset_type=asset_type, ticker=ticker)
-                elif url_pattern and not ticker:
-                    # For non-ticker specific URLs (like market news)
-                    source_url = url_pattern
-
-                source_info = {
-                    "name": friendly_name,
-                    "description": description,
-                    "function": tool_name,
-                    "ticker": ticker,
-                    "type": ticker_type,
-                    "url": source_url,
-                    "timestamp": datetime.utcnow().isoformat()
-                }
-                
-                sources_collected.append(source_info)
-            
-            try:
-                result = Runner.run_streamed(agent, input=history_messages)
-                async for event in result.stream_events():
-                    try:
-                        # Track function calls for source citations
-                        if event.type == "run_item_stream_event" and hasattr(event, 'item'):
-                            item = event.item
-                            # Check if this is a tool call
-                            if hasattr(item, 'type') and item.type == 'tool_call_item':
-                                # Extract tool name from raw_item
-                                tool_name = None
-                                tool_args = {}
-                                
-                                if hasattr(item, 'raw_item'):
-                                    raw_item = item.raw_item
-                                    if hasattr(raw_item, 'name'):
-                                        tool_name = raw_item.name
-                                    
-                                    if hasattr(raw_item, 'arguments'):
-                                        try:
-                                            # Arguments are JSON string
-                                            tool_args = json.loads(raw_item.arguments)
-                                        except:
-                                            pass
-                                
-                                if tool_name:
-                                    # Get metadata from FUNCTION_SOURCE_METADATA
-                                    metadata = FUNCTION_SOURCE_METADATA.get(tool_name, {})
-                                    
-                                    # Use metadata or fallback to generated name
-                                    friendly_name = metadata.get("name", tool_name.replace("_", " ").title())
-                                    description = metadata.get("description", f"Data from {friendly_name}")
-                                    url_pattern = metadata.get("url_pattern", "")
-                                    
-                                    # Extract ticker from tool arguments  
-                                    ticker = None
-                                    ticker_type = "Stock"  # Default to Stock
-                                    
-                                    if tool_args:
-                                        # Try different parameter names for ticker
-                                        ticker = tool_args.get("ticker") or tool_args.get("symbol") or tool_args.get("stock")
-                                        
-                                        # Handle plural 'tickers' parameter (array) - create sources for ALL tickers
-                                        if not ticker and "tickers" in tool_args:
-                                            tickers_list = tool_args.get("tickers")
-                                            if isinstance(tickers_list, list) and len(tickers_list) > 0:
-                                                # For multiple tickers, create a source for each one
-                                                for ticker_symbol in tickers_list:
-                                                    if ticker_symbol:
-                                                        individual_ticker_type = "ETF" if ticker_symbol in etf_symbols else "Stock"
-                                                        individual_source_url = ""
-                                                        if url_pattern and ticker_symbol:
-                                                            asset_type = "etf" if individual_ticker_type == "ETF" else "stocks"
-                                                            individual_source_url = url_pattern.format(asset_type=asset_type, ticker=ticker_symbol)
-                                                        elif url_pattern and not ticker_symbol:
-                                                            individual_source_url = url_pattern
-                                                        
-                                                        individual_source_info = {
-                                                            "name": friendly_name,
-                                                            "description": description,
-                                                            "function": tool_name,
-                                                            "ticker": ticker_symbol,
-                                                            "type": individual_ticker_type,
-                                                            "url": individual_source_url,
-                                                            "timestamp": datetime.utcnow().isoformat()
-                                                        }
-                                                        
-                                                        # Avoid duplicate sources
-                                                        if not any(s["function"] == tool_name and s.get("ticker") == ticker_symbol for s in sources_collected):
-                                                            sources_collected.append(individual_source_info)
-                                                # After processing multiple tickers, continue to next event
-                                                continue
-                                        
-                                        # Check if it's an ETF
-                                        if ticker and ticker in etf_symbols:
-                                            ticker_type = "ETF"
-                                    
-                                    # Generate the URL based on pattern (for single ticker or non-ticker functions)
-                                    source_url = ""
-                                    if url_pattern and ticker:
-                                        asset_type = "etf" if ticker_type == "ETF" else "stocks"
-                                        source_url = url_pattern.format(asset_type=asset_type, ticker=ticker)
-                                    elif url_pattern and not ticker:
-                                        # For non-ticker specific URLs (like market news)
-                                        source_url = url_pattern
-                                
-                                    source_info = {
-                                        "name": friendly_name,
-                                        "description": description,
-                                        "function": tool_name,
-                                        "ticker": ticker,
-                                        "type": ticker_type,
-                                        "url": source_url,
-                                        "timestamp": datetime.utcnow().isoformat()
-                                    }
-                                    
-                                    # Avoid duplicate sources (only add if we have a ticker or it's a non-ticker function)
-                                    if ticker or (not ticker and url_pattern):
-                                        if not any(s["function"] == tool_name and s.get("ticker") == ticker for s in sources_collected):
-                                            sources_collected.append(source_info)
-                        
-                        # Process only raw_response_event events
-                        if event.type == "raw_response_event":
-                            delta = getattr(event.data, "delta", "")
-                            if not delta:
-                                continue
-                            stripped_delta = delta.strip()
-                            # Skip if it's echoing back the question
-                            if stripped_delta.lower() == user_query or stripped_delta.lower().startswith(user_query):
-                                continue
-                            
-                            # Check if we've passed all the JSON dictionaries
-                            if not found_end_of_dicts:
-                                full_content += delta
-                                
-                                # Start related questions generation after we have some content (around 100 chars)
-                                if should_generate_questions and not related_questions_task and len(full_content.strip()) > 100:
-                                    related_questions_task = asyncio.create_task(
-                                        generate_related_questions(user_query, full_content)
-                                    )
-                                
-                                # First check if content starts with JSON objects
-                                temp_content = full_content.strip()
-                                if not temp_content:
-                                    continue  # No content yet
-                                
-                                # If content doesn't start with '{', it's regular text - don't filter
-                                if not temp_content.startswith('{'):
-                                    found_end_of_dicts = True
-                                    yield orjson.dumps({
-                                        "event": "response",
-                                        "content": full_content
-                                    }) + b"\n"
-                                    continue
-                                
-                                # Content starts with JSON, so apply filtering logic
-                                last_json_end = -1
-                                
-                                i = 0
-                                while i < len(temp_content):
-                                    if temp_content[i] == '{':
-                                        # Try to find the matching closing brace
-                                        brace_count = 1
-                                        j = i + 1
-                                        in_string = False
-                                        escape_next = False
-                                        
-                                        while j < len(temp_content) and brace_count > 0:
-                                            char = temp_content[j]
-                                            
-                                            if escape_next:
-                                                escape_next = False
-                                            elif char == '\\':
-                                                escape_next = True
-                                            elif char == '"' and not escape_next:
-                                                in_string = not in_string
-                                            elif not in_string:
-                                                if char == '{':
-                                                    brace_count += 1
-                                                elif char == '}':
-                                                    brace_count -= 1
-                                            
-                                            j += 1
-                                        
-                                        if brace_count == 0:
-                                            # Found complete JSON object
-                                            last_json_end = j - 1
-                                            i = j
-                                        else:
-                                            # Incomplete JSON object
-                                            break
-                                    else:
-                                        # Found non-JSON content
-                                        if last_json_end >= 0:
-                                            found_end_of_dicts = True
-                                            # Keep only content after all JSON objects
-                                            full_content = temp_content[last_json_end + 1:].strip()
-                                            if full_content:  # Only yield if there's actual content
-                                                yield orjson.dumps({
-                                                    "event": "response",
-                                                    "content": full_content
-                                                }) + b"\n"
-                                            break
-                                        else:
-                                            # No JSON objects found yet, might be at the start
-                                            break
-                                
-                                # If no content after dictionaries yet, don't yield anything
-                            else:
-                                # We've already found the end of dictionaries, just append new deltas
-                                full_content += delta
-                                
-                                # Start related questions generation if not already started
-                                if should_generate_questions and not related_questions_task and len(full_content.strip()) > 100:
-                                    related_questions_task = asyncio.create_task(
-                                        generate_related_questions(user_query, full_content)
-                                    )
-                                
-                                yield orjson.dumps({
-                                    "event": "response",
-                                    "content": full_content
-                                }) + b"\n"
-                                
-                    except Exception as e:
-                        print(f"Error processing event: {e}")
-                        yield orjson.dumps({
-                            "event": "error",
-                            "message": f"Event processing error: {str(e)}"
-                        }) + b"\n"
-                
-                # Send sources after content is complete
-                if sources_collected:
-                    yield orjson.dumps({
-                        "event": "sources",
-                        "sources": sources_collected
-                    }) + b"\n"
-                
-                # Get related questions from parallel task or generate if not started
-                if should_generate_questions:
-                    try:
-                        if related_questions_task:
-                            # Await the parallel task that was started during streaming
-                            related_questions = await related_questions_task
-                        else:
-                            # Fallback: generate now if task wasn't started (shouldn't happen)
-                            related_questions = await generate_related_questions(user_query, full_content)
-                        
-                        if related_questions:
-                            yield orjson.dumps({
-                                "event": "related_questions",
-                                "questions": related_questions
-                            }) + b"\n"
-                    except Exception as e:
-                        print(f"Error generating related questions: {e}")
-                    
-            except Exception as e:
-                print(f"Streaming error: {e}")
-                yield orjson.dumps({
-                    "event": "error",
-                    "message": f"Streaming failed: {str(e)}"
-                }) + b"\n"
     
+    # Build the conversation for Gemini
+    conversation_text = f"{CHAT_INSTRUCTION}\n\nContext: Today's date is {today_date}. Use this for any date-related queries or when referring to current market conditions.\n\n"
+    
+    # Add conversation history
+    for msg in history_messages:
+        role = msg.get('role', '')
+        content = msg.get('content', '')
+        if role == 'user':
+            conversation_text += f"User: {content}\n"
+        elif role == 'assistant':
+            conversation_text += f"Assistant: {content}\n"
+        elif role == 'system':
+            conversation_text += f"System: {content}\n"
+    
+    # Add current query
+    conversation_text += f"User: {user_query}\n\nAssistant:"
+
+    async def event_stream():
+        sources_collected = []
+        tools_called = set()
+        full_content = ""
+        
+        try:
+            # Create config with function calling
+            config = types.GenerateContentConfig(
+                tools=selected_tools,
+                thinking_config=types.ThinkingConfig(
+                    include_thoughts=True,
+                    thinking_budget=-1
+                )
+            )
+            
+            response = gemini_client.models.generate_content_stream(
+                model="gemini-2.5-flash",
+                contents=[conversation_text],
+                config=config
+            )
+
+            for chunk in response:
+                if not chunk.candidates:
+                    continue
+                    
+                candidate = chunk.candidates[0]
+                # Handle function calls
+                if hasattr(candidate, 'function_calls') and candidate.function_calls:
+                    for func_call in candidate.function_calls:
+                        tool_name = func_call.name
+                        tool_args = dict(func_call.args) if func_call.args else {}
+                        
+                        # Track sources
+                        if tool_name not in tools_called:
+                            tools_called.add(tool_name)
+                            
+                            # Get metadata
+                            metadata = FUNCTION_SOURCE_METADATA.get(tool_name, {})
+                            friendly_name = metadata.get("name", tool_name.replace("_", " ").title())
+                            description = metadata.get("description", f"Data from {friendly_name}")
+                            url_pattern = metadata.get("url_pattern", "")
+                            
+                            # Extract ticker
+                            ticker = tool_args.get("ticker") or tool_args.get("symbol") or tool_args.get("stock")
+                            ticker_type = "Stock"
+                            
+                            if ticker and ticker in etf_symbols:
+                                ticker_type = "ETF"
+                            
+                            # Generate URL
+                            source_url = ""
+                            if url_pattern and ticker:
+                                asset_type = "etf" if ticker_type == "ETF" else "stocks"
+                                source_url = url_pattern.format(asset_type=asset_type, ticker=ticker)
+                            elif url_pattern and not ticker:
+                                source_url = url_pattern
+                            
+                            source_info = {
+                                "name": friendly_name,
+                                "description": description,
+                                "function": tool_name,
+                                "ticker": ticker,
+                                "type": ticker_type,
+                                "url": source_url,
+                                "timestamp": datetime.utcnow().isoformat()
+                            }
+                            sources_collected.append(source_info)
+                
+                # Handle content parts
+                if hasattr(candidate, 'content') and candidate.content.parts:
+                    for part in candidate.content.parts:
+                        if not part.text:
+                            continue
+                        if getattr(part, "thought", False):
+                            # Skip thoughts for now - could be added later
+                            continue
+                        else:
+                            # Regular content
+                            full_content += part.text
+                            yield orjson.dumps({
+                                "event": "response", 
+                                "content": full_content
+                            }) + b"\n"
+
+            # Send sources after streaming is complete
+            if sources_collected:
+                yield orjson.dumps({
+                    "event": "sources",
+                    "sources": sources_collected
+                }) + b"\n"
+            
+            # Generate related questions if needed
+            should_generate_questions = matched_trigger != "@stockscreener"
+            if should_generate_questions and len(full_content.strip()) > 100:
+                try:
+                    related_questions = await generate_related_questions(user_query, full_content)
+                    if related_questions:
+                        yield orjson.dumps({
+                            "event": "related_questions",
+                            "questions": related_questions
+                        }) + b"\n"
+                except Exception as e:
+                    print(f"Error generating related questions: {e}")
+
+        except Exception as e:
+            print(e)
+            yield orjson.dumps({"error": str(e)}) + b"\n"
+
     return StreamingResponse(
-        event_generator(),
+        event_stream(),
         media_type="application/x-ndjson",
         headers={"Cache-Control": "no-cache"}
     )
