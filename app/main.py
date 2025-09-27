@@ -5188,7 +5188,7 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
     # Add current query
     conversation_text += f"User: {user_query}\n\nAssistant:"
 
-    async def event_stream():
+    def event_stream():
         sources_collected = []
         tools_called = set()
         full_content = ""
@@ -5199,7 +5199,7 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
                 tools=selected_tools,
                 thinking_config=types.ThinkingConfig(
                     include_thoughts=True,
-                    thinking_budget=4
+                    thinking_budget=-1
                 )
             )
             
@@ -5274,12 +5274,12 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
                                 print(result)
                                 yield orjson.dumps({"thoughts": result}) + b"\n"
                         else:
-                            # This is part of the "answer"
-                            answer += part.text
-                            full_content = answer
+                            # This is part of the "answer" - yield only the new chunk
+                            chunk_text = part.text
+                            answer += chunk_text
                             yield orjson.dumps({
                                 "event": "response", 
-                                "content": full_content
+                                "content": chunk_text
                             }) + b"\n"
 
             # Send sources after streaming is complete
