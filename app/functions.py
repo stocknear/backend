@@ -938,13 +938,13 @@ async def _load_and_filter(
         return []
 
 # Generic function for fetching ticker-specific data
-async def get_ticker_specific_data(
+def get_ticker_specific_data(
     tickers: List[str], 
     base_path: str,
     process_func: Optional[Callable[[Any], Any]] = None
 ) -> Dict[str, Any]:
     """
-    Generic function to fetch and process data for multiple tickers.
+    Generic function to fetch and process data for multiple tickers synchronously.
     
     Args:
         tickers: List of stock ticker symbols
@@ -955,20 +955,15 @@ async def get_ticker_specific_data(
         Dictionary mapping tickers to their processed data
     """
     base_dir = BASE_DIR / base_path
-    
-    # Create tasks for each ticker
-    tasks = [fetch_ticker_data(ticker, base_dir) for ticker in tickers]
-    
-    # Gather all results concurrently
-    results = await asyncio.gather(*tasks)
-    
-    # Process results if needed
-    filtered_results = {}
-    for ticker, result in zip(tickers, results):
+    filtered_results: Dict[str, Any] = {}
+
+    for ticker in tickers:
+        result = fetch_ticker_data(ticker, base_dir)
         if result is not None:
             filtered_results[ticker] = process_func(result) if process_func else result
-    
+
     return filtered_results
+
 
 async def get_financial_statements(
     tickers: List[str],
@@ -1196,7 +1191,7 @@ async def get_company_data(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
         result.pop("financialPerformance", None)
         return result
 
-    return await get_ticker_specific_data(tickers, "stockdeck", process_company_data)
+    return get_ticker_specific_data(tickers, "stockdeck", process_company_data)
 
 
 
@@ -1210,7 +1205,7 @@ async def get_ticker_short_data(tickers: List[str]) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: Dictionary mapping each ticker to its short interest data.
     """
-    return await get_ticker_specific_data(tickers, "share-statistics")
+    return get_ticker_specific_data(tickers, "share-statistics")
 
 
 
@@ -1224,7 +1219,7 @@ async def get_why_priced_moved(tickers: List[str]) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: Dictionary mapping each ticker to the corresponding price movement explanation data.
     """
-    return await get_ticker_specific_data(tickers, "wiim/company")
+    return get_ticker_specific_data(tickers, "wiim/company")
 
 
 
@@ -1238,7 +1233,7 @@ async def get_ticker_business_metrics(tickers: List[str]) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: Dictionary mapping each ticker to its business metrics.
     """
-    return await get_ticker_specific_data(tickers, "business-metrics")
+    return get_ticker_specific_data(tickers, "business-metrics")
 
 
 
@@ -1256,7 +1251,7 @@ async def get_ticker_analyst_estimate(tickers: List[str]) -> Dict[str, List[Dict
     def filter_by_year(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         return [entry for entry in data if entry.get("date", 0) >= current_year]
     
-    result = await get_ticker_specific_data(tickers, "analyst-estimate", filter_by_year)
+    result = get_ticker_specific_data(tickers, "analyst-estimate", filter_by_year)
     return {ticker: data for ticker, data in result.items() if data}
 
 
@@ -1359,7 +1354,7 @@ async def get_ticker_earnings_price_reaction(tickers: List[str]) -> Dict[str, An
     Returns:
         Dict[str, Any]: Dictionary mapping each ticker to its earnings reaction history.
     """
-    return await get_ticker_specific_data(tickers, "earnings/past")
+    return get_ticker_specific_data(tickers, "earnings/past")
 
 
 
@@ -1374,7 +1369,7 @@ async def get_ticker_earnings(tickers: List[str]) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: Dictionary mapping each ticker to its earnings data.
     """
-    return await get_ticker_specific_data(tickers, "earnings/raw")
+    return get_ticker_specific_data(tickers, "earnings/raw")
 
 
 
@@ -1388,7 +1383,7 @@ async def get_ticker_bull_vs_bear(tickers: List[str]) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: Dictionary mapping each ticker to its bull vs. bear sentiment data.
     """
-    return await get_ticker_specific_data(tickers, "bull_vs_bear")
+    return get_ticker_specific_data(tickers, "bull_vs_bear")
 
 
 
@@ -2036,7 +2031,7 @@ async def get_ticker_quote(tickers: List[str]) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: A dictionary mapping each ticker to its quote data object.
     """
-    return await get_ticker_specific_data(tickers, "quote")
+    return get_ticker_specific_data(tickers, "quote")
 
 
 
@@ -2053,7 +2048,7 @@ async def get_ticker_pre_post_quote(tickers: List[str]) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: A dictionary mapping each ticker to its pre/post market quote data object.
     """
-    return await get_ticker_specific_data(tickers, "pre-post-quote")
+    return get_ticker_specific_data(tickers, "pre-post-quote")
 
 
 
@@ -2525,7 +2520,7 @@ async def get_dividend_aristocrats() -> List[Dict[str, Any]]:
 
 
 
-async def get_top_rated_dividend_stocks() -> List[Dict[str, Any]]:
+def get_top_rated_dividend_stocks() -> List[Dict[str, Any]]:
     """
     Retrieves the top 10 dividend-paying stocks with strong analyst ratings 
     and attractive dividend yields.
@@ -2554,7 +2549,7 @@ async def get_top_rated_dividend_stocks() -> List[Dict[str, Any]]:
     return result
 
 
-async def get_monthly_dividend_stocks() -> List[Dict[str, Any]]:
+def get_monthly_dividend_stocks() -> List[Dict[str, Any]]:
     """
     Retrieves the top 10 monthly dividend-paying stocks with high yields 
     and strong income-generating potential.
@@ -2580,7 +2575,7 @@ async def get_monthly_dividend_stocks() -> List[Dict[str, Any]]:
     return result
 
 
-async def get_ticker_trend_forecast(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
+def get_ticker_trend_forecast(tickers: List[str]) -> Dict[str, Dict[str, Any]]:
     """
     AI Trend Forecast: Uses an AI model analyzing historical price data to forecast stock trends.
     It detects patterns, seasonality, and trends to predict future price movements and estimate
@@ -2597,7 +2592,7 @@ async def get_ticker_trend_forecast(tickers: List[str]) -> Dict[str, Dict[str, A
             - lowPriceTarget: Lowest predicted price target
             - medianPriceTarget: Median predicted price target
     """
-    result = await get_ticker_specific_data(tickers, "price-analysis")
+    result = get_ticker_specific_data(tickers, "price-analysis")
     
     filtered_result = {}
     for ticker, data in result.items():
