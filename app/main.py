@@ -2948,17 +2948,15 @@ async def get_options_flow_stream(data: OptionsInsight, api_key: str = Security(
         )
 
     # Format the options data as a string for analysis
-    formatted_data = f"Analyze this options order flow data: {str(options_data)}"
+    user_prompt = f"Analyze this options order flow data: {str(options_data)}"
     today_date = datetime.now().strftime("%B %d, %Y")
 
     # Build full prompt
-    prompt = f"""
-{OPTIONS_INSIGHT_INSTRUCTION}
+    system_instruction = f"""
+        {OPTIONS_INSIGHT_INSTRUCTION}
 
-Context: Today's date is {today_date}. Use this for any date-related queries or when referring to current market conditions.
-
-User Query: {formatted_data}
-"""
+        Context: Today's date is {today_date}. Use this for any date-related queries or when referring to current market conditions.
+    """
 
     def event_stream():
         thoughts = ""
@@ -2966,8 +2964,9 @@ User Query: {formatted_data}
         try:
             response = gemini_client.models.generate_content_stream(
                 model="gemini-2.5-flash",
-                contents=[prompt],
+                contents=[user_prompt],
                 config=types.GenerateContentConfig(
+                    system_instruction=system_instruction,
                     thinking_config=types.ThinkingConfig(
                         include_thoughts=True,
                         thinking_budget=-1) #dynamic thinking
@@ -5297,6 +5296,8 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
                     for part in parts:
                         if not part.text:
                             continue
+                        if part.function_call:
+                            print(part.function_call)
 
                         if getattr(part, "thought", False):
                             # Extract both the title (between **) and full content
