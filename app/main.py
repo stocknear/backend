@@ -59,6 +59,9 @@ from backtesting.backtest_engine import BacktestingEngine
 from rule_extractor import extract_screener_rules, format_rules_for_screener
 from stock_screener_engine import python_screener
 
+from google import genai
+from google.genai import types
+
 # DB constants & context manager
 API_URL = "http://localhost:8000"
 
@@ -83,6 +86,8 @@ client = httpx.AsyncClient(http2=True, timeout=10.0)
 
 #================LLM Configuration====================#
 async_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+gemini_client = genai.Client(api_key=os.getenv('GEMINI_API_KEY'))
+
 with open("json/llm/chat_instruction.txt","r",encoding="utf-8") as file:
     CHAT_INSTRUCTION = file.read()
 with open("json/llm/options_insight_instruction.txt","r",encoding="utf-8") as file:
@@ -2910,93 +2915,75 @@ async def get_options_flow_stream(data: OptionsInsight, api_key: str = Security(
     cache_key = f"options-insight-{options_data}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
-        # If cached, return as a single chunk
         decompressed = gzip.decompress(cached_result)
         result = orjson.loads(decompressed)
-        
-        async def cached_stream():
+
+        def cached_stream():
             yield orjson.dumps({"content": result["analysis"]}) + b"\n"
-        
+
         return StreamingResponse(
             cached_stream(),
             media_type="text/plain",
             headers={
                 "Cache-Control": "no-cache, no-transform",
-                "Connection": "keep-alive"
-            }
+                "Connection": "keep-alive",
+            },
         )
-    
+
     # Format the options data as a string for analysis
     formatted_data = f"Analyze this options order flow data: {str(options_data)}"
-    
-    # Prepare messages for agent
-    messages = [
-        {"role": "user", "content": formatted_data}
-    ]
-    
-    # Add today's date as context
     today_date = datetime.now().strftime("%B %d, %Y")
-    date_context = {
-        "role": "system",
-        "content": f"Today's date is {today_date}. Use this for any date-related queries or when referring to current market conditions."
-    }
-    messages = [date_context] + messages
-    
-    # Agent setup for options insight
-    model_settings = ModelSettings(
-        tool_choice="auto",
-        parallel_tool_calls=True,
-        reasoning={"effort": "low"},
-        text={ "verbosity": "low" }
-    )
 
-    agent = Agent(
-        name="Stocknear AI Agent",
-        instructions=OPTIONS_INSIGHT_INSTRUCTION,
-        model=os.getenv("FAST_CHAT_MODEL"),
-        tools=[],  # No tools needed for options insight analysis
-        model_settings=model_settings
-    )
-    
-    async def event_generator():
-        full_content = ""
-        
+    # Build full prompt
+    prompt = f"""
+{OPTIONS_INSIGHT_INSTRUCTION}
+
+Context: Today's date is {today_date}. Use this for any date-related queries or when referring to current market conditions.
+
+User Query: {formatted_data}
+"""
+
+    def event_generator():
+        answer = ""
         try:
-            result = Runner.run_streamed(agent, input=messages)
-            async for event in result.stream_events():
-                try:
-                    # Process only raw_response_event events
-                    if event.type == "raw_response_event":
-                        delta = getattr(event.data, "delta", "")
-                        if not delta:
-                            continue
-                        
-                        full_content += delta
-                        yield orjson.dumps({"content": full_content}) + b"\n"
-                        
-                except Exception as e:
-                    print(f"Event processing error: {e}")
+            response = gemini_client.models.generate_content_stream(
+                model="gemini-2.5-flash",
+                contents=[prompt],
+            )
+
+            for chunk in response:
+                if not chunk.candidates:
                     continue
-            
-            # Cache the complete response for future use
-            if full_content:
-                result = {"analysis": full_content}
+                parts = chunk.candidates[0].content.parts
+                for part in parts:
+                    if not getattr(part, "text", None):
+                        continue
+
+                    answer += part.text
+                    print(answer)
+                    yield orjson.dumps({"content": answer}) + b"\n"
+
+            # Cache at the end
+            if answer:
+                result = {"analysis": answer}
                 compressed_data = gzip.compress(orjson.dumps(result))
                 redis_client.set(cache_key, compressed_data)
-                redis_client.expire(cache_key, 60*5)
-                
+                redis_client.expire(cache_key, 60 * 5)
+
         except Exception as e:
             print(f"Streaming error: {e}")
             yield orjson.dumps({"error": str(e)}) + b"\n"
-    
+
     return StreamingResponse(
         event_generator(),
         media_type="text/plain",
         headers={
             "Cache-Control": "no-cache, no-transform",
-            "Connection": "keep-alive"
-        }
+            "Connection": "keep-alive",
+        },
     )
+
+
 
 
 @app.get("/dark-pool-flow-feed")
