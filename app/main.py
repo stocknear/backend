@@ -2943,12 +2943,16 @@ Context: Today's date is {today_date}. Use this for any date-related queries or 
 User Query: {formatted_data}
 """
 
-    def event_generator():
+    def event_stream():
+        thoughts = ""
         answer = ""
         try:
             response = gemini_client.models.generate_content_stream(
                 model="gemini-2.5-flash",
                 contents=[prompt],
+                config=types.GenerateContentConfig(
+                    thinking_config=types.ThinkingConfig(include_thoughts=True)
+                ),
             )
 
             for chunk in response:
@@ -2956,33 +2960,38 @@ User Query: {formatted_data}
                     continue
                 parts = chunk.candidates[0].content.parts
                 for part in parts:
-                    if not getattr(part, "text", None):
+                    if not part.text:
                         continue
 
-                    answer += part.text
-                    print(answer)
-                    yield orjson.dumps({"content": answer}) + b"\n"
+                    if getattr(part, "thought", False):
+                        match = re.search(r'\*\*(.*?)\*\*', part.text)
+                        if match:
+                            result = match.group(1)
+                            print(result)
+                        yield orjson.dumps({"thoughts": result}) + b"\n"
+                    else:
+                        # This is part of the "answer"
+                        answer += part.text
+                        yield orjson.dumps({"content": answer}) + b"\n"
 
-            # Cache at the end
-            if answer:
-                result = {"analysis": answer}
+            # Cache the combined result
+            if answer or thoughts:
+                result = {"analysis": answer, "thoughts": thoughts}
                 compressed_data = gzip.compress(orjson.dumps(result))
                 redis_client.set(cache_key, compressed_data)
                 redis_client.expire(cache_key, 60 * 5)
 
         except Exception as e:
-            print(f"Streaming error: {e}")
             yield orjson.dumps({"error": str(e)}) + b"\n"
 
     return StreamingResponse(
-        event_generator(),
+        event_stream(),
         media_type="text/plain",
         headers={
             "Cache-Control": "no-cache, no-transform",
             "Connection": "keep-alive",
         },
     )
-
 
 
 
