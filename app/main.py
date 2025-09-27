@@ -5171,22 +5171,28 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
     # Add today's date as context
     today_date = datetime.now().strftime("%B %d, %Y")
     
-    # Build the conversation for Gemini
-    conversation_text = f"{CHAT_INSTRUCTION}\n\nContext: Today's date is {today_date}. Use this for any date-related queries or when referring to current market conditions.\n\n"
+    # Build the conversation for Gemini - include instruction in the first message
+    system_instruction = f"{CHAT_INSTRUCTION}\n\nContext: Today's date is {today_date}. Use this for any date-related queries or when referring to current market conditions."
+    
+    # Build conversation text with system instruction
+    conversation_parts = [system_instruction]
     
     # Add conversation history
     for msg in history_messages:
         role = msg.get('role', '')
         content = msg.get('content', '')
         if role == 'user':
-            conversation_text += f"User: {content}\n"
+            conversation_parts.append(f"User: {content}")
         elif role == 'assistant':
-            conversation_text += f"Assistant: {content}\n"
+            conversation_parts.append(f"Assistant: {content}")
         elif role == 'system':
-            conversation_text += f"System: {content}\n"
+            conversation_parts.append(f"System: {content}")
     
     # Add current query
-    conversation_text += f"User: {user_query}\n\nAssistant:"
+    conversation_parts.append(f"User: {user_query}")
+    conversation_parts.append("Assistant:")
+    
+    conversation_text = "\n\n".join(conversation_parts)
 
     def event_stream():
         sources_collected = []
@@ -5205,7 +5211,7 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
             
             response = gemini_client.models.generate_content_stream(
                 model="gemini-2.5-flash",
-                contents=[conversation_text],
+                contents=conversation_text,
                 config=config
             )
 
