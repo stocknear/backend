@@ -5209,6 +5209,10 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
                 config=config
             )
 
+            # Initialize variables for collecting thoughts and answer
+            thoughts = ""
+            answer = ""
+
             for chunk in response:
                 if not chunk.candidates:
                     continue
@@ -5258,15 +5262,21 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
                 
                 # Handle content parts
                 if hasattr(candidate, 'content') and candidate.content.parts:
-                    for part in candidate.content.parts:
+                    parts = candidate.content.parts
+                    for part in parts:
                         if not part.text:
                             continue
+
                         if getattr(part, "thought", False):
-                            # Skip thoughts for now - could be added later
-                            continue
+                            match = re.search(r'\*\*(.*?)\*\*', part.text)
+                            if match:
+                                result = match.group(1)
+                                print(result)
+                                yield orjson.dumps({"thoughts": result}) + b"\n"
                         else:
-                            # Regular content
-                            full_content += part.text
+                            # This is part of the "answer"
+                            answer += part.text
+                            full_content = answer
                             yield orjson.dumps({
                                 "event": "response", 
                                 "content": full_content
