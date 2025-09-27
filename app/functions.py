@@ -2838,7 +2838,7 @@ async def get_ticker_earnings_call_transcripts(
 
 
 
-async def get_fear_and_greed_index() -> Dict[str, Any]:
+def get_fear_and_greed_index() -> Dict[str, Any]:
     """
     Retrieves the current Fear & Greed index.
 
