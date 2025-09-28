@@ -5095,7 +5095,22 @@ def strip_html(content):
 async def generate_related_questions(user_query: str, ai_response: str) -> list:
     """Generate 5 related questions based on user query and AI response"""
     try:
-        prompt = f"""Based on this conversation, generate exactly 5 related follow-up questions that the user might be interested in.
+        # If AI response is empty (called immediately), generate based on query alone
+        if not ai_response or len(ai_response.strip()) < 10:
+            prompt = f"""Based on this user question about stocks/finance, generate exactly 5 related follow-up questions that the user might be interested in.
+
+User Question: {user_query}
+
+Generate 5 concise, relevant questions that:
+1. Explore related aspects of the topic
+2. Ask for deeper analysis or details
+3. Compare with alternatives or competitors
+4. Ask about recent trends or future prospects
+5. Request technical or fundamental analysis
+
+Return ONLY a JSON array of 5 question strings, no other text."""
+        else:
+            prompt = f"""Based on this conversation, generate exactly 5 related follow-up questions that the user might be interested in.
 
 User Question: {user_query}
 
@@ -5178,6 +5193,18 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
 
     # Get tools and matched trigger in single pass
     selected_tools, matched_trigger = get_tools_for_query(user_query)
+    
+    # Start generating related questions immediately in parallel
+    # Skip related questions for @stockscreener and @backtesting
+    should_generate_questions = matched_trigger not in ["@stockscreener", "@backtesting"]
+    related_questions_task = None
+    if should_generate_questions:
+        # Start the task immediately with just the user query
+        # We'll use empty AI response initially and the function will handle it
+        related_questions_task = asyncio.create_task(
+            generate_related_questions(user_query, "")
+        )
+    
     # Handle special triggers
     if matched_trigger == "@stockscreener":
         try:
@@ -5334,11 +5361,6 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
             found_end_of_dicts = False
             sources_collected = []  # Track sources from function calls
             tools_called = set()  # Backup tracking of all tools called
-            
-            # Start generating related questions in parallel - will be populated later
-            # Skip related questions for @stockscreener
-            should_generate_questions = matched_trigger != "@stockscreener"
-            related_questions_task = None
             
             def add_source_from_tool(tool_name, tool_args=None):
                 """Helper function to add a source from tool information"""
@@ -5528,11 +5550,7 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
                             if not found_end_of_dicts:
                                 full_content += delta
                                 
-                                # Start related questions generation after we have some content (around 100 chars)
-                                if should_generate_questions and not related_questions_task and len(full_content.strip()) > 100:
-                                    related_questions_task = asyncio.create_task(
-                                        generate_related_questions(user_query, full_content)
-                                    )
+                                # No need to start here anymore - already running in parallel
                                 
                                 # First check if content starts with JSON objects
                                 temp_content = full_content.strip()
@@ -5605,11 +5623,7 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
                                 # We've already found the end of dictionaries, just append new deltas
                                 full_content += delta
                                 
-                                # Start related questions generation if not already started
-                                if should_generate_questions and not related_questions_task and len(full_content.strip()) > 100:
-                                    related_questions_task = asyncio.create_task(
-                                        generate_related_questions(user_query, full_content)
-                                    )
+                                # No need to start here anymore - already running in parallel
                                 
                                 yield orjson.dumps({
                                     "event": "response",
@@ -5630,15 +5644,11 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
                         "sources": sources_collected
                     }) + b"\n"
                 
-                # Get related questions from parallel task or generate if not started
-                if should_generate_questions:
+                # Get related questions from parallel task
+                if should_generate_questions and related_questions_task:
                     try:
-                        if related_questions_task:
-                            # Await the parallel task that was started during streaming
-                            related_questions = await related_questions_task
-                        else:
-                            # Fallback: generate now if task wasn't started (shouldn't happen)
-                            related_questions = await generate_related_questions(user_query, full_content)
+                        # Await the parallel task that was started at the beginning
+                        related_questions = await related_questions_task
                         
                         if related_questions:
                             yield orjson.dumps({

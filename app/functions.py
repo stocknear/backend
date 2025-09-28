@@ -1329,11 +1329,14 @@ async def get_economic_calendar() -> List[Dict[str, Any]]:
 @function_tool
 async def get_top_rating_stocks() -> list[dict]:
     """
-    Retrieves the top rating stocks from analysts.
-    Returns a list of stocks with the highest analyst ratings.
+    Fetches a curated list of stocks with the highest analyst ratings.  
+    Specifically, it returns stocks marked as "Strong Buy" by top Wall Street analysts.  
+
+    The data is loaded from a local JSON file (`analyst/top-stocks.json`) and returned as a list of dictionaries.  
+    Each dictionary contains details about an individual stock, such as ticker, company name, and rating information.  
 
     Returns:
-        list[dict]: A list of dictionaries containing top rated stocks from analysts.
+        list[dict]: A list of top-rated stocks, or an empty list if no data is available or an error occurs.
     """
     file_path = BASE_DIR / "analyst/top-stocks.json"
     
@@ -1364,14 +1367,19 @@ async def get_ticker_earnings_price_reaction(tickers: List[str]) -> Dict[str, An
 @function_tool
 async def get_ticker_earnings(tickers: List[str]) -> Dict[str, Any]:
     """
-    Retrieve the historical, latest, and upcoming earnings dates for multiple stocks, including EPS and revenue estimates and surprises,
-    as well as prior EPS and revenue figures for comparison.
+    Retrieves detailed earnings data for one or more stock tickers.  
+    This includes historical, latest, and upcoming earnings reports with key figures such as:  
+      - Earnings surprise dates  
+      - EPS (actual vs. estimated)  
+      - Revenue (actual vs. estimated)  
+      - Prior EPS and revenue for comparison  
 
     Args:
-        tickers (List[str]): List of stock ticker symbols (e.g., ["AAPL", "GOOGL"]).
+        tickers (List[str]): A list of stock ticker symbols (e.g., ["AAPL", "GOOGL"]).  
 
     Returns:
-        Dict[str, Any]: Dictionary mapping each ticker to its earnings data.
+        Dict[str, Any]: A dictionary where each key is a ticker symbol and each value contains that company's earnings data.  
+        If no data is found for a ticker, it may return an empty object for that symbol.  
     """
     return await get_ticker_specific_data(tickers, "earnings/raw")
 
