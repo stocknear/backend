@@ -2946,14 +2946,14 @@ async def get_options_flow_stream(data: OptionsInsight, api_key: str = Security(
     model_settings = ModelSettings(
         tool_choice="auto",
         parallel_tool_calls=True,
-        reasoning={"effort": "low"},
+        reasoning={"effort": "minimal"},
         text={ "verbosity": "low" }
     )
 
     agent = Agent(
         name="Stocknear AI Agent",
         instructions=OPTIONS_INSIGHT_INSTRUCTION,
-        model=os.getenv("FAST_CHAT_MODEL"),
+        model=os.getenv("CHAT_MODEL"),
         tools=[],  # No tools needed for options insight analysis
         model_settings=model_settings
     )
@@ -5155,7 +5155,7 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
     model_settings = ModelSettings(
         tool_choice="auto",
         parallel_tool_calls=True,
-        reasoning={"effort": "medium" if data.reasoning == True else "low"},
+        reasoning={"effort": "medium" if data.reasoning == True else "minimal"},
         text={ "verbosity": "low" }
     )
 
