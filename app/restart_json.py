@@ -715,13 +715,13 @@ def get_financial_statements(item, symbol):
     except:
         item['researchDevelopmentRevenueRatio'] = None
     try:
-        item['shortTermDebtToCapitalization'] = round((item['shortTermDebt'] / item['marketCap']) * 100,1)
+        item['shortTermDebtToCapitalRatio'] = round((item['shortTermDebt'] / item['marketCap']),1)
     except:
-        item['shortTermDebtToCapitalization'] = None
+        item['shortTermDebtToCapitalRatio'] = None
     try:
-        item['interestIncomeToCapitalization'] = round((item['interestIncome'] / item['marketCap']) * 100,1)
+        item['interestIncomeToCapitalRatio'] = round((item['interestIncome'] / item['marketCap']) * 100,1)
     except:
-        item['interestIncomeToCapitalization'] = None
+        item['interestIncomeToCapitalRatio'] = None
 
     try:
         item['operatingMargin'] = round((item['operatingIncome'] / item['revenue']) * 100,2)
@@ -743,35 +743,16 @@ def get_price_on_or_nearest(data, target_date):
         )
     )["adjClose"]
 
-def get_halal_compliant(item, debt_threshold=30, interest_threshold=30, revenue_threshold=5, liquidity_threshold=30, forbidden_industries=None):
+def get_halal_compliant(item, debt_threshold=0.30, interest_threshold=0.30, liquidity_threshold=0.30):
     # Set default forbidden industries if not provided
-    if forbidden_industries is None:
-        forbidden_industries = {'Alcohol', 'Equity', 'Palantir','Holding', 'Acquisition','Tobacco', 'Gambling', 'Weapons', 'Pork', 'Aerospace', 'Defense', 'Asset', 'Banks'}
-
-    # Ensure all required fields are present
-    required_fields = [
-        'longTermDebtToCapitalization', 
-        'shortTermDebtToCapitalization', 
-        'interestIncomeToCapitalization', 
-        'cashAndCashEquivalents',  # Field for liquidity
-        'totalAssets',  # Field for liquidity
-        'name', 
-        'industry',
-        'country',
-    ]
-    for field in required_fields:
-        if field not in item:
-            halal_compliant = None  # In case of missing data
-            return halal_compliant
+    forbidden_industries = {'Alcohol', 'Equity', 'Palantir','Holding', 'Acquisition','Tobacco', 'Gambling', 'Weapons', 'Pork', 'Aerospace', 'Defense', 'Asset', 'Banks'}
 
     # Calculate liquidity ratio
-    liquidity_ratio = (item['cashAndCashEquivalents'] / item['totalAssets']) * 100
-
-    # Apply halal-compliance checks
+    liquidity_ratio = (item['cashAndCashEquivalents'] / item['totalAssets'])
     if (item['country'] == 'United States'
-        and item['longTermDebtToCapitalization'] < debt_threshold
-        and item['shortTermDebtToCapitalization'] < debt_threshold
-        and item['interestIncomeToCapitalization'] < interest_threshold
+        and item['longTermDebtToCapitalRatio'] < debt_threshold
+        and item['shortTermDebtToCapitalRatio'] < debt_threshold
+        and item['interestIncomeToCapitalRatio'] < interest_threshold
         and liquidity_ratio < liquidity_threshold  # Liquidity ratio check
         and not any(sector in item['name'] for sector in forbidden_industries)
         and not any(industry in item['industry'] for industry in forbidden_industries)):
@@ -1350,12 +1331,7 @@ async def get_stock_screener(con):
             item['cagrNext3YearRevenue'] = None
             item['cagrNext5YearRevenue'] = None
 
-        '''
-        try:
-            item['halalStocks'] = get_halal_compliant(item)
-        except:
-            item['halalStocks'] = None
-        '''
+    
 
         try:
             with open(f"json/financial-statements/income-statement/annual/{symbol}.json", "r") as file:
@@ -1370,7 +1346,12 @@ async def get_stock_screener(con):
             item['netIncomeGrowthYears'] = None
             item['grossProfitGrowthYears'] = None
 
-            
+
+        try:
+            item['halalStocks'] = get_halal_compliant(item)
+        except:
+            item['halalStocks'] = None
+
     for item in stock_screener_data:
         for key in list(item.keys()):
             value = item[key]
@@ -1887,14 +1868,14 @@ async def save_json_files():
     etf_symbols = [row[0] for row in etf_cursor.fetchall()]
 
 
-    # Save IPO calendar
-    data = await get_ipo_calendar(con, symbols)
-    save_json(data, "json/ipo-calendar")
-
     # Save stock screener data
     stock_screener_data = await get_stock_screener(con)
     save_json(stock_screener_data, "json/stock-screener")
+
     
+    # Save IPO calendar
+    data = await get_ipo_calendar(con, symbols)
+    save_json(data, "json/ipo-calendar")
 
 
     # Save economic calendar
@@ -1919,7 +1900,6 @@ async def save_json_files():
     data = await etf_providers(etf_con, etf_symbols)
     save_json(data, "json/all-etf-providers")
     
-
 
     # Close connections
     con.close()

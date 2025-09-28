@@ -382,6 +382,12 @@ SECTOR_LIST = [
     "Utilities",
 ]
 ALL_RULES = {
+    "halalStocks": {
+      "label": "Halal Stocks",
+      "step": ["Compliant", "Non-Compliant"],
+      "defaultCondition": "",
+      "defaultValue": "any",
+    },
     "avgVolume": {
         "label": "Average Volume",
         "step": ["100M", "10M", "1M", "100K", "10K", "1K", "0"],

@@ -752,9 +752,10 @@ if __name__ == "__main__":
     rules = [
         {
             "condition": "",
-            "name": "sector",
-            "value": ["Industrials"]
+            "name": "halalStocks",
+            "value": ["Compliant"]
         },
+    
         {
             "condition": "over",
             "name": "change3M",
@@ -768,5 +769,6 @@ if __name__ == "__main__":
 
     asyncio.run(main())
 '''
+
 # Export main functions
 __all__ = ['python_screener', 'filter_stock_screener_data', 'convert_unit_to_value', 'create_rule_check']
