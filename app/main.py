@@ -5092,76 +5092,6 @@ async def create_backtesting_strategy(user_query: str, selected_model: str, mode
 def strip_html(content):
     return BeautifulSoup(content, "html.parser").get_text()
 
-async def generate_related_questions(user_query: str, ai_response: str) -> list:
-    """Generate 5 related questions based on user query and AI response"""
-    try:
-        # If AI response is empty (called immediately), generate based on query alone
-        if not ai_response or len(ai_response.strip()) < 10:
-            prompt = f"""Based on this user question about stocks/finance, generate exactly 5 related follow-up questions that the user might be interested in.
-
-User Question: {user_query}
-
-Generate 5 concise, relevant questions that:
-1. Explore related aspects of the topic
-2. Ask for deeper analysis or details
-3. Compare with alternatives or competitors
-4. Ask about recent trends or future prospects
-5. Request technical or fundamental analysis
-
-Return ONLY a JSON array of 5 question strings, no other text."""
-        else:
-            prompt = f"""Based on this conversation, generate exactly 5 related follow-up questions that the user might be interested in.
-
-User Question: {user_query}
-
-AI Response: {ai_response[:1000]}  # Limit response length to avoid token limits
-
-Generate 5 concise, relevant questions that:
-1. Explore related aspects of the topic
-2. Dive deeper into specific details mentioned
-3. Compare with alternatives or competitors
-4. Ask about recent trends or future prospects
-5. Request technical or fundamental analysis
-
-Return ONLY a JSON array of 5 question strings, no other text."""
-
-        response = await async_client.chat.completions.create(
-            model=os.getenv("FAST_CHAT_MODEL"),
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant that generates follow-up questions about stocks and financial topics."},
-                {"role": "user", "content": prompt}
-            ],
-            max_completion_tokens=1000
-        )
-        
-        # Parse the response to get the questions
-        content = response.choices[0].message.content.strip()
-        # Try to extract JSON array from the response
-        try:
-            # If the response is valid JSON
-            questions = json.loads(content)
-            if isinstance(questions, list) and len(questions) >= 5:
-                return questions[:5]  # Return only first 5 if more
-        except json.JSONDecodeError:
-            # Try to extract questions from text format
-            lines = content.split('\n')
-            questions = []
-            for line in lines:
-                # Remove numbering, bullets, quotes, etc.
-                cleaned = line.strip().strip('1234567890.-').strip('"').strip("'").strip()
-                if cleaned and len(cleaned) > 10:  # Minimum question length
-                    questions.append(cleaned)
-            if len(questions) >= 5:
-                return questions[:5]
-        
-        # Fallback: return empty list if parsing fails
-        return []
-        
-    except Exception as e:
-        print(f"Error generating related questions: {e}")
-        return []
-
-
 @app.post("/chat")
 async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
     user_query = normalize_query(data.query)
@@ -5170,7 +5100,7 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
     model_settings = ModelSettings(
         tool_choice="auto",
         parallel_tool_calls=True,
-        reasoning={"effort": "medium" if data.reasoning == True else "minimal"},
+        reasoning={"effort": "medium" if data.reasoning == True else "low"},
         text={ "verbosity": "low" }
     )
 
@@ -5193,18 +5123,7 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
 
     # Get tools and matched trigger in single pass
     selected_tools, matched_trigger = get_tools_for_query(user_query)
-    
-    # Start generating related questions immediately in parallel
-    # Skip related questions for @stockscreener and @backtesting
-    should_generate_questions = matched_trigger not in ["@stockscreener", "@backtesting"]
-    related_questions_task = None
-    if should_generate_questions:
-        # Start the task immediately with just the user query
-        # We'll use empty AI response initially and the function will handle it
-        related_questions_task = asyncio.create_task(
-            generate_related_questions(user_query, "")
-        )
-    
+
     # Handle special triggers
     if matched_trigger == "@stockscreener":
         try:
@@ -5644,20 +5563,6 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
                         "sources": sources_collected
                     }) + b"\n"
                 
-                # Get related questions from parallel task
-                if should_generate_questions and related_questions_task:
-                    try:
-                        # Await the parallel task that was started at the beginning
-                        related_questions = await related_questions_task
-                        
-                        if related_questions:
-                            yield orjson.dumps({
-                                "event": "related_questions",
-                                "questions": related_questions
-                            }) + b"\n"
-                    except Exception as e:
-                        print(f"Error generating related questions: {e}")
-                    
             except Exception as e:
                 print(f"Streaming error: {e}")
                 yield orjson.dumps({
