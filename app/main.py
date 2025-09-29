@@ -2058,7 +2058,6 @@ async def get_index_symbols_endpoint(api_key: str = Security(get_api_key)):
         "sp500": list(sp500_symbols)
     }
     
-    print(response_data)
     serialized = orjson.dumps(response_data)
     compressed_data = gzip.compress(serialized)
     
@@ -2087,7 +2086,6 @@ async def etf_holdings(data: TickerData, api_key: str = Security(get_api_key)):
     try:
         with open(f"json/etf-sector/{ticker}.json", 'rb') as file:
             res = orjson.loads(file.read())
-            print(res)
     except:
         res = []
 
@@ -5235,7 +5233,6 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
             context.pop('trade_history', None)
             context.pop('plot_data', None)
 
-            print(context)
         except:
             context = {}
 
