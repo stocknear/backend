@@ -3587,7 +3587,7 @@ async def get_reddit_tracker(api_key: str = Security(get_api_key)):
     compressed_data = gzip.compress(data)
 
     redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key, 60*15)
+    redis_client.expire(cache_key, 60*5)
 
     return StreamingResponse(
         io.BytesIO(compressed_data),
