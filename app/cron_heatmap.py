@@ -3,13 +3,13 @@ import plotly.express as px
 import requests
 import orjson
 
-def get_spy_heatmap():
+def get_etf_heatmap(etf_symbol):
     # Load stock screener data
     with open(f"json/stock-screener/data.json", 'rb') as file:
         stock_screener_data = orjson.loads(file.read())
     stock_screener_data_dict = {item['symbol']: item for item in stock_screener_data}
 
-    with open(f"json/etf/holding/SPY.json","rb") as file:
+    with open(f"json/etf/holding/{etf_symbol}.json","rb") as file:
         data = orjson.loads(file.read())['holdings']
 
     for item in data:
@@ -43,10 +43,30 @@ def get_spy_heatmap():
     
     return df
 
-def create_treemap(time_period):
+def get_spy_heatmap():
+    return get_etf_heatmap('SPY')
+
+def get_dia_heatmap():
+    return get_etf_heatmap('DIA')
+
+def get_qqq_heatmap():
+    return get_etf_heatmap('QQQ')
+
+def create_treemap(time_period, etf_symbol='SPY'):
     save_html = True
 
-    df = get_spy_heatmap()
+    if etf_symbol == 'SPY':
+        df = get_spy_heatmap()
+        etf_name = "S&P 500"
+    elif etf_symbol == 'DIA':
+        df = get_dia_heatmap()
+        etf_name = "Dow Jones"
+    elif etf_symbol == 'QQQ':
+        df = get_qqq_heatmap()
+        etf_name = "Nasdaq 100"
+    else:
+        df = get_spy_heatmap()
+        etf_name = "S&P 500"
 
     if (time_period == '1D'):
         change_percent = 'changesPercentage'
@@ -79,7 +99,7 @@ def create_treemap(time_period):
     # Generate the treemap with fixed dimensions
     fig = px.treemap(
         df,
-        path=[px.Constant("S&P 500 - Stocknear.com"), "sector", "industry", "symbol"],
+        path=[px.Constant(f"{etf_name} - Stocknear.com"), "sector", "industry", "symbol"],
         values="marketCap",
         color=change_percent,
         hover_data=[change_percent, "symbol", "marketCap"],
@@ -163,10 +183,12 @@ def create_treemap(time_period):
         </body>
         </html>
         """
-        with open(f"json/heatmap/{time_period}.html", "w") as f:
+        with open(f"json/heatmap/{etf_symbol}_{time_period}.html", "w") as f:
             f.write(fixed_html)
 
 
 if __name__ == "__main__":
-    for time in ['1D',"1W","1M","3M","6M","1Y","3Y"]:
-        create_treemap(time_period = time)
+    etf_symbols = ['SPY', 'DIA', 'QQQ']
+    for etf in etf_symbols:
+        for time in ['1D',"1W","1M","3M","6M","1Y","3Y"]:
+            create_treemap(time_period=time, etf_symbol=etf)

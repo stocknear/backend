@@ -6,7 +6,7 @@ import csv
 import re
 import os
 import secrets
-from typing import List, Dict, Set
+from typing import List, Dict, Set, Optional
 # Third-party library imports
 import numpy as np
 import zipfile
@@ -302,6 +302,7 @@ class TickerData(BaseModel):
 
 class GeneralData(BaseModel):
     params: str
+    etf: Optional[str] = "SPY"
 
 class OptionContract(BaseModel):
     ticker: str
@@ -2590,7 +2591,8 @@ async def get_ipo_calendar(data:IPOData, api_key: str = Security(get_api_key)):
 @app.post("/heatmap")
 async def get_heatmap(data: GeneralData, api_key: str = Security(get_api_key)):
     time_period = data.params
-    cache_key = f"heatmap-{time_period}"
+    etf_symbol = data.etf or "SPY"
+    cache_key = f"heatmap-{etf_symbol}-{time_period}"
     cached_result = redis_client.get(cache_key)
     
     if cached_result:
@@ -2601,7 +2603,7 @@ async def get_heatmap(data: GeneralData, api_key: str = Security(get_api_key)):
         )
     
     try:
-        with open(f"json/heatmap/{time_period}.html", 'r', encoding='utf-8') as file:
+        with open(f"json/heatmap/{etf_symbol}_{time_period}.html", 'r', encoding='utf-8') as file:
             html_content = file.read()
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Heatmap file not found")
