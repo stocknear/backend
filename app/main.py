@@ -5100,7 +5100,7 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
     model_settings = ModelSettings(
         tool_choice="auto",
         parallel_tool_calls=True,
-        reasoning={"effort": "low" if data.reasoning == True else "medium"},
+        reasoning={"effort": "medium" if data.reasoning == True else "medium"},
         text={ "verbosity": "low" }
     )
 
