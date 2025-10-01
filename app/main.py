@@ -5095,12 +5095,12 @@ def strip_html(content):
 @app.post("/chat")
 async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
     user_query = normalize_query(data.query)
-    selected_model = os.getenv('REASON_CHAT_MODEL') if data.reasoning == True else os.getenv('CHAT_MODEL')
+    selected_model = os.getenv('CHAT_MODEL')
 
     model_settings = ModelSettings(
         tool_choice="auto",
         parallel_tool_calls=True,
-        reasoning={"effort": "medium" if data.reasoning == True else "medium"},
+        reasoning={"effort": "medium"},
         text={ "verbosity": "low" }
     )
 
