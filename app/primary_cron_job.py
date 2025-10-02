@@ -228,7 +228,6 @@ def run_market_moods():
     week = datetime.today().weekday()
     if week <= 4:
         run_command(["python3", "cron_wiim.py"])
-        run_command(["python3", "cron_wiim_flow.py"])
 
 def run_db_schedule_job():
     #update db daily
@@ -261,6 +260,7 @@ def run_dashboard():
         run_command(["python3", "cron_quote.py"])
         run_command(["python3", "cron_market_movers.py"])
         run_command(["python3", "cron_dashboard.py"])
+        run_command(["python3", "cron_wiim_flow.py"])
 
 def run_quote():
     now = datetime.now(ny_tz)
