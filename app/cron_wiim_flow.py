@@ -78,7 +78,7 @@ async def get_data():
                             async with aiofiles.open(quote_path, "rb") as f:
                                 quote_data = orjson.loads(await f.read())
                                 item["marketCap"] = quote_data.get("marketCap", None)
-                                item["name"] = quote_data.get("name", None)
+                                #item["name"] = quote_data.get("name", None)
                                 item["changesPercentage"] = round(quote_data.get("changesPercentage", None),2)
 
                         item["assetType"] = "stocks" if item["ticker"] in stock_symbols else "etf"
@@ -90,7 +90,6 @@ async def get_data():
                                 "marketCap": item.get("marketCap"),
                                 "changesPercentage": item.get("changesPercentage"),
                                 "ticker": item["ticker"],
-                                "name": item["name"],
                                 "assetType": item["assetType"],
                                 "timeAgo": item["timeAgo"],
                             }

@@ -169,8 +169,12 @@ FUNCTION_SOURCE_METADATA = {
         "name": "Market Flow",
         "description": "Real-time market sentiment and flows",
         "url_pattern": "/market-flow"
+    },  
+    "get_news_flow": {
+        "name": "News Flow",
+        "description": "Real-time breaking news updates.",
+        "url_pattern": "/news-flow"
     },
-    
     # Market Movers
     "get_top_gainers": {
         "name": "Top Gainers",
@@ -1950,6 +1954,39 @@ async def get_market_flow() -> Dict[str, Any]:
 
 
 @function_tool
+async def get_news_flow() -> Dict[str, Any]:
+    """
+    Get breaking news and catalysts explaining recent stock price movements.
+    
+    Returns market news flow data with:
+    - Stock ticker
+    - Latest Price change percentage
+    - News text explaining the price movement catalyst
+    - Timestamp (date and timeAgo)
+    
+    Use this to:
+    - Understand why specific stocks are moving today
+    - Get real-time market-moving news and events
+    - Analyze catalysts behind price changes
+    - Monitor breaking financial news across stocks
+    
+    Returns:
+        Dict[str, Any]: List of news items, each containing ticker, name, 
+        changesPercentage, text (news description), marketCap, date, and timeAgo.
+        Returns {"error": "..."} if data retrieval fails.
+    """
+    try:
+        with open("json/wiim/flow/data.json", "rb") as file:
+            data = orjson.loads(file.read())[:50]
+            data = [
+                {k: v for k, v in item.items() if k not in ['marketCap', 'timeAgo']}
+                for item in data
+            ]
+            return data
+    except Exception as e:
+        return {"error": f"Error processing news flow data: {str(e)}"}
+
+@function_tool
 async def get_congress_activity(congress_ids: Union[str, List[str]]) -> Dict[str, List[Any]]:
     """
     Retrieves and filters congressional trading activity for one or more congresspeople based on their unique IDs or names.
@@ -2916,5 +2953,5 @@ async def get_reddit_tracker() -> Dict[str, Any]:
 
 
 #Testing purposes
-#data = asyncio.run(get_latest_options_flow_feed([]))
+#data = asyncio.run(get_news_flow())
 #print(data)
