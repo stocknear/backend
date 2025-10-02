@@ -113,7 +113,7 @@ async def get_data():
         dt = datetime.strptime(item["date"], "%a, %d %b %Y %H:%M:%S %z")
         item["date"] = dt.strftime("%Y-%m-%d")
 
-    return res_list[:200]
+    return res_list[:150]
 
 
 async def run():
