@@ -7,11 +7,12 @@ import pandas as pd
 import os
 from tqdm import tqdm
 import pandas as pd
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import warnings
 from utils.helper import get_last_completed_quarter
 import time
 from typing import List, Dict, Set
+import orjson
 
 from dotenv import load_dotenv
 import os
@@ -26,6 +27,7 @@ start_date = datetime(2015, 1, 1).strftime("%Y-%m-%d")
 end_date = datetime.today().strftime("%Y-%m-%d")
 quarter, year = get_last_completed_quarter()
 
+one_week_ago = datetime.today().date() - timedelta(weeks=1)
 
 if os.path.exists("backup_db/stocks.db"):
     os.remove('backup_db/stocks.db')
@@ -111,90 +113,97 @@ class StockDatabase:
 
 
             for url in urls:
+                try:
+                    async with session.get(url) as response:
+                        data = await response.text()
+                        parsed_data = get_jsonparsed_data(data)
 
-                async with session.get(url) as response:
-                    data = await response.text()
-                    parsed_data = get_jsonparsed_data(data)
+                        try:
+                            # ----- NEW: filter out stale quotes -----
+                            if isinstance(parsed_data, list) and "quote" in url:
+                                quote = parsed_data[0]
+                                symbol = quote.get('symbol')
+                                exchange = quote.get('exchange', None)
 
-                    try:
-                        # ----- NEW: filter out stale quotes -----
-                        if isinstance(parsed_data, list) and "quote" in url:
-                            quote = parsed_data[0]
-                            symbol = quote.get('symbol')
-                            exchange = quote.get('exchange', None)
+                                avg_volume = quote.get('avgVolume', 0)
+                                quote_ts = quote.get("timestamp")
+                                now_ts = datetime.now(timezone.utc).timestamp()
 
-                            avg_volume = quote.get('avgVolume', 0)
-                            quote_ts = quote.get("timestamp")
-                            now_ts = datetime.now(timezone.utc).timestamp()
+                                # If older than 5 days, delete symbol and stop processing
+                                if exchange == 'OTC' and (avg_volume < 1000 or (quote_ts and (now_ts - quote_ts) > 10 * 24 * 3600)):
+                                    self.cursor.execute("DELETE FROM stocks WHERE symbol = ?", (symbol,))
+                                    self.cursor.execute(f"DROP TABLE IF EXISTS '{symbol}'")
+                                    self.conn.commit()
+                                    print(f"Deleting old outdated ticker {symbol}")
+                                    return
 
-                            # If older than 5 days, delete symbol and stop processing
-                            if exchange == 'OTC' and (avg_volume < 1000 or (quote_ts and (now_ts - quote_ts) > 10 * 24 * 3600)):
-                                self.cursor.execute("DELETE FROM stocks WHERE symbol = ?", (symbol,))
-                                self.cursor.execute(f"DROP TABLE IF EXISTS '{symbol}'")
-                                self.conn.commit()
-                                print(f"Deleting old outdated ticker {symbol}")
-                                return
+                            if isinstance(parsed_data, list) and "profile" in url:
+                                # Handle list response, save as JSON object
+                                fundamental_data['profile'] = ujson.dumps(parsed_data)
+                                symbol = parsed_data[0]['symbol']
 
-                        if isinstance(parsed_data, list) and "profile" in url:
-                            # Handle list response, save as JSON object
-                            fundamental_data['profile'] = ujson.dumps(parsed_data)
-                            if parsed_data[0]['isActivelyTrading'] == False:
-                                self.cursor.execute("DELETE FROM stocks WHERE symbol = ?", (symbol,))
-                                self.cursor.execute(f"DROP TABLE IF EXISTS '{symbol}'")
-                                self.conn.commit()
-                                print(f"Deleting inactive ticker {symbol}")
-                                return
+                                with open(f"json/one-day-price/{symbol}.json","rb") as f:
+                                    last_daily_date = orjson.loads(f.read())[0]['time'].split(' ')[0]
+                                    last_daily_date = datetime.strptime(last_daily_date, "%Y-%m-%d").date()
 
-                            data_dict = {
-                                        'beta': parsed_data[0]['beta'],
-                                        'country': parsed_data[0]['country'],
-                                        'sector': parsed_data[0]['sector'],
-                                        'industry': parsed_data[0]['industry'],
-                                        }
-                            fundamental_data.update(data_dict)
+                                if parsed_data[0]['isActivelyTrading'] == False or last_daily_date < one_week_ago:
+                                    self.cursor.execute("DELETE FROM stocks WHERE symbol = ?", (symbol,))
+                                    self.cursor.execute(f"DROP TABLE IF EXISTS '{symbol}'")
+                                    self.conn.commit()
+                                    print(f"Deleting inactive ticker {symbol}")
+                                    return
 
-                        elif isinstance(parsed_data, list) and "quote" in url:
-                            # Handle list response, save as JSON object
-                            fundamental_data['quote'] = ujson.dumps(parsed_data)
-                            data_dict = {
-                                        'price': parsed_data[0]['price'],
-                                        'changesPercentage':parsed_data[0]['changesPercentage'],
-                                        'marketCap': parsed_data[0]['marketCap'],
-                                        'volume': parsed_data[0]['volume'],
-                                        'avgVolume': parsed_data[0]['avgVolume'],
-                                        'eps': parsed_data[0]['eps'],
-                                        'pe': parsed_data[0]['pe'],
-                                        }
-                            fundamental_data.update(data_dict)
-                       
-                        elif "dividends" in url:
-                            # Handle list response, save as JSON object
-                            fundamental_data['stock_dividend'] = ujson.dumps(parsed_data)
-                        elif "stock_split" in url:
-                            # Handle list response, save as JSON object
-                            fundamental_data['stock_split'] = ujson.dumps(parsed_data['historical'])
-                        elif "stock_peers" in url:
-                            # Handle list response, save as JSON object
-                            fundamental_data['stock_peers'] = ujson.dumps([item for item in parsed_data[0]['peersList'] if item != ""])
-                        elif "institutional-ownership" in url:
-                            # Handle list response, save as JSON object
-                            fundamental_data['shareholders'] = ujson.dumps(parsed_data)
+                                data_dict = {
+                                            'beta': parsed_data[0]['beta'],
+                                            'country': parsed_data[0]['country'],
+                                            'sector': parsed_data[0]['sector'],
+                                            'industry': parsed_data[0]['industry'],
+                                            }
+                                fundamental_data.update(data_dict)
 
-                        elif "historical/shares_float" in url:
-                            # Handle list response, save as JSON object
-                            fundamental_data['historicalShares'] = ujson.dumps(parsed_data)
-                        elif "revenue-product-segmentation" in url:
-                            # Handle list response, save as JSON object
-                            fundamental_data['revenue_product_segmentation'] = ujson.dumps(parsed_data)
-                        elif "revenue-geographic-segmentation" in url:
-                            # Handle list response, save as JSON object
-                            fundamental_data['revenue_geographic_segmentation'] = ujson.dumps(parsed_data)
-                        elif "analyst-estimates" in url:
-                            # Handle list response, save as JSON object
-                            fundamental_data['analyst_estimates'] = ujson.dumps(parsed_data)
-                    except Exception as e:
-                        print(e)
+                            elif isinstance(parsed_data, list) and "quote" in url:
+                                # Handle list response, save as JSON object
+                                fundamental_data['quote'] = ujson.dumps(parsed_data)
+                                data_dict = {
+                                            'price': parsed_data[0]['price'],
+                                            'changesPercentage':parsed_data[0]['changesPercentage'],
+                                            'marketCap': parsed_data[0]['marketCap'],
+                                            'volume': parsed_data[0]['volume'],
+                                            'avgVolume': parsed_data[0]['avgVolume'],
+                                            'eps': parsed_data[0]['eps'],
+                                            'pe': parsed_data[0]['pe'],
+                                            }
+                                fundamental_data.update(data_dict)
+                           
+                            elif "dividends" in url:
+                                # Handle list response, save as JSON object
+                                fundamental_data['stock_dividend'] = ujson.dumps(parsed_data)
+                            elif "stock_split" in url:
+                                # Handle list response, save as JSON object
+                                fundamental_data['stock_split'] = ujson.dumps(parsed_data['historical'])
+                            elif "stock_peers" in url:
+                                # Handle list response, save as JSON object
+                                fundamental_data['stock_peers'] = ujson.dumps([item for item in parsed_data[0]['peersList'] if item != ""])
+                            elif "institutional-ownership" in url:
+                                # Handle list response, save as JSON object
+                                fundamental_data['shareholders'] = ujson.dumps(parsed_data)
 
+                            elif "historical/shares_float" in url:
+                                # Handle list response, save as JSON object
+                                fundamental_data['historicalShares'] = ujson.dumps(parsed_data)
+                            elif "revenue-product-segmentation" in url:
+                                # Handle list response, save as JSON object
+                                fundamental_data['revenue_product_segmentation'] = ujson.dumps(parsed_data)
+                            elif "revenue-geographic-segmentation" in url:
+                                # Handle list response, save as JSON object
+                                fundamental_data['revenue_geographic_segmentation'] = ujson.dumps(parsed_data)
+                            elif "analyst-estimates" in url:
+                                # Handle list response, save as JSON object
+                                fundamental_data['analyst_estimates'] = ujson.dumps(parsed_data)
+                        except Exception as e:
+                            print(e)
+                except:
+                    pass
 
             # Check if columns already exist in the table
             self.cursor.execute("PRAGMA table_info(stocks)")
@@ -428,7 +437,7 @@ async def main():
         filtered_data = filter_tickers(all_tickers, OTC_symbols)
         
         # For testing - uncomment to limit results
-        #test_symbols = {'FFIE','AMD'}
+        #test_symbols = {'KNW','AMD'}
         #filtered_data = [t for t in filtered_data if t.get('symbol') in test_symbols]
         await db.save_stocks(filtered_data)
         
