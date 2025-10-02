@@ -61,7 +61,7 @@ async def calculate_price_reactions(ticker, filtered_data, price_history):
             'date': report_date,
             'quarter': item['quarter'],
             'year': item['year'],
-            'time': item['date'],
+            'time': item['time'],
             'rsi': int(price_history[report_index]['rsi']) if not pd.isna(price_history[report_index]['rsi']) else None,
             'iv': iv_value,
         }
@@ -221,7 +221,7 @@ def main():
         stock_symbols = [row[0] for row in cursor.fetchall()]
         
         # Testing mode - uncomment to test with single symbol
-        #stock_symbols = ['MNDY']
+        #stock_symbols = ['RH']
         
         print(f"Found {len(stock_symbols)} symbols to process")
 
