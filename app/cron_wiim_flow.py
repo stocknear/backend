@@ -71,29 +71,29 @@ async def get_data():
                 for item in data:
                     try:
                         item["ticker"] = item["stocks"][0].get("name", None).replace("/", "-")
+                        if item['ticker'] in stock_symbols:
+                            # read quote data
+                            quote_path = f"json/quote/{item['ticker']}.json"
+                            if os.path.exists(quote_path):
+                                async with aiofiles.open(quote_path, "rb") as f:
+                                    quote_data = orjson.loads(await f.read())
+                                    item["marketCap"] = quote_data.get("marketCap", None)
+                                    #item["name"] = quote_data.get("name", None)
+                                    item["changesPercentage"] = round(quote_data.get("changesPercentage", None),2)
 
-                        # read quote data
-                        quote_path = f"json/quote/{item['ticker']}.json"
-                        if os.path.exists(quote_path):
-                            async with aiofiles.open(quote_path, "rb") as f:
-                                quote_data = orjson.loads(await f.read())
-                                item["marketCap"] = quote_data.get("marketCap", None)
-                                #item["name"] = quote_data.get("name", None)
-                                item["changesPercentage"] = round(quote_data.get("changesPercentage", None),2)
+                            item["assetType"] = "stocks" if item["ticker"] in stock_symbols else "etf"
 
-                        item["assetType"] = "stocks" if item["ticker"] in stock_symbols else "etf"
-
-                        res_list.append(
-                            {
-                                "date": item["created"],
-                                "text": item["title"],
-                                "marketCap": item.get("marketCap"),
-                                "changesPercentage": item.get("changesPercentage"),
-                                "ticker": item["ticker"],
-                                "assetType": item["assetType"],
-                                "timeAgo": item["timeAgo"],
-                            }
-                        )
+                            res_list.append(
+                                {
+                                    "date": item["created"],
+                                    "text": item["title"],
+                                    "marketCap": item.get("marketCap"),
+                                    "changesPercentage": item.get("changesPercentage"),
+                                    "ticker": item["ticker"],
+                                    "assetType": item["assetType"],
+                                    "timeAgo": item["timeAgo"],
+                                }
+                            )
                     except Exception:
                         pass
     except Exception as e:
