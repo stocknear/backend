@@ -4241,9 +4241,10 @@ async def get_market_flow(api_key: str = Security(get_api_key)):
         headers={"Content-Encoding": "gzip"}
     )
 
-@app.get("/sector-flow")
+
+@app.get("/news-flow")
 async def get_data(api_key: str = Security(get_api_key)):
-    cache_key = f"sector-flow"
+    cache_key = f"news-flow"
     cached_result = redis_client.get(cache_key)
     if cached_result:
         return StreamingResponse(
@@ -4253,16 +4254,16 @@ async def get_data(api_key: str = Security(get_api_key)):
         )
 
     try:
-        with open(f"json/market-flow/sector.json", 'rb') as file:
+        with open(f"json/wiim/flow/data.json", 'rb') as file:
             res = orjson.loads(file.read())
     except:
-        res = {}
-        
+        res = []
+
     data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
 
     redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key,2*60)
+    redis_client.expire(cache_key,60)
 
     return StreamingResponse(
         io.BytesIO(compressed_data),
