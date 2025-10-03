@@ -452,7 +452,7 @@ schedule.every(8).minutes.do(run_threaded, run_one_day_price).tag('one_day_price
 schedule.every(20).minutes.do(run_threaded, run_tracker).tag('tracker_job')
 
 
-schedule.every(10).minutes.do(run_threaded, run_market_moods).tag('market_moods_job')
+schedule.every(5).minutes.do(run_threaded, run_market_moods).tag('market_moods_job')
 schedule.every(10).minutes.do(run_threaded, run_earnings).tag('earnings_job')
 
 
