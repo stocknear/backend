@@ -65,13 +65,13 @@ async def get_data():
                 if response.status != 200:
                     return []
 
-                data = orjson.loads(await response.read())  # use .read() → bytes
+                data = orjson.loads(await response.read())
                 data = add_time_ago(data)
 
                 for item in data:
                     try:
                         item["ticker"] = item["stocks"][0].get("name", None).replace("/", "-")
-                        if item['ticker'] in stock_symbols:
+                        if item['ticker'] in total_symbols:
                             # read quote data
                             quote_path = f"json/quote/{item['ticker']}.json"
                             if os.path.exists(quote_path):
@@ -94,8 +94,9 @@ async def get_data():
                                     "timeAgo": item["timeAgo"],
                                 }
                             )
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        print(e)
+
     except Exception as e:
         print("Error in get_data:", e)
         return []
@@ -112,12 +113,13 @@ async def get_data():
         dt = datetime.strptime(item["date"], "%a, %d %b %Y %H:%M:%S %z")
         item["date"] = dt.strftime("%Y-%m-%d")
 
-    return res_list[:150]
+    return res_list[:200]
 
 
 async def run():
     data = await get_data()
     if data:
+        print(len(data))
         await save_json(data)
 
 
@@ -127,7 +129,18 @@ try:
     cursor.execute("PRAGMA journal_mode = wal")
     cursor.execute("SELECT DISTINCT symbol FROM stocks")
     stock_symbols = [row[0] for row in cursor.fetchall()]
+    
+    etf_con = sqlite3.connect("etf.db")
+    cursor = etf_con.cursor()
+    cursor.execute("PRAGMA journal_mode = wal")
+    cursor.execute("SELECT DISTINCT symbol FROM etfs")
+    etf_symbols = [row[0] for row in cursor.fetchall()]
+    
     con.close()
+    etf_con.close()
+
+    total_symbols = stock_symbols + etf_symbols
+
 
     asyncio.run(run())
 
