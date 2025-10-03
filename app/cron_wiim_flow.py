@@ -63,30 +63,6 @@ def parse_date_to_dt(date_str: Optional[str]) -> Optional[datetime]:
     return None
 
 
-def add_time_ago(news_items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    now_utc = datetime.now(timezone.utc)
-    for item in news_items:
-        try:
-            dt = parse_date_to_dt(item.get("date"))
-            if dt is None:
-                item["timeAgo"] = "N/A"
-                continue
-
-            diff = now_utc - dt
-            minutes = int(diff.total_seconds() / 60)
-
-            if minutes < 1:
-                item["timeAgo"] = "1m"
-            elif minutes < 60:
-                item["timeAgo"] = f"{minutes}m"
-            elif minutes < 1440:
-                item["timeAgo"] = f"{minutes // 60}h"
-            else:
-                item["timeAgo"] = f"{minutes // 1440}D"
-        except Exception:
-            item["timeAgo"] = "N/A"
-    return news_items
-
 
 async def save_json(data: List[Dict[str, Any]]):
     path = "json/wiim/flow"
@@ -121,8 +97,6 @@ async def get_data(
             print(f"Error loading JSON for {symbol}: {e}")
             continue
 
-        # Compute timeAgo for items (works with multiple formats)
-        data = add_time_ago(data)
 
         for item in data:
             try:
@@ -174,7 +148,6 @@ async def get_data(
                     "symbol": symbol,
                     "name": name,
                     "assetType": assetType,
-                    "timeAgo": item.get("timeAgo", "N/A"),
                     "_dt": dt_for_sort,
                 })
 
