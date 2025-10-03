@@ -342,56 +342,15 @@ async def get_analyst_report():
         return {}
 
 async def get_latest_wiim():
-    url = "https://api.benzinga.com/api/v2/news"
- 
-    querystring = {"token": API_KEY,"pageSize":"1000","displayOutput":"headline","sort":"updated:desc","channels":"wiim"}
+    with open("json/wiim/flow/data.json","rb") as file:
+        res_list = orjson.loads(file.read())
 
-    res_list = []
-
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, params=querystring, headers=headers) as response:
-                if response.status != 200:
-                    return []
-
-                data = ujson.loads(await response.text())
-                data = add_time_ago(data)
-
-                for item in data:
-                    try:
-                        item['ticker'] = item['stocks'][0].get('name', None).replace('/', '-')  # BRK-A & BRK-B fix
-
-                        with open(f"json/quote/{item['ticker']}.json", "r") as file:
-                            quote_data = ujson.load(file)
-                            item['marketCap'] = quote_data.get('marketCap', None)
-
-                        item['assetType'] = 'stocks' if item['ticker'] in stock_symbols else 'etf'
-
-                        res_list.append({
-                            'date': item['created'],
-                            'text': item['title'],
-                            'marketCap': item['marketCap'],
-                            'ticker': item['ticker'],
-                            'assetType': item['assetType'],
-                            "timeAgo": item['timeAgo']
-                        })
-                    except:
-                        pass
-    except Exception as e:
-        print(e)
-        return []
-
-    # Sort results by datetime
-    res_list = sorted(
-        res_list,
-        key=lambda item: datetime.strptime(item['date'], '%a, %d %b %Y %H:%M:%S %z'),
-        reverse=True
-    )
-
-    # Convert date to YYYY-MM-DD format
     for item in res_list:
-        dt = datetime.strptime(item['date'], '%a, %d %b %Y %H:%M:%S %z')
-        item['date'] = dt.strftime('%Y-%m-%d')
+        try:
+            item['ticker'] = item.pop('symbol')
+        except:
+            pass
+            
     return res_list[:20]
 
 
