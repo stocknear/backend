@@ -259,8 +259,8 @@ def run_dashboard():
     if week <= 4:
         run_command(["python3", "cron_quote.py"])
         run_command(["python3", "cron_market_movers.py"])
-        run_command(["python3", "cron_dashboard.py"])
         run_command(["python3", "cron_wiim_flow.py"])
+        run_command(["python3", "cron_dashboard.py"])
 
 def run_quote():
     now = datetime.now(ny_tz)
