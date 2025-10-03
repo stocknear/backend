@@ -11,57 +11,6 @@ from tqdm import tqdm
 from typing import Optional, List, Dict, Any
 
 
-def parse_date_to_dt(date_str: Optional[str]) -> Optional[datetime]:
-    """
-    Try multiple ways to parse a date string into an aware UTC datetime.
-    Returns None if it cannot be parsed.
-    """
-    if not date_str:
-        return None
-
-    # Try RFC-2822 / email.utils first
-    try:
-        dt = email.utils.parsedate_to_datetime(date_str)
-        if dt is not None:
-            # Ensure timezone aware and convert to UTC
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-            return dt.astimezone(timezone.utc)
-    except Exception:
-        pass
-
-    # Try ISO formats (including trailing 'Z')
-    try:
-        iso = date_str
-        if iso.endswith("Z"):
-            iso = iso.replace("Z", "+00:00")
-        dt = datetime.fromisoformat(iso)
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(timezone.utc)
-    except Exception:
-        pass
-
-    # Try common strptime fallbacks
-    fmts = [
-        "%Y-%m-%d %H:%M:%S",    # "2025-07-15 18:25:51"
-        "%Y-%m-%d",             # "2025-07-15"
-        "%a, %d %b %Y %H:%M:%S %z",  # RFC style explicitly
-        "%d %b %Y %H:%M:%S %z",      # maybe missing weekday
-    ]
-    for fmt in fmts:
-        try:
-            dt = datetime.strptime(date_str, fmt)
-            # assume naive datetimes are UTC
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-            return dt.astimezone(timezone.utc)
-        except Exception:
-            continue
-
-    # Could not parse
-    return None
-
 
 
 async def save_json(data: List[Dict[str, Any]]):
@@ -135,45 +84,23 @@ async def get_data(
                     except Exception:
                         pass
 
-                # parse date into datetime for sorting
-                dt = parse_date_to_dt(item.get("date"))
-                dt_for_sort = dt if dt is not None else datetime.min.replace(tzinfo=timezone.utc)
-
+    
                 res_list.append({
-                    "original_date": item.get("date"),
-                    "date": item.get("date"),  # we'll reformat after sorting
+                    "date": item.get("date"),
                     "text": item.get("title", "") or item.get("text", "") or "",
                     "marketCap": marketCap,
                     "changesPercentage": item_changes,
                     "symbol": symbol,
                     "name": name,
                     "assetType": assetType,
-                    "_dt": dt_for_sort,
                 })
 
             except Exception as e:
                 print(f"Error processing item for {symbol}: {e}")
 
-    # Sort by datetime (newest first)
-    res_list.sort(key=lambda x: x.get("_dt", datetime.min.replace(tzinfo=timezone.utc)), reverse=True)
+    res_list = sorted(res_list,key=lambda x: datetime.strptime(x['date'], "%Y-%m-%d %H:%M:%S"),reverse=True)
 
-    # Convert date to YYYY-MM-DD (use parsed _dt where possible), remove internal _dt
-    for item in res_list:
-        dt_obj = item.get("_dt")
-        if isinstance(dt_obj, datetime) and dt_obj != datetime.min.replace(tzinfo=timezone.utc):
-            # format using UTC date
-            item["date"] = dt_obj.astimezone(timezone.utc).strftime("%Y-%m-%d")
-        else:
-            # fallback: try to parse original_date and format, otherwise N/A
-            parsed = parse_date_to_dt(item.get("original_date"))
-            if parsed:
-                item["date"] = parsed.astimezone(timezone.utc).strftime("%Y-%m-%d")
-            else:
-                item["date"] = "N/A"
-        # remove helper keys (keep original_date if you want - here we drop it)
-        item.pop("_dt", None)
-        item.pop("original_date", None)
-
+    print(res_list[:10])
     return res_list[:limit]
 
 
