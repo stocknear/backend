@@ -10,8 +10,6 @@ from dotenv import load_dotenv
 from tqdm import tqdm
 from typing import Optional, List, Dict, Any
 
-load_dotenv()
-
 
 def parse_date_to_dt(date_str: Optional[str]) -> Optional[datetime]:
     """
