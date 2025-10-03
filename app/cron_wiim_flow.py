@@ -70,32 +70,41 @@ async def get_data():
 
                 for item in data:
                     try:
-                        item["ticker"] = item["stocks"][0].get("name", None).replace("/", "-")
-                        if item['ticker'] in total_symbols:
-                            # read quote data
-                            quote_path = f"json/quote/{item['ticker']}.json"
-                            if os.path.exists(quote_path):
-                                async with aiofiles.open(quote_path, "rb") as f:
-                                    quote_data = orjson.loads(await f.read())
-                                    item["marketCap"] = quote_data.get("marketCap", None)
-                                    #item["name"] = quote_data.get("name", None)
-                                    item["changesPercentage"] = round(quote_data.get("changesPercentage", None),2)
+                        # loop over ALL stocks mentioned in the article
+                        for stock in item.get("stocks", []):
+                            ticker = stock.get("name", None)
+                            if not ticker:
+                                continue
+                            ticker = ticker.replace("/", "-")
 
-                            item["assetType"] = "stocks" if item["ticker"] in stock_symbols else "etf"
+                            if ticker in total_symbols:
+                                # read quote data
+                                quote_path = f"json/quote/{ticker}.json"
+                                marketCap, changesPercentage = None, None
+                                if os.path.exists(quote_path):
+                                    async with aiofiles.open(quote_path, "rb") as f:
+                                        quote_data = orjson.loads(await f.read())
+                                        marketCap = quote_data.get("marketCap")
+                                        changesPercentage = quote_data.get("changesPercentage")
+                                        if changesPercentage is not None:
+                                            changesPercentage = round(changesPercentage, 2)
 
-                            res_list.append(
-                                {
-                                    "date": item["created"],
-                                    "text": item["title"],
-                                    "marketCap": item.get("marketCap"),
-                                    "changesPercentage": item.get("changesPercentage"),
-                                    "ticker": item["ticker"],
-                                    "assetType": item["assetType"],
-                                    "timeAgo": item["timeAgo"],
-                                }
-                            )
+                                assetType = "stocks" if ticker in stock_symbols else "etf"
+
+                                res_list.append(
+                                    {
+                                        "date": item["created"],
+                                        "text": item["title"],
+                                        "marketCap": marketCap,
+                                        "changesPercentage": changesPercentage,
+                                        "ticker": ticker,
+                                        "assetType": assetType,
+                                        "timeAgo": item["timeAgo"],
+                                    }
+                                )
                     except Exception as e:
-                        print(e)
+                        print("Error processing item:", e)
+
 
     except Exception as e:
         print("Error in get_data:", e)
