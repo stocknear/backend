@@ -1982,7 +1982,7 @@ async def get_news_flow() -> Dict[str, Any]:
                 {k: v for k, v in item.items() if k not in ['marketCap', 'timeAgo']}
                 for item in data
             ]
-            return data
+            return data[:50]
     except Exception as e:
         return {"error": f"Error processing news flow data: {str(e)}"}
 
