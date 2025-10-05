@@ -27,7 +27,7 @@ async def get_data(
     total_symbols: List[str],
     limit: int = 500,
 ) -> List[Dict[str, Any]]:
-    res_list: List[Dict[str, Any]] = []
+    temp_list: List[Dict[str, Any]] = []
 
     for symbol in tqdm(total_symbols, desc="Processing symbols"):
         file_path = f"json/wiim/company/{symbol}.json"
@@ -85,7 +85,7 @@ async def get_data(
                         pass
 
     
-                res_list.append({
+                temp_list.append({
                     "date": item.get("date"),
                     "text": item.get("title", "") or item.get("text", "") or "",
                     "marketCap": marketCap,
@@ -98,9 +98,26 @@ async def get_data(
             except Exception as e:
                 print(f"Error processing item for {symbol}: {e}")
 
+    # Group by text and date to combine symbols with identical text
+    grouped_data: Dict[tuple, Dict[str, Any]] = {}
+    for item in temp_list:
+        key = (item["text"], item["date"])
+        if key in grouped_data:
+            grouped_data[key]["symbolList"].append(item["symbol"])
+        else:
+            grouped_data[key] = {
+                "date": item["date"],
+                "text": item["text"],
+                "marketCap": item["marketCap"],
+                "changesPercentage": item["changesPercentage"],
+                "symbolList": [item["symbol"]],
+                "name": item["name"],
+                "assetType": item["assetType"],
+            }
+    
+    res_list = list(grouped_data.values())
     res_list = sorted(res_list,key=lambda x: datetime.strptime(x['date'], "%Y-%m-%d %H:%M:%S"),reverse=True)
 
-    print(res_list[:10])
     return res_list[:limit]
 
 

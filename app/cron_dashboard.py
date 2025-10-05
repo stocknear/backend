@@ -344,12 +344,6 @@ async def get_analyst_report():
 async def get_latest_wiim():
     with open("json/wiim/flow/data.json","rb") as file:
         res_list = orjson.loads(file.read())
-
-    for item in res_list:
-        try:
-            item['ticker'] = item.pop('symbol')
-        except:
-            pass
             
     return res_list[:20]
 
