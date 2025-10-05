@@ -146,11 +146,23 @@ def wiim():
     res_list = []
     for item in data:
         try:
-            unique_str = f"{item['date']}-{item['ticker']}-{item.get('text', '')}"
-            item['id'] = hashlib.md5(unique_str.encode()).hexdigest()
-            res_list.append(item)
-        except Exception:
-            pass
+            # Handle both symbolList and ticker/symbol formats
+            symbols = []
+            if 'symbolList' in item and item['symbolList']:
+                symbols = item['symbolList']
+            elif 'ticker' in item:
+                symbols = [item['ticker']]
+            elif 'symbol' in item:
+                symbols = [item['symbol']]
+            
+            if symbols:
+                symbols_str = '-'.join(sorted(symbols))  # Sort for consistent hashing
+                unique_str = f"{item['date']}-{symbols_str}-{item.get('text', '')}"
+                item['id'] = hashlib.md5(unique_str.encode()).hexdigest()
+                item['symbols'] = symbols  # Store for later use
+                res_list.append(item)
+        except Exception as e:
+            print(f"Error processing item: {e}")
 
     if res_list:
         if seen_list:
@@ -161,12 +173,15 @@ def wiim():
         for item in res_list:
             try:
                 if item is not None and item['id'] not in seen_ids:
-                    symbol = item['ticker']
+                    symbols = item.get('symbols', [])
                     description = item.get('text', '')
-                    message = f"${symbol} {description}"
+                    
+                    # Format symbols for tweet (e.g., $AMD $NVDA)
+                    symbols_str = ' '.join([f"${s}" for s in symbols])
+                    message = f"{symbols_str} {description}"
                     send_tweet(message)
 
-                    seen_list.append({'date': item['date'], 'id': item['id'], 'symbol': symbol})
+                    seen_list.append({'date': item['date'], 'id': item['id'], 'symbols': symbols})
                 else:
                     print("WIIM already posted!")
             except Exception as e:

@@ -606,7 +606,19 @@ def wiim():
     res_list = []
     for item in data:
         try:
-            with open(f"json/quote/{item['ticker']}.json","r") as file:
+            # Handle both symbolList and ticker/symbol formats
+            symbol = None
+            if 'symbolList' in item and item['symbolList'] and len(item['symbolList']) > 0:
+                symbol = item['symbolList'][0]  # Use first element only
+            elif 'ticker' in item:
+                symbol = item['ticker']
+            elif 'symbol' in item:
+                symbol = item['symbol']
+            
+            if not symbol:
+                continue
+                
+            with open(f"json/quote/{symbol}.json","r") as file:
                 quote_data = orjson.loads(file.read())
 
                 item['price'] = round(quote_data.get('price',0),2)
@@ -614,8 +626,9 @@ def wiim():
                 item['marketCap'] = quote_data.get('marketCap',0)
                 item['eps'] = round(quote_data.get('eps',0),2)
 
-            unique_str = f"{item['date']}-{item['ticker']}-{item.get('text','')}"
+            unique_str = f"{item['date']}-{symbol}-{item.get('text','')}"
             item['id'] = hashlib.md5(unique_str.encode()).hexdigest()
+            item['ticker'] = symbol  # Store for later use
             
             if item['marketCap'] > 50E9:
                 res_list.append(item)

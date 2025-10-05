@@ -122,55 +122,6 @@ def create_reddit_post(title: str, content: str = None, url: str = None, flair_i
         print(f"Title: {title[:100]}...")
         return False
 
-def wiim():
-    try:
-        with open("json/reddit/wiim.json", "r") as f:
-            seen_list = orjson.loads(f.read())
-            seen_list = [item for item in seen_list if datetime.fromisoformat(item['date']).date() == today]
-    except Exception:
-        seen_list = []
-
-    with open("json/dashboard/data.json", 'rb') as f:
-        data = orjson.loads(f.read())['wiim']
-        data = [item for item in data if datetime.fromisoformat(item['date']).date() == today]
-
-    res_list = []
-    for item in data:
-        try:
-            unique_str = f"{item['date']}-{item['ticker']}-{item.get('text', '')}"
-            item['id'] = hashlib.md5(unique_str.encode()).hexdigest()
-            res_list.append(item)
-        except Exception:
-            pass
-
-    if res_list:
-        seen_ids = {item['id'] for item in seen_list} if seen_list else set()
-
-        for item in res_list:
-            try:
-                if item is not None and item['id'] not in seen_ids:
-                    symbol = item['ticker']
-                    asset_type = item['assetType']
-                    description = item.get('text', '')
-                    
-                    title = f"Market Insight: ${symbol}"
-                    content = f"**Symbol:** ${symbol}\n\n"
-                    content += f"**Insight:** {description}\n\n"
-                    content += f"[View detailed analysis on Stocknear](https://stocknear.com/{asset_type}/{symbol})"
-                    
-                    flair_id = ""
-                    
-                    if create_reddit_post(title, content=content, flair_id=flair_id):
-                        seen_list.append({'date': item['date'], 'id': item['id'], 'symbol': symbol})
-                else:
-                    print("WIIM already posted!")
-            except Exception as e:
-                print(f"Error posting WIIM: {e}")
-
-        try:
-            save_json(seen_list, "wiim")
-        except Exception as e:
-            print(f"Error saving WIIM data: {e}")
 
 def dark_pool_flow():
     """Post unusual dark pool activity alerts"""
@@ -557,7 +508,6 @@ def main():
     analyst_report()
     #congress_trading()
     recent_earnings()
-    #wiim()
 
 if __name__ == '__main__':
     main()
