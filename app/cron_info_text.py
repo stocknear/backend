@@ -857,6 +857,27 @@ data = {
     "bookValuePerShare": {
         "text": "Book value per share measures the equity available to common shareholders on a per-share basis. It is calculated by dividing book value by the weighted average shares outstanding.",
         "equation": "Book Value Per Share = Book Value / Shares Outstanding"
+    },
+    "delta": {
+        "text": "Delta measures how much an option's price will change for every $1 move in the underlying stock price. For call options, delta ranges from 0 to 1, while for put options, delta ranges from -1 to 0. A higher absolute delta value indicates greater price sensitivity to stock movements."
+    },
+    "gamma": {
+        "text": "Gamma measures the rate of change of delta relative to changes in the underlying stock price. It indicates how much the delta will change for every $1 move in the stock. High gamma means delta changes rapidly, making the option more sensitive to price movements, especially near the strike price."
+    },
+    "theta": {
+        "text": "Theta measures time decay, showing how much an option's price decreases each day as it approaches expiration. Theta is typically negative for both calls and puts, meaning options lose value over time. Higher absolute theta values indicate faster time decay, particularly for at-the-money options."
+    },
+    "vega": {
+        "text": "Vega measures how much an option's price will change for every 1% change in implied volatility of the underlying stock. Higher vega means the option is more sensitive to volatility changes. Vega is highest for at-the-money options and decreases as options move further in or out of the money."
+    },
+    "iv": {
+        "text": "Implied Volatility (IV) represents the market's expectation of how much the underlying stock price will fluctuate over the life of the option. Higher IV indicates greater expected volatility and typically results in higher option premiums. IV is derived from the current market price of the option and reflects supply and demand dynamics."
+    },
+    "oi": {
+        "text": "Open Interest (OI) represents the total number of outstanding option contracts that have not been settled, exercised, or expired. It indicates the level of activity and liquidity in a particular option. Rising open interest suggests new money flowing into the market, while declining open interest indicates positions being closed."
+    },
+    "indexMembership": {
+        "text": "Index Membership indicates whether a stock is included in major market indices such as the S&P 100 or S&P 500. Companies in these indices are typically large, well-established firms that meet specific criteria for market capitalization, liquidity, and financial viability. Index membership often correlates with institutional ownership and trading volume."
     }
 
 
