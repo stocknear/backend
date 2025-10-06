@@ -830,9 +830,14 @@ async def stock_dividend(data: TickerData, api_key: str = Security(get_api_key))
     except:
         res = {}
 
-    redis_client.set(cache_key, orjson.dumps(res))
-    redis_client.expire(cache_key, 60)
-    return res
+    res = orjson.dumps(res)
+    compressed_data = gzip.compress(res)
+
+    return StreamingResponse(
+        io.BytesIO(compressed_data),
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
 
 @app.post("/historical-employees")
 async def economic_calendar(data:TickerData, api_key: str = Security(get_api_key)):
