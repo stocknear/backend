@@ -275,6 +275,7 @@ fastify.register(async function (fastify) {
     (connection, req) => {
       let ticker = null;
       let sendInterval;
+      let pingInterval;
       let lastSentData = null;
 
       // Check if market is open based on NY timezone
@@ -395,6 +396,12 @@ fastify.register(async function (fastify) {
         }
       };
 
+      // Handle pong responses
+      connection.socket.on('pong', () => {
+        // Pong received, connection is alive
+        console.log(`Pong received for one-day price connection`);
+      });
+
       // Handle messages from client (ticker selection)
       connection.socket.on('message', (message) => {
         try {
@@ -458,6 +465,17 @@ fastify.register(async function (fastify) {
             // Wait 60 seconds before first API call, then repeat every 60 seconds
             sendInterval = setInterval(sendOneDayPriceData, 60000);
 
+            // Start ping interval to keep connection alive (every 20 seconds)
+            if (pingInterval) {
+              clearInterval(pingInterval);
+            }
+            pingInterval = setInterval(() => {
+              if (connection.socket.readyState === WebSocket.OPEN) {
+                connection.socket.ping();
+                console.log(`Ping sent to keep one-day price connection alive for ${ticker}`);
+              }
+            }, 20000);
+
             console.log(`One-day price updates will start in 60 seconds for ${ticker}`);
           }
         } catch (err) {
@@ -471,6 +489,9 @@ fastify.register(async function (fastify) {
         if (sendInterval) {
           clearInterval(sendInterval);
         }
+        if (pingInterval) {
+          clearInterval(pingInterval);
+        }
       });
 
       // Handle errors
@@ -478,6 +499,9 @@ fastify.register(async function (fastify) {
         console.error('One-day price WebSocket error:', err);
         if (sendInterval) {
           clearInterval(sendInterval);
+        }
+        if (pingInterval) {
+          clearInterval(pingInterval);
         }
       });
     }
