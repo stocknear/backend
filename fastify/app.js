@@ -7,6 +7,9 @@ const cors = require("@fastify/cors");
 const fs = require("fs");
 const path = require("path");
 
+// Load environment variables from backend/app/.env
+require('dotenv').config({ path: path.join(__dirname, '../app/.env') });
+
 const { serialize } = require("object-to-formdata");
 
 // Register the CORS plugin
@@ -270,43 +273,115 @@ fastify.register(async function (fastify) {
       let sendInterval;
       let lastSentData = null;
 
+      // Check if market is open based on NY timezone
+      const checkMarketHours = () => {
+        const holidays = [
+          '2025-01-01', '2025-01-09', '2025-01-20', '2025-02-17',
+          '2025-04-18', '2025-05-26', '2025-06-19', '2025-07-04',
+          '2025-09-01', '2025-11-27', '2025-12-25'
+        ];
+
+        // Get current time in ET (Eastern Time)
+        const currentTime = new Date().toLocaleString('en-US', {
+          timeZone: 'America/New_York'
+        });
+        const etDate = new Date(currentTime);
+
+        const currentDateStr = etDate.toISOString().split('T')[0];
+        const currentHour = etDate.getHours();
+        const currentMinute = etDate.getMinutes();
+        const currentDay = etDate.getDay(); // Sunday is 0, Saturday is 6
+
+        // Check if the current date is a holiday or weekend
+        const isWeekend = currentDay === 0 || currentDay === 6; // Sunday or Saturday
+        const isHoliday = holidays.includes(currentDateStr);
+
+        // Determine the market status
+        if (isWeekend || isHoliday) {
+          return false; // Market is closed
+        } else if ((currentHour === 16 && currentMinute === 10) || (currentHour >= 9 && currentHour < 16)) {
+          return true; // Market hours (9 AM - 4 PM ET)
+        } else {
+          return false; // Market is closed
+        }
+      };
+
       const sendOneDayPriceData = async () => {
         if (!ticker) return;
 
-        const filePath = path.join(
-          __dirname,
-          `../app/json/one-day-price/${ticker.toUpperCase()}.json`
-        );
+        // Check if market is open before making API call
+        if (!checkMarketHours()) {
+          console.log(`Market is closed. Skipping API call for ${ticker}`);
+          return;
+        }
 
         try {
-          if (fs.existsSync(filePath)) {
-            const fileData = fs.readFileSync(filePath, 'utf8');
+          // Get today's date in YYYY-MM-DD format
+          const today = new Date();
+          const dateStr = today.toISOString().split('T')[0];
 
-            if (!fileData) {
-              console.error(`One-day price file is empty for ticker: ${ticker}`);
-              return;
+          // Fetch data directly from FMP API
+          const apiKey = process.env.FMP_API_KEY;
+          if (!apiKey) {
+            console.error('FMP_API_KEY not found in environment variables');
+            return;
+          }
+          const url = `https://financialmodelingprep.com/stable/historical-chart/1min?symbol=${ticker.toUpperCase()}&from=${dateStr}&to=${dateStr}&apikey=${apiKey}`;
+
+          const response = await fetch(url);
+
+          if (!response.ok) {
+            console.error(`API request failed for ${ticker}: ${response.status}`);
+            return;
+          }
+
+          const rawData = await response.json();
+
+          if (!rawData || rawData.length === 0) {
+            console.log(`No data available for ${ticker}`);
+            return;
+          }
+
+          // Process the data similar to the Python script
+          let processedData = rawData
+            ?.reverse()
+            ?.filter(item => item.date && item.date.startsWith(dateStr))
+            ?.map(item => ({
+              time: item.date,
+              open: parseFloat(item.open?.toFixed(2)),
+              low: parseFloat(item.low?.toFixed(2)),
+              high: parseFloat(item.high?.toFixed(2)),
+              close: parseFloat(item.close?.toFixed(2))
+            }));
+
+          //console.log(processedData)
+
+          // Save to JSON file
+          const jsonDir = path.join(__dirname, '../app/json/one-day-price');
+          const jsonFilePath = path.join(jsonDir, `${ticker.toUpperCase()}.json`);
+
+          try {
+            // Create directory if it doesn't exist
+            if (!fs.existsSync(jsonDir)) {
+              fs.mkdirSync(jsonDir, { recursive: true });
             }
 
-            let jsonData;
-            try {
-              jsonData = JSON?.parse(fileData);
-            } catch (parseError) {
-              console.error(`Invalid JSON format for one-day price: ${ticker}`, parseError);
-              return;
-            }
+            // Write data to file
+            fs.writeFileSync(jsonFilePath, JSON.stringify(processedData, null, 2), 'utf8');
+            console.log(`Saved one-day price data to ${jsonFilePath}`);
+          } catch (writeErr) {
+            console.error(`Error writing to JSON file for ${ticker}:`, writeErr);
+          }
 
-            // Only send if data has changed
-            const currentDataSignature = JSON?.stringify(jsonData);
-            if (currentDataSignature !== lastSentData && connection.socket.readyState === WebSocket.OPEN) {
-              connection.socket?.send(JSON.stringify(jsonData));
-              lastSentData = currentDataSignature;
-              console.log(`Sent one-day price update for ${ticker}`);
-            }
-          } else {
-            console.error(`One-day price file not found for ticker: ${ticker}`);
+          // Only send if data has changed
+          const currentDataSignature = JSON?.stringify(processedData);
+          if (currentDataSignature !== lastSentData && connection.socket.readyState === WebSocket.OPEN) {
+            connection.socket?.send(JSON.stringify(processedData));
+            lastSentData = currentDataSignature;
+            console.log(`Sent one-day price update for ${ticker} (${processedData.length} data points)`);
           }
         } catch (err) {
-          console.error('Error processing one-day price data:', err);
+          console.error('Error fetching one-day price data:', err);
         }
       };
 
@@ -325,10 +400,10 @@ fastify.register(async function (fastify) {
             if (sendInterval) {
               clearInterval(sendInterval);
             }
+            // Wait 60 seconds before first call, then repeat every 60 seconds
             sendInterval = setInterval(sendOneDayPriceData, 60000);
 
-            // Send initial data immediately
-            sendOneDayPriceData();
+            console.log(`One-day price updates will start in 60 seconds for ${ticker}`);
           }
         } catch (err) {
           console.error('Failed to parse one-day price message from client:', err);
