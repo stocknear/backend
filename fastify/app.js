@@ -400,10 +400,10 @@ fastify.register(async function (fastify) {
             if (sendInterval) {
               clearInterval(sendInterval);
             }
-            // Wait 60 seconds before first call, then repeat every 60 seconds
             sendInterval = setInterval(sendOneDayPriceData, 60000);
 
-            console.log(`One-day price updates will start in 60 seconds for ${ticker}`);
+            // Send initial data immediately
+            sendOneDayPriceData();
           }
         } catch (err) {
           console.error('Failed to parse one-day price message from client:', err);
