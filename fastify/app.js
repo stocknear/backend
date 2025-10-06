@@ -264,6 +264,10 @@ fastify.register(async function (fastify) {
     }
   );
 
+  // Cache for one-day price data (shared across all connections)
+  // Structure: { data: array, timestamp: number }
+  const oneDayPriceCache = new Map();
+
   // One-Day Price WebSocket endpoint (for market open hours)
   fastify.get(
     "/one-day-price",
@@ -373,6 +377,12 @@ fastify.register(async function (fastify) {
             console.error(`Error writing to JSON file for ${ticker}:`, writeErr);
           }
 
+          // Update cache with latest data and timestamp
+          oneDayPriceCache.set(ticker.toUpperCase(), {
+            data: processedData,
+            timestamp: Date.now()
+          });
+
           // Only send if data has changed
           const currentDataSignature = JSON?.stringify(processedData);
           if (currentDataSignature !== lastSentData && connection.socket.readyState === WebSocket.OPEN) {
@@ -396,14 +406,59 @@ fastify.register(async function (fastify) {
             // Reset last sent data when ticker changes
             lastSentData = null;
 
+            // Check if we have cached data for this ticker
+            let cacheEntry = oneDayPriceCache.get(ticker.toUpperCase());
+            let cachedData = null;
+
+            // Check if cache exists and is still valid (less than 60 seconds old)
+            if (cacheEntry) {
+              const cacheAge = Date.now() - cacheEntry.timestamp;
+              if (cacheAge < 60000) { // 60 seconds = 60000 milliseconds
+                cachedData = cacheEntry.data;
+                console.log(`✓ Using memory cache for ${ticker} (age: ${Math.round(cacheAge / 1000)}s)`);
+              } else {
+                // Cache expired, remove it
+                oneDayPriceCache.delete(ticker.toUpperCase());
+                console.log(`✗ Cache expired for ${ticker} (age: ${Math.round(cacheAge / 1000)}s)`);
+              }
+            }
+
+            // If no valid cache, try loading from JSON file
+            if (!cachedData) {
+              const jsonFilePath = path.join(__dirname, '../app/json/one-day-price', `${ticker.toUpperCase()}.json`);
+              try {
+                if (fs.existsSync(jsonFilePath)) {
+                  const fileData = fs.readFileSync(jsonFilePath, 'utf8');
+                  cachedData = JSON.parse(fileData);
+                  // Store in cache with current timestamp
+                  oneDayPriceCache.set(ticker.toUpperCase(), {
+                    data: cachedData,
+                    timestamp: Date.now()
+                  });
+                  console.log(`✓ Loaded one-day price data from file for ${ticker} (${cachedData.length} data points)`);
+                }
+              } catch (err) {
+                console.error(`Error loading cached file for ${ticker}:`, err);
+              }
+            }
+
+            if (cachedData && connection.socket.readyState === WebSocket.OPEN) {
+              // Send cached data immediately
+              connection.socket.send(JSON.stringify(cachedData));
+              lastSentData = JSON.stringify(cachedData);
+              console.log(`✓ Sent CACHED one-day price data for ${ticker} (${cachedData.length} data points)`);
+            } else {
+              console.log(`✗ No cached data available for ${ticker}`);
+            }
+
             // Start or restart the interval (check every 60 seconds)
             if (sendInterval) {
               clearInterval(sendInterval);
             }
+            // Wait 60 seconds before first API call, then repeat every 60 seconds
             sendInterval = setInterval(sendOneDayPriceData, 60000);
 
-            // Send initial data immediately
-            sendOneDayPriceData();
+            console.log(`One-day price updates will start in 60 seconds for ${ticker}`);
           }
         } catch (err) {
           console.error('Failed to parse one-day price message from client:', err);
