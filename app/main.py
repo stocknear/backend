@@ -5272,17 +5272,41 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
         history_messages = [system_msg] + history_messages
         
     else:
-        # Check if any matched triggers have instructions
+        # Check if any matched triggers have instructions and combine them
+        instruction_contents = []
+        investor_names = []
+        
         for trigger in matched_triggers:
             if trigger in TRIGGER_TO_INSTRUCTION:
-                # For multiple instruction triggers, combine them or use the first one
-                # Using the first matched instruction trigger for now
-                system_msg = {
-                    "role": "system",
-                    "content": TRIGGER_TO_INSTRUCTION[trigger]()
+                instruction_contents.append(TRIGGER_TO_INSTRUCTION[trigger]())
+                # Extract investor name from trigger using a mapping
+                investor_name_map = {
+                    "@warrenbuffet": "Warren Buffett",
+                    "@peterlynch": "Peter Lynch", 
+                    "@charliemunger": "Charlie Munger",
+                    "@billackman": "Bill Ackman",
+                    "@michaelburry": "Michael Burry",
+                    "@benjamingraham": "Benjamin Graham",
+                    "@cathiewood": "Cathie Wood"
                 }
-                history_messages = [system_msg] + history_messages
-                break  # Use only the first instruction trigger
+                investor_name = investor_name_map.get(trigger, trigger.replace("@", "").title())
+                investor_names.append(investor_name)
+        
+        if instruction_contents:
+            # Combine multiple investor perspectives
+            if len(instruction_contents) > 1:
+                combined_content = f"You are analyzing this query from multiple investor perspectives:\n\n"
+                for i, (name, content) in enumerate(zip(investor_names, instruction_contents), 1):
+                    combined_content += f"--- {name}'s Perspective ---\n{content}\n\n"
+                combined_content += "Provide insights from each investor's unique perspective, clearly labeling which analysis comes from which investor. Show how their different philosophies lead to different conclusions about the same investment."
+            else:
+                combined_content = instruction_contents[0]
+            
+            system_msg = {
+                "role": "system",
+                "content": combined_content
+            }
+            history_messages = [system_msg] + history_messages
     history_messages += [{'role': 'user', "content": user_query}]
     
     # Add today's date as context
