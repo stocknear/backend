@@ -5045,12 +5045,29 @@ def normalize_query(query: str) -> str:
     """Normalize query for case-insensitive matching and handle spaces"""
     return query.strip().lower()
 
-def get_tools_for_query(user_query: str) -> tuple[list, str | None]:
-    """Get tools and matched trigger for query with efficient lookup"""
+def get_tools_for_query(user_query: str) -> tuple[list, list[str]]:
+    """Get tools and matched triggers for query with support for multiple triggers"""
+    matched_triggers = []
+    combined_tools = []
+    seen_tool_names = set()  # Track tool names/ids to avoid duplicates
+    
+    # Check for all triggers in the query
     for trigger, tools in TRIGGER_CONFIG.items():
         if trigger in user_query:
-            return tools, trigger
-    return all_tools, None
+            matched_triggers.append(trigger)
+            # Add tools without duplicates (check by function name or id)
+            for tool in tools:
+                # Get a unique identifier for the tool (function name or string representation)
+                tool_id = getattr(tool, '__name__', str(tool))
+                if tool_id not in seen_tool_names:
+                    combined_tools.append(tool)
+                    seen_tool_names.add(tool_id)
+    
+    # If no triggers matched, return all tools
+    if not matched_triggers:
+        return all_tools, []
+    
+    return combined_tools, matched_triggers
 
 
 async def create_backtesting_strategy(user_query: str, selected_model: str, model_settings) -> dict | None:
@@ -5122,11 +5139,15 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
 
     history_messages = cleaned_messages
 
-    # Get tools and matched trigger in single pass
-    selected_tools, matched_trigger = get_tools_for_query(user_query)
+    # Get tools and matched triggers in single pass (now supports multiple)
+    selected_tools, matched_triggers = get_tools_for_query(user_query)
+    
+    # Log if multiple triggers detected
+    if len(matched_triggers) > 1:
+        print(f"Multiple triggers detected: {matched_triggers}")
 
     # Handle special triggers
-    if matched_trigger == "@stockscreener":
+    if "@stockscreener" in matched_triggers:
         try:
             # Extract rules using complete frontend context
             extracted_rules = await extract_screener_rules(user_query)
@@ -5209,7 +5230,7 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
         
         history_messages = [system_msg] + history_messages
 
-    elif matched_trigger == "@backtesting":
+    elif "@backtesting" in matched_triggers:
         strategy_data = await create_backtesting_strategy(user_query, selected_model, model_settings)
         tickers = strategy_data['tickers']
         start_date = strategy_data.get('start_date',"2015-01-01")
@@ -5250,12 +5271,18 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
 
         history_messages = [system_msg] + history_messages
         
-    elif matched_trigger in TRIGGER_TO_INSTRUCTION:
-        system_msg = {
-            "role": "system",
-            "content": TRIGGER_TO_INSTRUCTION[matched_trigger]()
-        }
-        history_messages = [system_msg] + history_messages
+    else:
+        # Check if any matched triggers have instructions
+        for trigger in matched_triggers:
+            if trigger in TRIGGER_TO_INSTRUCTION:
+                # For multiple instruction triggers, combine them or use the first one
+                # Using the first matched instruction trigger for now
+                system_msg = {
+                    "role": "system",
+                    "content": TRIGGER_TO_INSTRUCTION[trigger]()
+                }
+                history_messages = [system_msg] + history_messages
+                break  # Use only the first instruction trigger
     history_messages += [{'role': 'user', "content": user_query}]
     
     # Add today's date as context
