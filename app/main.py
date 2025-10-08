@@ -2960,7 +2960,7 @@ async def get_options_flow_stream(data: OptionsInsight, api_key: str = Security(
         instructions=OPTIONS_INSIGHT_INSTRUCTION,
         model=os.getenv("CHAT_MODEL"),
         tools=[],  # No tools needed for options insight analysis
-        model_settings=model_settings
+        #model_settings=model_settings
     )
     
     async def event_generator():
@@ -5328,7 +5328,7 @@ async def get_data(data: ChatRequest, api_key: str = Security(get_api_key)):
         instructions=CHAT_INSTRUCTION,
         model=selected_model,
         tools=selected_tools,
-        model_settings=model_settings
+        #model_settings=model_settings
     )
 
     async def event_generator():
