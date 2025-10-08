@@ -2951,7 +2951,41 @@ async def get_reddit_tracker() -> Dict[str, Any]:
     return data
 
 
+@function_tool
+async def search_new_listed_companies() -> List[Dict[str, Any]]:
+    """
+    Retrieves data on the 250 most recent initial public offerings (IPOs).
+
+    This function provides a snapshot of newly listed companies, including
+    their symbols and names. It is particularly useful when an LLM or other
+    system does not have knowledge of a company's IPO due to a training cut-off,
+    as it can first search this dataset to identify recently listed companies.
+
+    Each entry contains:
+        - symbol (str): The stock ticker symbol.
+        - name (str): The full company name.
+
+    Note:
+        - The function returns only the symbol and name, dropping other IPO 
+          details such as ipoDate, ipoPrice, currentPrice, or return.
+        - Intended for LLMs or systems that need to verify if a company has 
+          recently gone public before relying on other sources.
+
+    Returns:
+        List[Dict[str, Any]]: A list of dictionaries, each representing a recently 
+        listed IPO with its symbol and name.
+    """
+
+    base_dir = BASE_DIR / "ipo-calendar/data.json"
+    with open(base_dir, "rb") as file:
+        result = orjson.loads(file.read())[:250]
+
+    result = [{'symbol': item['symbol'], 'name': item['name']} for item in result]
+
+    return result
+
+
 
 #Testing purposes
-#data = asyncio.run(get_news_flow())
+#data = asyncio.run(search_new_listed_companies())
 #print(data)
