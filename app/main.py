@@ -3205,6 +3205,12 @@ async def get_dashboard_info(api_key: str = Security(get_api_key)):
     # Filter response based on user settings
     filtered_res = { key: full_res.get(key) for key in ['gainers','losers','optionsFlow','upcomingEarnings','marketStatus'] if key in full_res }
 
+    # BREAKING CHANGE: Rename 'gainers' to 'topGainers' and 'losers' to 'topLosers'
+    if 'gainers' in full_res:
+        full_res['topGainers'] = full_res.pop('gainers')
+    if 'losers' in full_res:
+        full_res['topLosers'] = full_res.pop('losers')
+
     # Serialize and compress
     compressed = gzip.compress(orjson.dumps(full_res))
 
