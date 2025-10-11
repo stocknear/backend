@@ -4009,11 +4009,24 @@ async def get_fomc_impact(data: TickerData, api_key: str = Security(get_api_key)
             media_type="application/json",
             headers={"Content-Encoding": "gzip"}
         )
+    res = {}
     try:
-        with open(f"json/business-metrics/{ticker}.json", 'rb') as file:
-            res = orjson.loads(file.read())
+        with open(f"json/business-metrics/ttm/{ticker}.json", 'rb') as file:
+            res['ttm'] = orjson.loads(file.read())
     except:
-        res = {}
+        res['ttm'] = []
+
+    try:
+        with open(f"json/business-metrics/annual/{ticker}.json", 'rb') as file:
+            res['annual'] = orjson.loads(file.read())
+    except:
+        res['annual'] = []
+
+    try:
+        with open(f"json/business-metrics/quarterly/{ticker}.json", 'rb') as file:
+            res['quarterly'] = orjson.loads(file.read())
+    except:
+        res['quarterly'] = []
 
     data = orjson.dumps(res)
     compressed_data = gzip.compress(data)

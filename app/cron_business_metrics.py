@@ -1,313 +1,137 @@
-from datetime import datetime, timedelta
+import os
 import orjson
 import time
 import sqlite3
-import asyncio
-import aiohttp
+import requests
 import random
+import math
 from tqdm import tqdm
 from dotenv import load_dotenv
-import os
 
 load_dotenv()
-api_key = os.getenv('FMP_API_KEY')
 
-def standardize_strings(string_list):
-    return [string.title() for string in string_list]
+api_key = os.getenv('MAIN_STREET_API_KEY')
+headers = {
+    "accept": "application/json",
+    "x-api-key": api_key,
+    "Content-Type": "application/json"
+}
 
-def convert_to_dict(data):
-    result = {}
+# Throttle configuration
+CALLS_BEFORE_SLEEP = 100
+SLEEP_SECONDS = 60
+# small jitter between calls to avoid bursting the API
+MIN_JITTER = 0.05
+MAX_JITTER = 0.25
 
-    for entry in data:
+# Max batch size per API request
+MAX_BATCH_SIZE = 20
+
+# global counter for API calls
+api_call_count = 0
+
+
+def clean_metrics(metrics):
+    """Remove left/right symbols and rename x→date, y→val in values."""
+    cleaned = []
+
+    for m in metrics:
+        m.pop("leftSymbol", None)
+        m.pop("rightSymbol", None)
+
+        # Rename x/y inside values
+        new_values = []
+        for v in m.get("values", []):
+            new_v = {
+                "date": v.get("x"),
+                "val": v.get("y")
+            }
+            # Keep other fields (like percentRevenue, valueType, etc.)
+            for k, v2 in v.items():
+                if k not in ["x", "y"]:
+                    new_v[k] = v2
+            new_values.append(new_v)
+
+        m["values"] = new_values
+        cleaned.append(m)
+
+    return cleaned
+
+
+def save_json(data, period, symbol):
+    path = f"json/business-metrics/{period}/{symbol}.json"
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, 'wb') as file:
+        file.write(orjson.dumps(data, option=orjson.OPT_INDENT_2))
+
+
+def sleep_after_calls():
+    """Sleep when api_call_count reaches multiples of CALLS_BEFORE_SLEEP."""
+    global api_call_count
+    if api_call_count and api_call_count % CALLS_BEFORE_SLEEP == 0:
+        print(f"[throttle] reached {api_call_count} calls — sleeping {SLEEP_SECONDS} seconds...")
+        time.sleep(SLEEP_SECONDS)
+
+
+def get_data(batch_symbols):
+    """Call the API for the given batch of symbols."""
+    global api_call_count
+
+    data = {"tickers": batch_symbols}
+
+    for period in ['annual', 'quarterly', 'ttm']:
+        url = f"https://api.mainstreetdata.com/api/v1/companies?freq={period}&YoY=true&percentRevenue=true"
+
         try:
-            for date, categories in entry.items():
+            response = requests.post(url, headers=headers, json=data)
+            response.raise_for_status()
+            companies = response.json().get("companies", [])
+        except Exception as e:
+            # Log the error and continue; still count this as an API call
+            print(f"API request failed for period={period}, batch size={len(batch_symbols)}: {e}")
+            companies = []
+        finally:
+            # increment call counter and maybe sleep
+            api_call_count += 1
+            sleep_after_calls()
+
+        if companies:
+            for item in companies:
                 try:
-                    if date not in result:
-                        result[date] = {}
-                    for category, amount in categories.items():
-                        result[date][category] = amount
-                except:
-                    pass
-        except:
-            pass
-                
-    return result
-
-async def save_json(data, symbol):
-    with open(f"json/business-metrics/{symbol}.json", 'wb') as file:
-        file.write(orjson.dumps(data))
-
-def prepare_expense_dataset(data):
-    data = convert_to_dict(data)
-    res_list = {}
-    operating_name_list = []
-    operating_history_list = []
-    index = 0
-    for date, info in data.items():
-        value_list = []
-        for name, val in info.items():
-            if index == 0:
-                operating_name_list.append(name)
-            if name in operating_name_list:
-                value_list.append(val)
-        if len(value_list) > 0:
-            operating_history_list.append({'date': date, 'value': value_list})
-        index += 1
-
-    operating_history_list = sorted(operating_history_list, key=lambda x: datetime.strptime(x['date'], '%Y-%m-%d'))
-
-    # Initialize 'valueGrowth' as None for all entries
-    for item in operating_history_list:
-        item['valueGrowth'] = [None] * len(item['value'])
-
-    # Calculate valueGrowth for each item based on the previous date value
-    for i in range(1, len(operating_history_list)):  # Start from the second item
-        current_item = operating_history_list[i]
-        prev_item = operating_history_list[i - 1]
-        
-        value_growth = []
-        for cur_value, prev_value in zip(current_item['value'], prev_item['value']):
-            try:
-                growth = round(((cur_value - prev_value) / prev_value) * 100, 2)
-            except:
-                growth = None
-            value_growth.append(growth)
-        
-        current_item['valueGrowth'] = value_growth
-
-    operating_history_list = sorted(operating_history_list, key=lambda x: datetime.strptime(x['date'], '%Y-%m-%d'), reverse=True)
-
-    res_list = {'operatingExpenses': {'names': operating_name_list, 'history': operating_history_list}}
-    return res_list
-
-def prepare_geo_dataset(data):
-    data = convert_to_dict(data)
-    res_list = {}
-    geo_name_list = []
-    geo_history_list = []
-    index = 0
-    for date, info in data.items():
-        value_list = []
-        for name, val in info.items():
-            if index == 0:
-                geo_name_list.append(name)
-            if name in geo_name_list:
-                value_list.append(val)
-        if len(value_list) > 0:
-            geo_history_list.append({'date': date, 'value': value_list})
-        index += 1
-
-    geo_history_list = sorted(geo_history_list, key=lambda x: datetime.strptime(x['date'], '%Y-%m-%d'))
-
-    # Initialize 'valueGrowth' as None for all entries
-    for item in geo_history_list:
-        item['valueGrowth'] = [None] * len(item['value'])
-
-    # Calculate valueGrowth for each item based on the previous date value
-    for i in range(1, len(geo_history_list)):  # Start from the second item
-        current_item = geo_history_list[i]
-        prev_item = geo_history_list[i - 1]
-        
-        value_growth = []
-        for cur_value, prev_value in zip(current_item['value'], prev_item['value']):
-            try:
-                growth = round(((cur_value - prev_value) / prev_value) * 100, 2)
-            except:
-                growth = None
-            value_growth.append(growth)
-        
-        current_item['valueGrowth'] = value_growth
-
-    geo_history_list = sorted(geo_history_list, key=lambda x: datetime.strptime(x['date'], '%Y-%m-%d'), reverse=True)
-
-    res_list = {'geographic': {'names': standardize_strings(geo_name_list), 'history': geo_history_list}}
-
-    return res_list
-
-def process_revenue_segmentation_data(data):
-    """Process data from the new revenue product segmentation endpoint"""
-    result = []
-    
-    # Convert the data into the format we need
-    for item in data:
-        entry = {
-            item['date']: {}
-        }
-        
-        # Extract categories from the data field
-        if 'data' in item:
-            for category, amount in item['data'].items():
-                entry[item['date']][category] = amount
-        
-        result.append(entry)
-    
-    return result
-
-def process_geographic_segmentation_data(data):
-    """Process data from the geographic segmentation endpoint"""
-    result = []
-    
-    # Convert the data into the format we need
-    for item in data:
-        entry = {
-            item['date']: {}
-        }
-        
-        # Extract geographic data
-        if 'data' in item:
-            for region, amount in item['data'].items():
-                entry[item['date']][region] = amount
-        
-        result.append(entry)
-    
-    return result
-
-def prepare_dataset(data, geo_data, income_data, symbol, rev_segment_data=None):
-    data = convert_to_dict(data)
-    
-    # If we have revenue segmentation data, use it instead of the original product data
-    if rev_segment_data and len(rev_segment_data) > 0:
-        rev_segment_processed = process_revenue_segmentation_data(rev_segment_data)
-        data = convert_to_dict(rev_segment_processed)
-    
-    res_list = {}
-    revenue_name_list = []
-    revenue_history_list = []
-    index = 0
-    for date, info in data.items():
-        try:
-            value_list = []
-            for name, val in info.items():
-                try:
-                    if index == 0:
-                        revenue_name_list.append(name)
-                    if name in revenue_name_list:
-                        value_list.append(val)
-                except:
-                    pass
-            if len(value_list) > 0:
-                revenue_history_list.append({'date': date, 'value': value_list})
-            index += 1
-        except:
-            pass
-
-    revenue_history_list = sorted(revenue_history_list, key=lambda x: datetime.strptime(x['date'], '%Y-%m-%d'))
-
-    # Initialize 'valueGrowth' as None for all entries
-    for item in revenue_history_list:
-        try:
-            item['valueGrowth'] = [None] * len(item['value'])
-        except:
-            pass
-
-    # Calculate valueGrowth for each item based on the previous date value
-    for i in range(1, len(revenue_history_list)):
-        try:
-            current_item = revenue_history_list[i]
-            prev_item = revenue_history_list[i - 1]
-            
-            value_growth = []
-            for cur_value, prev_value in zip(current_item['value'], prev_item['value']):
-                try:
-                    growth = round(((cur_value - prev_value) / prev_value) * 100, 2)
-                except:
-                    growth = None
-                value_growth.append(growth)
-            
-            current_item['valueGrowth'] = value_growth
-        except:
-            pass
-
-    revenue_history_list = sorted(revenue_history_list, key=lambda x: datetime.strptime(x['date'], '%Y-%m-%d'), reverse=True)
-
-    res_list = {'revenue': {'names': revenue_name_list, 'history': revenue_history_list}}
-
-    geo_data = prepare_geo_dataset(geo_data)
-    operating_expense_data = prepare_expense_dataset(income_data)
-
-    res_list = {**res_list, **geo_data, **operating_expense_data}
-    return res_list
-
-async def get_data(session, total_symbols):
-    batch_size = 300  # Process 300 symbols at a time
-    for i in tqdm(range(0, len(total_symbols), batch_size)):
-        batch = total_symbols[i:i+batch_size]
-        for symbol in batch:
-            try:
-                with open(f"json/financial-statements/income-statement/quarter/{symbol}.json",'r') as file:
-                    income_data = orjson.loads(file.read())
-
-                include_selling_and_marketing = income_data[0].get('sellingAndMarketingExpenses', 0) > 0 if income_data else False
-                # Process the income_data
-                income_data = [
-                    {
-                        'date': entry['date'],
-                        'Selling, General, and Administrative': entry.get('sellingGeneralAndAdministrativeExpenses', 0),
-                        'Research and Development': entry.get('researchAndDevelopmentExpenses', 0),
-                        **({'Sales and Marketing': entry.get('sellingAndMarketingExpenses', 0)} if include_selling_and_marketing else {})
-                    }
-                    for entry in income_data
-                    if datetime.strptime(entry['date'], '%Y-%m-%d') > datetime(2015, 1, 1)
-                ]
-
-                income_data = [
-                    {
-                        entry['date']: {
-                            key: value
-                            for key, value in entry.items()
-                            if key != 'date'
-                        }
-                    }
-                    for entry in income_data
-                ]
-            except:
-                income_data = []
-               
-            product_data = []
-            geo_data = []
-            revenue_segmentation_data = []
-
-            urls = [
-                f"https://financialmodelingprep.com/stable/revenue-product-segmentation?symbol={symbol}&period=quarter&apikey={api_key}",
-                f"https://financialmodelingprep.com/stable/revenue-geographic-segmentation?symbol={symbol}&period=quarter&apikey={api_key}"
-            ]
-
-            for url in urls:
-                try:
-                    async with session.get(url) as response:
-                        if response.status == 200:
-                            data = await response.json()
-                            if "revenue-geographic-segmentation" in url:
-                                geo_data = process_geographic_segmentation_data(data)
-                            if "revenue-product-segmentation" in url:
-                                revenue_segmentation_data = data
+                    symbol = item["ticker"]
+                    metrics = clean_metrics(item.get("metrics", []))
+                    save_json(metrics, period, symbol)
                 except Exception as e:
-                    print(f"Error fetching data for {symbol} from {url}: {e}")
-                    pass
+                    print(f"Error processing {item.get('ticker', 'Unknown')}: {e}")
 
-            # Only save data if we have at least one type of data
-            if len(product_data) > 0 or len(geo_data) > 0 or len(revenue_segmentation_data) > 0 or len(income_data) > 0:
-                data = prepare_dataset(product_data, geo_data, income_data, symbol, revenue_segmentation_data)
-                await save_json(data, symbol)
+            # small jitter to avoid making back-to-back requests too quickly
+        time.sleep(random.uniform(MIN_JITTER, MAX_JITTER))
 
-        # Wait 60 seconds after processing each batch of 300 symbols
-        if i + batch_size < len(total_symbols):
-            print(f"Processed {i + batch_size} symbols, waiting 60 seconds...")
-            await asyncio.sleep(60)
 
-async def run():
-    con = sqlite3.connect('stocks.db')
+def run():
+    con = sqlite3.connect("stocks.db")
     cursor = con.cursor()
     cursor.execute("PRAGMA journal_mode = wal")
     cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
     total_symbols = [row[0] for row in cursor.fetchall()]
-    #Testing
-    #total_symbols = ['AAPL']
     con.close()
 
-    async with aiohttp.ClientSession() as session:
-        await get_data(session, total_symbols)
+    # Testing (remove when ready)
+    # total_symbols = ["AAPL"]
+
+    if not total_symbols:
+        print("No symbols found.")
+        return
+
+    # Ensure each chunk (batch) contains at most MAX_BATCH_SIZE symbols.
+    chunk_size = min(MAX_BATCH_SIZE, len(total_symbols))
+    chunks = [total_symbols[i:i + chunk_size] for i in range(0, len(total_symbols), chunk_size)]
+
+    print(f"Total symbols: {len(total_symbols)} → {len(chunks)} chunk(s) of up to {chunk_size} each.")
+
+    for chunk in tqdm(chunks):
+        get_data(chunk)
+
 
 if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(run())
+    run()
