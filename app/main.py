@@ -4059,7 +4059,7 @@ def compute_ttm_from_quarterly(quarterly_data):
 
     return ttm_metrics
 
-
+'''
 def compute_annual_from_quarterly(quarterly_data):
     """
     Compute annual data from quarterly data.
@@ -4123,7 +4123,7 @@ def compute_annual_from_quarterly(quarterly_data):
             })
 
     return annual_metrics
-
+'''
 
 @app.post("/business-metrics")
 async def get_data(data: TickerData, api_key: str = Security(get_api_key)):
@@ -4143,14 +4143,13 @@ async def get_data(data: TickerData, api_key: str = Security(get_api_key)):
     if quarterly_data is None:
         quarterly_data = []
 
-    # Compute TTM and annual from quarterly data
     ttm_data = compute_ttm_from_quarterly(quarterly_data)
-    annual_data = compute_annual_from_quarterly(quarterly_data)
+    #annual_data = compute_annual_from_quarterly(quarterly_data)
 
     res = {
         'quarterly': quarterly_data,
         'ttm': ttm_data,
-        'annual': annual_data
+        #'annual': annual_data
     }
 
     data = orjson.dumps(res)

@@ -132,7 +132,7 @@ def run():
 
     #for chunk in tqdm(chunks):
     
-    get_data(['TSLA'])
+    get_data(['GME'])
 
 
 if __name__ == "__main__":
