@@ -79,8 +79,9 @@ def get_data(batch_symbols):
 
     data = {"tickers": batch_symbols}
 
-    for period in ['annual', 'quarterly', 'ttm']:
-        url = f"https://api.mainstreetdata.com/api/v1/companies?freq={period}&YoY=true&percentRevenue=true"
+    # Only fetch quarterly data; TTM and annual are computed from quarterly
+    for period in ['quarterly']:
+        url = f"https://api.mainstreetdata.com/api/v1/companies?freq={period}&percentRevenue=true"
 
         try:
             response = requests.post(url, headers=headers, json=data)
@@ -129,8 +130,9 @@ def run():
 
     print(f"Total symbols: {len(total_symbols)} → {len(chunks)} chunk(s) of up to {chunk_size} each.")
 
-    for chunk in tqdm(chunks):
-        get_data(chunk)
+    #for chunk in tqdm(chunks):
+    
+    get_data(['TSLA'])
 
 
 if __name__ == "__main__":

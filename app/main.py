@@ -3998,6 +3998,133 @@ async def get_fomc_impact(api_key: str = Security(get_api_key)):
         headers={"Content-Encoding": "gzip"}
     )
 
+def compute_ttm_from_quarterly(quarterly_data):
+    """
+    Compute TTM (Trailing Twelve Months) from quarterly data.
+    For cumulative metrics: sum last 4 quarters
+    For snapshot metrics: take latest value
+    """
+    if not quarterly_data:
+        return []
+
+    ttm_metrics = []
+
+    for metric in quarterly_data:
+        metric_type = metric.get('type', 'cumulative')
+        values = metric.get('values', [])
+
+        if not values:
+            continue
+
+        # Sort values by date
+        sorted_values = sorted(values, key=lambda x: x['date'])
+
+        ttm_values = []
+
+        # Use sliding window of 4 quarters for TTM
+        for i in range(3, len(sorted_values)):
+            window = sorted_values[i-3:i+1]  # Last 4 quarters including current
+
+            if metric_type == 'snapshot':
+                # For snapshot metrics, just use the latest value
+                ttm_val = window[-1]['val']
+                percent_revenue = window[-1].get('percentRevenue', 'N/A')
+            else:
+                # For cumulative metrics, sum the last 4 quarters
+                ttm_val = sum(q['val'] for q in window if q.get('val') is not None)
+                # Average the percentRevenue if available
+                percent_revenues = [q.get('percentRevenue') for q in window if q.get('percentRevenue') not in [None, 'N/A']]
+                percent_revenue = sum(percent_revenues) / len(percent_revenues) if percent_revenues else 'N/A'
+
+            ttm_entry = {
+                'date': sorted_values[i]['date'],
+                'val': ttm_val,
+                'valueType': window[-1].get('valueType', 'NUMBER')
+            }
+
+            if percent_revenue != 'N/A':
+                ttm_entry['percentRevenue'] = percent_revenue
+            else:
+                ttm_entry['percentRevenue'] = 'N/A'
+
+            ttm_values.append(ttm_entry)
+
+        if ttm_values:
+            ttm_metrics.append({
+                'name': metric.get('name'),
+                'type': metric_type,
+                'category': metric.get('category'),
+                'values': ttm_values
+            })
+
+    return ttm_metrics
+
+
+def compute_annual_from_quarterly(quarterly_data):
+    """
+    Compute annual data from quarterly data.
+    For cumulative metrics: sum 4 quarters ending in Q4 (12-31)
+    For snapshot metrics: take Q4 value
+    """
+    if not quarterly_data:
+        return []
+
+    annual_metrics = []
+
+    for metric in quarterly_data:
+        metric_type = metric.get('type', 'cumulative')
+        values = metric.get('values', [])
+
+        if not values:
+            continue
+
+        # Sort values by date
+        sorted_values = sorted(values, key=lambda x: x['date'])
+
+        # Group by fiscal year (based on Q4 ending date)
+        annual_values = []
+
+        for i, val in enumerate(sorted_values):
+            date_str = val['date']
+            # Check if this is a Q4 (ends in 12-31 or 12-30)
+            if '-12-3' in date_str:
+                # This is Q4, compute annual
+                if i >= 3:
+                    # We have at least 4 quarters
+                    window = sorted_values[i-3:i+1]
+
+                    if metric_type == 'snapshot':
+                        annual_val = window[-1]['val']
+                        percent_revenue = window[-1].get('percentRevenue', 'N/A')
+                    else:
+                        annual_val = sum(q['val'] for q in window if q.get('val') is not None)
+                        percent_revenues = [q.get('percentRevenue') for q in window if q.get('percentRevenue') not in [None, 'N/A']]
+                        percent_revenue = sum(percent_revenues) / len(percent_revenues) if percent_revenues else 'N/A'
+
+                    annual_entry = {
+                        'date': date_str,
+                        'val': annual_val,
+                        'valueType': window[-1].get('valueType', 'NUMBER')
+                    }
+
+                    if percent_revenue != 'N/A':
+                        annual_entry['percentRevenue'] = percent_revenue
+                    else:
+                        annual_entry['percentRevenue'] = 'N/A'
+
+                    annual_values.append(annual_entry)
+
+        if annual_values:
+            annual_metrics.append({
+                'name': metric.get('name'),
+                'type': metric_type,
+                'category': metric.get('category'),
+                'values': annual_values
+            })
+
+    return annual_metrics
+
+
 @app.post("/business-metrics")
 async def get_data(data: TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
@@ -4010,11 +4137,22 @@ async def get_data(data: TickerData, api_key: str = Security(get_api_key)):
             headers={"Content-Encoding": "gzip"}
         )
 
-    periods = ['ttm', 'annual', 'quarterly']
-    tasks = [load_json_async(f"json/business-metrics/{period}/{ticker}.json") for period in ['ttm', 'annual', 'quarterly']]
-    results = await asyncio.gather(*tasks)
-    res = dict(zip(periods, [r if r is not None else [] for r in results]))
-    
+    # Load quarterly data
+    quarterly_data = await load_json_async(f"json/business-metrics/quarterly/{ticker}.json")
+
+    if quarterly_data is None:
+        quarterly_data = []
+
+    # Compute TTM and annual from quarterly data
+    ttm_data = compute_ttm_from_quarterly(quarterly_data)
+    annual_data = compute_annual_from_quarterly(quarterly_data)
+
+    res = {
+        'quarterly': quarterly_data,
+        'ttm': ttm_data,
+        'annual': annual_data
+    }
+
     data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
 
