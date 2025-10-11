@@ -3999,7 +3999,7 @@ async def get_fomc_impact(api_key: str = Security(get_api_key)):
     )
 
 @app.post("/business-metrics")
-async def get_fomc_impact(data: TickerData, api_key: str = Security(get_api_key)):
+async def get_data(data: TickerData, api_key: str = Security(get_api_key)):
     ticker = data.ticker.upper()
     cache_key = f"business-metrics-{ticker}"
     cached_result = redis_client.get(cache_key)
@@ -4009,30 +4009,17 @@ async def get_fomc_impact(data: TickerData, api_key: str = Security(get_api_key)
             media_type="application/json",
             headers={"Content-Encoding": "gzip"}
         )
-    res = {}
-    try:
-        with open(f"json/business-metrics/ttm/{ticker}.json", 'rb') as file:
-            res['ttm'] = orjson.loads(file.read())
-    except:
-        res['ttm'] = []
 
-    try:
-        with open(f"json/business-metrics/annual/{ticker}.json", 'rb') as file:
-            res['annual'] = orjson.loads(file.read())
-    except:
-        res['annual'] = []
-
-    try:
-        with open(f"json/business-metrics/quarterly/{ticker}.json", 'rb') as file:
-            res['quarterly'] = orjson.loads(file.read())
-    except:
-        res['quarterly'] = []
-
+    periods = ['ttm', 'annual', 'quarterly']
+    tasks = [load_json_async(f"json/business-metrics/{period}/{ticker}.json") for period in ['ttm', 'annual', 'quarterly']]
+    results = await asyncio.gather(*tasks)
+    res = dict(zip(periods, [r if r is not None else [] for r in results]))
+    
     data = orjson.dumps(res)
     compressed_data = gzip.compress(data)
 
     redis_client.set(cache_key, compressed_data)
-    redis_client.expire(cache_key,3600*3600)
+    redis_client.expire(cache_key,3600)
 
     return StreamingResponse(
         io.BytesIO(compressed_data),
