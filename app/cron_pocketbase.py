@@ -266,13 +266,19 @@ async def downgrade_user():
                 for screener in stock_screener_data:
                     pb.collection('stocksScreener').delete(screener.id)
 
-                option_screener_data = pb.collection("optionsScreener").get_full_list(query_params = {"filter": f"user = '{item.id}'"})
-                for screener in option_screener_data:
+                
+                data = pb.collection("optionsScreener").get_full_list(query_params = {"filter": f"user = '{item.id}'"})
+                for screener in data:
                     pb.collection('optionsScreener').delete(screener.id)
 
-                options_watchlist_data = pb.collection("optionsWatchlist").get_full_list(query_params = {"filter": f"user = '{item.id}'"})
-                for watchlist in options_watchlist_data:
+                data = pb.collection("optionsFlow").get_full_list(query_params = {"filter": f"user = '{item.id}'"})
+                for screener in data:
+                    pb.collection('optionsFlow').delete(screener.id)
+
+                data = pb.collection("optionsWatchlist").get_full_list(query_params = {"filter": f"user = '{item.id}'"})
+                for watchlist in data:
                     pb.collection('optionsWatchlist').delete(watchlist.id)
+
 
                 backtesting_data = pb.collection("backtesting").get_full_list(query_params = {"filter": f"user = '{item.id}'"})
                 for strategy in backtesting_data:
