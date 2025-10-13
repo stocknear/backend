@@ -16,7 +16,7 @@ headers = {
     "Content-Type": "application/json"
 }
 
-MAX_BATCH_SIZE = 20
+MAX_BATCH_SIZE = 15
 
 api_call_count = 0
 
@@ -98,21 +98,15 @@ def run():
 
     # Split into chunks of MAX_BATCH_SIZE
     chunks = [total_symbols[i:i + MAX_BATCH_SIZE] for i in range(0, len(total_symbols), MAX_BATCH_SIZE)]
-
     print(f"Total symbols: {len(total_symbols)} → {len(chunks)} chunks of up to {MAX_BATCH_SIZE} symbols each.")
 
-    index = 0
-    for chunk in tqdm(chunks, desc="Fetching data", unit="chunk"):
-        if index % 80 == 0:
-            time.sleep(60)
-            print("sleeping...")
+    for chunk in tqdm(chunks, desc="Fetching data", unit="chunk"):    
         try:
             print(chunk)
             get_data(chunk)
-            print("===============")
+            time.sleep(10)
         except Exception as e:
             print(f"Error in chunk {chunk}: {e}")
-        index +=1
 
 if __name__ == "__main__":
     run()

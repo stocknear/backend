@@ -312,3 +312,65 @@ def json_to_string(json_data):
         return f"Error: Invalid JSON data.  Details: {e}"
     except Exception as e:
         return f"An unexpected error occurred: {e}"
+
+
+def compute_ttm_from_quarterly(quarterly_data):
+    """
+    Compute TTM (Trailing Twelve Months) from quarterly data.
+    For cumulative metrics: sum last 4 quarters
+    For snapshot metrics: take latest value
+    """
+    if not quarterly_data:
+        return []
+
+    ttm_metrics = []
+
+    for metric in quarterly_data:
+        metric_type = metric.get('type', 'cumulative')
+        values = metric.get('values', [])
+
+        if not values:
+            continue
+
+        # Sort values by date
+        sorted_values = sorted(values, key=lambda x: x['date'])
+
+        ttm_values = []
+
+        # Use sliding window of 4 quarters for TTM
+        for i in range(3, len(sorted_values)):
+            window = sorted_values[i-3:i+1]  # Last 4 quarters including current
+
+            if metric_type == 'snapshot':
+                # For snapshot metrics, just use the latest value
+                ttm_val = window[-1]['val']
+                percent_revenue = window[-1].get('percentRevenue', 'N/A')
+            else:
+                # For cumulative metrics, sum the last 4 quarters
+                ttm_val = sum(q['val'] for q in window if q.get('val') is not None)
+                # Average the percentRevenue if available
+                percent_revenues = [q.get('percentRevenue') for q in window if q.get('percentRevenue') not in [None, 'N/A']]
+                percent_revenue = sum(percent_revenues) / len(percent_revenues) if percent_revenues else 'N/A'
+
+            ttm_entry = {
+                'date': sorted_values[i]['date'],
+                'val': ttm_val,
+                'valueType': window[-1].get('valueType', 'NUMBER')
+            }
+
+            if percent_revenue != 'N/A':
+                ttm_entry['percentRevenue'] = percent_revenue
+            else:
+                ttm_entry['percentRevenue'] = 'N/A'
+
+            ttm_values.append(ttm_entry)
+
+        if ttm_values:
+            ttm_metrics.append({
+                'name': metric.get('name'),
+                'type': metric_type,
+                'category': metric.get('category'),
+                'values': ttm_values
+            })
+
+    return ttm_metrics

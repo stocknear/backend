@@ -1234,6 +1234,7 @@ async def get_why_priced_moved(tickers: List[str]) -> Dict[str, Any]:
 async def get_ticker_business_metrics(tickers: List[str]) -> Dict[str, Any]:
     """
     Fetch business metrics for multiple stocks, including revenue breakdown by sector and geographic region.
+    Values in metric['values'] will be filtered to the last 5 years.
 
     Args:
         tickers (List[str]): List of stock ticker symbols (e.g., ["AAPL", "GOOGL"]).
@@ -1241,7 +1242,104 @@ async def get_ticker_business_metrics(tickers: List[str]) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: Dictionary mapping each ticker to its business metrics.
     """
-    return await get_ticker_specific_data(tickers, "business-metrics")
+    def sort_categories(category: str) -> int:
+        order = {
+            "Financial Metrics": 1,
+            "Operating Metrics": 2,
+            "Other": 3
+        }
+        return order.get(category, 99)
+
+    def parse_iso_date(date_str: str) -> datetime:
+        """Parse ISO date strings like '2021-03-31T00:00:00.000Z'"""
+        if not isinstance(date_str, str):
+            raise ValueError("date must be a string")
+
+        for fmt in ("%Y-%m-%dT%H:%M:%S.%fZ", "%Y-%m-%dT%H:%M:%SZ"):
+            try:
+                return datetime.strptime(date_str, fmt)
+            except ValueError:
+                pass
+
+        # Fallback for other ISO formats
+        if date_str.endswith("Z"):
+            date_str_fixed = date_str[:-1] + "+00:00"
+            dt = datetime.fromisoformat(date_str_fixed)
+            return dt.replace(tzinfo=None) - dt.utcoffset() if dt.utcoffset() else dt.replace(tzinfo=None)
+        else:
+            dt = datetime.fromisoformat(date_str)
+            if dt.tzinfo is not None:
+                return (dt - dt.utcoffset()).replace(tzinfo=None)
+            return dt
+
+    def filter_values_last_5y(values: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Return only values within the last 5 years, with date as YYYY-MM-DD."""
+        cutoff = datetime.utcnow() - timedelta(days=5 * 365)
+        filtered = []
+        for v in values:
+            try:
+                d = v.get("date") if isinstance(v, dict) else None
+                if not d:
+                    continue
+                parsed = parse_iso_date(d)
+                if parsed >= cutoff:
+                    v_copy = dict(v)
+                    v_copy["date"] = parsed.strftime("%Y-%m-%d")  # transform date
+                    filtered.append(v_copy)
+            except Exception:
+                continue
+        return filtered
+
+    def process_metrics(metrics_data: Any) -> Dict[str, Any]:
+        if not isinstance(metrics_data, list):
+            return {"categorized": {}, "ordered": []}
+
+        temp_categorized: Dict[str, List[Dict[str, Any]]] = {}
+        operating_metrics: List[Dict[str, Any]] = []
+
+        for metric in metrics_data:
+            if isinstance(metric, dict):
+                category = metric.get("category", "Other")
+                metric_copy = dict(metric)
+            else:
+                category = "Other"
+                metric_copy = {"category": category, "value": metric}
+
+            if "values" in metric_copy and isinstance(metric_copy["values"], list):
+                metric_copy["values"] = filter_values_last_5y(metric_copy["values"])
+
+            temp_categorized.setdefault(category, []).append(metric_copy)
+
+        result: Dict[str, Any] = {}
+        for category, metrics in temp_categorized.items():
+            if len(metrics) == 1:
+                operating_metrics.extend(metrics)
+            else:
+                result[category] = metrics
+
+        if operating_metrics:
+            result["Operating Metrics"] = operating_metrics
+
+        return {
+            "categorized": result,
+            "ordered": sorted(result.keys(), key=sort_categories)
+        }
+
+    # Fetch data
+    data = await get_ticker_specific_data(tickers, "business-metrics/quarterly")
+
+    processed: Dict[str, Any] = {}
+    if isinstance(data, dict):
+        for ticker, metrics in data.items():
+            try:
+                processed[ticker] = process_metrics(metrics)
+            except Exception as e:
+                processed[ticker] = {"error": str(e), "categorized": {}, "ordered": []}
+    else:
+        processed = process_metrics(data)
+
+    return processed
+
 
 
 @function_tool
@@ -2987,5 +3085,5 @@ async def search_new_listed_companies() -> List[Dict[str, Any]]:
 
 
 #Testing purposes
-#data = asyncio.run(search_new_listed_companies())
+#data = asyncio.run(get_ticker_business_metrics(["ADBE"]))
 #print(data)
