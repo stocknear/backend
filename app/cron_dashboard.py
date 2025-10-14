@@ -344,7 +344,7 @@ async def get_analyst_report():
 async def get_latest_wiim():
     with open("json/wiim/flow/data.json","rb") as file:
         res_list = orjson.loads(file.read())
-    return res_list[:10]
+    return res_list[:15]
 
 
 def get_dark_pool():
