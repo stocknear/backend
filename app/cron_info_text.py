@@ -963,6 +963,192 @@ data = {
     "ebtPerEbit": {
         "text": "The earnings before tax to EBIT ratio shows the impact of interest expenses on operating earnings."
     },
+    "shortTermInvestments": {
+        "text": "Short-term investments are financial assets that can be quickly converted to cash, typically within one year, including marketable securities and money market funds."
+    },
+    "cashAndShortTermInvestments": {
+        "text": "The sum of cash, cash equivalents, and short-term investments, representing the most liquid assets available to the company."
+    },
+    "netReceivables": {
+        "text": "Net receivables represent the total amount owed to the company by customers, net of any allowances for doubtful accounts."
+    },
+    "accountsReceivables": {
+        "text": "Accounts receivable is the amount of money owed to the company by customers for goods or services delivered on credit."
+    },
+    "otherReceivables": {
+        "text": "Other receivables include amounts owed to the company from sources other than normal business operations, such as tax refunds or employee advances."
+    },
+    "inventory": {
+        "text": "Inventory represents the goods and materials a company holds for the purpose of resale or production, including raw materials, work-in-progress, and finished goods."
+    },
+    "prepaids": {
+        "text": "Prepaid expenses are payments made in advance for goods or services to be received in the future, such as insurance premiums or rent."
+    },
+    "otherCurrentAssets": {
+        "text": "Other current assets include short-term assets that don't fit into standard categories but are expected to be converted to cash within one year."
+    },
+    "totalCurrentAssets": {
+        "text": "Total current assets represent the sum of all assets that are expected to be converted to cash, sold, or consumed within one year."
+    },
+    "propertyPlantEquipmentNet": {
+        "text": "Property, plant, and equipment (PP&E) net represents the company's long-term physical assets after deducting accumulated depreciation."
+    },
+    "goodwill": {
+        "text": "Goodwill is an intangible asset that arises when a company acquires another business for more than the fair value of its identifiable assets and liabilities."
+    },
+    "intangibleAssets": {
+        "text": "Intangible assets are non-physical assets such as patents, trademarks, copyrights, and customer relationships that provide long-term value to the company."
+    },
+    "goodwillAndIntangibleAssets": {
+        "text": "The combined value of goodwill and other intangible assets, representing the company's non-physical assets with long-term value."
+    },
+    "longTermInvestments": {
+        "text": "Long-term investments are financial assets that a company intends to hold for more than one year, including stocks, bonds, and other securities."
+    },
+    "taxAssets": {
+        "text": "Tax assets represent amounts that can reduce future tax payments, including deferred tax assets and prepaid taxes."
+    },
+    "otherNonCurrentAssets": {
+        "text": "Other non-current assets include long-term assets that don't fit into standard categories, such as long-term prepaid expenses or deposits."
+    },
+    "totalNonCurrentAssets": {
+        "text": "Total non-current assets represent the sum of all long-term assets that are expected to provide value for more than one year."
+    },
+    "otherAssets": {
+        "text": "Other assets include miscellaneous items that don't fit into standard asset categories on the balance sheet."
+    },
+    "totalPayables": {
+        "text": "Total payables represent the combined amount of accounts payable and other short-term obligations the company owes to suppliers and creditors."
+    },
+    "accountPayables": {
+        "text": "Accounts payable is the amount of money the company owes to suppliers for goods or services received on credit."
+    },
+    "otherPayables": {
+        "text": "Other payables include amounts owed by the company for obligations other than standard accounts payable, such as accrued expenses or dividends payable."
+    },
+    "accruedExpenses": {
+        "text": "Accrued expenses are costs that have been incurred but not yet paid, such as wages, interest, or utilities."
+    },
+    "shortTermDebt": {
+        "text": "Short-term debt represents borrowings and the current portion of long-term debt that must be repaid within one year."
+    },
+    "capitalLeaseObligationsCurrent": {
+        "text": "Current capital lease obligations represent the portion of capital lease payments due within the next year."
+    },
+    "taxPayables": {
+        "text": "Tax payables represent the amount of taxes owed to government authorities that have not yet been paid."
+    },
+    "deferredRevenue": {
+        "text": "Deferred revenue represents payments received in advance for goods or services that have not yet been delivered or performed."
+    },
+    "otherCurrentLiabilities": {
+        "text": "Other current liabilities include short-term obligations that don't fit into standard categories but are due within one year."
+    },
+    "totalCurrentLiabilities": {
+        "text": "Total current liabilities represent the sum of all obligations that must be paid within one year."
+    },
+    "longTermDebt": {
+        "text": "Long-term debt represents borrowings that are due beyond one year, including bonds, notes payable, and mortgages."
+    },
+    "capitalLeaseObligationsNonCurrent": {
+        "text": "Non-current capital lease obligations represent the portion of capital lease payments due beyond one year."
+    },
+    "deferredRevenueNonCurrent": {
+        "text": "Non-current deferred revenue represents payments received in advance for goods or services to be delivered beyond one year."
+    },
+    "deferredTaxLiabilitiesNonCurrent": {
+        "text": "Non-current deferred tax liabilities represent taxes that will be owed in future periods beyond one year due to temporary differences in accounting."
+    },
+    "otherNonCurrentLiabilities": {
+        "text": "Other non-current liabilities include long-term obligations that don't fit into standard categories and are due beyond one year."
+    },
+    "totalNonCurrentLiabilities": {
+        "text": "Total non-current liabilities represent the sum of all long-term obligations due beyond one year."
+    },
+    "otherLiabilities": {
+        "text": "Other liabilities include miscellaneous obligations that don't fit into standard liability categories on the balance sheet."
+    },
+    "capitalLeaseObligations": {
+        "text": "Capital lease obligations represent the total present value of lease payments for assets that are treated as purchased assets rather than rental expenses."
+    },
+    "treasuryStock": {
+        "text": "Treasury stock represents shares of the company's own stock that have been repurchased and are held by the company rather than outstanding in the market."
+    },
+    "preferredStock": {
+        "text": "Preferred stock represents equity securities that have priority over common stock in dividend payments and asset distribution in liquidation."
+    },
+    "commonStock": {
+        "text": "Common stock represents the par value of shares issued to equity holders, representing basic ownership in the company."
+    },
+    "additionalPaidInCapital": {
+        "text": "Additional paid-in capital represents the amount shareholders have invested in excess of the par value of the stock."
+    },
+    "accumulatedOtherComprehensiveIncomeLoss": {
+        "text": "Accumulated other comprehensive income (loss) includes gains and losses that bypass the income statement, such as foreign currency translation adjustments and unrealized investment gains/losses."
+    },
+    "otherTotalStockholdersEquity": {
+        "text": "Other stockholders equity includes miscellaneous equity items that don't fit into standard equity categories."
+    },
+    "totalEquity": {
+        "text": "Total equity represents the total ownership interest in the company, including all classes of stock and retained earnings."
+    },
+    "minorityInterest": {
+        "text": "Minority interest represents the portion of subsidiaries' equity that is not owned by the parent company."
+    },
+    "totalLiabilitiesAndTotalEquity": {
+        "text": "Total liabilities and equity represents the sum of all liabilities and shareholders' equity, which must equal total assets on the balance sheet."
+    },
+    "totalInvestments": {
+        "text": "Total investments represent the combined value of short-term and long-term investment securities held by the company."
+    },
+    "netDebt": {
+        "text": "Net debt is calculated by subtracting cash and cash equivalents from total debt, representing the company's debt position after accounting for available cash."
+    },
+    "investmentsInPropertyPlantAndEquipment": {
+        "text": "Investments in property, plant, and equipment represent cash spent on acquiring or upgrading fixed assets such as buildings, machinery, and equipment."
+    },
+    "longTermNetDebtIssuance": {
+        "text": "Long-term net debt issuance represents the net cash flow from issuing or repaying long-term debt, calculated as new long-term debt issued minus long-term debt repaid."
+    },
+    "shortTermNetDebtIssuance": {
+        "text": "Short-term net debt issuance represents the net cash flow from issuing or repaying short-term debt, calculated as new short-term debt issued minus short-term debt repaid."
+    },
+    "netStockIssuance": {
+        "text": "Net stock issuance represents the net cash flow from issuing or repurchasing stock, calculated as stock issued minus stock repurchased."
+    },
+    "netCommonStockIssuance": {
+        "text": "Net common stock issuance represents the net cash flow from issuing or repurchasing common stock, calculated as common stock issued minus common stock repurchased."
+    },
+    "commonStockIssuance": {
+        "text": "Common stock issuance represents the cash received from issuing new shares of common stock to investors."
+    },
+    "netPreferredStockIssuance": {
+        "text": "Net preferred stock issuance represents the net cash flow from issuing or repurchasing preferred stock, calculated as preferred stock issued minus preferred stock repurchased."
+    },
+    "commonDividendsPaid": {
+        "text": "Common dividends paid represents the cash paid to common shareholders as dividend distributions."
+    },
+    "preferredDividendsPaid": {
+        "text": "Preferred dividends paid represents the cash paid to preferred shareholders as dividend distributions."
+    },
+    "effectOfForexChangesOnCash": {
+        "text": "Effect of foreign exchange changes on cash represents the impact of currency exchange rate fluctuations on the company's cash and cash equivalents held in foreign currencies."
+    },
+    "cashAtEndOfPeriod": {
+        "text": "Cash at end of period represents the total amount of cash and cash equivalents held by the company at the end of the reporting period."
+    },
+    "cashAtBeginningOfPeriod": {
+        "text": "Cash at beginning of period represents the total amount of cash and cash equivalents held by the company at the start of the reporting period."
+    },
+    "incomeTaxesPaid": {
+        "text": "Income taxes paid represents the actual cash payments made to tax authorities for income taxes during the period."
+    },
+    "interestPaid": {
+        "text": "Interest paid represents the actual cash payments made for interest expenses on debt obligations during the period."
+    },
+    "netCashProvidedByFinancingActivities": {
+        "text": "Net cash provided by financing activities represents the total cash flow from all financing activities, including debt issuance/repayment, stock issuance/repurchase, and dividend payments."
+    }
 
 }
 
