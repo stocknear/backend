@@ -878,8 +878,91 @@ data = {
     },
     "indexMembership": {
         "text": "Index Membership indicates whether a stock is included in major market indices such as the S&P 100 or S&P 500. Companies in these indices are typically large, well-established firms that meet specific criteria for market capitalization, liquidity, and financial viability. Index membership often correlates with institutional ownership and trading volume."
-    }
-
+    },
+    "enterpriseValueMultiple": {
+        "text": "The enterprise value multiple (EV/EBITDA) is a valuation metric that compares a company's enterprise value to its EBITDA."
+    },
+    "forwardPriceToEarningsGrowthRatio": {
+        "text": "The forward PEG ratio uses forward-looking earnings estimates to calculate the price-to-earnings growth ratio."
+    },
+    "priceToFairValue": {
+        "text": "The price to fair value ratio compares the current stock price to an estimated fair value based on fundamental analysis."
+    },
+    "debtToAssetsRatio": {
+        "text": "The debt-to-assets ratio shows what percentage of a company's assets are financed through debt. It indicates the company's financial leverage."
+    },
+    "debtToCapitalRatio": {
+        "text": "The debt-to-capital ratio measures a company's financial leverage by comparing total debt to total capital (debt plus equity)."
+    },
+    "longTermDebtToCapitalRatio": {
+        "text": "The long-term debt to capital ratio measures the portion of a company's capital that is financed by long-term debt."
+    },
+    "debtToMarketCap": {
+        "text": "The debt to market capitalization ratio compares a company's total debt to its market value, showing leverage relative to market valuation."
+    },
+    "cashRatio": {
+        "text": "The cash ratio is the most conservative liquidity ratio, measuring only cash and cash equivalents against current liabilities."
+    },
+    "solvencyRatio": {
+        "text": "The solvency ratio measures a company's ability to meet its long-term obligations and indicates long-term financial stability."
+    },
+    "receivablesTurnover": {
+        "text": "The receivables turnover ratio measures how efficiently a company collects revenue from its credit customers."
+    },
+    "payablesTurnover": {
+        "text": "The payables turnover ratio measures how quickly a company pays off its suppliers and vendors."
+    },
+    "workingCapitalTurnoverRatio": {
+        "text": "The working capital turnover ratio measures how efficiently a company uses its working capital to generate sales."
+    },
+    "financialLeverageRatio": {
+        "text": "The financial leverage ratio measures the degree to which a company uses debt to finance its assets."
+    },
+    "debtServiceCoverageRatio": {
+        "text": "The debt service coverage ratio measures a company's ability to service its debt with its operating income."
+    },
+    "operatingCashFlowRatio": {
+        "text": "The operating cash flow ratio measures a company's ability to cover current liabilities with cash generated from operations."
+    },
+    "freeCashFlowOperatingCashFlowRatio": {
+        "text": "The free cash flow to operating cash flow ratio shows what percentage of operating cash flow remains as free cash flow after capital expenditures."
+    },
+    "shortTermOperatingCashFlowCoverageRatio": {
+        "text": "The short-term operating cash flow coverage ratio measures the ability of operating cash flow to cover short-term obligations."
+    },
+    "operatingCashFlowCoverageRatio": {
+        "text": "The operating cash flow coverage ratio measures how well operating cash flow can cover total debt obligations."
+    },
+    "capitalExpenditureCoverageRatio": {
+        "text": "The capital expenditure coverage ratio measures how well operating cash flow covers capital expenditures needed to maintain and grow the business."
+    },
+    "dividendPaidAndCapexCoverageRatio": {
+        "text": "This ratio measures the ability of operating cash flow to cover both dividend payments and capital expenditures."
+    },
+    "dividendYieldPercentage": {
+        "text": "The dividend yield expressed as a percentage, showing the annual dividend payment relative to the stock price."
+    },
+    "dividendPayoutRatio": {
+        "text": "The dividend payout ratio is the percentage of a company's profits that are paid out as dividends. A high ratio implies that the dividend payments may not be sustainable."
+    },
+    "dividendPerShare": {
+        "text": "The dividend per share is the total amount of dividends paid out to shareholders divided by the number of outstanding shares."
+    },
+    "continuousOperationsProfitMargin": {
+        "text": "The continuous operations profit margin measures profitability from ongoing business operations, excluding discontinued operations."
+    },
+    "bottomLineProfitMargin": {
+        "text": "The bottom line profit margin represents the final profit margin after all expenses, taxes, and costs have been deducted from revenue."
+    },
+    "tangibleBookValuePerShare": {
+        "text": "Tangible book value per share is the book value per share excluding intangible assets like goodwill."
+    },
+    "netIncomePerEBT": {
+        "text": "The net income to earnings before tax ratio shows what percentage of pre-tax earnings remains after taxes are paid."
+    },
+    "ebtPerEbit": {
+        "text": "The earnings before tax to EBIT ratio shows the impact of interest expenses on operating earnings."
+    },
 
 }
 
