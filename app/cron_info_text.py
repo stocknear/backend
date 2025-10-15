@@ -1148,6 +1148,9 @@ data = {
     },
     "netCashProvidedByFinancingActivities": {
         "text": "Net cash provided by financing activities represents the total cash flow from all financing activities, including debt issuance/repayment, stock issuance/repurchase, and dividend payments."
+    },
+    "forwardPE": {
+        "text": "The forward price-to-earnings (P/E) ratio uses estimated earnings for the next fiscal year instead of historical earnings, providing insight into expected valuation based on future profitability."
     }
 
 }

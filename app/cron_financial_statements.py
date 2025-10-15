@@ -5,6 +5,7 @@ import aiohttp
 import sqlite3
 from tqdm import tqdm
 from dotenv import load_dotenv
+from datetime import datetime
 
 load_dotenv()
 api_key = os.getenv('FMP_API_KEY')
@@ -54,7 +55,91 @@ async def save_json(symbol, period, data_type, data):
     with open(f"json/financial-statements/{data_type}/{period}/{symbol}.json", 'w') as file:
         ujson.dump(data, file)
 
+def get_historical_price_for_date(price_data, target_date):
+    """
+    Find the stock price on or before the target date (fiscal period end).
+    This ensures we use the last available trading price of that period.
+    price_data is sorted with most recent first.
+
+    Args:
+        price_data: List of price records sorted newest to oldest
+        target_date: Target date in "YYYY-MM-DD" format (e.g., fiscal year end)
+
+    Returns:
+        The adjusted close price on the target date, or the closest trading day before it
+    """
+    target_dt = datetime.strptime(target_date, "%Y-%m-%d")
+
+    # Iterate through prices (newest to oldest) to find the last price on or before target date
+    for price_item in price_data:
+        price_date = datetime.strptime(price_item['date'], "%Y-%m-%d")
+        if price_date <= target_dt:
+            # This is the most recent price on or before the fiscal period end
+            return price_item.get('adjClose')
+
+    # If no price found before target date, return None
+    return None
+
+def calculate_historical_forward_pe(symbol, fiscal_year, period_end_date, analyst_estimates, price_data):
+    """
+    Calculate forward PE for a specific historical period.
+
+    Args:
+        symbol: Stock symbol
+        fiscal_year: Fiscal year of the statement (e.g., 2024)
+        period_end_date: End date of the fiscal period (e.g., "2024-09-30")
+        analyst_estimates: List of analyst estimate data
+        price_data: List of historical price data
+
+    Returns:
+        Forward PE ratio or None if cannot be calculated
+    """
+    try:
+        # Get the stock price at the end of this fiscal period
+        price = get_historical_price_for_date(price_data, period_end_date)
+        if not price or price <= 0:
+            return None
+
+        # Look for analyst estimate for the NEXT fiscal year
+        next_year = int(fiscal_year) + 1
+        estimate_item = next((item for item in analyst_estimates if item.get('date') == next_year), None)
+
+        if not estimate_item:
+            return None
+
+        estimated_eps = estimate_item.get('estimatedEpsAvg')
+        if not estimated_eps or estimated_eps <= 0:
+            return None
+
+        forward_pe = price / estimated_eps
+        return round(forward_pe, 2)
+
+    except Exception as e:
+        # Silently handle errors for individual calculations
+        return None
+
+
 async def add_ratio_elements(symbol):
+    # Load analyst estimates data once for all periods
+    analyst_estimates = []
+    price_data = []
+
+    try:
+        analyst_estimates_path = f"json/analyst-estimate/{symbol}.json"
+        with open(analyst_estimates_path, "r") as file:
+            analyst_estimates = ujson.load(file)
+    except Exception as e:
+        # No analyst estimates available for this symbol
+        pass
+
+    try:
+        price_data_path = f"json/historical-price/adj/{symbol}.json"
+        with open(price_data_path, "r") as file:
+            price_data = ujson.load(file)
+    except Exception as e:
+        # No price data available for this symbol
+        pass
+
     for period in ['annual', 'quarter']:
         try:
 
@@ -94,11 +179,27 @@ async def add_ratio_elements(symbol):
                         if i < len(income_statement_data) and i < len(cash_flow_data):
                             revenue = income_statement_data[i].get('revenue', 0)
                             free_cash_flow = cash_flow_data[i].get('freeCashFlow', 0)
-                            
+
                             if revenue and revenue != 0:
                                 ratio_item['freeCashFlowMargin'] = round(free_cash_flow / revenue, 2)
                             else:
                                 ratio_item['freeCashFlowMargin'] = 0
+
+                        # Calculate historical forwardPE if data is available
+                        if analyst_estimates and price_data:
+                            fiscal_year = ratio_item.get('fiscalYear')
+                            period_end_date = ratio_item.get('date')
+
+                            if fiscal_year and period_end_date:
+                                forward_pe = calculate_historical_forward_pe(
+                                    symbol,
+                                    fiscal_year,
+                                    period_end_date,
+                                    analyst_estimates,
+                                    price_data
+                                )
+                                if forward_pe is not None:
+                                    ratio_item['forwardPE'] = forward_pe
 
                     except:
                         pass
@@ -199,7 +300,7 @@ async def run():
     cursor.execute("PRAGMA journal_mode = wal")
     cursor.execute("SELECT DISTINCT symbol FROM stocks WHERE symbol NOT LIKE '%.%'")
     total_symbols = [row[0] for row in cursor.fetchall()]
-    #total_symbols = ['GOOG']
+    #total_symbols = ['ADBE']
     con.close()
 
     rate_limiter = RateLimiter(max_requests=1000, time_window=60)
