@@ -39,7 +39,7 @@ async def get_data(ticker, con):
     except Exception as e:
         #print(e)
         shareholders_list = []
-
+    
     return shareholders_list
 
 
