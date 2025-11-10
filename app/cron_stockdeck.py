@@ -64,13 +64,26 @@ async def get_data(ticker):
                     change_percentage_net_income = round((history[-1]['netIncome']/history[-2]['netIncome']-1)*100,2)
                     financial_dict = {'changePercentageRevenue': change_percentage_revenue, 'changePercentageNetIncome': change_percentage_net_income, 'history': history}
             except:
-                financial_dict = {}
-            
+                financial_dict = {}            
 
             try:
                 screener_result = {column: stock_screener_data_dict.get(ticker, {}).get(column, None) for column in screener_columns}
             except:
                 screener_result = {column: None for column in screener_columns}
+
+            try:
+                with open(f"json/financial-statements/ratios/ttm/{ticker}.json","rb") as file:
+                    history = orjson.loads(file.read())[0] #latest value
+                    screener_result = {**screener_result, 'priceToBookRatioTTM': history['priceToBookRatioTTM'],'priceToSalesRatioTTM': history['priceToSalesRatioTTM']}
+            except:
+                pass
+
+            try:
+                with open(f"json/financial-statements/balance-sheet-statement/ttm/{ticker}.json","rb") as file:
+                    history = orjson.loads(file.read())[0] #latest value
+                    screener_result = {**screener_result, 'totalAssets': history['totalAssets'],'totalLiabilities': history['totalLiabilities'], 'totalEquity': history['totalEquity']}
+            except:
+                pass
 
             try:
                 if screener_result.get("revenueTTM") is not None:
@@ -87,7 +100,6 @@ async def get_data(ticker):
                 company_stock_split = []
             else:
                 company_stock_split = orjson.loads(data['stock_split'])
-            
 
             res_list = {
                     **screener_result,
@@ -124,11 +136,11 @@ async def run():
     cursor.execute("SELECT DISTINCT symbol FROM stocks")
     stocks_symbols = [row[0] for row in cursor.fetchall()]
     #testing
-    #stocks_symbols = ['NVO']
+    #stocks_symbols = ['KO']
     for ticker in tqdm(stocks_symbols):
-        res = await get_data(ticker)  
-        await save_stockdeck(ticker, res)
-
+        res = await get_data(ticker)
+        if res:
+            await save_stockdeck(ticker, res)
 try:
     con = sqlite3.connect('stocks.db')
     asyncio.run(run())
