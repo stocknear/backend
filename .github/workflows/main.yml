@@ -1,0 +1,42 @@
+name: Backend CI/CD
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v2.2.2
+        with:
+          python-version: '3.x'
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+
+    steps:
+      - name: SSH and Restart USEast Server
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.USEAST_IP_ADDRESS }}
+          username: ${{ secrets.USEAST_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd backend/
+            git reset --hard
+            git pull https://${{ secrets.GIT_PASSWORD }}:x-oauth-basic@github.com/stocknear/backend.git
+            pm2 restart fastapi
+            pm2 restart fastify
+
+      - name: Actions for Discord
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        uses: Ilshidur/action-discord@0.3.2
+        with:
+          args: '${{ github.event.repository.full_name }} has been deployed successfully.'

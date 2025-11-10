@@ -1,0 +1,26 @@
+{
+  "scripts": {
+    "start": "fuser -k 2000/tcp || true && nodemon app.js"
+  },
+  "dependencies": {
+    "@fastify/cors": "^8.5.0",
+    "@fastify/websocket": "^8.2.0",
+    "axios": "^1.6.2",
+    "blob-util": "^2.0.2",
+    "cheerio": "^1.0.0-rc.12",
+    "dotenv": "^16.4.5",
+    "fastify": "^4.28.1",
+    "got": "^11.8.3",
+    "https": "^1.0.0",
+    "mixpanel": "^0.18.0",
+    "object-to-formdata": "^4.5.1",
+    "pino": "^8.19.0",
+    "pocketbase": "^0.21.2",
+    "sharp": "^0.32.6",
+    "ua-parser-js": "^1.0.37",
+    "ws": "^8.14.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
