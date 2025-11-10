@@ -768,6 +768,14 @@ const oneDayClients = new Set();
 let oneDayHeartbeatTimer = null;
 
 const oneDayPriceCache = new Map();
+const ONE_DAY_CACHE_TTL_MS = 30 * 1000;
+
+function isOneDayCacheEntryFresh(timestamp) {
+  if (!Number.isFinite(timestamp)) {
+    return false;
+  }
+  return Date.now() - timestamp <= ONE_DAY_CACHE_TTL_MS;
+}
 
 function ensureOneDayHeartbeat() {
   if (!oneDayHeartbeatTimer) {
@@ -802,6 +810,7 @@ function ensureOneDayRoom(ticker) {
       timer: null,
       lastPayload: null,
       lastSignature: null,
+      lastUpdated: 0,
       pollInProgress: false,
     };
     oneDayRooms.set(upper, room);
@@ -849,12 +858,14 @@ async function pollOneDayRoom(room) {
       return;
     }
 
+    const now = Date.now();
     room.lastPayload = result.data;
     room.lastSignature = result.signature;
+    room.lastUpdated = now;
 
     oneDayPriceCache.set(room.ticker, {
       data: result.data,
-      timestamp: Date.now(),
+      timestamp: now,
       signature: result.signature,
     });
 
@@ -891,7 +902,11 @@ async function sendOneDaySnapshot(client) {
     return;
   }
 
-  if (room.lastPayload && room.lastSignature) {
+  if (
+    room.lastPayload &&
+    room.lastSignature &&
+    isOneDayCacheEntryFresh(room.lastUpdated)
+  ) {
     sendJson(client.socket, room.lastPayload);
     client.lastSignature = room.lastSignature;
     return;
@@ -901,6 +916,7 @@ async function sendOneDaySnapshot(client) {
   if (cached && cached.data) {
     room.lastPayload = cached.data;
     room.lastSignature = cached.signature;
+    room.lastUpdated = cached.timestamp;
     sendJson(client.socket, cached.data);
     client.lastSignature = cached.signature;
   }
@@ -910,7 +926,10 @@ async function loadCachedOneDayPrice(ticker) {
   const upper = ticker.toUpperCase();
   const cacheEntry = oneDayPriceCache.get(upper);
   if (cacheEntry) {
-    return cacheEntry;
+    if (isOneDayCacheEntryFresh(cacheEntry.timestamp)) {
+      return cacheEntry;
+    }
+    oneDayPriceCache.delete(upper);
   }
 
   const filePath = path.join(ONE_DAY_DATA_ROOT, `${upper}.json`);
