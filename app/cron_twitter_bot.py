@@ -543,7 +543,7 @@ def congress_trading():
 if __name__ == '__main__':
     wiim()
     recent_earnings()
-    dark_pool_flow()
-    options_flow()
+    #dark_pool_flow()
+    #options_flow()
     analyst_report()
     congress_trading()
