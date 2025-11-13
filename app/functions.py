@@ -3083,6 +3083,37 @@ async def search_new_listed_companies() -> List[Dict[str, Any]]:
     return result
 
 
+@function_tool
+async def get_stocknear_platform_data() -> List[Dict[str, Any]]:
+    """
+    Retrieves the full Stocknear platform data used for FAQs, onboarding, and
+    platform-specific instructions.
+
+    This function loads and returns the contents of `faq/data.json`, which
+    includes questions and answers about Stocknear’s features, data sources,
+    subscription details, exporting rules, installation instructions, and other
+    platform-related information.
+
+    This is primarily intended for LLM function-calling workflows so the model
+    can answer Stocknear-specific questions using an up-to-date, controlled,
+    and authoritative data source instead of relying on its own training data.
+
+    Each entry in the returned list contains:
+        - question (str): The FAQ question.
+        - answer (str): The detailed explanation or instruction.
+
+    Notes:
+        - This function does NOT return financial market data or IPO information.
+        - It simply reads the local JSON file and returns its contents exactly as stored.
+
+    Returns:
+        List[Dict[str, Any]]: A list of FAQ items, each containing a question and answer.
+    """
+
+    base_dir = BASE_DIR / "faq/data.json"
+    with open(base_dir, "rb") as file:
+        result = orjson.loads(file.read())
+    return result
 
 #Testing purposes
 #data = asyncio.run(get_ticker_business_metrics(["ADBE"]))
