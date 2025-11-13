@@ -1947,7 +1947,7 @@ async def portfolio_bull_bear(data: PortfolioAnalysis, api_key: str = Security(g
             print(f"Streaming error: {e}")
             yield orjson.dumps({
                 "event": "error",
-                "message": f"Failed to generate analysis: {str(e)}"
+                "message": f"Failed to generate analysis"
             }) + b"\n"
 
     return StreamingResponse(
