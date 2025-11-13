@@ -3820,7 +3820,7 @@ async def get_options_flow_stream(data: OptionsInsight, api_key: str = Security(
     model_settings = ModelSettings(
         tool_choice="auto",
         parallel_tool_calls=True,
-        reasoning={"effort": "minimal"},
+        reasoning={"effort": "low"},
         text={ "verbosity": "low" }
     )
 
