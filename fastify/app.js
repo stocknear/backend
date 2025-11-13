@@ -1331,7 +1331,7 @@ async function loadPriceDataForSymbol(symbol) {
       spread / Math.max(Math.abs(midPrice), PRICE_DATA_MIN_PRICE);
 
     if (
-      spreadRatio > PRICE_DATA_MAX_SPREAD_RATIO &&
+      spreadRatio > PRICE_DATA_MAX_SPREAD_RATIO ||
       spread > PRICE_DATA_MAX_SPREAD_ABS
     ) {
       return reuseLastPriceSnapshot(
