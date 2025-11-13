@@ -1138,10 +1138,21 @@ const PRICE_DATA_ROOT = path.join(
   __dirname,
   "../app/json/websocket/companies",
 );
+const PRICE_DATA_MIN_PRICE = 0.0001;
+const PRICE_DATA_MAX_SPREAD_RATIO = 0.4;
+const PRICE_DATA_MAX_SPREAD_ABS = 5;
+const PRICE_DATA_LAST_PRICE_TOLERANCE_RATIO = 0.06;
+const PRICE_DATA_LAST_PRICE_TOLERANCE_ABS = 0.25;
+const PRICE_DATA_MAX_AVG_DEVIATION = 0.05;
+const PRICE_DATA_REFERENCE_MAX_PCT = 0.2;
+const PRICE_DATA_REFERENCE_WINDOW_MS = 2 * 60 * 1000;
+const SHOULD_LOG_PRICE_ANOMALIES =
+  process.env.PRICE_DATA_LOG_ANOMALIES !== "false";
 
 const priceDataConnections = new Set();
 const priceDataRooms = new Map();
 let priceDataTimer = null;
+const priceValidationState = new Map();
 
 function ensurePriceDataTimer() {
   if (!priceDataTimer && priceDataRooms.size > 0) {
@@ -1227,6 +1238,45 @@ async function runPriceDataPipeline() {
   }
 }
 
+function cachePriceSnapshot(symbol, payload, signature, avgPrice, timestampMs) {
+  priceValidationState.set(symbol, {
+    payload,
+    signature,
+    price: avgPrice,
+    timestampMs,
+  });
+}
+
+function getCachedPriceSnapshot(symbol) {
+  const cached = priceValidationState.get(symbol);
+  if (!cached) {
+    return null;
+  }
+  return {
+    symbol,
+    payload: cached.payload,
+    signature: cached.signature,
+  };
+}
+
+function reuseLastPriceSnapshot(symbol, reason) {
+  if (SHOULD_LOG_PRICE_ANOMALIES) {
+    console.warn(`[price-data] Ignoring snapshot for ${symbol}: ${reason}`);
+  }
+  return getCachedPriceSnapshot(symbol);
+}
+
+function toMillisecondsFromTickerTimestamp(timestamp) {
+  return Number(timestamp) / 1e6;
+}
+
+function computePercentDelta(current, reference) {
+  return (
+    Math.abs(current - reference) /
+    Math.max(Math.abs(reference), PRICE_DATA_MIN_PRICE)
+  );
+}
+
 async function loadPriceDataForSymbol(symbol) {
   const upper = symbol.toUpperCase();
   const filePath = path.join(PRICE_DATA_ROOT, `${upper}.json`);
@@ -1234,7 +1284,7 @@ async function loadPriceDataForSymbol(symbol) {
   try {
     const fileData = await fsp.readFile(filePath, "utf8");
     if (!fileData) {
-      return null;
+      return getCachedPriceSnapshot(upper);
     }
 
     let jsonData;
@@ -1242,7 +1292,7 @@ async function loadPriceDataForSymbol(symbol) {
       jsonData = JSON.parse(fileData);
     } catch (err) {
       console.error(`Invalid JSON format for ticker ${upper}:`, err);
-      return null;
+      return getCachedPriceSnapshot(upper);
     }
 
     const { ap, bp, lp, t, type, ls } = jsonData;
@@ -1253,32 +1303,92 @@ async function loadPriceDataForSymbol(symbol) {
       t == null ||
       (type !== "Q" && type !== "T")
     ) {
-      return null;
+      return getCachedPriceSnapshot(upper);
     }
 
     const apNum = Number(ap);
     const bpNum = Number(bp);
     const lpNum = Number(lp);
     const timestamp = Number(t);
+    const timestampMs = toMillisecondsFromTickerTimestamp(timestamp);
 
     if (
       !Number.isFinite(apNum) ||
       !Number.isFinite(bpNum) ||
       !Number.isFinite(lpNum) ||
-      !Number.isFinite(timestamp)
+      !Number.isFinite(timestampMs)
     ) {
-      return null;
+      return reuseLastPriceSnapshot(upper, "non-finite snapshot components");
+    }
+
+    if (apNum <= 0 || bpNum <= 0 || lpNum <= 0 || apNum < bpNum) {
+      return reuseLastPriceSnapshot(upper, "book prices out of order");
+    }
+
+    const spread = apNum - bpNum;
+    const midPrice = (apNum + bpNum) / 2;
+    const spreadRatio =
+      spread / Math.max(Math.abs(midPrice), PRICE_DATA_MIN_PRICE);
+
+    if (
+      spreadRatio > PRICE_DATA_MAX_SPREAD_RATIO &&
+      spread > PRICE_DATA_MAX_SPREAD_ABS
+    ) {
+      return reuseLastPriceSnapshot(
+        upper,
+        "spread exceeds configured guardrail",
+      );
+    }
+
+    const tradeTolerance = Math.max(
+      Math.abs(midPrice) * PRICE_DATA_LAST_PRICE_TOLERANCE_RATIO,
+      PRICE_DATA_LAST_PRICE_TOLERANCE_ABS,
+    );
+    const minTrade = bpNum - tradeTolerance;
+    const maxTrade = apNum + tradeTolerance;
+
+    if (lpNum < minTrade || lpNum > maxTrade) {
+      return reuseLastPriceSnapshot(
+        upper,
+        "last trade outside bid/ask bounds",
+      );
     }
 
     const avgPrice = (apNum + bpNum + lpNum) / 3;
-    const deviation = Math.abs(avgPrice - bpNum) / Math.abs(bpNum || 1);
-    const finalPrice = deviation > 0.01 ? bpNum : avgPrice;
+    const deviation =
+      Math.abs(avgPrice - bpNum) /
+      Math.max(Math.abs(bpNum), PRICE_DATA_MIN_PRICE);
 
-    if (Math.abs(finalPrice - avgPrice) > 1e-6) {
-      return null;
+    if (deviation > PRICE_DATA_MAX_AVG_DEVIATION) {
+      return reuseLastPriceSnapshot(
+        upper,
+        "average price deviates from bid",
+      );
     }
 
-    const roundedFinalPrice = Number(finalPrice.toFixed(4));
+    const roundedFinalPrice = Number(avgPrice.toFixed(4));
+    if (!Number.isFinite(roundedFinalPrice)) {
+      return reuseLastPriceSnapshot(upper, "average price not finite");
+    }
+
+    const previous = priceValidationState.get(upper);
+    if (previous) {
+      const deltaPct = computePercentDelta(
+        roundedFinalPrice,
+        previous.price,
+      );
+      const deltaMs = Math.abs(timestampMs - previous.timestampMs);
+      if (
+        deltaPct > PRICE_DATA_REFERENCE_MAX_PCT &&
+        deltaMs < PRICE_DATA_REFERENCE_WINDOW_MS
+      ) {
+        return reuseLastPriceSnapshot(
+          upper,
+          `jumped ${Math.round(deltaPct * 100)}% within ${Math.round(deltaMs)}ms`,
+        );
+      }
+    }
+
     const payload = {
       symbol: upper,
       ap: apNum,
@@ -1291,12 +1401,13 @@ async function loadPriceDataForSymbol(symbol) {
     };
 
     const signature = `${upper}-${roundedFinalPrice}-${timestamp}`;
+    cachePriceSnapshot(upper, payload, signature, roundedFinalPrice, timestampMs);
     return { symbol: upper, payload, signature };
   } catch (err) {
     if (err.code !== "ENOENT") {
       console.error(`Error processing data for ticker ${symbol}:`, err);
     }
-    return null;
+    return getCachedPriceSnapshot(upper);
   }
 }
 
