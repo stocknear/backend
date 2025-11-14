@@ -468,6 +468,12 @@ async def refresh_bulk_credits():
                 pb.collection("users").update(item.id, {
                     "credits": 10,
                 })
+
+            #for all users
+            pb.collection("users").update(item.id, {
+                    "downloadCredits": 0,
+                })
+
         except Exception as e:
             print(e)
 
