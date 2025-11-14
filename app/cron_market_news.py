@@ -14,7 +14,7 @@ api_key = os.getenv('FMP_API_KEY')
 def filter_and_deduplicate(data, deduplicate_key='title'):
     seen_keys = set()
     filtered_data = []
-    excluded_domains = ['accesswire.com']
+    excluded_domains = [] #['accesswire.com']
     for item in data:
         url = item.get('url', '')
         image_url = item.get('image')
