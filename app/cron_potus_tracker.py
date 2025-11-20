@@ -32,7 +32,7 @@ def generate_unique_id(data):
 load_dotenv()
 
 async_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-chat_model = os.getenv("CHAT_MODEL")
+chat_model = "gpt-5-mini-2025-08-07"
 
 query_template = """
     SELECT

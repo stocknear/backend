@@ -18,7 +18,7 @@ load_dotenv()
 # Initialize OpenAI client
 benzinga_api_key = os.getenv('BENZINGA_API_KEY')
 async_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-chat_model = os.getenv("CHAT_MODEL")
+chat_model = "gpt-5-mini-2025-08-07"
 
 headers = {"accept": "application/json"}
 url = "https://api.benzinga.com/api/v1/analyst/insights"
