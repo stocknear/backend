@@ -113,85 +113,88 @@ def send_email(recipient, template_name='free_trial', subject=None):
 
 async def downgrade_discord_role_of_user():
     """Process the user list and assign roles accordingly"""
+    print("Fetching users from PocketBase...")
     data = pb.collection("users").get_full_list()
     
     USER_LIST = []
     for item in data:
         try:
             if item.discord and len(item.discord) > 0:
+                # We flatten the data for easier processing
                 USER_LIST.append({**item.discord, 'tier': item.tier, 'user_id': item.id})
-        except:
-            pass
+        except Exception as e:
+            print(f"Error parsing user data: {e}")
         
     for guild in bot.guilds:
         print(f"\nProcessing server: {guild.name}")
         
-        # Get Pro role (Free is not a role, just means no Pro role)
         pro_role = discord.utils.get(guild.roles, name="Pro")
         
         if not pro_role:
             print(f"  Warning: 'Pro' role not found in {guild.name}")
-            continue  # Skip this server if Pro role doesn't exist
+            continue 
         
-        # Process each user in the list
         for user_data in USER_LIST:
-            user_id = user_data['id']
-            tier = user_data['tier']
-            db_user_id = user_data['user_id']
+            discord_user_id = user_data.get('id') # The ID string from Discord
+            tier = user_data.get('tier')
+            db_record_id = user_data.get('user_id') # The ID of the PocketBase record
+            current_db_access = user_data.get('access') # What the DB currently thinks
+            
             changes_made = []
             
             try:
                 # Get the member
-                member = guild.get_member(user_id)
+                member = guild.get_member(discord_user_id)
                 if not member:
                     try:
-                        member = await guild.fetch_member(user_id)
+                        member = await guild.fetch_member(discord_user_id)
                     except discord.NotFound:
-                        print(f"  User {user_id} not found in {guild.name}")
+                        # Only print if it's a Pro user we can't find
+                        if tier == 'Pro':
+                            print(f"  User {discord_user_id} not found in {guild.name}")
                         continue
                 
-                # Handle role assignment based on tier
+                # --- 1. Handle Role Assignment (Discord Side) ---
                 if tier == 'Pro':
-                    # User should have Pro role
                     if pro_role not in member.roles:
                         await member.add_roles(pro_role)
                         changes_made.append(f"added {pro_role.name}")
-                    else:
-                        print(f"  - {member.display_name} ({user_id}): already has Pro role")
-                        continue
                         
                 elif tier != 'Pro':
-                    # User should NOT have Pro role, remove it if they have it
                     if pro_role in member.roles:
                         await member.remove_roles(pro_role)
                         changes_made.append(f"removed {pro_role.name}")
+
+                # --- 2. Handle Database Sync (PocketBase Side) ---
+                # We check this independently. If they are NOT Pro, access must be False.
+                if tier != 'Pro' and current_db_access is True:
+                    try:
+                        # Construct clean JSON object for the update
+                        updated_discord_data = {
+                            "id": discord_user_id,
+                            "access": False,
+                            # Add other discord fields here if you have them (e.g. username/avatar)
+                            # otherwise this might overwrite them if you aren't careful.
+                            # If you need to preserve other fields, fetch the fresh record first.
+                        }
                         
-                        # Update database to set access to false within discord object
-                        try:
-                            # Get current discord data and update the access field
-                            current_discord = item.discord if hasattr(item, 'discord') else user_data
-                            current_discord['access'] = False
-                            
-                            pb.collection("users").update(db_user_id, {
-                                "discord": current_discord,
-                            })
-                            changes_made.append("set discord.access to false in database")
-                        except Exception as db_e:
-                            print(f"  ✗ Failed to update database for user {db_user_id}: {db_e}")
-                    else:
-                        print(f"  - {member.display_name} ({user_id}): already Free (no Pro role)")
-                        continue
-                
+                        pb.collection("users").update(db_record_id, {
+                            "discord": updated_discord_data,
+                        })
+                        changes_made.append("set discord.access to False")
+                    except Exception as db_e:
+                        print(f"  ✗ Failed to update database for user {db_record_id}: {db_e}")
+
                 # Report changes
                 if changes_made:
-                    print(f"  ✓ {member.display_name} ({user_id}): {', '.join(changes_made)}")
+                    print(f"  ✓ {member.display_name} ({discord_user_id}): {', '.join(changes_made)}")
                 
             except discord.Forbidden:
-                print(f"  ✗ No permission to assign roles to user {user_id} in {guild.name}")
+                print(f"  ✗ No permission to assign roles to user {discord_user_id}")
             except discord.HTTPException as e:
-                print(f"  ✗ Failed to assign role to user {user_id} in {guild.name}: {e}")
+                print(f"  ✗ Failed to assign role to user {discord_user_id}: {e}")
             except Exception as e:
-                print(f"  ✗ Unexpected error for user {user_id} in {guild.name}: {e}")
+                print(f"  ✗ Unexpected error for user {discord_user_id}: {e}")
     
     print(f"\nRole assignment complete!")
 
@@ -480,9 +483,6 @@ async def refresh_bulk_credits():
 
 
 async def run_all_except_refresh():
-    #await update_free_trial()
-    #await email_marketing()
-
     await update_discord_roles()
     await downgrade_user()
     await delete_old_notifications()
