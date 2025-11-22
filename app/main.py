@@ -5341,9 +5341,10 @@ async def get_data(api_key: str = Security(get_api_key)):
         headers={"Content-Encoding": "gzip"}
     )
 
-@app.get("/egg-price")
+
+@app.get("/market-seasonality")
 async def get_data(api_key: str = Security(get_api_key)):
-    cache_key = f"egg-price"
+    cache_key = f"market-seasonality"
     cached_result = redis_client.get(cache_key)
     if cached_result:
         return StreamingResponse(
@@ -5353,7 +5354,7 @@ async def get_data(api_key: str = Security(get_api_key)):
         )
 
     try:
-        with open(f"json/tracker/potus/egg_price.json", 'rb') as file:
+        with open(f"json/market-seasonality/data.json", 'rb') as file:
             res = orjson.loads(file.read())
     except:
         res = {}
