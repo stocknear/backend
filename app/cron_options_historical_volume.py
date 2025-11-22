@@ -406,12 +406,12 @@ index_symbols = [row[0] for row in index_cursor.fetchall()]
 total_symbols = stocks_symbols + etf_symbols + index_symbols
 
 #testing
-total_symbols = ['NVDA']
+#total_symbols = ['NVDA']
 
 # Main execution
 for symbol in tqdm(total_symbols):
     try:
-        check_contract_expiry(symbol)
+        #check_contract_expiry(symbol)
         data = aggregate_data_by_date(symbol)
         data = prepare_data(data, symbol)
     except Exception as e:
