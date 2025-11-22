@@ -6,7 +6,8 @@ import sqlite3
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
-
+import time
+import re
 # Load environment variables if needed
 load_dotenv()
 
@@ -90,8 +91,8 @@ def aggregate_data_by_date(symbol):
             expiration_str = data['expiration']
             expiration_date = datetime.strptime(expiration_str, "%Y-%m-%d").date()
             
-            if today_date > expiration_date:
-                continue
+            #if today_date > expiration_date:
+            #    continue
 
             option_type = data.get('optionType')
             if option_type not in ['call', 'put']:
@@ -267,7 +268,7 @@ def prepare_data(data, symbol):
     if not data:
         return
 
-    price_lookup = load_price_lookup(symbol)
+    #price_lookup = load_price_lookup(symbol)
 
     res_list = []
     for item in data:
@@ -284,19 +285,22 @@ def prepare_data(data, symbol):
                 'total_open_interest': new_item['call_open_interest'] + new_item['put_open_interest']
             })
 
+            '''
             if price_data := price_lookup.get(item['date']):
                 new_item['changesPercentage'] = float(price_data['changesPercentage'])
                 new_item['price'] = float(price_data['close'])
             else:
                 new_item['changesPercentage'] = None
                 new_item['price'] = None
-
+            '''
+            
             res_list.append(new_item)
         except:
             continue
 
     if not res_list:
         return
+    
 
     df = pd.DataFrame(res_list)
     df = df.sort_values('date')
@@ -402,12 +406,12 @@ index_symbols = [row[0] for row in index_cursor.fetchall()]
 total_symbols = stocks_symbols + etf_symbols + index_symbols
 
 #testing
-#total_symbols = ['NVDA']
+total_symbols = ['NVDA']
 
 # Main execution
 for symbol in tqdm(total_symbols):
     try:
-        #check_contract_expiry(symbol)
+        check_contract_expiry(symbol)
         data = aggregate_data_by_date(symbol)
         data = prepare_data(data, symbol)
     except Exception as e:
