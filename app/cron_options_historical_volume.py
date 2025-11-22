@@ -4,12 +4,14 @@ from dotenv import load_dotenv
 import os
 import sqlite3
 import pandas as pd
+import numpy as np
 from tqdm import tqdm
 
 # Load environment variables if needed
 load_dotenv()
 
 today = datetime.today()
+current_date = datetime.now().date()
 
 def save_json(data, symbol):
     directory_path = f"json/options-historical-data/companies"
@@ -24,7 +26,6 @@ def safe_round(value, decimals=2):
         return value
 
 def safe_float(value):
-    """Helper to safely convert JSON values to float, defaulting to 0.0"""
     try:
         if value is None: 
             return 0.0
@@ -33,10 +34,6 @@ def safe_float(value):
         return 0.0
 
 def load_price_lookup(symbol):
-    """
-    Loads price data from JSON, calculates change percentage, 
-    and returns a dictionary keyed by date.
-    """
     price_lookup = {}
     try:
         path = f"json/historical-price/adj/{symbol}.json"
@@ -72,9 +69,8 @@ def load_price_lookup(symbol):
     return price_lookup
 
 def aggregate_data_by_date(symbol):
-    # Pre-load price data using the new JSON source for Greeks calculation
+    # Pre-load price data
     price_lookup = load_price_lookup(symbol)
-    # Simplify lookup for just close price needed for Greeks
     simple_price_map = {k: v['close'] for k, v in price_lookup.items()}
     
     data_by_date = {}
@@ -107,7 +103,7 @@ def aggregate_data_by_date(symbol):
                 try:
                     date_str = entry.get('date')
                     
-                    # DTE Calculation for 30-day IV logic
+                    # DTE Calculation
                     entry_date = datetime.strptime(date_str, "%Y-%m-%d").date()
                     days_to_expiry = (expiration_date - entry_date).days
                     
@@ -118,7 +114,6 @@ def aggregate_data_by_date(symbol):
                     gamma = safe_float(entry.get('gamma'))
                     delta = safe_float(entry.get('delta'))
 
-                    # Handle Price Dependency for Greeks
                     spot_price = simple_price_map.get(date_str)
                     
                     if spot_price:
@@ -141,7 +136,10 @@ def aggregate_data_by_date(symbol):
                             "put_gex": 0,
                             "call_dex": 0,
                             "put_dex": 0,
-                            "iv_list": [],
+                            # Change structure: Store IVs grouped by expiration date
+                            # Key: Expiration Date, Value: List of IVs
+                            "iv_expirations": {}, 
+                            "iv_count": 0
                         }
 
                     daily_data = data_by_date[date_str]
@@ -158,9 +156,15 @@ def aggregate_data_by_date(symbol):
                         daily_data[f"{type_prefix}gex"] -= round(gex, 2)
                         daily_data[f"{type_prefix}dex"] += round(dex, 2)
                     
-                    # IV Calculation: Only if DTE is 0-30 days
+                    # --- LOGIC UPDATE: IV Aggregation (Median of Medians) ---
+                    # Only collect IV if within 30 days window (0-30 inclusive)
                     if 0 <= days_to_expiry <= 30 and implied_volatility > 0:
-                        daily_data["iv_list"].append(implied_volatility)
+                        if expiration_str not in daily_data["iv_expirations"]:
+                            daily_data["iv_expirations"][expiration_str] = []
+                        
+                        # Store raw IV (we will multiply by 100 later)
+                        daily_data["iv_expirations"][expiration_str].append(implied_volatility)
+                        daily_data["iv_count"] += 1
                     
                 except Exception:
                     continue
@@ -171,25 +175,45 @@ def aggregate_data_by_date(symbol):
     if not data_by_date:
         return []
 
-    # Post-processing
-    for date, daily_data in data_by_date.items():
+    # --- Post-Processing Loop ---
+    final_data = []
+    
+    for date_str, daily_data in data_by_date.items():
         try:
+            # 1. Calculate Median IV (Median of Medians)
+            expiration_medians = []
+            
+            for exp_date, iv_list in daily_data["iv_expirations"].items():
+                if iv_list:
+                    # Median for this specific expiration
+                    median_for_exp = np.median(iv_list)
+                    expiration_medians.append(median_for_exp)
+            
+            final_iv = None
+            if expiration_medians:
+                # Median of the expiration medians * 100 (To match File 2 scaling)
+                final_iv = round(np.median(expiration_medians) * 100, 2)
+            
+            daily_data['iv'] = final_iv
+            
+            # Remove the heavy temporary dictionary
+            del daily_data["iv_expirations"]
+
+            # 2. Calculate Put/Call Ratio
             if daily_data["call_volume"] > 0:
                 daily_data["putCallRatio"] = round(daily_data["put_volume"] / daily_data["call_volume"], 2)
             else:
                 daily_data["putCallRatio"] = None
-        except:
+            
+            final_data.append(daily_data)
+            
+        except Exception as e:
             pass
 
-    data = list(data_by_date.values())
-    df = pd.DataFrame(data)
+    # Convert to DataFrame for Rolling calculations
+    df = pd.DataFrame(final_data)
     
-    if 'iv_list' in df.columns:
-        df['iv'] = df['iv_list'].apply(lambda x: round(float(pd.Series(x).median()), 4) if x else None)
-        df = df.drop(columns=['iv_list'])
-    else:
-        df['iv'] = None
-    
+    # Calculate IV Rank
     data = df.to_dict('records')
     data = sorted(data, key=lambda x: x['date'])
     data = calculate_iv_rank_for_all(data)
@@ -211,19 +235,22 @@ def calculate_iv_rank_for_all(data):
     df.sort_values('date', inplace=True)
     df.set_index('date', inplace=True)
     
+    # Rolling 365D Window
     rolling_min = df['iv'].rolling('365D', min_periods=1).min()
     rolling_max = df['iv'].rolling('365D', min_periods=1).max()
     
     df['rolling_min'] = rolling_min
     df['rolling_max'] = rolling_max
     
+    # Calculation
     df['iv_rank'] = ((df['iv'] - df['rolling_min']) / (df['rolling_max'] - df['rolling_min'])) * 100
+    
+    # Clean up rounding and limits
     df['iv_rank'] = df['iv_rank'].round(2)
+    df.loc[df['rolling_max'] == df['rolling_min'], 'iv_rank'] = 0.0  # Avoid division by zero or stuck max
     
-    df.loc[df['rolling_max'] == df['rolling_min'], 'iv_rank'] = 100.0
-    
+    # None handling
     df['iv_rank'] = df['iv_rank'].where(pd.notnull(df['iv_rank']), None)
-    df['iv'] = df['iv'].round(2)
     
     df.drop(['rolling_min', 'rolling_max'], axis=1, inplace=True)
     
@@ -235,13 +262,11 @@ def calculate_iv_rank_for_all(data):
 
 
 def prepare_data(data, symbol):
-    # Filter data first
     data = [entry for entry in data if entry['call_volume'] != 0 or entry['put_volume'] != 0 or entry['call_open_interest'] != 0]
     
     if not data:
         return
 
-    # Load Price Data from JSON
     price_lookup = load_price_lookup(symbol)
 
     res_list = []
@@ -259,7 +284,6 @@ def prepare_data(data, symbol):
                 'total_open_interest': new_item['call_open_interest'] + new_item['put_open_interest']
             })
 
-            # Get price data from JSON lookup
             if price_data := price_lookup.get(item['date']):
                 new_item['changesPercentage'] = float(price_data['changesPercentage'])
                 new_item['price'] = float(price_data['close'])
@@ -294,7 +318,68 @@ def get_contracts_from_directory(directory: str):
         print(e)
         return []
 
-# Connect to the databases to get Symbol list
+
+def check_contract_expiry(symbol):
+    directory = f"json/all-options-contracts/{symbol}/"
+    try:
+        # Ensure the directory exists
+        if not os.path.exists(directory):
+            raise FileNotFoundError(f"The directory '{directory}' does not exist.")
+        
+        # Iterate through all JSON files in the directory
+        for file in os.listdir(directory):
+            try:
+                if file.endswith(".json"):
+                    contract_id = file.replace(".json", "")
+                    
+                    # Check if the contract has invalid expiration date
+                    if not is_valid_expiration(contract_id):
+                        # Delete the invalid contract JSON file
+                        os.remove(os.path.join(directory, file))
+                        try:
+                            expiration_date = get_expiration_date(contract_id)
+                            if expiration_date < current_date:
+                                print(f"Deleted expired contract: {contract_id} (expired on {expiration_date})")
+                        except:
+                            print(f"Deleted invalid contract: {contract_id} (could not parse expiration)")
+            except Exception as e:
+                print(f"Error processing contract {file}: {e}")
+        
+        # Return the list of valid contracts
+        valid_contracts = []
+        for file in os.listdir(directory):
+            if file.endswith(".json"):
+                contract_id = file.replace(".json", "")
+                if is_valid_expiration(contract_id):
+                    valid_contracts.append(contract_id)
+        
+        return valid_contracts
+    
+    except Exception as e:
+        print(f"Error checking contract expiry for {symbol}: {e}")
+        return []
+
+def is_valid_expiration(contract_id):
+    """Check if a contract has a valid expiration date (not expired and not too far in future)"""
+    try:
+        expiration_date = get_expiration_date(contract_id)
+        return current_date <= expiration_date
+    except Exception:
+        return False
+
+def get_expiration_date(option_symbol):
+    # Define regex pattern to match the symbol structure
+    match = re.match(r"([A-Z]+)(\d{6})([CP])(\d+)", option_symbol)
+    if not match:
+        raise ValueError(f"Invalid option_symbol format: {option_symbol}")
+    
+    ticker, expiration, option_type, strike_price = match.groups()
+    
+    # Convert expiration to datetime
+    date_expiration = datetime.strptime(expiration, "%y%m%d").date()
+    return date_expiration
+
+# Database connections
 con = sqlite3.connect('stocks.db')
 etf_con = sqlite3.connect('etf.db')
 index_con = sqlite3.connect("index.db")
@@ -317,10 +402,12 @@ index_symbols = [row[0] for row in index_cursor.fetchall()]
 total_symbols = stocks_symbols + etf_symbols + index_symbols
 
 #testing
+#total_symbols = ['NVDA']
 
-total_symbols = ['NVDA']
+# Main execution
 for symbol in tqdm(total_symbols):
     try:
+        #check_contract_expiry(symbol)
         data = aggregate_data_by_date(symbol)
         data = prepare_data(data, symbol)
     except Exception as e:
