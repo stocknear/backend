@@ -95,7 +95,7 @@ async def get_option_contract_list():
     top_oi = []
 
     # Process symbols in batches to control memory usage
-    batch_size = 50
+    batch_size = 10
     batch_num = 0
     
     for i in range(0, len(symbols), batch_size):
