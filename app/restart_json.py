@@ -1218,12 +1218,19 @@ async def get_stock_screener(con):
             item['shortFloatPercent'] = None
 
 
+        try:
+            with open(f"json/options-chain-statistics/{symbol}.json", "r") as file:
+                res = orjson.loads(file.read()).get('overview')
+                item['ivRank'] = res['ivRank']
+                item['iv30d'] = res['currentIV']
+
+        except:
+            item['ivRank'] = None
+            item['iv30d'] = None
 
         try:
             with open(f"json/options-historical-data/companies/{symbol}.json", "r") as file:
                 res = orjson.loads(file.read())[0]
-                item['ivRank'] = res['iv_rank']
-                item['iv30d'] = res['iv']
                 item['totalOI'] = res['total_open_interest']
                 item['changeOI'] = res['changeOI']
                 item['callVolume'] = res['call_volume']
@@ -1231,8 +1238,6 @@ async def get_stock_screener(con):
                 item['pcRatio'] = res['putCallRatio']
                 item['totalPrem'] = res['total_premium']
         except:
-            item['ivRank'] = None
-            item['iv30d'] = None
             item['totalOI'] = None
             item['changeOI'] = None
             item['callVolume'] = None
